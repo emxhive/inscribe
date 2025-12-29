@@ -24,8 +24,44 @@ An Inscribe Block is explicitly marked:
 @inscribe MODE: create | replace | append | range
 [additional directives depending on mode]
 
-```
+```language
 <code block with content>
+```
+
+@inscribe END
+```
+
+### Example Blocks
+
+**Create a new file:**
+```
+@inscribe BEGIN
+@inscribe FILE: app/services/UserService.js
+@inscribe MODE: create
+
+```javascript
+export class UserService {
+  constructor() {
+    this.users = [];
+  }
+}
+```
+
+@inscribe END
+```
+
+**Range mode with anchors:**
+```
+@inscribe BEGIN
+@inscribe FILE: app/controllers/UserController.js
+@inscribe MODE: range
+@inscribe START: // BEGIN: validation
+@inscribe END: // END: validation
+
+```javascript
+  if (!user.email || !user.password) {
+    throw new Error('Invalid credentials');
+  }
 ```
 
 @inscribe END

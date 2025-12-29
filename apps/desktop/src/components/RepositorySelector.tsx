@@ -3,11 +3,15 @@ import React, { useState } from 'react';
 interface RepositorySelectorProps {
   selectedPath: string;
   onSelect: (path: string) => void;
+  indexedRoots: readonly string[];
+  indexedFilesCount: number;
 }
 
 export default function RepositorySelector({
   selectedPath,
   onSelect,
+  indexedRoots,
+  indexedFilesCount,
 }: RepositorySelectorProps) {
   const [input, setInput] = useState(selectedPath);
 
@@ -46,6 +50,16 @@ export default function RepositorySelector({
       />
       <button onClick={handleSelect}>Browse</button>
       {selectedPath && <p className="selected">✓ {selectedPath}</p>}
+
+      <div className="indexed-summary">
+        <h4>Indexed roots</h4>
+        <ul>
+          {indexedRoots.map((root) => (
+            <li key={root}>{root}</li>
+          ))}
+        </ul>
+        <p>Total indexed files: {indexedFilesCount}</p>
+      </div>
     </div>
   );
 }

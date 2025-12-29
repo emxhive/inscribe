@@ -5,6 +5,7 @@ import FileList from './components/FileList';
 import Preview from './components/Preview';
 import ApplyControls from './components/ApplyControls';
 import './App.css';
+import { INDEXED_ROOTS } from '@inscribe/shared';
 
 interface ParsedBlock {
   file: string;
@@ -28,14 +29,23 @@ export default function App() {
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [backupPath, setBackupPath] = useState<string>('');
   const [errors, setErrors] = useState<string[]>([]);
+  const [indexedFiles, setIndexedFiles] = useState<string[]>([]);
 
-  const handleRepositorySelect = useCallback((path: string) => {
+  const handleRepositorySelect = useCallback(async (path: string) => {
     setRepoRoot(path);
     setPastedContent('');
     setParsedBlocks([]);
     setFileChanges([]);
     setIsValid(false);
     setErrors([]);
+    setIndexedFiles([]);
+
+    try {
+      const files = await (window as any).inscribeAPI.indexRepository(path);
+      setIndexedFiles(files);
+    } catch (err) {
+      setErrors([err instanceof Error ? err.message : 'Failed to index repository']);
+    }
   }, []);
 
   const handlePaste = useCallback(async (content: string) => {
@@ -79,8 +89,14 @@ export default function App() {
         repoRoot
       );
 
-      if (plan.errors) {
+      if (plan.errors && plan.errors.length > 0) {
         setErrors(plan.errors.map((e: any) => e.message));
+        setIsValid(false);
+        return;
+      }
+
+      if (!plan.operations || plan.operations.length === 0) {
+        setErrors(['No operations to apply']);
         setIsValid(false);
         return;
       }
@@ -109,6 +125,16 @@ export default function App() {
         repoRoot
       );
 
+      if (plan.errors && plan.errors.length > 0) {
+        setErrors(plan.errors.map((e: any) => e.message));
+        return;
+      }
+
+      if (!plan.operations || plan.operations.length === 0) {
+        setErrors(['No operations to apply']);
+        return;
+      }
+
       const result = await (window as any).inscribeAPI.applyChanges(plan, repoRoot);
 
       if (result.success) {
@@ -120,7 +146,7 @@ export default function App() {
         setIsValid(false);
         alert('Changes applied successfully!');
       } else {
-        setErrors(['Failed to apply changes']);
+        setErrors(result.errors ?? ['Failed to apply changes']);
       }
     } catch (err) {
       setErrors([err instanceof Error ? err.message : 'Unknown error']);
@@ -157,6 +183,8 @@ export default function App() {
           <RepositorySelector
             selectedPath={repoRoot}
             onSelect={handleRepositorySelect}
+            indexedFilesCount={indexedFiles.length}
+            indexedRoots={INDEXED_ROOTS}
           />
         </aside>
 

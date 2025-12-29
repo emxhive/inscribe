@@ -12,6 +12,20 @@ import { ApplyPlan, ApplyResult, UndoResult, BACKUP_DIR, Operation } from '@insc
  */
 export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
   try {
+    if (plan.errors && plan.errors.length > 0) {
+      return {
+        success: false,
+        errors: plan.errors.map(error => error.message),
+      };
+    }
+
+    if (!plan.operations || plan.operations.length === 0) {
+      return {
+        success: false,
+        errors: ['No operations to apply'],
+      };
+    }
+
     // Create backup
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = path.join(repoRoot, BACKUP_DIR, timestamp);
@@ -89,32 +103,89 @@ function applyRangeReplace(filePath: string, operation: Operation): void {
     throw new Error('Range operation requires START and END directives');
   }
 
-  // Find the search content
+  if ((SCOPE_START && !SCOPE_END) || (!SCOPE_START && SCOPE_END)) {
+    throw new Error('Both SCOPE_START and SCOPE_END must be provided together');
+  }
+
   let searchContent = content;
   let searchOffset = 0;
 
   if (SCOPE_START && SCOPE_END) {
-    const scopeStartPos = content.indexOf(SCOPE_START);
-    const scopeEndPos = content.indexOf(SCOPE_END, scopeStartPos) + SCOPE_END.length;
-    searchContent = content.substring(scopeStartPos, scopeEndPos);
+    const scopeStartMatches = findAllOccurrences(content, SCOPE_START);
+    const scopeEndMatches = findAllOccurrences(content, SCOPE_END);
+
+    if (scopeStartMatches.length === 0) {
+      throw new Error(`SCOPE_START anchor not found: "${SCOPE_START}"`);
+    }
+
+    if (scopeEndMatches.length === 0) {
+      throw new Error(`SCOPE_END anchor not found: "${SCOPE_END}"`);
+    }
+
+    if (scopeStartMatches.length > 1) {
+      throw new Error(`SCOPE_START anchor matches multiple times (${scopeStartMatches.length}), must match exactly once`);
+    }
+
+    if (scopeEndMatches.length > 1) {
+      throw new Error(`SCOPE_END anchor matches multiple times (${scopeEndMatches.length}), must match exactly once`);
+    }
+
+    const scopeStartPos = scopeStartMatches[0];
+    const scopeEndPos = scopeEndMatches[0];
+
+    if (scopeStartPos >= scopeEndPos) {
+      throw new Error('SCOPE_END must come after SCOPE_START');
+    }
+
+    searchContent = content.substring(scopeStartPos, scopeEndPos + SCOPE_END.length);
     searchOffset = scopeStartPos;
   }
 
-  // Find START and END positions
-  const startPos = searchContent.indexOf(START);
-  const endPos = searchContent.indexOf(END, startPos) + END.length;
+  const startMatches = findAllOccurrences(searchContent, START);
+  const endMatches = findAllOccurrences(searchContent, END);
 
-  // Calculate absolute positions
+  if (startMatches.length === 0) {
+    throw new Error(`START anchor not found: "${START}"`);
+  }
+
+  if (endMatches.length === 0) {
+    throw new Error(`END anchor not found: "${END}"`);
+  }
+
+  if (startMatches.length > 1) {
+    throw new Error(`START anchor matches multiple times (${startMatches.length}), must match exactly once`);
+  }
+
+  if (endMatches.length > 1) {
+    throw new Error(`END anchor matches multiple times (${endMatches.length}), must match exactly once`);
+  }
+
+  const startPos = startMatches[0];
+  const endPos = endMatches[0];
+
+  if (startPos >= endPos) {
+    throw new Error('END anchor must come after START anchor');
+  }
+
   const absoluteStartPos = searchOffset + startPos + START.length;
-  const absoluteEndPos = searchOffset + endPos - END.length;
+  const absoluteEndPos = searchOffset + endPos;
 
-  // Replace content between anchors
   const newContent =
     content.substring(0, absoluteStartPos) +
     operation.content +
     content.substring(absoluteEndPos);
 
   fs.writeFileSync(filePath, newContent);
+}
+
+function findAllOccurrences(content: string, search: string): number[] {
+  const positions: number[] = [];
+  let pos = content.indexOf(search);
+  while (pos !== -1) {
+    positions.push(pos);
+    pos = content.indexOf(search, pos + 1);
+  }
+  return positions;
 }
 
 /**

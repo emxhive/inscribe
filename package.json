@@ -10,8 +10,8 @@
   ],
   "scripts": {
     "install-all": "npm install",
-    "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces",
+    "build": "npm run build -w packages/shared && npm run build -w packages/engine && npm run build -w apps/desktop",
+    "test": "npm run test --workspaces --if-present",
     "test:engine": "npm run test -w packages/engine",
     "dev:engine": "npm run dev -w packages/engine",
     "dev:desktop": "npm run dev -w apps/desktop"

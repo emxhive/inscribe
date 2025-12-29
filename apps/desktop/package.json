@@ -5,14 +5,15 @@
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "electron-dev .",
-    "build": "tsc",
-    "start": "electron dist/main.js"
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "tsc && vite build",
+    "build:electron": "tsc --project tsconfig.electron.json",
+    "start": "electron dist/main.js",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@inscribe/engine": "workspace:*",
     "@inscribe/shared": "workspace:*",
-    "electron": "^27.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -20,6 +21,11 @@
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "typescript": "^5.3.3"
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "electron": "^27.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "wait-on": "^7.2.0"
   }
 }

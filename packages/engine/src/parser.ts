@@ -90,13 +90,18 @@ function parseBlock(lines: string[], blockIndex: number): BlockParseResult {
   const directives: Record<string, string> = {};
   let file = '';
   let mode = '';
+  let contentStartIndex = -1;
+  let unknownDirectiveError: string | undefined;
 
   // Extract directives
-  const contentStartIndex = lines.findIndex(line => {
-    const trimmed = line.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    
     if (trimmed.startsWith('```')) {
-      return true;
+      contentStartIndex = i;
+      break;
     }
+    
     if (trimmed.startsWith('@inscribe ')) {
       const directive = trimmed.substring('@inscribe '.length);
       if (directive.startsWith('FILE:')) {
@@ -112,11 +117,15 @@ function parseBlock(lines: string[], blockIndex: number): BlockParseResult {
       } else if (directive.startsWith('SCOPE_END:')) {
         directives.SCOPE_END = directive.substring('SCOPE_END:'.length).trim();
       } else {
-        return { error: `Unknown directive: ${directive}` };
+        unknownDirectiveError = `Unknown directive: ${directive}`;
+        break;
       }
     }
-    return false;
-  });
+  }
+
+  if (unknownDirectiveError) {
+    return { error: unknownDirectiveError };
+  }
 
   if (!file) {
     return { error: 'Missing FILE directive' };

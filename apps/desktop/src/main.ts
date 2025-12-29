@@ -96,7 +96,8 @@ ipcMain.handle('build-apply-plan', async (event, blocks: any[], repoRoot: string
     }
 
     // Build plan
-    return buildApplyPlan(blocks);
+    const plan = buildApplyPlan(blocks);
+    return plan;
   } catch (error) {
     return {
       operations: [],

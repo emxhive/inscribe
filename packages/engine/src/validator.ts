@@ -192,7 +192,12 @@ function validateRangeAnchors(
     }
 
     const scopeStart = scopeStartMatches[0];
-    const scopeEnd = scopeEndMatches[0] + block.directives.SCOPE_END!.length;
+    const scopeEndStr = block.directives.SCOPE_END;
+    if (!scopeEndStr) {
+      // This should never happen due to earlier checks, but for safety
+      return errors;
+    }
+    const scopeEnd = scopeEndMatches[0] + scopeEndStr.length;
 
     if (scopeStart >= scopeEnd) {
       errors.push({
@@ -207,8 +212,16 @@ function validateRangeAnchors(
   }
 
   // Validate START and END anchors
-  const startMatches = findAllOccurrences(searchContent, block.directives.START!);
-  const endMatches = findAllOccurrences(searchContent, block.directives.END!);
+  const startAnchor = block.directives.START;
+  const endAnchor = block.directives.END;
+  
+  if (!startAnchor || !endAnchor) {
+    // This should never happen due to earlier checks
+    return errors;
+  }
+
+  const startMatches = findAllOccurrences(searchContent, startAnchor);
+  const endMatches = findAllOccurrences(searchContent, endAnchor);
 
   if (startMatches.length === 0) {
     errors.push({

@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ApplyPlan, ApplyResult, UndoResult, BACKUP_DIR } from '@inscribe/shared';
+import { ApplyPlan, ApplyResult, UndoResult, BACKUP_DIR, Operation } from '@inscribe/shared';
 
 /**
  * Apply changes with backup
@@ -81,9 +81,13 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
 /**
  * Apply range replace operation
  */
-function applyRangeReplace(filePath: string, operation: any): void {
+function applyRangeReplace(filePath: string, operation: Operation): void {
   const content = fs.readFileSync(filePath, 'utf-8');
   const { START, END, SCOPE_START, SCOPE_END } = operation.directives || {};
+
+  if (!START || !END) {
+    throw new Error('Range operation requires START and END directives');
+  }
 
   // Find the search content
   let searchContent = content;

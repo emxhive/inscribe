@@ -1,0 +1,38 @@
+{
+    "version": 3.1,
+    "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
+    "output": {
+        "dir": ".prodex"
+    },
+
+    "resolve": {
+        "aliases": {
+            "@inscribe/engine": "packages/engine/src",
+            "@inscribe/shared": "packages/shared/src",
+            "@app": "apps/desktop/src",
+            "@": "apps/desktop/src"
+        }
+    },
+    "shortcuts": {
+        "config": {
+            "prefix": "config",
+            "include": [
+                "**/package.json",
+                "**/tsconfig*.json",
+                "**/vite.config*.ts"
+            ]
+        },
+        "packages": {
+            "prefix": "packages",
+            "include": [
+                "packages/*/src/**/*.{ts,tsx,js,jsx}"
+            ]
+        },
+        "app": {
+            "prefix": "app",
+            "include": [
+                "apps/desktop/src/**/*.{ts,tsx,js,jsx,css,scss,html}"
+            ]
+        }
+    }
+}

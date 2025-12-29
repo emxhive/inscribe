@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { validateBlocks } from '../src/validator';
+import { validateBlocks } from '../src';
 import { ParsedBlock } from '@inscribe/shared';
 import * as fs from 'fs';
 import * as path from 'path';

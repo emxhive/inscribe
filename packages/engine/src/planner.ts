@@ -6,7 +6,7 @@
 import { ParsedBlock, ApplyPlan, Operation } from '@inscribe/shared';
 
 /**
- * Build an apply plan from validated blocks
+ * Build an applied plan from validated blocks
  */
 export function buildApplyPlan(blocks: ParsedBlock[]): ApplyPlan {
   const operations: Operation[] = blocks.map(block => ({

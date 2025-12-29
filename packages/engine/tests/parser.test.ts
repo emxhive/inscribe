@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseBlocks } from '../src/parser';
+import { parseBlocks } from '../src';
 
 describe('Parser', () => {
   it('should parse a valid create block', () => {

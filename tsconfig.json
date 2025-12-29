@@ -5,14 +5,23 @@
     "lib": ["ES2020"],
     "declaration": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+//    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@inscribe/shared": ["packages/shared/src"],
+      "@inscribe/shared/*": ["packages/shared/src/*"],
+      "@inscribe/engine": ["packages/engine/src"],
+      "@inscribe/engine/*": ["packages/engine/src/*"],
+      "@inscribe/desktop": ["apps/desktop/src"],
+      "@inscribe/desktop/*": ["apps/desktop/src/*"]
+    }
   },
-  "include": ["src"],
+  "include": ["packages/*/src", "apps/*/src"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,14 +1,14 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import {app, BrowserWindow, dialog, ipcMain} from 'electron';
 import path from 'path';
 import {
-  parseBlocks,
-  validateBlocks,
-  buildApplyPlan,
   applyChanges,
-  undoLastApply,
+  buildApplyPlan,
   indexRepository,
+  parseBlocks,
+  undoLastApply,
+  validateBlocks,
 } from '@inscribe/engine';
-import { INDEXED_ROOTS } from '@inscribe/shared';
+import {INDEXED_ROOTS} from '@inscribe/shared';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -40,7 +40,7 @@ function createWindow() {
 }
 
 // IPC Handlers
-ipcMain.handle('select-repository', async (event, defaultPath?: string) => {
+ipcMain.handle('select-repository', async (_event, defaultPath?: string) => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
     defaultPath,
@@ -96,8 +96,7 @@ ipcMain.handle('build-apply-plan', async (event, blocks: any[], repoRoot: string
     }
 
     // Build plan
-    const plan = buildApplyPlan(blocks);
-    return plan;
+    return buildApplyPlan(blocks);
   } catch (error) {
     return {
       operations: [],

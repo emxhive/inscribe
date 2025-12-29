@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.inscribe/backups/
+*.log
+.DS_Store
+.env
+.env.local
+.inscribe/cache/
+out/

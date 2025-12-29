@@ -1,0 +1,16 @@
+{
+  "name": "@packages/engine",
+  "version": "1.0.0",
+  "description": "Engine package for the inscribe project",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

@@ -132,7 +132,7 @@ function parseBlock(lines: string[], blockIndex: number): BlockParseResult {
   }
 
   if (!mode) {
-    return { error: 'Missing MODE directive' };
+    mode = 'replace';
   }
 
   const validModes = ['create', 'replace', 'append', 'range'];

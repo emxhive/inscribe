@@ -17,7 +17,7 @@ const api = {
   buildApplyPlan: (blocks: any[], repoRoot: string): Promise<ApplyPlan | ValidationError[]> =>
     ipcRenderer.invoke('build-apply-plan', blocks, repoRoot),
 
-  applyChanges: (plan: ApplyPlan, repoRoot: string): Promise<{ success: boolean; backupPath: string }> =>
+  applyChanges: (plan: ApplyPlan, repoRoot: string): Promise<{ success: boolean; backupPath?: string; errors?: string[] }> =>
     ipcRenderer.invoke('apply-changes', plan, repoRoot),
 
   undoLastApply: (repoRoot: string): Promise<{ success: boolean; message: string }> =>

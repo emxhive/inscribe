@@ -66,7 +66,7 @@ content
     expect(result.errors[0]).toContain('Missing FILE directive');
   });
 
-  it('should fail on missing MODE directive', () => {
+  it('should default MODE to replace when missing', () => {
     const content = `
 @inscribe BEGIN
 @inscribe FILE: app/test.js
@@ -80,8 +80,8 @@ content
 
     const result = parseBlocks(content);
     
-    expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0]).toContain('Missing MODE directive');
+    expect(result.errors).toEqual([]);
+    expect(result.blocks[0].mode).toBe('replace');
   });
 
   it('should fail on invalid MODE', () => {

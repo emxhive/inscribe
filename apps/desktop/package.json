@@ -5,15 +5,18 @@
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "build": "npm run build:electron && tsc && vite build",
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\" \"wait-on http://localhost:5173 dist/main.js && electron .\"",
+    "dev:renderer": "vite",
+    "dev:electron": "tsc --project tsconfig.electron.json --watch",
+    "build": "npm run build:electron && npm run typecheck && vite build",
     "build:electron": "tsc --project tsconfig.electron.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "electron dist/main.js",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@inscribe/engine": "*",
-    "@inscribe/shared": "*",
+    "@inscribe/engine": "workspace:*",
+    "@inscribe/shared": "workspace:*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -23,7 +26,7 @@
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
-    "electron": "^27.0.0",
+    "electron": "^27.3.11",
     "typescript": "^5.3.3",
     "vite": "^5.0.8",
     "wait-on": "^7.2.0"

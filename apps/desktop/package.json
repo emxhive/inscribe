@@ -1,0 +1,25 @@
+{
+  "name": "@inscribe/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "electron-dev .",
+    "build": "tsc",
+    "start": "electron dist/main.js"
+  },
+  "dependencies": {
+    "@inscribe/engine": "workspace:*",
+    "@inscribe/shared": "workspace:*",
+    "electron": "^27.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.3.3"
+  }
+}

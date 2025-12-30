@@ -3,12 +3,19 @@ import path from 'path';
 import {
   applyChanges,
   buildApplyPlan,
+  computeDefaultScope,
+  computeSuggestedExcludes,
+  getIndexStatus,
+  getOrCreateScope,
   indexRepository,
+  listTopLevelFolders,
   parseBlocks,
+  readIgnoreRules,
+  setScopeState,
   undoLastApply,
   validateBlocks,
+  writeIgnoreFile,
 } from '@inscribe/engine';
-import {INDEXED_ROOTS} from '@inscribe/shared';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -53,13 +60,103 @@ ipcMain.handle('select-repository', async (_event, defaultPath?: string) => {
   return result.filePaths[0];
 });
 
+ipcMain.handle('repo-init', async (_event, repoRoot: string) => {
+  try {
+    const scopeState = getOrCreateScope(repoRoot);
+    const topLevelFolders = listTopLevelFolders(repoRoot);
+    const suggested = computeSuggestedExcludes(repoRoot);
+    setScopeState(repoRoot, scopeState.scope, { lastSuggested: suggested });
+    const ignore = readIgnoreRules(repoRoot);
+    const indexedFiles = indexRepository(repoRoot);
+
+    return {
+      topLevelFolders,
+      scope: scopeState.scope,
+      ignore,
+      suggested,
+      indexedCount: indexedFiles.length,
+      indexStatus: getIndexStatus(repoRoot),
+    };
+  } catch (error) {
+    return {
+      topLevelFolders: [],
+      scope: [],
+      ignore: { entries: [], source: 'none', path: '' },
+      suggested: [],
+      indexedCount: 0,
+      indexStatus: {
+        state: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+    };
+  }
+});
+
+ipcMain.handle('get-scope', async (_event, repoRoot: string) => {
+  try {
+    return getOrCreateScope(repoRoot).scope;
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('set-scope', async (_event, repoRoot: string, scope: string[]) => {
+  try {
+    const updated = setScopeState(repoRoot, scope);
+    const indexedFiles = indexRepository(repoRoot, updated.scope);
+    return {
+      scope: updated.scope,
+      indexedCount: indexedFiles.length,
+      indexStatus: getIndexStatus(repoRoot),
+    };
+  } catch (error) {
+    return {
+      scope: [],
+      indexedCount: 0,
+      indexStatus: {
+        state: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+    };
+  }
+});
+
+ipcMain.handle('read-ignore', async (_event, repoRoot: string) => {
+  try {
+    return readIgnoreRules(repoRoot);
+  } catch {
+    return { entries: [], source: 'none', path: '' };
+  }
+});
+
+ipcMain.handle('write-ignore', async (_event, repoRoot: string, content: string) => {
+  const result = writeIgnoreFile(repoRoot, content);
+  const suggested = computeSuggestedExcludes(repoRoot);
+  const defaults = computeDefaultScope(repoRoot);
+  const scopeState = getOrCreateScope(repoRoot);
+  setScopeState(repoRoot, scopeState.scope, { lastSuggested: suggested });
+  const indexedFiles = result.success ? indexRepository(repoRoot) : [];
+  return {
+    ...result,
+    suggested,
+    defaultScope: defaults.scope,
+    topLevelFolders: defaults.topLevel,
+    indexedCount: indexedFiles.length,
+    indexStatus: getIndexStatus(repoRoot),
+  };
+});
+
 ipcMain.handle('index-repository', async (event, repoRoot: string) => {
   try {
-    return indexRepository(repoRoot, Array.from(INDEXED_ROOTS));
+    return indexRepository(repoRoot);
   } catch (error) {
     console.error('Error indexing repository:', error);
     return [];
   }
+});
+
+ipcMain.handle('index-status', async (_event, repoRoot: string) => {
+  return getIndexStatus(repoRoot);
 });
 
 ipcMain.handle('parse-blocks', async (event, content: string) => {

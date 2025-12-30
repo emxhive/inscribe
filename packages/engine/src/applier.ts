@@ -253,37 +253,3 @@ export function undoLastApply(repoRoot: string): UndoResult {
     };
   }
 }
-
-/**
- * Index repository to list allowed file paths
- */
-export function indexRepository(repoRoot: string, indexedRoots: string[]): string[] {
-  const files: string[] = [];
-
-  for (const root of indexedRoots) {
-    const rootPath = path.join(repoRoot, root);
-    if (fs.existsSync(rootPath)) {
-      collectFiles(rootPath, repoRoot, files);
-    }
-  }
-
-  return files;
-}
-
-/**
- * Recursively collect files
- */
-function collectFiles(dir: string, repoRoot: string, files: string[]): void {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    
-    if (entry.isDirectory()) {
-      collectFiles(fullPath, repoRoot, files);
-    } else if (entry.isFile()) {
-      const relativePath = path.relative(repoRoot, fullPath);
-      files.push(relativePath);
-    }
-  }
-}

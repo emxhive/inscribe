@@ -78,7 +78,7 @@ export default function App() {
   }, [state.repoRoot, setRepoRoot, initRepo, setStatusMessage]);
 
   // Handle scope save
-  const handleSaveSope = useCallback(async (newScope: string[]) => {
+  const handleSaveScope = useCallback(async (newScope: string[]) => {
     if (!state.repoRoot) return;
     
     try {
@@ -594,7 +594,7 @@ export default function App() {
         onClose={() => setScopeModalOpen(false)}
         topLevelFolders={state.topLevelFolders}
         currentScope={state.scope}
-        onSave={handleSaveSope}
+        onSave={handleSaveScope}
         disabled={!state.repoRoot}
       />
 

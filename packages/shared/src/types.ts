@@ -45,3 +45,24 @@ export interface ParseResult {
   blocks: ParsedBlock[];
   errors: string[];
 }
+
+export type IndexState = 'idle' | 'running' | 'complete' | 'error';
+
+export interface IndexStatus {
+  state: IndexState;
+  message?: string;
+}
+
+export interface IgnoreRules {
+  entries: string[];
+  source: 'file' | 'none';
+  path: string;
+}
+
+export interface ScopeState {
+  repoRoot: string;
+  scope: string[];
+  lastSuggested?: string[];
+  lastIndexedCount?: number;
+  updatedAt: string;
+}

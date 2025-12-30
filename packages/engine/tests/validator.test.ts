@@ -112,7 +112,7 @@ const x = 1;
 
     const errors = validateBlocks(blocks, tempDir);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].message).toContain('indexed roots');
+    expect(errors[0].message).toContain('scope roots');
   });
 
   it('should validate range mode with valid anchors', () => {

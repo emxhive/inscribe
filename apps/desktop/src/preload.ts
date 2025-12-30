@@ -5,8 +5,26 @@ const api = {
   selectRepository: (defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke('select-repository', defaultPath),
 
-  indexRepository: (repoRoot: string): Promise<string[]> =>
+  repoInit: (repoRoot: string): Promise<any> =>
+    ipcRenderer.invoke('repo-init', repoRoot),
+
+  getScope: (repoRoot: string): Promise<string[]> =>
+    ipcRenderer.invoke('get-scope', repoRoot),
+
+  setScope: (repoRoot: string, scope: string[]): Promise<any> =>
+    ipcRenderer.invoke('set-scope', repoRoot, scope),
+
+  readIgnore: (repoRoot: string): Promise<any> =>
+    ipcRenderer.invoke('read-ignore', repoRoot),
+
+  writeIgnore: (repoRoot: string, content: string): Promise<any> =>
+    ipcRenderer.invoke('write-ignore', repoRoot, content),
+
+  indexRepository: (repoRoot: string): Promise<any> =>
     ipcRenderer.invoke('index-repository', repoRoot),
+
+  indexStatus: (repoRoot: string): Promise<any> =>
+    ipcRenderer.invoke('index-status', repoRoot),
 
   parseBlocks: (content: string): Promise<any> =>
     ipcRenderer.invoke('parse-blocks', content),

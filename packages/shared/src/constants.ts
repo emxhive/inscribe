@@ -23,6 +23,25 @@ export const IGNORED_PATHS = [
 
 export const BACKUP_DIR = '.inscribe/backups';
 
+// Inscribe repository metadata
+export const INSCRIBE_IGNORE_FILE = '.inscribeignore';
+export const SCOPE_STORE_FILE = 'scope.json';
+
+// Suggested exclude heuristics
+export const HEAVY_DIR_NAMES = [
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.cache',
+  'tmp',
+  'temp',
+  'target',
+  'bin',
+  'obj',
+] as const;
+export const HEAVY_FILE_COUNT_THRESHOLD = 200;
+
 export const INSCRIBE_BEGIN = '@inscribe BEGIN';
 export const INSCRIBE_END = '@inscribe END';
 export const INSCRIBE_FILE = '@inscribe FILE:';

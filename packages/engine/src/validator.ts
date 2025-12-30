@@ -5,12 +5,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  ParsedBlock,
-  ValidationError,
-  INDEXED_ROOTS,
-  IGNORED_PATHS,
-} from '@inscribe/shared';
+import { ParsedBlock, ValidationError } from '@inscribe/shared';
+import { getEffectiveIgnorePrefixes, getOrCreateScope } from './repository';
+
+function normalizePath(input: string): string {
+  return input.replace(/\\/g, '/').replace(/^\.\/+/, '');
+}
 
 /**
  * Validate all blocks against repository rules
@@ -37,34 +37,34 @@ function validateBlock(
   repoRoot: string
 ): ValidationError[] {
   const errors: ValidationError[] = [];
+  const normalizedFile = normalizePath(block.file);
+  const scopeState = getOrCreateScope(repoRoot);
+  const scopeRoots = scopeState.scope;
 
-  // Check if file path is under an indexed root
-  const isInIndexedRoot = INDEXED_ROOTS.some(root =>
-    block.file.startsWith(root)
-  );
+  // Check if file path is under the current scope roots
+  const isInScope = scopeRoots.some(root => normalizedFile.startsWith(root));
 
-  if (!isInIndexedRoot) {
+  if (!isInScope) {
     errors.push({
       blockIndex: block.blockIndex,
-      file: block.file,
-      message: `File must be under one of the indexed roots: ${INDEXED_ROOTS.join(', ')}`,
+      file: normalizedFile,
+      message: `File must be under scope roots: ${scopeRoots.join(', ')}`,
     });
   }
 
   // Check if file path is in an ignored path
-  const isInIgnoredPath = IGNORED_PATHS.some(ignored =>
-    block.file.startsWith(ignored)
-  );
+  const ignores = getEffectiveIgnorePrefixes(repoRoot);
+  const ignoreMatch = ignores.find(ignored => normalizedFile.startsWith(ignored));
 
-  if (isInIgnoredPath) {
+  if (ignoreMatch) {
     errors.push({
       blockIndex: block.blockIndex,
-      file: block.file,
-      message: `File is in an ignored path: ${IGNORED_PATHS.join(', ')}`,
+      file: normalizedFile,
+      message: `File is ignored by rules: ${ignores.join(', ')}`,
     });
   }
 
-  const filePath = path.join(repoRoot, block.file);
+  const filePath = path.join(repoRoot, normalizedFile);
   const fileExists = fs.existsSync(filePath);
 
   // Mode-specific validation

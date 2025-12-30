@@ -15,21 +15,18 @@
     },
     "shortcuts": {
         "config": {
-            "prefix": "config",
             "include": [
-                "**/package.json",
+                "**/{package, prodex}.json",
                 "**/tsconfig*.json",
                 "**/vite.config*.ts"
             ]
         },
         "packages": {
-            "prefix": "packages",
             "include": [
                 "packages/*/src/**/*.{ts,tsx,js,jsx}"
             ]
         },
         "app": {
-            "prefix": "app",
             "include": [
                 "apps/desktop/src/**/*.{ts,tsx,js,jsx,css,scss,html}"
             ]

@@ -9,3 +9,7 @@ build/
 .inscribe/cache/
 out/
 /.prodex
+
+# Prevent compiled files in src
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts

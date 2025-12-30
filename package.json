@@ -1,22 +1,20 @@
 {
-  "name": "inscribe",
-  "version": "0.1.0",
-  "description": "Desktop GUI application that safely applies AI-generated code into an existing codebase",
-  "private": true,
-  "workspaces": [
-    "apps/desktop",
-    "packages/engine",
-    "packages/shared"
-  ],
-  "scripts": {
-    "install-all": "npm install",
-    "build": "npm run build -w packages/shared && npm run build -w packages/engine && npm run build -w apps/desktop",
-    "test": "npm run test --workspaces --if-present",
-    "test:engine": "npm run test -w packages/engine",
-    "dev:engine": "npm run dev -w packages/engine",
-    "dev:desktop": "npm run dev -w apps/desktop"
-  },
-  "devDependencies": {
-    "typescript": "^5.3.3"
-  }
+    "name": "inscribe",
+    "version": "0.1.0",
+    "description": "Desktop GUI application that safely applies AI-generated code into an existing codebase",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "install-all": "npm install",
+        "build": "npm run build -w packages/shared && npm run build -w packages/engine && npm run build -w apps/desktop",
+        "test:engine": "npm run test -w packages/engine",
+        "dev:engine": "npm run dev -w packages/engine",
+        "dev:desktop": "npm run dev -w apps/desktop"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3"
+    }
 }

@@ -3,8 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "module": "CommonJS",
-    "paths": {}
+    "module": "CommonJS"
   },
   "include": ["src/main.ts", "src/preload.ts"],
   "exclude": ["node_modules", "dist"]

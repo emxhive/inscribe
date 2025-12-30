@@ -129,6 +129,23 @@ ipcMain.handle('read-ignore', async (_event, repoRoot: string) => {
   }
 });
 
+ipcMain.handle('read-ignore-raw', async (_event, repoRoot: string) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const ignorePath = path.join(repoRoot, '.inscribeignore');
+    
+    if (!fs.existsSync(ignorePath)) {
+      return { content: '', path: ignorePath, exists: false };
+    }
+    
+    const content = fs.readFileSync(ignorePath, 'utf-8');
+    return { content, path: ignorePath, exists: true };
+  } catch (error) {
+    return { content: '', path: '', exists: false };
+  }
+});
+
 ipcMain.handle('write-ignore', async (_event, repoRoot: string, content: string) => {
   const result = writeIgnoreFile(repoRoot, content);
   const suggested = computeSuggestedExcludes(repoRoot);

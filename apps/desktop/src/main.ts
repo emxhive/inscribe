@@ -149,8 +149,6 @@ ipcMain.handle('write-ignore', async (_event, repoRoot: string, content: string)
 ipcMain.handle('index-repository', async (event, repoRoot: string) => {
   try {
     const files = indexRepository(repoRoot);
-    (files as any).indexedCount = files.length;
-    (files as any).indexStatus = getIndexStatus(repoRoot);
     return files;
   } catch (error) {
     console.error('Error indexing repository:', error);

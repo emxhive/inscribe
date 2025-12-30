@@ -12,6 +12,7 @@ import {
 import type { IgnoreRules, IndexStatus, ScopeState } from '@inscribe/shared';
 
 const indexStatusMap = new Map<string, IndexStatus & { count?: number }>();
+const heavyDirNameSet = new Set<string>(HEAVY_DIR_NAMES as readonly string[]);
 
 function normalizeRelativePath(input: string): string {
   const trimmed = input.trim().replace(/\\/g, '/').replace(/^\.\/+/, '');
@@ -36,9 +37,7 @@ function getUserDataPath(): string {
   }
 
   try {
-    // Lazy require to avoid bundling electron into tests
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const electron = require('electron');
+    const electron = require('electron') as typeof import('electron');
     if (electron?.app?.getPath) {
       return electron.app.getPath('userData');
     }
@@ -223,7 +222,7 @@ export function computeSuggestedExcludes(repoRoot: string): string[] {
 
   for (const folder of topLevel) {
     const name = folder.endsWith('/') ? folder.slice(0, -1) : folder;
-    if (HEAVY_DIR_NAMES.includes(name as any)) {
+    if (heavyDirNameSet.has(name)) {
       suggested.push(folder);
       continue;
     }

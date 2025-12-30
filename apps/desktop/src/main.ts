@@ -148,8 +148,7 @@ ipcMain.handle('write-ignore', async (_event, repoRoot: string, content: string)
 
 ipcMain.handle('index-repository', async (event, repoRoot: string) => {
   try {
-    const files = indexRepository(repoRoot);
-    return files;
+    return indexRepository(repoRoot);
   } catch (error) {
     console.error('Error indexing repository:', error);
     return [];

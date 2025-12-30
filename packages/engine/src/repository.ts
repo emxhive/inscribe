@@ -13,6 +13,7 @@ import type { IgnoreRules, IndexStatus, ScopeState } from '@inscribe/shared';
 
 const indexStatusMap = new Map<string, IndexStatus & { count?: number }>();
 const heavyDirNameSet = new Set<string>(HEAVY_DIR_NAMES as readonly string[]);
+const normalizedDefaultIgnores = Array.from(IGNORED_PATHS).map(normalizePrefix);
 
 function normalizeRelativePath(input: string): string {
   const trimmed = input.trim().replace(/\\/g, '/').replace(/^\.\/+/, '');
@@ -72,8 +73,19 @@ function readScopeStore(): Record<string, ScopeState> {
 function writeScopeStore(store: Record<string, ScopeState>): void {
   const storePath = getStorePath();
   const tempPath = `${storePath}.tmp`;
-  fs.writeFileSync(tempPath, JSON.stringify(store, null, 2));
-  fs.renameSync(tempPath, storePath);
+  try {
+    fs.writeFileSync(tempPath, JSON.stringify(store, null, 2));
+    fs.renameSync(tempPath, storePath);
+  } catch (error) {
+    try {
+      if (fs.existsSync(tempPath)) {
+        fs.rmSync(tempPath, { force: true });
+      }
+    } catch {
+      // ignore cleanup errors
+    }
+    throw error;
+  }
 }
 
 function normalizeScopeList(scope: string[]): string[] {
@@ -180,8 +192,8 @@ export function getEffectiveIgnorePrefixes(repoRoot: string): string[] {
 
 function isDefaultIgnored(folderName: string): boolean {
   const normalized = normalizePrefix(folderName);
-  return Array.from(IGNORED_PATHS).some(defaultIgnored =>
-    normalized.startsWith(normalizePrefix(defaultIgnored))
+  return normalizedDefaultIgnores.some(defaultIgnored =>
+    normalized.startsWith(defaultIgnored)
   );
 }
 
@@ -206,6 +218,9 @@ function countFilesWithThreshold(dir: string, threshold: number): number {
   for (const entry of entries) {
     if (count >= threshold) break;
     const fullPath = path.join(dir, entry.name);
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
     if (entry.isDirectory()) {
       count += countFilesWithThreshold(fullPath, threshold - count);
     } else if (entry.isFile()) {
@@ -308,6 +323,9 @@ function collectFiles(
     const fullPath = path.join(dir, entry.name);
     const relativePath = normalizeRelativePath(path.relative(repoRoot, fullPath));
 
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
     if (entry.isDirectory()) {
       const relativeDir = ensureTrailingSlash(relativePath);
       const isIgnoredDir = ignores.some(prefix => relativeDir.startsWith(prefix));

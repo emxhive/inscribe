@@ -42,7 +42,7 @@ function validateBlock(
   const scopeRoots = scopeState.scope;
 
   // Check if file path is under the current scope roots
-  const isInScope = scopeRoots.some(root => normalizedFile.startsWith(root));
+  const isInScope = scopeRoots.some((root: string) => normalizedFile.startsWith(root));
 
   if (!isInScope) {
     errors.push({

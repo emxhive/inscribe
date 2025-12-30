@@ -13,7 +13,7 @@ import type { IgnoreRules, IndexStatus, ScopeState } from '@inscribe/shared';
 
 const indexStatusMap = new Map<string, IndexStatus & { count?: number }>();
 const heavyDirNameSet = new Set<string>(HEAVY_DIR_NAMES as readonly string[]);
-const normalizedDefaultIgnores = Array.from(IGNORED_PATHS).map(normalizePrefix);
+const normalizedDefaultIgnores = Array.from(IGNORED_PATHS).map((p: string) => normalizePrefix(p));
 
 function normalizeRelativePath(input: string): string {
   const trimmed = input.trim().replace(/\\/g, '/').replace(/^\.\/+/, '');
@@ -155,9 +155,9 @@ export function readIgnoreRules(repoRoot: string): IgnoreRules {
   const content = fs.readFileSync(ignorePath, 'utf-8');
   const entries = content
     .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0 && !line.startsWith('#'))
-    .map(normalizePrefix);
+    .map((line: string) => line.trim())
+    .filter((line: string) => line.length > 0 && !line.startsWith('#'))
+    .map((p: string) => normalizePrefix(p));
 
   const unique = Array.from(new Set(entries)).sort();
 
@@ -185,8 +185,8 @@ export function writeIgnoreFile(repoRoot: string, content: string): { success: b
 }
 
 export function getEffectiveIgnorePrefixes(repoRoot: string): string[] {
-  const defaults = Array.from(IGNORED_PATHS).map(normalizePrefix);
-  const fileIgnores = readIgnoreRules(repoRoot).entries.map(normalizePrefix);
+  const defaults = Array.from(IGNORED_PATHS).map((p: string) => normalizePrefix(p));
+  const fileIgnores = readIgnoreRules(repoRoot).entries.map((p: string) => normalizePrefix(p));
   return Array.from(new Set([...defaults, ...fileIgnores])).sort();
 }
 
@@ -204,9 +204,9 @@ export function listTopLevelFolders(repoRoot: string): string[] {
 
   const entries = fs.readdirSync(repoRoot, { withFileTypes: true });
   const folders = entries
-    .filter(entry => entry.isDirectory())
-    .map(entry => normalizePrefix(entry.name))
-    .filter(name => !isDefaultIgnored(name));
+    .filter((entry: fs.Dirent) => entry.isDirectory())
+    .map((entry: fs.Dirent) => normalizePrefix(entry.name))
+    .filter((name: string) => !isDefaultIgnored(name));
 
   return folders.sort();
 }

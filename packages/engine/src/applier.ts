@@ -15,7 +15,7 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
     if (plan.errors && plan.errors.length > 0) {
       return {
         success: false,
-        errors: plan.errors.map(error => error.message),
+        errors: plan.errors.map((error: any) => error.message),
       };
     }
 
@@ -32,8 +32,8 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
     
     // Collect files that will be modified
     const filesToBackup = plan.operations
-      .map(op => path.join(repoRoot, op.file))
-      .filter(filePath => fs.existsSync(filePath));
+      .map((op: Operation) => path.join(repoRoot, op.file))
+      .filter((filePath: string) => fs.existsSync(filePath));
 
     // Create backup directory
     fs.mkdirSync(backupPath, { recursive: true });
@@ -49,7 +49,7 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
     // Store backup metadata
     const metadata = {
       timestamp,
-      files: filesToBackup.map(f => path.relative(repoRoot, f)),
+      files: filesToBackup.map((f: string) => path.relative(repoRoot, f)),
     };
     fs.writeFileSync(
       path.join(backupPath, 'metadata.json'),
@@ -204,7 +204,7 @@ export function undoLastApply(repoRoot: string): UndoResult {
 
     // Find the most recent backup
     const backups = fs.readdirSync(backupRoot)
-      .filter(name => {
+      .filter((name: string) => {
         const backupPath = path.join(backupRoot, name);
         return fs.statSync(backupPath).isDirectory();
       })

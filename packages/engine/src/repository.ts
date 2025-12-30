@@ -311,6 +311,9 @@ export function getIndexStatus(repoRoot: string): IndexStatus {
   return indexStatusMap.get(repoKey(repoRoot)) ?? { state: 'idle' };
 }
 
+/**
+ * Recursively collect files under the given directory while skipping ignored prefixes and symlinks.
+ */
 function collectFiles(
   dir: string,
   repoRoot: string,

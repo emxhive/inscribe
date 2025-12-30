@@ -17,6 +17,9 @@ const api = {
   readIgnore: (repoRoot: string): Promise<any> =>
     ipcRenderer.invoke('read-ignore', repoRoot),
 
+  readIgnoreRaw: (repoRoot: string): Promise<{ content: string; path: string; exists: boolean }> =>
+    ipcRenderer.invoke('read-ignore-raw', repoRoot),
+
   writeIgnore: (repoRoot: string, content: string): Promise<any> =>
     ipcRenderer.invoke('write-ignore', repoRoot, content),
 

@@ -8,6 +8,7 @@ declare global {
       getScope: (repoRoot: string) => Promise<string[]>;
       setScope: (repoRoot: string, scope: string[]) => Promise<any>;
       readIgnore: (repoRoot: string) => Promise<any>;
+      readIgnoreRaw: (repoRoot: string) => Promise<{ content: string; path: string; exists: boolean }>;
       writeIgnore: (repoRoot: string, content: string) => Promise<any>;
       indexRepository: (repoRoot: string) => Promise<any>;
       indexStatus: (repoRoot: string) => Promise<any>;

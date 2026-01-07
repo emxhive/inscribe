@@ -325,30 +325,31 @@ export default function App() {
   const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
   const editorValue = selectedItem?.editedContent || '';
 
+  // Get repo name (last segment of path) or default
+  const repoName = state.repoRoot 
+    ? state.repoRoot.split(/[\\/]/).filter(Boolean).pop() || 'Repository'
+    : 'Repository';
+
   return (
     <div className="app-shell">
       <header className="top-bar">
-        <div className="brand">Inscribe</div>
-
-        <div className="repo-field">
-          <span className="label">Repository</span>
-          <div className="repo-input">
-            <input 
-              value={state.repoRoot || ''} 
-              readOnly 
-              placeholder="No repository selected"
-            />
-            <div className="repo-actions">
-              <button 
-                type="button" 
-                title="Browse for repository" 
-                aria-label="Browse for repository"
-                onClick={handleBrowseRepo}
-              >
-                📂
-              </button>
-            </div>
-          </div>
+        <div className="repo-section">
+          <span className="repo-name">{repoName}</span>
+          <input 
+            className="repo-path-input"
+            value={state.repoRoot || ''} 
+            readOnly 
+            placeholder="No repository selected"
+          />
+          <button 
+            className="folder-btn"
+            type="button" 
+            title="Browse for repository" 
+            aria-label="Browse for repository"
+            onClick={handleBrowseRepo}
+          >
+            📂
+          </button>
         </div>
 
         <div className="status-pills">
@@ -376,12 +377,12 @@ export default function App() {
           <span 
             className="pill clickable"
             onClick={() => setIgnoredListModalOpen(true)}
-            title="Click to view ignored paths"
+            title="Click to view indexed files"
           >
             Indexed: {state.indexedCount} files
           </span>
           <span className={`pill accent ${state.indexStatus.state === 'error' ? 'error' : ''}`}>
-            {state.indexStatus.state}
+            {state.indexStatus.state.charAt(0).toUpperCase() + state.indexStatus.state.slice(1)}
           </span>
         </div>
       </header>

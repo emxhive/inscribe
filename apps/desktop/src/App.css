@@ -45,20 +45,7 @@ body {
   z-index: 5;
 }
 
-.brand {
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.01em;
-}
-
-.label {
-  font-size: 12px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.repo-field {
+.repo-section {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -66,50 +53,45 @@ body {
   min-width: 300px;
 }
 
-.repo-input {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
-  gap: 8px;
-}
-
-.repo-input input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-family: 'JetBrains Mono', 'SFMono-Regular', monospace;
-  color: var(--text);
+.repo-name {
   font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
 }
 
-.repo-input input:focus {
+.repo-path-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--muted);
+  font-size: 12px;
+  height: 28px;
+}
+
+.repo-path-input:focus {
   outline: none;
 }
 
-.repo-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.repo-actions button {
-  width: 30px;
-  height: 30px;
+.folder-btn {
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #f4f6fb;
+  border-radius: 6px;
+  background: var(--surface);
   cursor: pointer;
   font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
 }
 
-.repo-actions button:hover {
+.folder-btn:hover {
   background: #eef2ff;
   border-color: var(--accent);
 }
@@ -125,11 +107,14 @@ body {
 .pill {
   background: #eef2ff;
   color: #4338ca;
-  padding: 6px 10px;
-  border-radius: 12px;
+  padding: 5px 9px;
+  border-radius: 6px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   border: 1px solid #e0e7ff;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .pill-secondary {
@@ -181,7 +166,7 @@ body {
   justify-content: center;
   gap: 8px;
   border: 1px dashed var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--surface);
   color: var(--muted);
   text-align: center;
@@ -204,7 +189,7 @@ body {
 
 .file-item {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 10px 12px;
   background: var(--panel);
   cursor: pointer;
@@ -268,7 +253,7 @@ body {
 .review-panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
   padding: 18px;
   display: flex;
@@ -318,7 +303,7 @@ body {
   height: 100%;
   resize: none;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 12px;
   font-size: 13px;
   line-height: 1.6;
@@ -349,7 +334,7 @@ body {
   color: white;
   border: none;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
@@ -366,7 +351,7 @@ body {
   border: 1px solid var(--border);
   color: var(--text);
   padding: 9px 12px;
-  border-radius: 10px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -385,7 +370,7 @@ body {
   flex: 1;
   min-height: 320px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 12px;
   background: var(--surface);
   display: flex;
@@ -397,7 +382,7 @@ body {
   width: 100%;
   height: 100%;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 14px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
@@ -427,7 +412,7 @@ body {
   border: 1px solid var(--border);
   background: var(--panel);
   padding: 9px 12px;
-  border-radius: 10px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -451,7 +436,7 @@ body {
   border: 1px solid #e0e7ff;
   color: #4338ca;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 6px;
   font-size: 12px;
   width: fit-content;
 }
@@ -469,7 +454,7 @@ body {
 .rail-btn {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);
   display: flex;

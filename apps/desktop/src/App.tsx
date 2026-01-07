@@ -4,7 +4,7 @@ import { useAppState } from './useAppState';
 import { ScopeModal } from './components/ScopeModal';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
-import { buildReviewItems, buildApplyPlanFromItems } from './utils';
+import { buildReviewItems, buildApplyPlanFromItems, getPathBasename, toSentenceCase } from './utils';
 
 declare global {
   interface Window {
@@ -327,7 +327,7 @@ export default function App() {
 
   // Get repo name (last segment of path) or default
   const repoName = state.repoRoot 
-    ? state.repoRoot.split(/[\\/]/).filter(Boolean).pop() || 'Repository'
+    ? getPathBasename(state.repoRoot) || 'Repository'
     : 'Repository';
 
   return (
@@ -382,7 +382,7 @@ export default function App() {
             Indexed: {state.indexedCount} files
           </span>
           <span className={`pill accent ${state.indexStatus.state === 'error' ? 'error' : ''}`}>
-            {state.indexStatus.state.charAt(0).toUpperCase() + state.indexStatus.state.slice(1)}
+            {toSentenceCase(state.indexStatus.state)}
           </span>
         </div>
       </header>

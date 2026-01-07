@@ -89,6 +89,23 @@ export function normalizePath(path: string): string {
 }
 
 /**
+ * Get the last segment of a path (basename)
+ */
+export function getPathBasename(path: string): string {
+  const normalized = normalizePath(path);
+  const segments = normalized.split('/').filter(Boolean);
+  return segments[segments.length - 1] || '';
+}
+
+/**
+ * Convert first character to uppercase (sentence case)
+ */
+export function toSentenceCase(text: string): string {
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
  * Build an apply plan from review items
  */
 export function buildApplyPlanFromItems(items: ReviewItem[]) {

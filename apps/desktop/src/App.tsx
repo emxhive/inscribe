@@ -1,21 +1,22 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import './App.css';
 import { useAppState } from './useAppState';
 import { ScopeModal } from './components/ScopeModal';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
-import { buildReviewItems, buildApplyPlanFromItems, getPathBasename, toSentenceCase } from './utils';
-
-declare global {
-  interface Window {
-    inscribeAPI: any;
-  }
-}
+import { getPathBasename, toSentenceCase } from './utils';
+import {
+  createRepositoryHandlers,
+  createScopeHandlers,
+  createIgnoreHandlers,
+  createParsingHandlers,
+  createReviewHandlers,
+  createApplyHandlers,
+} from './handlers';
 
 export default function App() {
   const {
     state,
-    updateState,
     setRepoRoot,
     setTopLevelFolders,
     setScope,
@@ -43,283 +44,76 @@ export default function App() {
   const [suggestedListModalOpen, setSuggestedListModalOpen] = useState(false);
   const [ignoreRawContent, setIgnoreRawContent] = useState('');
 
-  // Initialize repo state
-  const initRepo = useCallback(async (repoRoot: string) => {
-    try {
-      setStatusMessage('Initializing repository...');
-      const result = await window.inscribeAPI.repoInit(repoRoot);
-      
-      setTopLevelFolders(result.topLevelFolders || []);
-      setScope(result.scope || []);
-      setIgnore(result.ignore || { entries: [], source: 'none', path: '' });
-      setSuggested(result.suggested || []);
-      setIndexedCount(result.indexedCount || 0);
-      setIndexStatus(result.indexStatus || { state: 'complete' });
-      setStatusMessage(`Repository initialized: ${result.indexedCount || 0} files indexed`);
-    } catch (error) {
-      console.error('Failed to initialize repository:', error);
-      setStatusMessage('Failed to initialize repository');
-      setIndexStatus({ state: 'error', message: String(error) });
-    }
-  }, [setTopLevelFolders, setScope, setIgnore, setSuggested, setIndexedCount, setIndexStatus, setStatusMessage]);
+  // Create handler instances
+  const repositoryHandlers = useMemo(
+    () =>
+      createRepositoryHandlers({
+        setTopLevelFolders,
+        setScope,
+        setIgnore,
+        setSuggested,
+        setIndexedCount,
+        setIndexStatus,
+        setStatusMessage,
+        setRepoRoot,
+      }),
+    [setTopLevelFolders, setScope, setIgnore, setSuggested, setIndexedCount, setIndexStatus, setStatusMessage, setRepoRoot]
+  );
 
-  // Browse for repository
-  const handleBrowseRepo = useCallback(async () => {
-    try {
-      const selectedPath = await window.inscribeAPI.selectRepository(state.repoRoot || undefined);
-      if (selectedPath) {
-        setRepoRoot(selectedPath);
-        await initRepo(selectedPath);
-      }
-    } catch (error) {
-      console.error('Failed to select repository:', error);
-      setStatusMessage('Failed to select repository');
-    }
-  }, [state.repoRoot, setRepoRoot, initRepo, setStatusMessage]);
+  const scopeHandlers = useMemo(
+    () => createScopeHandlers({ setScope, setIndexedCount, setIndexStatus, setStatusMessage }),
+    [setScope, setIndexedCount, setIndexStatus, setStatusMessage]
+  );
 
-  // Handle scope save
-  const handleSaveSope = useCallback(async (newScope: string[]) => {
-    if (!state.repoRoot) return;
-    
-    try {
-      setStatusMessage('Updating scope...');
-      const result = await window.inscribeAPI.setScope(state.repoRoot, newScope);
-      setScope(result.scope || newScope);
-      setIndexedCount(result.indexedCount || 0);
-      setIndexStatus(result.indexStatus || { state: 'complete' });
-      setStatusMessage(`Scope updated: ${result.indexedCount || 0} files indexed`);
-    } catch (error) {
-      console.error('Failed to update scope:', error);
-      setStatusMessage('Failed to update scope');
-    }
-  }, [state.repoRoot, setScope, setIndexedCount, setIndexStatus, setStatusMessage]);
+  const ignoreHandlers = useMemo(
+    () => createIgnoreHandlers({ setSuggested, setIndexedCount, setIndexStatus, setStatusMessage }, repositoryHandlers.initRepo),
+    [setSuggested, setIndexedCount, setIndexStatus, setStatusMessage, repositoryHandlers.initRepo]
+  );
 
-  // Open ignore editor
-  const handleOpenIgnoreEditor = useCallback(async () => {
-    if (!state.repoRoot) return;
-    
-    try {
-      const result = await window.inscribeAPI.readIgnoreRaw(state.repoRoot);
-      setIgnoreRawContent(result.content || '');
-      setIgnoreModalOpen(true);
-    } catch (error) {
-      console.error('Failed to read ignore file:', error);
-      setStatusMessage('Failed to read ignore file');
-    }
-  }, [state.repoRoot, setStatusMessage]);
+  const parsingHandlers = useMemo(
+    () =>
+      createParsingHandlers({
+        setParseErrors,
+        setParsedBlocks,
+        setValidationErrors,
+        setReviewItems,
+        setSelectedItemId,
+        setMode,
+        setStatusMessage,
+      }),
+    [setParseErrors, setParsedBlocks, setValidationErrors, setReviewItems, setSelectedItemId, setMode, setStatusMessage]
+  );
 
-  // Handle ignore save
-  const handleSaveIgnore = useCallback(async (content: string) => {
-    if (!state.repoRoot) return;
-    
-    try {
-      setStatusMessage('Updating ignore rules...');
-      const result = await window.inscribeAPI.writeIgnore(state.repoRoot, content);
-      
-      if (result.success) {
-        setSuggested(result.suggested || []);
-        setIndexedCount(result.indexedCount || 0);
-        setIndexStatus(result.indexStatus || { state: 'complete' });
-        await initRepo(state.repoRoot); // Refresh full state
-        setStatusMessage(`Ignore rules updated: ${result.indexedCount || 0} files indexed`);
-      } else {
-        setStatusMessage(`Failed to update ignore rules: ${result.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Failed to update ignore file:', error);
-      setStatusMessage('Failed to update ignore file');
-    }
-  }, [state.repoRoot, setSuggested, setIndexedCount, setIndexStatus, initRepo, setStatusMessage]);
+  const reviewHandlers = useMemo(
+    () =>
+      createReviewHandlers({
+        setSelectedItemId,
+        setIsEditing,
+        updateReviewItemContent,
+        setReviewItems,
+        setStatusMessage,
+      }),
+    [setSelectedItemId, setIsEditing, updateReviewItemContent, setReviewItems, setStatusMessage]
+  );
 
-  // Parse code blocks
-  const handleParseBlocks = useCallback(async () => {
-    if (!state.repoRoot) {
-      setStatusMessage('Error: No repository selected');
-      setParseErrors(['No repository selected. Please select a repository first.']);
-      return;
-    }
+  const applyHandlers = useMemo(
+    () => createApplyHandlers({ setLastAppliedPlan, setStatusMessage, clearRedo }, repositoryHandlers.initRepo),
+    [setLastAppliedPlan, setStatusMessage, clearRedo, repositoryHandlers.initRepo]
+  );
 
-    if (!state.aiInput.trim()) {
-      setStatusMessage('Error: No input provided');
-      setParseErrors(['No input provided. Please paste AI response.']);
-      return;
-    }
-
-    try {
-      setStatusMessage('Parsing code blocks...');
-      const parseResult = await window.inscribeAPI.parseBlocks(state.aiInput);
-      
-      if (parseResult.errors && parseResult.errors.length > 0) {
-        setParseErrors(parseResult.errors);
-        setStatusMessage(`Parse failed: ${parseResult.errors.length} error(s)`);
-        return;
-      }
-
-      setParseErrors([]);
-      setParsedBlocks(parseResult.blocks || []);
-
-      // Validate blocks
-      setStatusMessage('Validating blocks...');
-      const validationErrors = await window.inscribeAPI.validateBlocks(
-        parseResult.blocks || [],
-        state.repoRoot
-      );
-      
-      setValidationErrors(validationErrors || []);
-
-      // Build review items
-      const reviewItems = buildReviewItems(parseResult.blocks || [], validationErrors || []);
-      setReviewItems(reviewItems);
-
-      // Select first item
-      if (reviewItems.length > 0) {
-        setSelectedItemId(reviewItems[0].id);
-      }
-
-      // Navigate to review
-      setMode('review');
-      const errorCount = validationErrors?.length || 0;
-      if (errorCount > 0) {
-        setStatusMessage(`Ready to review: ${reviewItems.length} files, ${errorCount} validation error(s)`);
-      } else {
-        setStatusMessage(`Ready to review: ${reviewItems.length} files`);
-      }
-    } catch (error) {
-      console.error('Failed to parse blocks:', error);
-      setParseErrors([String(error)]);
-      setStatusMessage('Failed to parse blocks');
-    }
-  }, [state.repoRoot, state.aiInput, setParseErrors, setParsedBlocks, setValidationErrors, setReviewItems, setSelectedItemId, setMode, setStatusMessage]);
-
-  // Select review item
-  const handleSelectItem = useCallback((id: string) => {
-    setSelectedItemId(id);
-    setIsEditing(false);
-  }, [setSelectedItemId, setIsEditing]);
-
-  // Handle editor change
-  const handleEditorChange = useCallback((value: string) => {
-    if (state.selectedItemId) {
-      updateReviewItemContent(state.selectedItemId, value);
-      setStatusMessage('Modified (not applied)');
-    }
-  }, [state.selectedItemId, updateReviewItemContent, setStatusMessage]);
-
-  // Reset all to original
-  const handleResetAll = useCallback(() => {
-    const resetItems = state.reviewItems.map(item => ({
-      ...item,
-      editedContent: item.originalContent,
-    }));
-    setReviewItems(resetItems);
-    setStatusMessage('Reset all to original content');
-  }, [state.reviewItems, setReviewItems, setStatusMessage]);
-
-  // Apply selected
-  const handleApplySelected = useCallback(async () => {
-    if (!state.repoRoot || !state.selectedItemId) return;
-    
-    const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
-    if (!selectedItem) return;
-
-    if (selectedItem.status === 'invalid') {
-      setStatusMessage(`Cannot apply: ${selectedItem.validationError}`);
-      return;
-    }
-
-    try {
-      setStatusMessage('Applying selected file...');
-      const plan = buildApplyPlanFromItems([selectedItem]);
-      const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
-      
-      if (result.success) {
-        setLastAppliedPlan(plan);
-        setStatusMessage(`✓ Applied: ${selectedItem.file}`);
-        await initRepo(state.repoRoot); // Refresh state
-      } else {
-        setStatusMessage(`Failed to apply: ${result.errors?.join(', ') || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Failed to apply selected:', error);
-      setStatusMessage(`Failed to apply: ${error}`);
-    }
-  }, [state.repoRoot, state.selectedItemId, state.reviewItems, setLastAppliedPlan, setStatusMessage, initRepo]);
-
-  // Apply all
-  const handleApplyAll = useCallback(async () => {
-    if (!state.repoRoot) return;
-    
-    // Check for invalid items
-    const invalidItems = state.reviewItems.filter(item => item.status === 'invalid');
-    if (invalidItems.length > 0) {
-      setStatusMessage(`Cannot apply: ${invalidItems.length} file(s) have validation errors`);
-      return;
-    }
-
-    if (state.reviewItems.length === 0) {
-      setStatusMessage('No files to apply');
-      return;
-    }
-
-    try {
-      setStatusMessage(`Applying ${state.reviewItems.length} file(s)...`);
-      const plan = buildApplyPlanFromItems(state.reviewItems);
-      const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
-      
-      if (result.success) {
-        setLastAppliedPlan(plan);
-        setStatusMessage(`✓ Applied all: ${state.reviewItems.length} file(s)`);
-        await initRepo(state.repoRoot); // Refresh state
-      } else {
-        setStatusMessage(`Failed to apply: ${result.errors?.join(', ') || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Failed to apply all:', error);
-      setStatusMessage(`Failed to apply all: ${error}`);
-    }
-  }, [state.repoRoot, state.reviewItems, setLastAppliedPlan, setStatusMessage, initRepo]);
-
-  // Undo
-  const handleUndo = useCallback(async () => {
-    if (!state.repoRoot) return;
-    
-    try {
-      setStatusMessage('Undoing last apply...');
-      const result = await window.inscribeAPI.undoLastApply(state.repoRoot);
-      
-      if (result.success) {
-        // Keep the plan for redo
-        setStatusMessage(`✓ Undo successful: ${result.message}`);
-        await initRepo(state.repoRoot); // Refresh state
-      } else {
-        setStatusMessage(`Undo failed: ${result.message}`);
-      }
-    } catch (error) {
-      console.error('Failed to undo:', error);
-      setStatusMessage(`Failed to undo: ${error}`);
-    }
-  }, [state.repoRoot, setStatusMessage, initRepo]);
-
-  // Redo
-  const handleRedo = useCallback(async () => {
-    if (!state.repoRoot || !state.lastAppliedPlan) return;
-    
-    try {
-      setStatusMessage('Redoing last apply...');
-      const result = await window.inscribeAPI.applyChanges(state.lastAppliedPlan, state.repoRoot);
-      
-      if (result.success) {
-        clearRedo();
-        setStatusMessage('✓ Redo successful');
-        await initRepo(state.repoRoot); // Refresh state
-      } else {
-        setStatusMessage(`Redo failed: ${result.errors?.join(', ') || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Failed to redo:', error);
-      setStatusMessage(`Failed to redo: ${error}`);
-    }
-  }, [state.repoRoot, state.lastAppliedPlan, clearRedo, setStatusMessage, initRepo]);
+  // Wrap handlers with current state
+  const handleBrowseRepo = useCallback(() => repositoryHandlers.handleBrowseRepo(state.repoRoot), [repositoryHandlers, state.repoRoot]);
+  const handleSaveScope = useCallback((newScope: string[]) => scopeHandlers.handleSaveScope(state.repoRoot, newScope), [scopeHandlers, state.repoRoot]);
+  const handleOpenIgnoreEditor = useCallback(() => ignoreHandlers.handleOpenIgnoreEditor(state.repoRoot, setIgnoreRawContent, setIgnoreModalOpen), [ignoreHandlers, state.repoRoot]);
+  const handleSaveIgnore = useCallback((content: string) => ignoreHandlers.handleSaveIgnore(state.repoRoot, content), [ignoreHandlers, state.repoRoot]);
+  const handleParseBlocks = useCallback(() => parsingHandlers.handleParseBlocks(state.repoRoot, state.aiInput), [parsingHandlers, state.repoRoot, state.aiInput]);
+  const handleSelectItem = useCallback((id: string) => reviewHandlers.handleSelectItem(id), [reviewHandlers]);
+  const handleEditorChange = useCallback((value: string) => reviewHandlers.handleEditorChange(state.selectedItemId, value), [reviewHandlers, state.selectedItemId]);
+  const handleResetAll = useCallback(() => reviewHandlers.handleResetAll(state.reviewItems), [reviewHandlers, state.reviewItems]);
+  const handleApplySelected = useCallback(() => applyHandlers.handleApplySelected(state.repoRoot, state.selectedItemId, state.reviewItems), [applyHandlers, state.repoRoot, state.selectedItemId, state.reviewItems]);
+  const handleApplyAll = useCallback(() => applyHandlers.handleApplyAll(state.repoRoot, state.reviewItems), [applyHandlers, state.repoRoot, state.reviewItems]);
+  const handleUndo = useCallback(() => applyHandlers.handleUndo(state.repoRoot), [applyHandlers, state.repoRoot]);
+  const handleRedo = useCallback(() => applyHandlers.handleRedo(state.repoRoot, state.lastAppliedPlan), [applyHandlers, state.repoRoot, state.lastAppliedPlan]);
 
   // Get currently selected item
   const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
@@ -593,7 +387,7 @@ export default function App() {
         onClose={() => setScopeModalOpen(false)}
         topLevelFolders={state.topLevelFolders}
         currentScope={state.scope}
-        onSave={handleSaveSope}
+        onSave={handleSaveScope}
         disabled={!state.repoRoot}
       />
 

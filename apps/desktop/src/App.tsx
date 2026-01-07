@@ -377,7 +377,7 @@ export default function App() {
           <span 
             className="pill clickable"
             onClick={() => setIgnoredListModalOpen(true)}
-            title="Click to view indexed files"
+            title="Click to view ignored paths"
           >
             Indexed: {state.indexedCount} files
           </span>

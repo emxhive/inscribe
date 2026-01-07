@@ -1,49 +1,11 @@
 import type { ParsedBlock, ValidationError } from '@inscribe/shared';
-import type { ReviewItem } from './useAppState';
+import type { ReviewItem } from '../useAppState';
+import { getLanguageFromFilename } from './language';
+import { countLines } from './text';
 
 /**
- * Determine language from file extension
+ * Review item construction utilities
  */
-export function getLanguageFromFilename(filename: string): string {
-  const ext = filename.split('.').pop()?.toLowerCase() || '';
-  
-  const languageMap: Record<string, string> = {
-    js: 'javascript',
-    jsx: 'javascript',
-    ts: 'typescript',
-    tsx: 'typescript',
-    py: 'python',
-    rb: 'ruby',
-    java: 'java',
-    cpp: 'cpp',
-    c: 'c',
-    h: 'c',
-    cs: 'csharp',
-    go: 'go',
-    rs: 'rust',
-    php: 'php',
-    html: 'html',
-    css: 'css',
-    scss: 'scss',
-    json: 'json',
-    xml: 'xml',
-    yaml: 'yaml',
-    yml: 'yaml',
-    md: 'markdown',
-    sh: 'bash',
-    sql: 'sql',
-  };
-  
-  return languageMap[ext] || ext || 'text';
-}
-
-/**
- * Count lines in content
- */
-export function countLines(content: string): number {
-  if (!content) return 0;
-  return content.split('\n').length;
-}
 
 /**
  * Build review items from parsed blocks and validation errors
@@ -79,30 +41,6 @@ export function buildReviewItems(
       directives: block.directives,
     };
   });
-}
-
-/**
- * Normalize path to use forward slashes
- */
-export function normalizePath(path: string): string {
-  return path.replace(/\\/g, '/');
-}
-
-/**
- * Get the last segment of a path (basename)
- */
-export function getPathBasename(path: string): string {
-  const normalized = normalizePath(path);
-  const segments = normalized.split('/').filter(Boolean);
-  return segments[segments.length - 1] || '';
-}
-
-/**
- * Convert first character to uppercase (sentence case)
- */
-export function toSentenceCase(text: string): string {
-  if (!text) return '';
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /**

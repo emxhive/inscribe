@@ -2,7 +2,7 @@
  * Functions for parsing a single Inscribe block
  */
 
-import { ParsedBlock } from '@inscribe/shared';
+import { ParsedBlock, Mode } from '@inscribe/shared';
 import { parseDirectives } from './parseDirectives';
 import { extractFencedBlock } from './parseFencedBlock';
 
@@ -34,12 +34,16 @@ export function parseSingleBlock(lines: string[], blockIndex: number): BlockPars
     return { error: fencedResult.error };
   }
 
+  if (!fencedResult.content) {
+    return { error: 'No content extracted from fenced block' };
+  }
+
   return {
     block: {
       file,
-      mode: mode as any,
+      mode: mode as Mode,
       directives,
-      content: fencedResult.content!,
+      content: fencedResult.content,
       blockIndex,
     },
   };

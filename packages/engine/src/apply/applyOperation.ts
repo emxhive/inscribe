@@ -1,10 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Operation } from '@inscribe/shared';
+import { resolveAndAssertWithin } from '../paths/resolveAndAssertWithin';
 import { applyRangeReplace } from './rangeReplace';
 
 export function applyOperation(operation: Operation, repoRoot: string): void {
-  const filePath = path.join(repoRoot, operation.file);
+  const { resolvedPath } = resolveAndAssertWithin(repoRoot, operation.file);
+  const filePath = resolvedPath;
 
   switch (operation.type) {
     case 'create':
@@ -23,5 +25,8 @@ export function applyOperation(operation: Operation, repoRoot: string): void {
     case 'range':
       applyRangeReplace(filePath, operation);
       break;
+
+    default:
+      throw new Error(`Unknown operation type: ${operation.type}`);
   }
 }

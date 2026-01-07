@@ -225,7 +225,7 @@ export default function App() {
                   </div>
                   {item.validationError && (
                     <div className="validation-error-hint" title={item.validationError}>
-                      {item.validationError.substring(0, 50)}...
+                      {item.validationError}
                     </div>
                   )}
                 </li>
@@ -301,6 +301,12 @@ export default function App() {
                 </div>
               )}
 
+              {selectedItem?.mode === 'range' && (
+                <p className="range-help">
+                  Range anchors must match exactly and be unique; duplicates fail; no partial apply.
+                </p>
+              )}
+
               <div className="editor-shell">
                 {state.isEditing ? (
                   <textarea
@@ -316,8 +322,8 @@ export default function App() {
               </div>
 
               <div className="action-bar">
-                <button type="button" onClick={handleUndo}>
-                  Undo Apply
+                <button type="button" onClick={handleUndo} title="Undo last apply (single-step)">
+                  Undo last apply (single-step)
                 </button>
                 <button 
                   type="button" 

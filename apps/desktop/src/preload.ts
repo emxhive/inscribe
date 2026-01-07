@@ -35,8 +35,8 @@ const api = {
   validateBlocks: (blocks: any[], repoRoot: string): Promise<ValidationError[]> =>
     ipcRenderer.invoke('validate-blocks', blocks, repoRoot),
 
-  buildApplyPlan: (blocks: any[], repoRoot: string): Promise<ApplyPlan | ValidationError[]> =>
-    ipcRenderer.invoke('build-apply-plan', blocks, repoRoot),
+  validateAndBuildApplyPlan: (blocks: any[], repoRoot: string): Promise<ApplyPlan | ValidationError[]> =>
+    ipcRenderer.invoke('validate-and-build-apply-plan', blocks, repoRoot),
 
   applyChanges: (plan: ApplyPlan, repoRoot: string): Promise<{ success: boolean; backupPath?: string; errors?: string[] }> =>
     ipcRenderer.invoke('apply-changes', plan, repoRoot),

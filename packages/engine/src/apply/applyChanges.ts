@@ -3,9 +3,42 @@
  * Applies changes with backups and supports undo
  */
 
-import { ApplyPlan, ApplyResult } from '@inscribe/shared';
+import { ApplyPlan, ApplyResult, Operation } from '@inscribe/shared';
 import { applyOperation } from './applyOperation';
 import { createBackup } from './backups';
+
+const VALID_OPERATION_TYPES = new Set(['create', 'replace', 'append', 'range']);
+
+function validateOperation(operation: Operation, index: number): string[] {
+  const errors: string[] = [];
+
+  if (!operation || typeof operation !== 'object') {
+    return [`Operation ${index} is invalid`];
+  }
+
+  if (!VALID_OPERATION_TYPES.has(operation.type)) {
+    errors.push(`Unknown operation type: ${String(operation.type)}`);
+  }
+
+  if (typeof operation.file !== 'string' || operation.file.trim().length === 0) {
+    errors.push(`Operation ${index} requires a non-empty file path`);
+  }
+
+  if (typeof operation.content !== 'string') {
+    errors.push(`Operation ${index} requires string content`);
+  }
+
+  if (operation.type === 'range') {
+    const directives = operation.directives || {};
+    const hasStart = typeof directives.START === 'string' && directives.START.length > 0;
+    const hasEnd = typeof directives.END === 'string' && directives.END.length > 0;
+    if (!hasStart || !hasEnd) {
+      errors.push('Range operation requires START and END directives');
+    }
+  }
+
+  return errors;
+}
 
 /**
  * Apply changes with backup
@@ -23,6 +56,16 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
       return {
         success: false,
         errors: ['No operations to apply'],
+      };
+    }
+
+    const operationErrors = plan.operations.flatMap((operation, index) =>
+      validateOperation(operation, index)
+    );
+    if (operationErrors.length > 0) {
+      return {
+        success: false,
+        errors: operationErrors,
       };
     }
 

@@ -193,6 +193,23 @@ old content
     expect(result.errors?.[0]).toContain('No operations');
   });
 
+  it('should fail when operation type is unknown', () => {
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'delete' as any,
+          file: 'app/unknown.js',
+          content: 'content',
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(false);
+    expect(result.errors?.[0]).toContain('Unknown operation type');
+  });
+
   it('should fail when plan contains errors', () => {
     const plan: ApplyPlan = {
       operations: [
@@ -216,6 +233,29 @@ old content
     expect(result.success).toBe(false);
     expect(result.errors?.[0]).toContain('validation failed');
     expect(fs.existsSync(path.join(tempDir, 'app', 'new.js'))).toBe(false);
+  });
+
+  it('should reject apply operations that escape the repo root', () => {
+    const escapedPath = path.join(tempDir, '..', 'inscribe-escape.txt');
+    if (fs.existsSync(escapedPath)) {
+      fs.rmSync(escapedPath, { force: true });
+    }
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'create',
+          file: '../inscribe-escape.txt',
+          content: 'content',
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(false);
+    expect(result.errors?.[0]).toContain('outside repository root');
+    expect(fs.existsSync(escapedPath)).toBe(false);
   });
 
   it('should fail range apply when anchors are missing', () => {

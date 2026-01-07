@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { validateBlocks } from '../src';
+import { setScopeState, validateBlocks } from '../src';
 import { ParsedBlock } from '@inscribe/shared';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -113,6 +113,26 @@ const x = 1;
     const errors = validateBlocks(blocks, tempDir);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].message).toContain('scope roots');
+  });
+
+  it('should reject traversal outside scope roots', () => {
+    fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
+    setScopeState(tempDir, ['src']);
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'src/../.git/config',
+        mode: 'create',
+        directives: {},
+        content: 'content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(error => error.message.includes('scope roots'))).toBe(true);
   });
 
   it('should validate range mode with valid anchors', () => {

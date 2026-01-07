@@ -6,7 +6,8 @@
 import { ParsedBlock, ApplyPlan, Operation } from '@inscribe/shared';
 
 /**
- * Build an applied plan from validated blocks
+ * Build an applied plan from already-validated blocks.
+ * This is repo-agnostic and assumes validation has already enforced scope and safety.
  */
 export function buildApplyPlan(blocks: ParsedBlock[]): ApplyPlan {
   const operations: Operation[] = blocks.map(block => ({

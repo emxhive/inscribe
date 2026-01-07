@@ -34,7 +34,7 @@ export function registerParsingHandlers() {
     }
   });
 
-  ipcMain.handle('build-apply-plan', async (_event, blocks: any[], repoRoot: string) => {
+  ipcMain.handle('validate-and-build-apply-plan', async (_event, blocks: any[], repoRoot: string) => {
     try {
       // Validate first
       const validationErrors = validateBlocks(blocks, repoRoot);

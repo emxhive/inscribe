@@ -27,9 +27,13 @@ export default function ApplyControls({
         className="undo-btn"
         onClick={onUndo}
         disabled={!canUndo}
-        title={canUndo ? 'Undo last apply' : 'No backup to restore'}
+        title={
+          canUndo
+            ? 'Undo last apply (single-step). Restores only the most recent apply batch.'
+            : 'No backup to restore'
+        }
       >
-        Undo Last Apply
+        Undo last apply (single-step)
       </button>
     </div>
   );

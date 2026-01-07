@@ -4,14 +4,11 @@
  */
 
 import * as fs from 'fs';
-import * as path from 'path';
 import { ParsedBlock, ValidationError } from '@inscribe/shared';
 import { getEffectiveIgnorePrefixes, getOrCreateScope } from '../repository';
+import { resolveAndAssertWithin } from '../paths/resolveAndAssertWithin';
+import { ensureTrailingSlash, normalizeRelativePath } from '../util/path';
 import { validateRangeAnchors } from './validateRangeAnchors';
-
-function normalizePath(input: string): string {
-  return input.replace(/\\/g, '/').replace(/^\.\/+/, '');
-}
 
 /**
  * Validate all blocks against repository rules
@@ -38,24 +35,28 @@ function validateBlock(
   repoRoot: string
 ): ValidationError[] {
   const errors: ValidationError[] = [];
-  const normalizedFile = normalizePath(block.file);
   const scopeState = getOrCreateScope(repoRoot);
   const scopeRoots = scopeState.scope;
 
-  // Check if file path is under the current scope roots
-  const isInScope = scopeRoots.some((root: string) => normalizedFile.startsWith(root));
-
-  if (!isInScope) {
+  let resolvedPath: string;
+  let normalizedFile: string;
+  try {
+    const resolved = resolveAndAssertWithin(repoRoot, block.file, scopeRoots);
+    resolvedPath = resolved.resolvedPath;
+    normalizedFile = normalizeRelativePath(resolved.relativePath);
+  } catch (error) {
     errors.push({
       blockIndex: block.blockIndex,
-      file: normalizedFile,
-      message: `File must be under scope roots: ${scopeRoots.join(', ')}`,
+      file: block.file,
+      message: error instanceof Error ? error.message : 'Invalid file path',
     });
+    return errors;
   }
 
   // Check if file path is in an ignored path
   const ignores = getEffectiveIgnorePrefixes(repoRoot);
-  const ignoreMatch = ignores.find(ignored => normalizedFile.startsWith(ignored));
+  const filePrefix = ensureTrailingSlash(normalizedFile);
+  const ignoreMatch = ignores.find(ignored => filePrefix.startsWith(ignored));
 
   if (ignoreMatch) {
     errors.push({
@@ -65,8 +66,7 @@ function validateBlock(
     });
   }
 
-  const filePath = path.join(repoRoot, normalizedFile);
-  const fileExists = fs.existsSync(filePath);
+  const fileExists = fs.existsSync(resolvedPath);
 
   // Mode-specific validation
   switch (block.mode) {
@@ -109,7 +109,7 @@ function validateBlock(
         });
       } else {
         // Validate range anchors
-        const rangeErrors = validateRangeAnchors(block, filePath);
+        const rangeErrors = validateRangeAnchors(block, resolvedPath);
         errors.push(...rangeErrors);
       }
       break;

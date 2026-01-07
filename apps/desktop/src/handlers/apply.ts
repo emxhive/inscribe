@@ -38,7 +38,7 @@ export function createApplyHandlers(
       
       if (result.success) {
         setLastAppliedPlan(plan);
-        setStatusMessage(`✓ Applied: ${selectedItem.file}`);
+        setStatusMessage(`✓ Applied: ${selectedItem.file}. Undo restores only the most recent apply batch.`);
         await initRepo(repoRoot); // Refresh state
       } else {
         setStatusMessage(`Failed to apply: ${result.errors?.join(', ') || 'Unknown error'}`);
@@ -71,7 +71,7 @@ export function createApplyHandlers(
       
       if (result.success) {
         setLastAppliedPlan(plan);
-        setStatusMessage(`✓ Applied all: ${reviewItems.length} file(s)`);
+        setStatusMessage(`✓ Applied all: ${reviewItems.length} file(s). Undo restores only the most recent apply batch.`);
         await initRepo(repoRoot); // Refresh state
       } else {
         setStatusMessage(`Failed to apply: ${result.errors?.join(', ') || 'Unknown error'}`);
@@ -91,7 +91,7 @@ export function createApplyHandlers(
       
       if (result.success) {
         // Keep the plan for redo
-        setStatusMessage(`✓ Undo successful: ${result.message}`);
+        setStatusMessage(`✓ Undo successful: ${result.message} (Undo restores only the most recent apply batch.)`);
         await initRepo(repoRoot); // Refresh state
       } else {
         setStatusMessage(`Undo failed: ${result.message}`);

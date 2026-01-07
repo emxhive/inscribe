@@ -46,7 +46,7 @@ export function buildReviewItems(
 /**
  * Build an apply plan from review items
  */
-export function buildApplyPlanFromItems(items: ReviewItem[]) {
+export function buildApplyPlanFromItems(items: ReviewItem[]): { operations: any[] } {
   return {
     operations: items.map((item) => ({
       type: item.mode,
@@ -56,3 +56,4 @@ export function buildApplyPlanFromItems(items: ReviewItem[]) {
     })),
   };
 }
+

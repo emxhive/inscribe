@@ -1,4 +1,5 @@
 import React from 'react';
+import { Modal, Button } from './common';
 
 interface ListModalProps {
   isOpen: boolean;
@@ -15,36 +16,28 @@ export function ListModal({
   items,
   emptyMessage = 'No items',
 }: ListModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{title}</h2>
-          <button className="close-btn" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="modal-body">
-          {items.length === 0 ? (
-            <p className="empty-message">{emptyMessage}</p>
-          ) : (
-            <ul className="item-list">
-              {items.map((item, index) => (
-                <li key={index} className="item">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="modal-footer">
-          <button className="primary-btn" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      footer={
+        <Button variant="primary" onClick={onClose}>
+          Close
+        </Button>
+      }
+    >
+      {items.length === 0 ? (
+        <p className="empty-message">{emptyMessage}</p>
+      ) : (
+        <ul className="item-list">
+          {items.map((item, index) => (
+            <li key={index} className="item">
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
   );
 }

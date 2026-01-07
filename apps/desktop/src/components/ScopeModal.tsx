@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Modal, Button } from './common';
 
 interface ScopeModalProps {
   isOpen: boolean;
@@ -23,8 +24,6 @@ export function ScopeModal({
     setSelectedFolders(new Set(currentScope));
   }, [currentScope, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleToggle = (folder: string) => {
     const newSelected = new Set(selectedFolders);
     if (newSelected.has(folder)) {
@@ -41,47 +40,43 @@ export function ScopeModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Configure Scope</h2>
-          <button className="close-btn" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="modal-body">
-          <p className="modal-description">
-            Select the top-level folders to include in the scope. Only files within these folders
-            will be indexed and available for modifications.
-          </p>
-          {topLevelFolders.length === 0 ? (
-            <p className="empty-message">No top-level folders found in repository</p>
-          ) : (
-            <ul className="folder-list">
-              {topLevelFolders.map((folder) => (
-                <li key={folder} className="folder-item">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selectedFolders.has(folder)}
-                      onChange={() => handleToggle(folder)}
-                    />
-                    <span>{folder}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="modal-footer">
-          <button className="ghost-btn" onClick={onClose}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Configure Scope"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button className="primary-btn" onClick={handleSave} disabled={disabled}>
+          </Button>
+          <Button variant="primary" onClick={handleSave} disabled={disabled}>
             Save Scope
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </>
+      }
+    >
+      <p className="modal-description">
+        Select the top-level folders to include in the scope. Only files within these folders
+        will be indexed and available for modifications.
+      </p>
+      {topLevelFolders.length === 0 ? (
+        <p className="empty-message">No top-level folders found in repository</p>
+      ) : (
+        <ul className="folder-list">
+          {topLevelFolders.map((folder) => (
+            <li key={folder} className="folder-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={selectedFolders.has(folder)}
+                  onChange={() => handleToggle(folder)}
+                />
+                <span>{folder}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
   );
 }

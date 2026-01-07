@@ -4,6 +4,7 @@ import { useAppState } from './useAppState';
 import { ScopeModal } from './components/ScopeModal';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
+import { Button, StatusPill, EmptyState, FileListItem } from './components/common';
 import { getPathBasename, toSentenceCase } from './utils';
 import {
   createRepositoryHandlers,
@@ -145,37 +146,43 @@ export default function App() {
         </div>
 
         <div className="status-pills">
-          <span 
-            className="pill pill-secondary clickable" 
+          <StatusPill 
+            variant="secondary"
+            isClickable={true}
             onClick={() => state.repoRoot && setScopeModalOpen(true)}
             title="Click to configure scope"
           >
             Scope: {state.scope.length}
-          </span>
-          <span 
-            className="pill pill-secondary clickable" 
+          </StatusPill>
+          <StatusPill 
+            variant="secondary"
+            isClickable={true}
             onClick={() => state.repoRoot && handleOpenIgnoreEditor()}
             title="Click to edit ignore file"
           >
             Ignore: {state.ignore.entries.length}
-          </span>
-          <span 
-            className="pill pill-secondary clickable" 
+          </StatusPill>
+          <StatusPill 
+            variant="secondary"
+            isClickable={true}
             onClick={() => setSuggestedListModalOpen(true)}
             title="Click to view suggested excludes"
           >
             Suggested: {state.suggested.length}
-          </span>
-          <span 
-            className="pill clickable"
+          </StatusPill>
+          <StatusPill 
+            isClickable={true}
             onClick={() => setIgnoredListModalOpen(true)}
             title="Click to view ignored paths"
           >
             Indexed: {state.indexedCount} files
-          </span>
-          <span className={`pill accent ${state.indexStatus.state === 'error' ? 'error' : ''}`}>
+          </StatusPill>
+          <StatusPill 
+            variant="accent"
+            error={state.indexStatus.state === 'error'}
+          >
             {toSentenceCase(state.indexStatus.state)}
-          </span>
+          </StatusPill>
         </div>
       </header>
 
@@ -191,44 +198,23 @@ export default function App() {
           </div>
 
           {state.mode === 'intake' && (
-            <div className="empty-state">
-              <div className="empty-icon">📄</div>
-              <p>Paste AI response to begin</p>
-            </div>
+            <EmptyState message="Paste AI response to begin" />
           )}
 
           {state.mode === 'review' && (
             <ul className="file-list">
               {state.reviewItems.map((item) => (
-                <li
+                <FileListItem
                   key={item.id}
-                  className={`file-item ${state.selectedItemId === item.id ? 'selected' : ''}`}
+                  file={item.file}
+                  lineCount={item.lineCount}
+                  language={item.language}
+                  mode={item.mode}
+                  status={item.status}
+                  validationError={item.validationError}
+                  isSelected={state.selectedItemId === item.id}
                   onClick={() => handleSelectItem(item.id)}
-                >
-                  <div className="file-header">
-                    <span
-                      className={`status-icon ${item.status === 'invalid' ? 'error' : item.status === 'warning' ? 'warn' : 'success'}`}
-                      role="img"
-                      aria-label={item.status}
-                      title={item.validationError || item.status}
-                    >
-                      {item.status === 'invalid' ? '❌' : item.status === 'warning' ? '⚠' : '✅'}
-                    </span>
-                    <span className="file-path">{item.file}</span>
-                  </div>
-                  <div className="meta">
-                    <span>{item.lineCount} lines</span>
-                    <span>•</span>
-                    <span>{item.language}</span>
-                    <span>•</span>
-                    <span>{item.mode}</span>
-                  </div>
-                  {item.validationError && (
-                    <div className="validation-error-hint" title={item.validationError}>
-                      {item.validationError}
-                    </div>
-                  )}
-                </li>
+                />
               ))}
             </ul>
           )}
@@ -265,15 +251,15 @@ export default function App() {
 
               <footer className="intake-footer">
                 <span className="char-count">{state.aiInput.length} characters</span>
-                <button 
-                  className="primary-btn" 
+                <Button 
+                  variant="primary"
                   type="button" 
                   onClick={handleParseBlocks}
                   disabled={!state.repoRoot}
                   title={!state.repoRoot ? 'Select a repository first' : ''}
                 >
                   Parse Code Blocks
-                </button>
+                </Button>
               </footer>
             </section>
           )}
@@ -285,14 +271,14 @@ export default function App() {
                   <p className="eyebrow">Review & Apply</p>
                   <h2>{selectedItem?.file || 'Select a file from the left'}</h2>
                 </div>
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
-                  className="ghost-btn"
                   onClick={() => setIsEditing(!state.isEditing)}
                   disabled={!selectedItem}
                 >
                   {state.isEditing ? 'Preview' : 'Edit'}
-                </button>
+                </Button>
               </div>
 
               {selectedItem?.validationError && (
@@ -336,22 +322,22 @@ export default function App() {
                   Reset All
                 </button>
                 <div className="action-spacer" />
-                <button 
+                <Button 
+                  variant="ghost"
                   type="button" 
-                  className="ghost-btn" 
                   onClick={handleApplySelected}
                   disabled={!selectedItem || selectedItem.status === 'invalid'}
                 >
                   Apply Selected
-                </button>
-                <button 
+                </Button>
+                <Button 
+                  variant="primary"
                   type="button" 
-                  className="primary-btn" 
                   onClick={handleApplyAll}
                   disabled={state.reviewItems.some(item => item.status === 'invalid')}
                 >
                   Apply All Changes
-                </button>
+                </Button>
               </div>
 
               <div className="status-banner">{state.statusMessage}</div>

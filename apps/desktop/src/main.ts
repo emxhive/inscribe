@@ -201,7 +201,7 @@ ipcMain.handle('validate-blocks', async (event, blocks: any[], repoRoot: string)
   }
 });
 
-ipcMain.handle('build-apply-plan', async (event, blocks: any[], repoRoot: string) => {
+ipcMain.handle('validate-and-build-apply-plan', async (event, blocks: any[], repoRoot: string) => {
   try {
     // Validate first
     const validationErrors = validateBlocks(blocks, repoRoot);

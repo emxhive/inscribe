@@ -234,7 +234,7 @@ export default function App() {
       
       if (result.success) {
         setLastAppliedPlan(plan);
-        setStatusMessage(`✓ Applied: ${selectedItem.file}`);
+        setStatusMessage(`✓ Applied: ${selectedItem.file}. Undo restores only the most recent apply batch.`);
         await initRepo(state.repoRoot); // Refresh state
       } else {
         setStatusMessage(`Failed to apply: ${result.errors?.join(', ') || 'Unknown error'}`);
@@ -268,7 +268,7 @@ export default function App() {
       
       if (result.success) {
         setLastAppliedPlan(plan);
-        setStatusMessage(`✓ Applied all: ${state.reviewItems.length} file(s)`);
+        setStatusMessage(`✓ Applied all: ${state.reviewItems.length} file(s). Undo restores only the most recent apply batch.`);
         await initRepo(state.repoRoot); // Refresh state
       } else {
         setStatusMessage(`Failed to apply: ${result.errors?.join(', ') || 'Unknown error'}`);
@@ -289,7 +289,7 @@ export default function App() {
       
       if (result.success) {
         // Keep the plan for redo
-        setStatusMessage(`✓ Undo successful: ${result.message}`);
+        setStatusMessage(`✓ Undo successful: ${result.message}. Undo restores only the most recent apply batch.`);
         await initRepo(state.repoRoot); // Refresh state
       } else {
         setStatusMessage(`Undo failed: ${result.message}`);
@@ -431,7 +431,7 @@ export default function App() {
                   </div>
                   {item.validationError && (
                     <div className="validation-error-hint" title={item.validationError}>
-                      {item.validationError.substring(0, 50)}...
+                      {item.validationError}
                     </div>
                   )}
                 </li>
@@ -507,6 +507,10 @@ export default function App() {
                 </div>
               )}
 
+              <p className="helper-text">
+                Range anchors must match exactly and be unique; duplicates fail; no partial apply.
+              </p>
+
               <div className="editor-shell">
                 {state.isEditing ? (
                   <textarea
@@ -522,8 +526,12 @@ export default function App() {
               </div>
 
               <div className="action-bar">
-                <button type="button" onClick={handleUndo}>
-                  Undo Apply
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  title="Undo last apply (single-step)"
+                >
+                  Undo Last Apply (single-step)
                 </button>
                 <button 
                   type="button" 

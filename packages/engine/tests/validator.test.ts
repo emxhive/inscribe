@@ -115,6 +115,22 @@ const x = 1;
     expect(errors[0].message).toContain('scope roots');
   });
 
+  it('should reject path traversal that escapes scope roots', () => {
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/../.git/config',
+        mode: 'create',
+        directives: {},
+        content: 'content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('scope roots');
+  });
+
   it('should validate range mode with valid anchors', () => {
     const blocks: ParsedBlock[] = [
       {

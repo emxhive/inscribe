@@ -4,6 +4,7 @@
  */
 
 import { ApplyPlan, ApplyResult } from '@inscribe/shared';
+import { getOrCreateScope } from '../repository';
 import { applyOperation } from './applyOperation';
 import { createBackup } from './backups';
 
@@ -26,11 +27,55 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
       };
     }
 
+    const allowedTypes = new Set(['create', 'replace', 'append', 'range']);
+    const validationErrors: string[] = [];
+
+    plan.operations.forEach((operation: any, index: number) => {
+      if (!operation || typeof operation !== 'object') {
+        validationErrors.push(`Operation ${index} is invalid`);
+        return;
+      }
+
+      if (!allowedTypes.has(operation.type)) {
+        validationErrors.push(`Unsupported operation type: ${String(operation.type)}`);
+        return;
+      }
+
+      if (typeof operation.file !== 'string' || operation.file.trim().length === 0) {
+        validationErrors.push(`Operation ${index} has invalid file path`);
+      }
+
+      if (typeof operation.content !== 'string') {
+        validationErrors.push(`Operation ${index} has invalid content`);
+      }
+
+      if (operation.type === 'range') {
+        const directives = operation.directives;
+        if (
+          !directives ||
+          typeof directives.START !== 'string' ||
+          directives.START.trim().length === 0 ||
+          typeof directives.END !== 'string' ||
+          directives.END.trim().length === 0
+        ) {
+          validationErrors.push('Range operation requires START and END directives');
+        }
+      }
+    });
+
+    if (validationErrors.length > 0) {
+      return {
+        success: false,
+        errors: validationErrors,
+      };
+    }
+
     const { backupPath } = createBackup(plan, repoRoot);
+    const scopeRoots = getOrCreateScope(repoRoot).scope;
 
     // Apply all operations
     for (const operation of plan.operations) {
-      applyOperation(operation, repoRoot);
+      applyOperation(operation, repoRoot, scopeRoots);
     }
 
     return {

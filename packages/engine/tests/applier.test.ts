@@ -193,6 +193,23 @@ old content
     expect(result.errors?.[0]).toContain('No operations');
   });
 
+  it('should fail when operation type is unknown', () => {
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'delete',
+          file: 'app/new.js',
+          content: 'content',
+        } as any,
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(false);
+    expect(result.errors?.[0]).toContain('Unsupported operation type');
+  });
+
   it('should fail when plan contains errors', () => {
     const plan: ApplyPlan = {
       operations: [
@@ -216,6 +233,29 @@ old content
     expect(result.success).toBe(false);
     expect(result.errors?.[0]).toContain('validation failed');
     expect(fs.existsSync(path.join(tempDir, 'app', 'new.js'))).toBe(false);
+  });
+
+  it('should refuse to write outside the repository root', () => {
+    const outsidePath = path.resolve(tempDir, '..', 'outside.txt');
+    if (fs.existsSync(outsidePath)) {
+      fs.rmSync(outsidePath, { force: true });
+    }
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'create',
+          file: '../outside.txt',
+          content: 'escape',
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(false);
+    expect(result.errors?.[0]).toContain('repository root');
+    expect(fs.existsSync(outsidePath)).toBe(false);
   });
 
   it('should fail range apply when anchors are missing', () => {

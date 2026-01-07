@@ -14,7 +14,7 @@ declare global {
       indexStatus: (repoRoot: string) => Promise<any>;
       parseBlocks: (content: string) => Promise<any>;
       validateBlocks: (blocks: any[], repoRoot: string) => Promise<ValidationError[]>;
-      buildApplyPlan: (blocks: any[], repoRoot: string) => Promise<ApplyPlan | ValidationError[]>;
+      validateAndBuildApplyPlan: (blocks: any[], repoRoot: string) => Promise<ApplyPlan | ValidationError[]>;
       applyChanges: (plan: ApplyPlan, repoRoot: string) => Promise<{ success: boolean; backupPath?: string; errors?: string[] }>;
       undoLastApply: (repoRoot: string) => Promise<{ success: boolean; message: string }>;
     };

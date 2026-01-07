@@ -675,9 +675,14 @@ body {
   font-size: 11px;
   color: #dc2626;
   margin-top: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.helper-text {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* Status icons with colors */

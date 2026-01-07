@@ -326,9 +326,7 @@ export default function App() {
   const editorValue = selectedItem?.editedContent || '';
 
   // Get repo name (last segment of path) or default
-  const repoName = state.repoRoot 
-    ? getPathBasename(state.repoRoot) || 'Repository'
-    : 'Repository';
+  const repoName = getPathBasename(state.repoRoot || '') || 'Repository';
 
   return (
     <div className="app-shell">

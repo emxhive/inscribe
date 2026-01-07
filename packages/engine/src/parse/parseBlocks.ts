@@ -178,6 +178,13 @@ function parseBlock(lines: string[], blockIndex: number): BlockParseResult {
 }
 
 /**
+ * Check if a line contains a FILE: directive (case-insensitive)
+ */
+function isFileDirective(line: string): boolean {
+  return line.trim().toUpperCase().startsWith('FILE:');
+}
+
+/**
  * Parse content without inscribe tags (fallback mode)
  * Looks for FILE: directives followed by fenced code blocks
  */
@@ -191,8 +198,8 @@ function parseFallbackBlocks(content: string): ParseResult {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     
-    // Look for FILE: directive (case-insensitive, with or without space after colon)
-    if (trimmed.toUpperCase().startsWith('FILE:')) {
+    // Look for FILE: directive (matches case-insensitively by converting to uppercase)
+    if (isFileDirective(lines[i])) {
       const file = trimmed.substring('FILE:'.length).trim();
       
       if (!file) {
@@ -208,8 +215,7 @@ function parseFallbackBlocks(content: string): ParseResult {
           break;
         }
         // Stop if we hit another FILE: directive or an inscribe tag
-        if (nextTrimmed.toUpperCase().startsWith('FILE:') || 
-            nextTrimmed === INSCRIBE_BEGIN) {
+        if (isFileDirective(lines[j]) || nextTrimmed === INSCRIBE_BEGIN) {
           break;
         }
       }
@@ -218,7 +224,7 @@ function parseFallbackBlocks(content: string): ParseResult {
         continue; // No code block found for this FILE: directive
       }
       
-      // Find the closing fence
+      // Find the closing fence (must be exactly ``` to avoid matching opening fences)
       let fenceEndIndex = -1;
       for (let j = fenceStartIndex + 1; j < lines.length; j++) {
         if (lines[j].trim() === '```') {

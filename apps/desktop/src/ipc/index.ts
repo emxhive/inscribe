@@ -3,6 +3,13 @@
  * Provides a clean separation of concerns for different IPC handler categories
  */
 
+import { registerDialogHandlers } from './dialog';
+import { registerRepositoryHandlers } from './repository';
+import { registerScopeHandlers } from './scope';
+import { registerIgnoreHandlers } from './ignore';
+import { registerParsingHandlers } from './parsing';
+import { registerApplyHandlers } from './apply';
+
 export { registerDialogHandlers } from './dialog';
 export { registerRepositoryHandlers } from './repository';
 export { registerScopeHandlers } from './scope';
@@ -14,13 +21,6 @@ export { registerApplyHandlers } from './apply';
  * Register all IPC handlers
  */
 export function registerAllHandlers() {
-  const { registerDialogHandlers } = require('./dialog');
-  const { registerRepositoryHandlers } = require('./repository');
-  const { registerScopeHandlers } = require('./scope');
-  const { registerIgnoreHandlers } = require('./ignore');
-  const { registerParsingHandlers } = require('./parsing');
-  const { registerApplyHandlers } = require('./apply');
-
   registerDialogHandlers();
   registerRepositoryHandlers();
   registerScopeHandlers();

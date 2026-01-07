@@ -1,4 +1,6 @@
 import { ipcMain } from 'electron';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   readIgnoreRules,
   writeIgnoreFile,
@@ -24,8 +26,6 @@ export function registerIgnoreHandlers() {
 
   ipcMain.handle('read-ignore-raw', async (_event, repoRoot: string) => {
     try {
-      const fs = require('fs');
-      const path = require('path');
       const ignorePath = path.join(repoRoot, '.inscribeignore');
       
       if (!fs.existsSync(ignorePath)) {

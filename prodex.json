@@ -2,7 +2,7 @@
     "version": 3.1,
     "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
     "output": {
-        "dir": ".prodex"
+        "dir": ".prodex@inscribe"
     },
 
     "resolve": {

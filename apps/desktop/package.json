@@ -5,6 +5,7 @@
     "main": "dist/main.js",
     "scripts": {
         "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\" \"wait-on http://localhost:5173 dist/main.js && electron .\"",
+
         "dev:renderer": "vite",
         "dev:electron": "tsc --project tsconfig.electron.json --watch",
         "build": "npm run build:electron && npm run typecheck && vite build",
@@ -15,7 +16,10 @@
     },
     "dependencies": {
         "react": "^18.2.0",
-        "react-dom": "^18.2.0"
+        "react-dom": "^18.2.0",
+        "@inscribe/engine": "0.1.0",
+        "@inscribe/shared": "0.1.0"
+
     },
     "devDependencies": {
         "@types/node": "^20.10.0",

@@ -8,13 +8,13 @@
         "packages/*"
     ],
     "scripts": {
-        "install-all": "npm install",
         "build": "npm run build -w packages/shared && npm run build -w packages/engine && npm run build -w apps/desktop",
         "test:engine": "npm run test -w packages/engine",
         "dev:engine": "npm run dev -w packages/engine",
-        "dev:desktop": "npm run dev -w apps/desktop"
+        "dev:desktop": "concurrently -k \"npm -w packages/shared run dev:build\" \"npm -w packages/engine run dev:build\" \"npm -w apps/desktop run dev\""
     },
     "devDependencies": {
-        "typescript": "^5.3.3"
+        "typescript": "^5.3.3",
+        "concurrently": "^8.2.2"
     }
 }

@@ -13,3 +13,4 @@ out/
 # Prevent compiled files in src
 packages/*/src/**/*.js
 packages/*/src/**/*.d.ts
+/.prodex@inscribe

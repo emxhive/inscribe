@@ -1,15 +1,17 @@
 /**
  * Parsing-related handlers
  */
+import type { ParseResult, ParsedBlock, ValidationError } from '@inscribe/shared';
+import type { AppMode, ReviewItem } from '../types/appState';
 import { buildReviewItems } from '../utils';
 
 type ParsingStateSetters = {
   setParseErrors: (errors: string[]) => void;
-  setParsedBlocks: (blocks: any[]) => void;
-  setValidationErrors: (errors: any[]) => void;
-  setReviewItems: (items: any[]) => void;
+  setParsedBlocks: (blocks: ParsedBlock[]) => void;
+  setValidationErrors: (errors: ValidationError[]) => void;
+  setReviewItems: (items: ReviewItem[]) => void;
   setSelectedItemId: (id: string | null) => void;
-  setMode: (mode: 'intake' | 'review') => void;
+  setMode: (mode: AppMode) => void;
   setStatusMessage: (message: string) => void;
 };
 
@@ -39,7 +41,7 @@ export function createParsingHandlers(setters: ParsingStateSetters) {
 
     try {
       setStatusMessage('Parsing code blocks...');
-      const parseResult = await window.inscribeAPI.parseBlocks(aiInput);
+      const parseResult: ParseResult = await window.inscribeAPI.parseBlocks(aiInput);
       
       if (parseResult.errors && parseResult.errors.length > 0) {
         setParseErrors(parseResult.errors);

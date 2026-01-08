@@ -1,61 +1,6 @@
 import { useState, useCallback } from 'react';
-import type { ParsedBlock, ValidationError } from '@inscribe/shared';
-
-export type Mode = 'intake' | 'review';
-export type IndexState = 'idle' | 'running' | 'complete' | 'error';
-
-export interface IndexStatus {
-  state: IndexState;
-  message?: string;
-}
-
-export interface IgnoreRules {
-  entries: string[];
-  source: 'file' | 'none';
-  path: string;
-}
-
-export interface ReviewItem {
-  id: string;
-  file: string;
-  mode: string;
-  language: string;
-  lineCount: number;
-  status: 'valid' | 'warning' | 'invalid';
-  originalContent: string;
-  editedContent: string;
-  validationError?: string;
-  blockIndex: number;
-  directives: Record<string, string>;
-}
-
-export interface AppState {
-  // Repository state
-  repoRoot: string | null;
-  topLevelFolders: string[];
-  scope: string[];
-  ignore: IgnoreRules;
-  suggested: string[];
-  indexedCount: number;
-  indexStatus: IndexStatus;
-
-  // Parsing/Review state
-  mode: Mode;
-  aiInput: string;
-  parseErrors: string[];
-  parsedBlocks: ParsedBlock[];
-  validationErrors: ValidationError[];
-  reviewItems: ReviewItem[];
-  selectedItemId: string | null;
-
-  // UI state
-  isEditing: boolean;
-  statusMessage: string;
-
-  // Apply/Undo/Redo state
-  lastAppliedPlan: any | null;
-  canRedo: boolean;
-}
+import type { ApplyPlan } from '@inscribe/shared';
+import type { AppMode, AppState, ReviewItem } from './types/appState';
 
 export const initialState: AppState = {
   repoRoot: null,
@@ -116,7 +61,7 @@ export function useAppState() {
     setState((prev) => ({ ...prev, indexStatus }));
   }, []);
 
-  const setMode = useCallback((mode: Mode) => {
+  const setMode = useCallback((mode: AppMode) => {
     setState((prev) => ({ ...prev, mode }));
   }, []);
 
@@ -161,7 +106,7 @@ export function useAppState() {
     }));
   }, []);
 
-  const setLastAppliedPlan = useCallback((plan: any | null) => {
+  const setLastAppliedPlan = useCallback((plan: ApplyPlan | null) => {
     setState((prev) => ({ ...prev, lastAppliedPlan: plan, canRedo: plan !== null }));
   }, []);
 

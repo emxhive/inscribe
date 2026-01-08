@@ -1,7 +1,7 @@
 /**
  * Review-related handlers
  */
-import type { ReviewItem } from '../useAppState';
+import type { ReviewItem } from '../types/appState';
 
 type ReviewStateSetters = {
   setSelectedItemId: (id: string | null) => void;

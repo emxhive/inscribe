@@ -1,20 +1,15 @@
 /**
  * Repository-related handlers
  */
-
-declare global {
-  interface Window {
-    inscribeAPI: any;
-  }
-}
+import type { IgnoreRules, IndexStatus } from '@inscribe/shared';
 
 type StateSetters = {
   setTopLevelFolders: (folders: string[]) => void;
   setScope: (scope: string[]) => void;
-  setIgnore: (ignore: any) => void;
+  setIgnore: (ignore: IgnoreRules) => void;
   setSuggested: (suggested: string[]) => void;
   setIndexedCount: (count: number) => void;
-  setIndexStatus: (status: any) => void;
+  setIndexStatus: (status: IndexStatus) => void;
   setStatusMessage: (message: string) => void;
   setRepoRoot: (root: string | null) => void;
 };

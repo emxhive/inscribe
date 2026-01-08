@@ -1,11 +1,12 @@
 /**
  * Scope-related handlers
  */
+import type { IndexStatus } from '@inscribe/shared';
 
 type ScopeStateSetters = {
   setScope: (scope: string[]) => void;
   setIndexedCount: (count: number) => void;
-  setIndexStatus: (status: any) => void;
+  setIndexStatus: (status: IndexStatus) => void;
   setStatusMessage: (message: string) => void;
 };
 

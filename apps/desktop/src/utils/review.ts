@@ -1,5 +1,5 @@
-import type { ParsedBlock, ValidationError } from '@inscribe/shared';
-import type { ReviewItem } from '../useAppState';
+import type { ApplyPlan, ParsedBlock, ValidationError } from '@inscribe/shared';
+import type { ReviewItem } from '../types/appState';
 import { getLanguageFromFilename } from './language';
 import { countLines } from './text';
 
@@ -46,7 +46,7 @@ export function buildReviewItems(
 /**
  * Build an apply plan from review items
  */
-export function buildApplyPlanFromItems(items: ReviewItem[]): { operations: any[] } {
+export function buildApplyPlanFromItems(items: ReviewItem[]): ApplyPlan {
   return {
     operations: items.map((item) => ({
       type: item.mode,
@@ -56,4 +56,3 @@ export function buildApplyPlanFromItems(items: ReviewItem[]): { operations: any[
     })),
   };
 }
-

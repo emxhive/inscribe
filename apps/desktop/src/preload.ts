@@ -12,7 +12,7 @@ import type {
   ReadIgnoreRawResult,
   RepoInitResult,
   ScopeUpdateResult,
-} from './types/ipc';
+} from './types';
 
 const api = {
   selectRepository: (defaultPath?: string): Promise<string | null> =>

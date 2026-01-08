@@ -2,7 +2,7 @@
  * Parsing-related handlers
  */
 import type { ParseResult, ParsedBlock, ValidationError } from '@inscribe/shared';
-import type { AppMode, ReviewItem } from '../types/appState';
+import type { AppMode, ReviewItem } from '../types';
 import { buildReviewItems } from '../utils';
 
 type ParsingStateSetters = {

@@ -1,5 +1,5 @@
 import type { ApplyPlan, ParsedBlock, ValidationError } from '@inscribe/shared';
-import type { ReviewItem } from '../types/appState';
+import type { ReviewItem } from '../types';
 import { getLanguageFromFilename } from './language';
 import { countLines } from './text';
 

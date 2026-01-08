@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { ApplyPlan } from '@inscribe/shared';
-import type { AppMode, AppState, ReviewItem } from './types/appState';
+import type { AppMode, AppState, ReviewItem } from './types';
 
 export const initialState: AppState = {
   repoRoot: null,

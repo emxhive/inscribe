@@ -1,4 +1,4 @@
-import type { InscribeAPI } from './types/ipc';
+import type { InscribeAPI } from './types';
 
 declare global {
   interface Window {

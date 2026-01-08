@@ -2,8 +2,9 @@
  * Parsing-related handlers
  */
 import type { ParseResult, ParsedBlock, ValidationError } from '@inscribe/shared';
-import type { AppMode, ReviewItem } from '../types';
+
 import { buildReviewItems } from '../utils';
+import {AppMode, ReviewItem} from "@inscribe/desktop/types";
 
 type ParsingStateSetters = {
   setParseErrors: (errors: string[]) => void;

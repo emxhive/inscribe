@@ -3,7 +3,8 @@
  */
 import { buildApplyPlanFromItems } from '../utils';
 import type { ApplyPlan } from '@inscribe/shared';
-import type { ReviewItem } from '../types';
+import {ReviewItem} from "@inscribe/desktop/types";
+
 
 type ApplyStateSetters = {
   setLastAppliedPlan: (plan: ApplyPlan | null) => void;

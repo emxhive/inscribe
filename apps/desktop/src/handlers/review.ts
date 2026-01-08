@@ -1,7 +1,7 @@
 /**
  * Review-related handlers
  */
-import type { ReviewItem } from '../types';
+import type { ReviewItem } from '@inscribe/desktop/types';
 
 type ReviewStateSetters = {
   setSelectedItemId: (id: string | null) => void;

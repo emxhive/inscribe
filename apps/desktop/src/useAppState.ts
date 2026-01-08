@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { ApplyPlan } from '@inscribe/shared';
+import type {ApplyPlan, IgnoreRules, IndexStatus, ParsedBlock, ValidationError} from '@inscribe/shared';
 import type { AppMode, AppState, ReviewItem } from './types';
 
 export const initialState: AppState = {

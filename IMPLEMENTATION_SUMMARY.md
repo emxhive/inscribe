@@ -121,7 +121,7 @@ inscribe/
 │       │   ├── App.tsx           # React root component
 │       │   ├── index.tsx         # React entry
 │       │   ├── App.css           # Styles
-│       │   ├── types.d.ts        # TypeScript declarations
+│       │   ├── index.d.ts        # TypeScript declarations
 │       │   └── components/       # React UI components
 │       ├── dist/                 # Build output
 │       ├── index.html            # HTML entry

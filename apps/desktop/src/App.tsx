@@ -102,7 +102,7 @@ export default function App() {
     [setLastAppliedPlan, setStatusMessage, clearRedo, repositoryHandlers.initRepo]
   );
 
-  // Wrap handlers with current state
+  // Wrap handlers with the current state
   const handleBrowseRepo = useCallback(() => repositoryHandlers.handleBrowseRepo(state.repoRoot), [repositoryHandlers, state.repoRoot]);
   const handleSaveScope = useCallback((newScope: string[]) => scopeHandlers.handleSaveScope(state.repoRoot, newScope), [scopeHandlers, state.repoRoot]);
   const handleOpenIgnoreEditor = useCallback(() => ignoreHandlers.handleOpenIgnoreEditor(state.repoRoot, setIgnoreRawContent, setIgnoreModalOpen), [ignoreHandlers, state.repoRoot]);
@@ -116,7 +116,7 @@ export default function App() {
   const handleUndo = useCallback(() => applyHandlers.handleUndo(state.repoRoot), [applyHandlers, state.repoRoot]);
   const handleRedo = useCallback(() => applyHandlers.handleRedo(state.repoRoot, state.lastAppliedPlan), [applyHandlers, state.repoRoot, state.lastAppliedPlan]);
 
-  // Get currently selected item
+  // Get the currently selected item
   const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
   const editorValue = selectedItem?.editedContent || '';
 

@@ -1,11 +1,12 @@
 /**
  * Ignore-related handlers
  */
+import type { IndexStatus } from '@inscribe/shared';
 
 type IgnoreStateSetters = {
   setSuggested: (suggested: string[]) => void;
   setIndexedCount: (count: number) => void;
-  setIndexStatus: (status: any) => void;
+  setIndexStatus: (status: IndexStatus) => void;
   setStatusMessage: (message: string) => void;
 };
 

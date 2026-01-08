@@ -3,12 +3,13 @@ import {
   applyChanges,
   undoLastApply,
 } from '@inscribe/engine';
+import type { ApplyPlan } from '@inscribe/shared';
 
 /**
  * Register apply/undo IPC handlers
  */
 export function registerApplyHandlers() {
-  ipcMain.handle('apply-changes', async (_event, plan: any, repoRoot: string) => {
+  ipcMain.handle('apply-changes', async (_event, plan: ApplyPlan, repoRoot: string) => {
     try {
       return applyChanges(plan, repoRoot);
     } catch (error) {

@@ -4,6 +4,7 @@ import {
   validateBlocks,
   buildApplyPlan,
 } from '@inscribe/engine';
+import type { ApplyPlan, ParsedBlock, ValidationError } from '@inscribe/shared';
 
 /**
  * Register parsing and validation IPC handlers
@@ -20,7 +21,7 @@ export function registerParsingHandlers() {
     }
   });
 
-  ipcMain.handle('validate-blocks', async (_event, blocks: any[], repoRoot: string) => {
+  ipcMain.handle('validate-blocks', async (_event, blocks: ParsedBlock[], repoRoot: string) => {
     try {
       return validateBlocks(blocks, repoRoot);
     } catch (error) {
@@ -34,18 +35,19 @@ export function registerParsingHandlers() {
     }
   });
 
-  ipcMain.handle('validate-and-build-apply-plan', async (_event, blocks: any[], repoRoot: string) => {
+  ipcMain.handle('validate-and-build-apply-plan', async (_event, blocks: ParsedBlock[], repoRoot: string) => {
     try {
       // Validate first
-      const validationErrors = validateBlocks(blocks, repoRoot);
+      const validationErrors: ValidationError[] = validateBlocks(blocks, repoRoot);
       if (validationErrors.length > 0) {
-        return { operations: [], errors: validationErrors };
+        const plan: ApplyPlan = { operations: [], errors: validationErrors };
+        return plan;
       }
 
       // Build plan
       return buildApplyPlan(blocks);
     } catch (error) {
-      return {
+      const plan: ApplyPlan = {
         operations: [],
         errors: [
           {
@@ -55,6 +57,7 @@ export function registerParsingHandlers() {
           },
         ],
       };
+      return plan;
     }
   });
 }

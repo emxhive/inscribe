@@ -10,8 +10,31 @@ import {
   INSCRIBE_END,
   matchesMarker,
 } from '@inscribe/shared';
-import { parseSingleBlock } from './parseSingleBlock';
+import { parseSingleBlock, BlockParseResult } from './parseSingleBlock';
 import { parseFallbackBlocks } from './parseFallback';
+
+/**
+ * Process a block parse result and add to blocks/errors arrays
+ */
+function processBlockResult(
+  blockResult: BlockParseResult,
+  blockIndex: number,
+  blocks: ParsedBlock[],
+  errors: string[]
+): void {
+  if (blockResult.error) {
+    errors.push(`Block ${blockIndex}: ${blockResult.error}`);
+  } else if (blockResult.block) {
+    blocks.push(blockResult.block);
+    
+    // Add warnings if any
+    if (blockResult.warnings && blockResult.warnings.length > 0) {
+      blockResult.warnings.forEach(warning => {
+        errors.push(`Block ${blockIndex} warning: ${warning}`);
+      });
+    }
+  }
+}
 
 /**
  * Parse content to extract all Inscribe blocks
@@ -38,18 +61,7 @@ export function parseBlocks(content: string): ParseResult {
         
         // Try to parse the previous block
         const blockResult = parseSingleBlock(blockLines, blockIndex);
-        if (blockResult.error) {
-          errors.push(`Block ${blockIndex}: ${blockResult.error}`);
-        } else if (blockResult.block) {
-          blocks.push(blockResult.block);
-          
-          // Add warnings if any
-          if (blockResult.warnings && blockResult.warnings.length > 0) {
-            blockResult.warnings.forEach(warning => {
-              errors.push(`Block ${blockIndex} warning: ${warning}`);
-            });
-          }
-        }
+        processBlockResult(blockResult, blockIndex, blocks, errors);
         
         // Add a warning about the implicit END
         errors.push(`Block ${blockIndex}: BEGIN found without END at line ${i + 1}. Treating this BEGIN as implicit END and start of new block.`);
@@ -68,19 +80,7 @@ export function parseBlocks(content: string): ParseResult {
 
       // Parse the block
       const blockResult = parseSingleBlock(blockLines, blockIndex);
-      if (blockResult.error) {
-        errors.push(`Block ${blockIndex}: ${blockResult.error}`);
-        // Continue processing instead of returning early
-      } else if (blockResult.block) {
-        blocks.push(blockResult.block);
-        
-        // Add warnings if any
-        if (blockResult.warnings && blockResult.warnings.length > 0) {
-          blockResult.warnings.forEach(warning => {
-            errors.push(`Block ${blockIndex} warning: ${warning}`);
-          });
-        }
-      }
+      processBlockResult(blockResult, blockIndex, blocks, errors);
 
       inBlock = false;
       blockIndex++;
@@ -96,17 +96,7 @@ export function parseBlocks(content: string): ParseResult {
     
     // Try to parse it anyway as a best effort
     const blockResult = parseSingleBlock(blockLines, blockIndex);
-    if (blockResult.error) {
-      errors.push(`Block ${blockIndex}: ${blockResult.error}`);
-    } else if (blockResult.block) {
-      blocks.push(blockResult.block);
-      
-      if (blockResult.warnings && blockResult.warnings.length > 0) {
-        blockResult.warnings.forEach(warning => {
-          errors.push(`Block ${blockIndex} warning: ${warning}`);
-        });
-      }
-    }
+    processBlockResult(blockResult, blockIndex, blocks, errors);
   }
 
   if (blocks.length === 0 && errors.length === 0) {

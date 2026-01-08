@@ -98,9 +98,9 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
       }
     }
     
-    // If no match found and we had a directive-like line, warn but don't fail
-    // Only warn if the line started with @inscribe or looks like a directive (has a colon)
-    if (!matched && directiveLine && (startsWithMarker(trimmed, INSCRIBE_PREFIX) || directiveLine.includes(':'))) {
+    // If no match found and the line explicitly started with @inscribe prefix, warn
+    // We only warn for lines with @inscribe prefix to avoid false positives from regular text
+    if (!matched && directiveLine && startsWithMarker(trimmed, INSCRIBE_PREFIX)) {
       warnings.push(`Unknown directive: ${directiveLine}`);
     }
   }

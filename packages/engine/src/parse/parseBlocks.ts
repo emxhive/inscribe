@@ -15,6 +15,10 @@ import { parseFallbackBlocks } from './parseFallback';
 
 /**
  * Process a block parse result and add to blocks/errors arrays
+ * @param blockResult - The result from parsing a single block
+ * @param blockIndex - The index of the block being processed
+ * @param blocks - Array of successfully parsed blocks (mutated by this function)
+ * @param errors - Array of error messages (mutated by this function)
  */
 function processBlockResult(
   blockResult: BlockParseResult,

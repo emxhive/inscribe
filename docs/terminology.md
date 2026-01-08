@@ -10,8 +10,8 @@ A specially marked section in pasted content that contains explicit instructions
 **Structure:**
 ```
 @inscribe BEGIN
-@inscribe FILE: <path>
-@inscribe MODE: <mode>
+FILE: <path>
+MODE: <mode>
 [additional directives]
 
 ```<language>
@@ -22,36 +22,36 @@ A specially marked section in pasted content that contains explicit instructions
 ```
 
 ### Directives
-Commands within an Inscribe block that specify how to process the code content.
+Commands within an Inscribe block that specify how to process the code content. Directives can be specified with or without the `@inscribe` prefix (except for BEGIN and END which always require it).
 
 #### Required Directives
 
 - **FILE:** Specifies the relative path from repository root where the file will be created or modified
-  - Format: `@inscribe FILE: relative/path/from/repo/root.ext`
+  - Format: `FILE: relative/path/from/repo/root.ext` or `@inscribe FILE: relative/path/from/repo/root.ext`
   - Path must be under an indexed root
   - Path must not be in an ignored directory
 
 - **MODE:** Specifies the operation type
-  - Format: `@inscribe MODE: <create|replace|append|range>`
+  - Format: `MODE: <create|replace|append|range>` or `@inscribe MODE: <create|replace|append|range>`
   - Must be exactly one of the four supported modes
 
 #### Optional Directives (Mode-Specific)
 
 - **START:** (required for range mode) The beginning anchor for partial replacement
-  - Format: `@inscribe START: <exact substring>`
+  - Format: `START: <exact substring>` or `@inscribe START: <exact substring>`
   - Must match exactly once in the target file (or within scope)
   
 - **END:** (required for range mode) The ending anchor for partial replacement
-  - Format: `@inscribe END: <exact substring>`
+  - Format: `END: <exact substring>` or `@inscribe END: <exact substring>`
   - Must match exactly once in the target file (or within scope)
   - Must appear after START anchor in the file
 
 - **SCOPE_START:** (optional for range mode) Narrows the search area for anchors
-  - Format: `@inscribe SCOPE_START: <exact substring>`
+  - Format: `SCOPE_START: <exact substring>` or `@inscribe SCOPE_START: <exact substring>`
   - Must match exactly once in the target file
   
 - **SCOPE_END:** (optional for range mode) Defines the end of the search area
-  - Format: `@inscribe SCOPE_END: <exact substring>`
+  - Format: `SCOPE_END: <exact substring>` or `@inscribe SCOPE_END: <exact substring>`
   - Must match exactly once in the target file
   - Must appear after SCOPE_START in the file
 

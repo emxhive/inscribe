@@ -20,8 +20,8 @@ An Inscribe Block is explicitly marked:
 
 ```
 @inscribe BEGIN
-@inscribe FILE: relative/path/from/repo/root.ext
-@inscribe MODE: create | replace | append | range
+FILE: relative/path/from/repo/root.ext
+MODE: create | replace | append | range
 [additional directives depending on mode]
 
 ```language
@@ -36,8 +36,8 @@ An Inscribe Block is explicitly marked:
 **Create a new file:**
 ```
 @inscribe BEGIN
-@inscribe FILE: app/services/UserService.js
-@inscribe MODE: create
+FILE: app/services/UserService.js
+MODE: create
 
 ```javascript
 export class UserService {
@@ -53,10 +53,10 @@ export class UserService {
 **Range mode with anchors:**
 ```
 @inscribe BEGIN
-@inscribe FILE: app/controllers/UserController.js
-@inscribe MODE: range
-@inscribe START: // BEGIN: validation
-@inscribe END: // END: validation
+FILE: app/controllers/UserController.js
+MODE: range
+START: // BEGIN: validation
+END: // END: validation
 
 ```javascript
   if (!user.email || !user.password) {

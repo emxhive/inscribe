@@ -32,10 +32,10 @@ export function startsWithMarker(line: string, marker: string): boolean {
  * Returns the value with original casing and trimmed whitespace
  */
 export function extractMarkerValue(line: string, marker: string): string {
-  const normalized = normalizeMarker(line);
+  const normalizedLine = normalizeMarker(line);
   const normalizedMarker = normalizeMarker(marker);
   
-  if (!normalized.startsWith(normalizedMarker)) {
+  if (!normalizedLine.startsWith(normalizedMarker)) {
     return '';
   }
   
@@ -43,12 +43,11 @@ export function extractMarkerValue(line: string, marker: string): string {
   // by walking through both strings simultaneously
   let originalPos = 0;
   let normalizedPos = 0;
-  const lineNormalized = normalizeMarker(line);
   
   // Skip to the end of the marker in the original string
   while (normalizedPos < normalizedMarker.length && originalPos < line.length) {
     const origChar = line[originalPos].toUpperCase();
-    const normChar = lineNormalized[normalizedPos];
+    const normChar = normalizedLine[normalizedPos];
     
     if (origChar === normChar || (origChar === ' ' && normChar === ' ')) {
       normalizedPos++;

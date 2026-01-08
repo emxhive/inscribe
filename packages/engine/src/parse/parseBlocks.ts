@@ -31,8 +31,10 @@ export function parseBlocks(content: string): ParseResult {
 
     if (matchesMarker(line, INSCRIBE_BEGIN)) {
       if (inBlock) {
-        // BEGIN inside BEGIN: treat the second BEGIN as implicit END + new BEGIN
-        // This is the fallback behavior for unclosed blocks
+        // BEGIN inside BEGIN: This handles nested BEGIN markers
+        // When a BEGIN is found while already in a block, treat the second BEGIN
+        // as an implicit END for the current block, then start a new block.
+        // This is the fallback behavior to handle user error gracefully.
         
         // Try to parse the previous block
         const blockResult = parseSingleBlock(blockLines, blockIndex);

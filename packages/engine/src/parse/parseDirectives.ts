@@ -28,14 +28,15 @@ export interface DirectiveParseResult {
 }
 
 // Map of directive names to their keys in the directives object
-const KNOWN_DIRECTIVES: Record<string, string | null> = {
-  [DIRECTIVE_FILE]: null, // Special handling - sets file directly
-  [DIRECTIVE_MODE]: null, // Special handling - sets mode directly
-  [DIRECTIVE_START]: 'START',
-  [DIRECTIVE_END]: 'END',
-  [DIRECTIVE_SCOPE_START]: 'SCOPE_START',
-  [DIRECTIVE_SCOPE_END]: 'SCOPE_END',
-};
+// Using an array for better iteration performance
+const KNOWN_DIRECTIVES_ARRAY: Array<{ name: string; key: string | null }> = [
+  { name: DIRECTIVE_FILE, key: null }, // Special handling - sets file directly
+  { name: DIRECTIVE_MODE, key: null }, // Special handling - sets mode directly
+  { name: DIRECTIVE_START, key: 'START' },
+  { name: DIRECTIVE_END, key: 'END' },
+  { name: DIRECTIVE_SCOPE_START, key: 'SCOPE_START' },
+  { name: DIRECTIVE_SCOPE_END, key: 'SCOPE_END' },
+];
 
 /**
  * Parse directives from block lines
@@ -67,7 +68,7 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
       // Try to match against known directives
       let matched = false;
       
-      for (const [directiveName, directiveKey] of Object.entries(KNOWN_DIRECTIVES)) {
+      for (const { name: directiveName, key: directiveKey } of KNOWN_DIRECTIVES_ARRAY) {
         if (startsWithMarker(directiveLine, directiveName)) {
           matched = true;
           const value = extractMarkerValue(directiveLine, directiveName);

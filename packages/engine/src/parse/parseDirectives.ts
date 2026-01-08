@@ -60,41 +60,48 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
       break;
     }
     
+    // Determine the directive line to process
+    let directiveLine: string;
+    
     // Check if line starts with @inscribe prefix (case-insensitive)
     if (startsWithMarker(trimmed, INSCRIBE_PREFIX)) {
       // Extract the directive part after "@inscribe "
-      const directiveLine = extractMarkerValue(trimmed, INSCRIBE_PREFIX);
-      
-      // Try to match against known directives
-      let matched = false;
-      
-      for (const { name: directiveName, key: directiveKey } of KNOWN_DIRECTIVES_ARRAY) {
-        if (startsWithMarker(directiveLine, directiveName)) {
-          matched = true;
-          const value = extractMarkerValue(directiveLine, directiveName);
-          
-          // Handle special directives
-          if (directiveName === DIRECTIVE_FILE) {
-            file = value;
-          } else if (directiveName === DIRECTIVE_MODE) {
-            if (isValidMode(value)) {
-              mode = value;
-            } else {
-              warnings.push(`Invalid MODE: ${value}. Using default: ${DEFAULT_MODE}`);
-              mode = DEFAULT_MODE;
-            }
-          } else if (directiveKey) {
-            // Regular directive - store in directives object
-            directives[directiveKey] = value;
+      directiveLine = extractMarkerValue(trimmed, INSCRIBE_PREFIX);
+    } else {
+      // Use the trimmed line as-is (for directives without @inscribe prefix)
+      directiveLine = trimmed;
+    }
+    
+    // Try to match against known directives
+    let matched = false;
+    
+    for (const { name: directiveName, key: directiveKey } of KNOWN_DIRECTIVES_ARRAY) {
+      if (startsWithMarker(directiveLine, directiveName)) {
+        matched = true;
+        const value = extractMarkerValue(directiveLine, directiveName);
+        
+        // Handle special directives
+        if (directiveName === DIRECTIVE_FILE) {
+          file = value;
+        } else if (directiveName === DIRECTIVE_MODE) {
+          if (isValidMode(value)) {
+            mode = value;
+          } else {
+            warnings.push(`Invalid MODE: ${value}. Using default: ${DEFAULT_MODE}`);
+            mode = DEFAULT_MODE;
           }
-          break;
+        } else if (directiveKey) {
+          // Regular directive - store in directives object
+          directives[directiveKey] = value;
         }
+        break;
       }
-      
-      // If no match found, warn but don't fail
-      if (!matched && directiveLine) {
-        warnings.push(`Unknown directive: ${directiveLine}`);
-      }
+    }
+    
+    // If no match found and we had a directive-like line, warn but don't fail
+    // Only warn if the line started with @inscribe or looks like a directive (has a colon)
+    if (!matched && directiveLine && (startsWithMarker(trimmed, INSCRIBE_PREFIX) || directiveLine.includes(':'))) {
+      warnings.push(`Unknown directive: ${directiveLine}`);
     }
   }
 

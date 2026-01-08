@@ -5,8 +5,8 @@ describe('Parser', () => {
   it('should parse a valid create block', () => {
     const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test.js
-@inscribe MODE: create
+FILE: app/test.js
+MODE: create
 
 \`\`\`javascript
 console.log('hello');
@@ -27,10 +27,10 @@ console.log('hello');
   it('should parse a valid range block', () => {
     const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test.js
-@inscribe MODE: range
-@inscribe START: // start marker
-@inscribe END: // end marker
+FILE: app/test.js
+MODE: range
+START: // start marker
+END: // end marker
 
 \`\`\`javascript
 // new code
@@ -51,7 +51,7 @@ console.log('hello');
   it('should fail on missing FILE directive', () => {
     const content = `
 @inscribe BEGIN
-@inscribe MODE: create
+MODE: create
 
 \`\`\`
 content
@@ -69,7 +69,7 @@ content
   it('should default MODE to replace when missing', () => {
     const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test.js
+FILE: app/test.js
 
 \`\`\`
 content
@@ -87,8 +87,8 @@ content
   it('should fail on invalid MODE', () => {
     const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test.js
-@inscribe MODE: invalid
+FILE: app/test.js
+MODE: invalid
 
 \`\`\`
 content
@@ -106,8 +106,8 @@ content
   it('should fail on unclosed fenced code block', () => {
     const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test.js
-@inscribe MODE: create
+FILE: app/test.js
+MODE: create
 
 \`\`\`
 content
@@ -124,8 +124,8 @@ content
   it('should parse multiple blocks', () => {
     const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test1.js
-@inscribe MODE: create
+FILE: app/test1.js
+MODE: create
 
 \`\`\`
 content1
@@ -134,8 +134,8 @@ content1
 @inscribe END
 
 @inscribe BEGIN
-@inscribe FILE: app/test2.js
-@inscribe MODE: create
+FILE: app/test2.js
+MODE: create
 
 \`\`\`
 content2
@@ -157,8 +157,8 @@ content2
 Some random text here
 
 @inscribe BEGIN
-@inscribe FILE: app/test.js
-@inscribe MODE: create
+FILE: app/test.js
+MODE: create
 
 \`\`\`
 content
@@ -275,7 +275,7 @@ wrong content
 \`\`\`
 
 @inscribe BEGIN
-@inscribe FILE: app/correct.js
+FILE: app/correct.js
 
 \`\`\`
 correct content
@@ -311,7 +311,7 @@ console.log('orphan');
     it('should parse BEGIN/END with different cases', () => {
       const content = `
 @InScRiBe BeGiN
-@inscribe FILE: app/test.js
+FILE: app/test.js
 
 \`\`\`
 content
@@ -365,13 +365,34 @@ content
       expect(result.blocks[0].file).toBe('app/test.js');
       expect(result.blocks[0].mode).toBe('replace');
     });
+
+    it('should support mixed old and new directive formats', () => {
+      const content = `
+@inscribe BEGIN
+@inscribe FILE: app/test.js
+MODE: create
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.errors).toEqual([]);
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.blocks[0].mode).toBe('create');
+    });
   });
 
   describe('Graceful error handling', () => {
     it('should collect multiple errors and continue processing', () => {
       const content = `
 @inscribe BEGIN
-@inscribe MODE: create
+MODE: create
 
 \`\`\`
 content1
@@ -380,7 +401,7 @@ content1
 @inscribe END
 
 @inscribe BEGIN
-@inscribe FILE: app/test2.js
+FILE: app/test2.js
 
 \`\`\`
 content2
@@ -401,7 +422,7 @@ content2
     it('should warn on unknown directives but continue parsing', () => {
       const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test.js
+FILE: app/test.js
 @inscribe UNKNOWN_DIRECTIVE: some value
 
 \`\`\`
@@ -421,8 +442,8 @@ content
     it('should handle invalid MODE gracefully with warning', () => {
       const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test.js
-@inscribe MODE: invalid_mode
+FILE: app/test.js
+MODE: invalid_mode
 
 \`\`\`
 content
@@ -444,7 +465,7 @@ content
 @inscribe END
 
 @inscribe BEGIN
-@inscribe FILE: app/test.js
+FILE: app/test.js
 
 \`\`\`
 content
@@ -465,14 +486,14 @@ content
     it('should treat second BEGIN as implicit END and start of new block', () => {
       const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test1.js
+FILE: app/test1.js
 
 \`\`\`
 content1
 \`\`\`
 
 @inscribe BEGIN
-@inscribe FILE: app/test2.js
+FILE: app/test2.js
 
 \`\`\`
 content2
@@ -497,21 +518,21 @@ content2
     it('should handle multiple nested BEGINs', () => {
       const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test1.js
+FILE: app/test1.js
 
 \`\`\`
 content1
 \`\`\`
 
 @inscribe BEGIN
-@inscribe FILE: app/test2.js
+FILE: app/test2.js
 
 \`\`\`
 content2
 \`\`\`
 
 @inscribe BEGIN
-@inscribe FILE: app/test3.js
+FILE: app/test3.js
 
 \`\`\`
 content3
@@ -533,7 +554,7 @@ content3
     it('should handle unclosed block at end of content and try to parse it', () => {
       const content = `
 @inscribe BEGIN
-@inscribe FILE: app/test.js
+FILE: app/test.js
 
 \`\`\`
 content
@@ -554,7 +575,7 @@ content
     it('should report error if unclosed block has parsing errors', () => {
       const content = `
 @inscribe BEGIN
-@inscribe MODE: create
+MODE: create
 
 \`\`\`
 content

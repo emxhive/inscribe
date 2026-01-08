@@ -9,6 +9,7 @@ import { extractFencedBlock } from './parseFencedBlock';
 export interface BlockParseResult {
   block?: ParsedBlock;
   error?: string;
+  warnings?: string[];
 }
 
 /**
@@ -25,7 +26,7 @@ export function parseSingleBlock(lines: string[], blockIndex: number): BlockPars
     return { error: directiveResult.error };
   }
 
-  const { file, mode, directives, contentStartIndex } = directiveResult;
+  const { file, mode, directives, contentStartIndex, warnings } = directiveResult;
 
   // Extract fenced code block content
   const fencedResult = extractFencedBlock(lines, contentStartIndex);
@@ -41,10 +42,11 @@ export function parseSingleBlock(lines: string[], blockIndex: number): BlockPars
   return {
     block: {
       file,
-      mode: mode as Mode,
+      mode,
       directives,
       content: fencedResult.content,
       blockIndex,
     },
+    warnings,
   };
 }

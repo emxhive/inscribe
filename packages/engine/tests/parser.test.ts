@@ -306,4 +306,267 @@ console.log('orphan');
       expect(result.errors.length).toBeGreaterThan(0);
     });
   });
+
+  describe('Case-insensitive and whitespace-tolerant parsing', () => {
+    it('should parse BEGIN/END with different cases', () => {
+      const content = `
+@InScRiBe BeGiN
+@inscribe FILE: app/test.js
+
+\`\`\`
+content
+\`\`\`
+
+@INSCRIBE END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test.js');
+    });
+
+    it('should parse directives with extra whitespace', () => {
+      const content = `
+@inscribe   BEGIN
+@inscribe   FILE:   app/test.js
+@inscribe   MODE:   create
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe  END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.blocks[0].mode).toBe('create');
+    });
+
+    it('should parse mixed case directive names', () => {
+      const content = `
+@inscribe BEGIN
+@InScRiBe FiLe: app/test.js
+@INSCRIBE mode: replace
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.blocks[0].mode).toBe('replace');
+    });
+  });
+
+  describe('Graceful error handling', () => {
+    it('should collect multiple errors and continue processing', () => {
+      const content = `
+@inscribe BEGIN
+@inscribe MODE: create
+
+\`\`\`
+content1
+\`\`\`
+
+@inscribe END
+
+@inscribe BEGIN
+@inscribe FILE: app/test2.js
+
+\`\`\`
+content2
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      // First block should fail (no FILE), second should succeed
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test2.js');
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors.some(e => e.includes('Missing FILE directive'))).toBe(true);
+    });
+
+    it('should warn on unknown directives but continue parsing', () => {
+      const content = `
+@inscribe BEGIN
+@inscribe FILE: app/test.js
+@inscribe UNKNOWN_DIRECTIVE: some value
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.errors.some(e => e.includes('Unknown directive'))).toBe(true);
+    });
+
+    it('should handle invalid MODE gracefully with warning', () => {
+      const content = `
+@inscribe BEGIN
+@inscribe FILE: app/test.js
+@inscribe MODE: invalid_mode
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.blocks[0].mode).toBe('replace'); // Default mode
+      expect(result.errors.some(e => e.includes('Invalid MODE'))).toBe(true);
+    });
+
+    it('should handle END without BEGIN and continue', () => {
+      const content = `
+@inscribe END
+
+@inscribe BEGIN
+@inscribe FILE: app/test.js
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.errors.some(e => e.includes('END without matching BEGIN'))).toBe(true);
+    });
+  });
+
+  describe('BEGIN inside BEGIN fallback', () => {
+    it('should treat second BEGIN as implicit END and start of new block', () => {
+      const content = `
+@inscribe BEGIN
+@inscribe FILE: app/test1.js
+
+\`\`\`
+content1
+\`\`\`
+
+@inscribe BEGIN
+@inscribe FILE: app/test2.js
+
+\`\`\`
+content2
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      // Both blocks should be parsed
+      expect(result.blocks).toHaveLength(2);
+      expect(result.blocks[0].file).toBe('app/test1.js');
+      expect(result.blocks[0].content).toBe('content1');
+      expect(result.blocks[1].file).toBe('app/test2.js');
+      expect(result.blocks[1].content).toBe('content2');
+      
+      // Should have a warning about implicit END
+      expect(result.errors.some(e => e.includes('BEGIN found without END') && e.includes('implicit END'))).toBe(true);
+    });
+
+    it('should handle multiple nested BEGINs', () => {
+      const content = `
+@inscribe BEGIN
+@inscribe FILE: app/test1.js
+
+\`\`\`
+content1
+\`\`\`
+
+@inscribe BEGIN
+@inscribe FILE: app/test2.js
+
+\`\`\`
+content2
+\`\`\`
+
+@inscribe BEGIN
+@inscribe FILE: app/test3.js
+
+\`\`\`
+content3
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].file).toBe('app/test1.js');
+      expect(result.blocks[1].file).toBe('app/test2.js');
+      expect(result.blocks[2].file).toBe('app/test3.js');
+    });
+  });
+
+  describe('Unclosed blocks at end', () => {
+    it('should handle unclosed block at end of content and try to parse it', () => {
+      const content = `
+@inscribe BEGIN
+@inscribe FILE: app/test.js
+
+\`\`\`
+content
+\`\`\`
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      // Block should be parsed despite missing END
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.blocks[0].content).toBe('content');
+      
+      // Should have error about missing END
+      expect(result.errors.some(e => e.includes('BEGIN without matching END'))).toBe(true);
+    });
+
+    it('should report error if unclosed block has parsing errors', () => {
+      const content = `
+@inscribe BEGIN
+@inscribe MODE: create
+
+\`\`\`
+content
+\`\`\`
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.blocks).toHaveLength(0);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors.some(e => e.includes('BEGIN without matching END'))).toBe(true);
+      expect(result.errors.some(e => e.includes('Missing FILE directive'))).toBe(true);
+    });
+  });
 });

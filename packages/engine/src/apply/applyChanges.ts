@@ -3,7 +3,7 @@
  * Applies changes with backups and supports undo
  */
 
-import { ApplyPlan, ApplyResult, Operation } from '@inscribe/shared';
+import { ApplyPlan, ApplyResult, Operation, ValidationError } from '@inscribe/shared';
 import { applyOperation } from './applyOperation';
 import { createBackup } from './backups';
 
@@ -48,7 +48,7 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
     if (plan.errors && plan.errors.length > 0) {
       return {
         success: false,
-        errors: plan.errors.map((error: any) => error.message),
+        errors: plan.errors.map((error: ValidationError) => error.message),
       };
     }
 

@@ -4,6 +4,13 @@
 
 export type Mode = 'create' | 'replace' | 'append' | 'range';
 
+/**
+ * Check if a string is a valid mode
+ */
+export function isValidMode(mode: string): mode is Mode {
+  return (mode === 'create' || mode === 'replace' || mode === 'append' || mode === 'range');
+}
+
 export interface ParsedBlock {
   file: string;
   mode: Mode;

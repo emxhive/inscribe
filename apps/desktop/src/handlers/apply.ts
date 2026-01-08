@@ -2,10 +2,11 @@
  * Apply/Undo/Redo handlers
  */
 import { buildApplyPlanFromItems } from '../utils';
-import type { ReviewItem } from '../useAppState';
+import type { ApplyPlan } from '@inscribe/shared';
+import type { ReviewItem } from '../types/appState';
 
 type ApplyStateSetters = {
-  setLastAppliedPlan: (plan: any) => void;
+  setLastAppliedPlan: (plan: ApplyPlan | null) => void;
   setStatusMessage: (message: string) => void;
   clearRedo: () => void;
 };
@@ -102,7 +103,7 @@ export function createApplyHandlers(
     }
   };
 
-  const handleRedo = async (repoRoot: string | null, lastAppliedPlan: any) => {
+  const handleRedo = async (repoRoot: string | null, lastAppliedPlan: ApplyPlan | null) => {
     if (!repoRoot || !lastAppliedPlan) return;
     
     try {

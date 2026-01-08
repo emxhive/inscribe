@@ -8,12 +8,14 @@ import {
   ParseResult,
   INSCRIBE_BEGIN,
   INSCRIBE_END,
+  matchesMarker,
 } from '@inscribe/shared';
 import { parseSingleBlock } from './parseSingleBlock';
 import { parseFallbackBlocks } from './parseFallback';
 
 /**
  * Parse content to extract all Inscribe blocks
+ * Collects all errors and warnings, continuing to process remaining blocks
  */
 export function parseBlocks(content: string): ParseResult {
   const errors: string[] = [];
@@ -22,35 +24,62 @@ export function parseBlocks(content: string): ParseResult {
   const lines = content.split('\n');
   let blockIndex = 0;
   let inBlock = false;
-  let blockStart = -1;
   let blockLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    const line = lines[i];
 
-    if (line === INSCRIBE_BEGIN) {
+    if (matchesMarker(line, INSCRIBE_BEGIN)) {
       if (inBlock) {
-        errors.push(`Block ${blockIndex}: Found BEGIN while already in a block at line ${i + 1}`);
-        return { blocks: [], errors };
+        // BEGIN inside BEGIN: This handles nested BEGIN markers
+        // When a BEGIN is found while already in a block, treat the second BEGIN
+        // as an implicit END for the current block, then start a new block.
+        // This is the fallback behavior to handle user error gracefully.
+        
+        // Try to parse the previous block
+        const blockResult = parseSingleBlock(blockLines, blockIndex);
+        if (blockResult.error) {
+          errors.push(`Block ${blockIndex}: ${blockResult.error}`);
+        } else if (blockResult.block) {
+          blocks.push(blockResult.block);
+          
+          // Add warnings if any
+          if (blockResult.warnings && blockResult.warnings.length > 0) {
+            blockResult.warnings.forEach(warning => {
+              errors.push(`Block ${blockIndex} warning: ${warning}`);
+            });
+          }
+        }
+        
+        // Add a warning about the implicit END
+        errors.push(`Block ${blockIndex}: BEGIN found without END at line ${i + 1}. Treating this BEGIN as implicit END and start of new block.`);
+        
+        blockIndex++;
       }
+      
       inBlock = true;
-      blockStart = i;
       blockLines = [];
-    } else if (line === INSCRIBE_END) {
+    } else if (matchesMarker(line, INSCRIBE_END)) {
       if (!inBlock) {
+        // END without BEGIN - collect error but continue processing
         errors.push(`Found END without matching BEGIN at line ${i + 1}`);
-        return { blocks: [], errors };
+        continue;
       }
 
       // Parse the block
       const blockResult = parseSingleBlock(blockLines, blockIndex);
       if (blockResult.error) {
         errors.push(`Block ${blockIndex}: ${blockResult.error}`);
-        return { blocks: [], errors };
-      }
-
-      if (blockResult.block) {
+        // Continue processing instead of returning early
+      } else if (blockResult.block) {
         blocks.push(blockResult.block);
+        
+        // Add warnings if any
+        if (blockResult.warnings && blockResult.warnings.length > 0) {
+          blockResult.warnings.forEach(warning => {
+            errors.push(`Block ${blockIndex} warning: ${warning}`);
+          });
+        }
       }
 
       inBlock = false;
@@ -62,15 +91,30 @@ export function parseBlocks(content: string): ParseResult {
   }
 
   if (inBlock) {
+    // Handle unclosed block at end of content
     errors.push(`Block ${blockIndex}: BEGIN without matching END`);
-    return { blocks: [], errors };
+    
+    // Try to parse it anyway as a best effort
+    const blockResult = parseSingleBlock(blockLines, blockIndex);
+    if (blockResult.error) {
+      errors.push(`Block ${blockIndex}: ${blockResult.error}`);
+    } else if (blockResult.block) {
+      blocks.push(blockResult.block);
+      
+      if (blockResult.warnings && blockResult.warnings.length > 0) {
+        blockResult.warnings.forEach(warning => {
+          errors.push(`Block ${blockIndex} warning: ${warning}`);
+        });
+      }
+    }
   }
 
-  if (blocks.length === 0) {
-    // Fallback: try to parse without inscribe tags
+  if (blocks.length === 0 && errors.length === 0) {
+    // No blocks found with inscribe tags - try fallback mode
     return parseFallbackBlocks(content);
   }
 
-  return { blocks, errors: [] };
+  // Return both successfully parsed blocks and accumulated errors
+  return { blocks, errors };
 }
 

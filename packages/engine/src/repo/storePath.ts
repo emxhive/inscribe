@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { SCOPE_STORE_FILE } from '@inscribe/shared';
+import { SCOPE_STORE_FILE, INSCRIBE_DIR } from '@inscribe/shared';
 
 export function getUserDataPath(): string {
   if (process.env.INSCRIBE_USER_DATA) {
@@ -21,7 +21,7 @@ export function getUserDataPath(): string {
 }
 
 export function getStorePath(): string {
-  const baseDir = path.join(getUserDataPath(), '.inscribe');
+  const baseDir = path.join(getUserDataPath(), INSCRIBE_DIR);
   fs.mkdirSync(baseDir, { recursive: true });
   return path.join(baseDir, SCOPE_STORE_FILE);
 }

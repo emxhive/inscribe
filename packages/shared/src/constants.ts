@@ -11,6 +11,12 @@ export const INDEXED_ROOTS = [
   'tests/',
 ] as const;
 
+// Inscribe directory and metadata - define first as they're used by other constants
+export const INSCRIBE_DIR = '.inscribe';
+export const INSCRIBE_IGNORE_FILE = '.inscribeignore';
+export const SCOPE_STORE_FILE = 'scope.json';
+export const BACKUP_DIR = `${INSCRIBE_DIR}/backups`;
+
 export const IGNORED_PATHS = [
   '.git/',
   'node_modules/',
@@ -18,14 +24,8 @@ export const IGNORED_PATHS = [
   'storage/',
   'bootstrap/cache/',
   'public/build/',
-  '.inscribe/',
+  `${INSCRIBE_DIR}/`,
 ] as const;
-
-export const BACKUP_DIR = '.inscribe/backups';
-
-// Inscribe repository metadata
-export const INSCRIBE_IGNORE_FILE = '.inscribeignore';
-export const SCOPE_STORE_FILE = 'scope.json';
 
 // Suggested exclude heuristics
 export const HEAVY_DIR_NAMES = [
@@ -42,25 +42,35 @@ export const HEAVY_DIR_NAMES = [
 ] as const;
 export const HEAVY_FILE_COUNT_THRESHOLD = 200;
 
-export const INSCRIBE_BEGIN = '@inscribe BEGIN';
-export const INSCRIBE_END = '@inscribe END';
-export const INSCRIBE_FILE = '@inscribe FILE:';
-export const INSCRIBE_MODE = '@inscribe MODE:';
-export const INSCRIBE_START = '@inscribe START:';
-export const INSCRIBE_END_ANCHOR = '@inscribe END:';
-export const INSCRIBE_SCOPE_START = '@inscribe SCOPE_START:';
-export const INSCRIBE_SCOPE_END = '@inscribe SCOPE_END:';
-
-// Inscribe directive prefixes (used for parsing)
+// Base prefix - single source of truth for the inscribe marker
 export const INSCRIBE_PREFIX = '@inscribe';
 
-// Directive names (without the @inscribe prefix)
-export const DIRECTIVE_FILE = 'FILE:';
-export const DIRECTIVE_MODE = 'MODE:';
-export const DIRECTIVE_START = 'START:';
-export const DIRECTIVE_END = 'END:';
-export const DIRECTIVE_SCOPE_START = 'SCOPE_START:';
-export const DIRECTIVE_SCOPE_END = 'SCOPE_END:';
+// Directive keywords (without prefix or colon)
+export const KEYWORD_BEGIN = 'BEGIN';
+export const KEYWORD_END = 'END';
+export const KEYWORD_FILE = 'FILE';
+export const KEYWORD_MODE = 'MODE';
+export const KEYWORD_START = 'START';
+export const KEYWORD_SCOPE_START = 'SCOPE_START';
+export const KEYWORD_SCOPE_END = 'SCOPE_END';
+
+// Composed directive names (with colon suffix for value directives)
+export const DIRECTIVE_FILE = `${KEYWORD_FILE}:`;
+export const DIRECTIVE_MODE = `${KEYWORD_MODE}:`;
+export const DIRECTIVE_START = `${KEYWORD_START}:`;
+export const DIRECTIVE_END = `${KEYWORD_END}:`;
+export const DIRECTIVE_SCOPE_START = `${KEYWORD_SCOPE_START}:`;
+export const DIRECTIVE_SCOPE_END = `${KEYWORD_SCOPE_END}:`;
+
+// Full marker strings (composed from prefix + keyword/directive)
+export const INSCRIBE_BEGIN = `${INSCRIBE_PREFIX} ${KEYWORD_BEGIN}`;
+export const INSCRIBE_END = `${INSCRIBE_PREFIX} ${KEYWORD_END}`;
+export const INSCRIBE_FILE = `${INSCRIBE_PREFIX} ${DIRECTIVE_FILE}`;
+export const INSCRIBE_MODE = `${INSCRIBE_PREFIX} ${DIRECTIVE_MODE}`;
+export const INSCRIBE_START = `${INSCRIBE_PREFIX} ${DIRECTIVE_START}`;
+export const INSCRIBE_END_ANCHOR = `${INSCRIBE_PREFIX} ${DIRECTIVE_END}`;
+export const INSCRIBE_SCOPE_START = `${INSCRIBE_PREFIX} ${DIRECTIVE_SCOPE_START}`;
+export const INSCRIBE_SCOPE_END = `${INSCRIBE_PREFIX} ${DIRECTIVE_SCOPE_END}`;
 
 // Valid modes
 export const VALID_MODES = ['create', 'replace', 'append', 'range'] as const;

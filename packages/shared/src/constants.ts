@@ -50,3 +50,18 @@ export const INSCRIBE_START = '@inscribe START:';
 export const INSCRIBE_END_ANCHOR = '@inscribe END:';
 export const INSCRIBE_SCOPE_START = '@inscribe SCOPE_START:';
 export const INSCRIBE_SCOPE_END = '@inscribe SCOPE_END:';
+
+// Inscribe directive prefixes (used for parsing)
+export const INSCRIBE_PREFIX = '@inscribe';
+
+// Directive names (without the @inscribe prefix)
+export const DIRECTIVE_FILE = 'FILE:';
+export const DIRECTIVE_MODE = 'MODE:';
+export const DIRECTIVE_START = 'START:';
+export const DIRECTIVE_END = 'END:';
+export const DIRECTIVE_SCOPE_START = 'SCOPE_START:';
+export const DIRECTIVE_SCOPE_END = 'SCOPE_END:';
+
+// Valid modes
+export const VALID_MODES = ['create', 'replace', 'append', 'range'] as const;
+export const DEFAULT_MODE = 'replace';

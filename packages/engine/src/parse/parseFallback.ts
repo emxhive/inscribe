@@ -3,7 +3,7 @@
  * Looks for FILE: directives followed by fenced code blocks
  */
 
-import { ParsedBlock, ParseResult, INSCRIBE_BEGIN } from '@inscribe/shared';
+import { ParsedBlock, ParseResult, matchesMarker, INSCRIBE_BEGIN } from '@inscribe/shared';
 import { isFileDirective } from './parseUtils';
 
 /**
@@ -37,7 +37,7 @@ export function parseFallbackBlocks(content: string): ParseResult {
           break;
         }
         // Stop if we hit another FILE: directive or an inscribe tag
-        if (isFileDirective(lines[j]) || nextTrimmed === INSCRIBE_BEGIN) {
+        if (isFileDirective(lines[j]) || matchesMarker(lines[j], INSCRIBE_BEGIN)) {
           break;
         }
       }

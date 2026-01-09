@@ -29,7 +29,7 @@ export interface ReviewItem {
   mode: OperationMode;
   language: string;
   lineCount: number;
-  status: 'valid' | 'warning' | 'invalid';
+  status: 'pending' | 'applied' | 'invalid';
   originalContent: string;
   editedContent: string;
   validationError?: string;

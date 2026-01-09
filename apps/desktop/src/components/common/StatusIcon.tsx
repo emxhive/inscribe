@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type StatusType = 'valid' | 'invalid' | 'warning';
+export type StatusType = 'pending' | 'applied' | 'invalid';
 
 interface StatusIconProps {
   status: StatusType;
@@ -8,16 +8,16 @@ interface StatusIconProps {
 }
 
 export function StatusIcon({ status, error }: StatusIconProps) {
-  const iconClass = status === 'invalid' ? 'error' : status === 'warning' ? 'warn' : 'success';
-  const icon = status === 'invalid' ? '❌' : status === 'warning' ? '⚠' : '✅';
-  const ariaLabel = error || status;
+  const iconClass = status === 'invalid' ? 'error' : status === 'applied' ? 'success' : 'pending';
+  const icon = status === 'invalid' ? '❌' : status === 'applied' ? '✅' : '•';
+  const ariaLabel = error ?? (status === 'pending' ? 'Pending' : status);
 
   return (
     <span
       className={`status-icon ${iconClass}`}
       role="img"
       aria-label={ariaLabel}
-      title={error || status}
+      title={ariaLabel}
     >
       {icon}
     </span>

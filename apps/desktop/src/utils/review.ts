@@ -34,7 +34,7 @@ export function buildReviewItems(
       mode: block.mode,
       language: getLanguageFromFilename(block.file),
       lineCount: countLines(block.content),
-      status: hasErrors ? 'invalid' : 'valid',
+      status: hasErrors ? 'invalid' : 'pending',
       originalContent: block.content,
       editedContent: block.content,
       validationError,

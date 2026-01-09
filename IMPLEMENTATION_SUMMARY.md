@@ -85,7 +85,10 @@ Successfully implemented a complete desktop-only scaffold for Inscribe with dete
 - Three-phase validation: parse → validate → plan
 - Strict anchor matching (exactly once, correct order)
 - File existence checks per mode requirements
-- Indexed roots and ignored paths enforcement
+- Mode-specific path validation:
+  - CREATE mode: Allows creation anywhere under repo root (except ignored paths)
+  - Other modes (REPLACE, APPEND, RANGE): Must be within configured scope roots
+- Ignored paths enforcement for all modes
 
 ### Backup System
 - Timestamped snapshots in `.inscribe/backups/<timestamp>/`

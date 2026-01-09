@@ -147,42 +147,62 @@ export function createApplyHandlers(
   };
 
   const handleUndo = async (repoRoot: string | null) => {
-    if (!repoRoot) return;
+    if (!repoRoot) {
+      setPipelineStatus('idle');
+      return;
+    }
     
     try {
+      setIsApplyingInProgress(true);
+      setPipelineStatus('applying');
       setStatusMessage('Undoing last apply...');
       const result = await window.inscribeAPI.undoLastApply(repoRoot);
       
       if (result.success) {
         // Keep the plan for redo
+        setPipelineStatus('apply-success');
         setStatusMessage(`✓ Undo successful: ${result.message} (Undo restores only the most recent apply batch.)`);
         await initRepo(repoRoot); // Refresh state
       } else {
+        setPipelineStatus('apply-failure');
         setStatusMessage(`Undo failed: ${result.message}`);
       }
     } catch (error) {
       console.error('Failed to undo:', error);
+      setPipelineStatus('apply-failure');
       setStatusMessage(`Failed to undo: ${error}`);
+    } finally {
+      setIsApplyingInProgress(false);
     }
   };
 
   const handleRedo = async (repoRoot: string | null, lastAppliedPlan: ApplyPlan | null) => {
-    if (!repoRoot || !lastAppliedPlan) return;
+    if (!repoRoot || !lastAppliedPlan) {
+      setPipelineStatus('idle');
+      return;
+    }
     
     try {
+      setIsApplyingInProgress(true);
+      setPipelineStatus('applying');
       setStatusMessage('Redoing last apply...');
       const result = await window.inscribeAPI.applyChanges(lastAppliedPlan, repoRoot);
       
       if (result.success) {
         clearRedo();
+        setPipelineStatus('apply-success');
         setStatusMessage('✓ Redo successful');
         await initRepo(repoRoot); // Refresh state
       } else {
+        setPipelineStatus('apply-failure');
         setStatusMessage(`Redo failed: ${result.errors?.join(', ') || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to redo:', error);
+      setPipelineStatus('apply-failure');
       setStatusMessage(`Failed to redo: ${error}`);
+    } finally {
+      setIsApplyingInProgress(false);
     }
   };
 

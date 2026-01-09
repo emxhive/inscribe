@@ -1,17 +1,14 @@
 import { useCallback } from 'react';
 import { buildApplyPlanFromItems } from '../utils';
-import type { AppState } from '../types';
+import { useAppStateContext } from './useAppStateContext';
+import { useRepositoryActions } from './useRepositoryActions';
 
 /**
  * Hook for apply/undo/redo operations
  */
-export function useApplyActions(
-  state: AppState,
-  updateState: (updates: Partial<AppState>) => void,
-  setLastAppliedPlan: (plan: any) => void,
-  clearRedo: () => void,
-  initRepo: (repoRoot: string) => Promise<void>
-) {
+export function useApplyActions() {
+  const { state, updateState, setLastAppliedPlan, clearRedo } = useAppStateContext();
+  const { initRepo } = useRepositoryActions();
   const handleApplySelected = useCallback(async () => {
     if (!state.repoRoot || !state.selectedItemId) return;
     

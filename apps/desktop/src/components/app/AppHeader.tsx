@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Breadcrumb, StatusPill } from '../common';
-import type { AppMode } from '../../types';
+import { useRepositoryActions, useAppStateContext } from '../../hooks';
+import { getPathBasename, toSentenceCase } from '../../utils';
 
 interface PipelineStatusDisplay {
   text: string;
@@ -9,16 +10,6 @@ interface PipelineStatusDisplay {
 }
 
 interface AppHeaderProps {
-  repoName: string;
-  repoRoot: string | null;
-  scopeCount: number;
-  ignoreCount: number;
-  suggestedCount: number;
-  indexedCount: number;
-  pipelineStatusDisplay: PipelineStatusDisplay;
-  mode: AppMode;
-  onBrowseRepo: () => void;
-  onNavigateStage: (stage: 'parse' | 'review') => void;
   onOpenScopeModal: () => void;
   onOpenIgnoreEditor: () => void;
   onOpenSuggestedList: () => void;
@@ -26,28 +17,50 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({
-  repoName,
-  repoRoot,
-  scopeCount,
-  ignoreCount,
-  suggestedCount,
-  indexedCount,
-  pipelineStatusDisplay,
-  mode,
-  onBrowseRepo,
-  onNavigateStage,
   onOpenScopeModal,
   onOpenIgnoreEditor,
   onOpenSuggestedList,
   onOpenIgnoredList,
 }: AppHeaderProps) {
+  const { state, updateState } = useAppStateContext();
+  const repositoryActions = useRepositoryActions();
+  const repoName = getPathBasename(state.repoRoot || '') || 'Repository';
+  const hasRepository = Boolean(state.repoRoot);
+
+  const handleNavigateToMode = useCallback((targetMode: 'parse' | 'review') => {
+    if (targetMode === 'parse') {
+      updateState({ mode: 'intake', pipelineStatus: 'idle' });
+    } else if (targetMode === 'review') {
+      updateState({ mode: 'review' });
+    }
+  }, [updateState]);
+
+  const pipelineStatusDisplay = useMemo<PipelineStatusDisplay>(() => {
+    switch (state.pipelineStatus) {
+      case 'parsing':
+        return { text: 'Parsing...', variant: 'accent', error: false };
+      case 'parse-success':
+        return { text: 'Parse Success', variant: 'accent', error: false };
+      case 'parse-failure':
+        return { text: 'Parse Failed', variant: 'accent', error: true };
+      case 'applying':
+        return { text: 'Applying...', variant: 'accent', error: false };
+      case 'apply-success':
+        return { text: 'Apply Success', variant: 'accent', error: false };
+      case 'apply-failure':
+        return { text: 'Apply Failed', variant: 'accent', error: true };
+      default:
+        return { text: toSentenceCase(state.indexStatus.state), variant: 'accent', error: state.indexStatus.state === 'error' };
+    }
+  }, [state.pipelineStatus, state.indexStatus.state]);
+
   return (
     <header className="top-bar">
       <div className="repo-section">
         <span className="repo-name">{repoName}</span>
         <input
           className="repo-path-input"
-          value={repoRoot || ''}
+          value={state.repoRoot || ''}
           readOnly
           placeholder="No repository selected"
         />
@@ -56,7 +69,7 @@ export function AppHeader({
           type="button"
           title="Browse for repository"
           aria-label="Browse for repository"
-          onClick={onBrowseRepo}
+          onClick={repositoryActions.handleBrowseRepo}
         >
           📂
         </button>
@@ -64,24 +77,24 @@ export function AppHeader({
 
       <div className="status-pills">
         <Breadcrumb
-          currentStage={mode === 'intake' ? 'parse' : 'review'}
-          onNavigate={onNavigateStage}
+          currentStage={state.mode === 'intake' ? 'parse' : 'review'}
+          onNavigate={handleNavigateToMode}
         />
         <StatusPill
           variant="secondary"
           isClickable={true}
-          onClick={onOpenScopeModal}
+          onClick={() => hasRepository && onOpenScopeModal()}
           title="Click to configure scope"
         >
-          Scope: {scopeCount}
+          Scope: {state.scope.length}
         </StatusPill>
         <StatusPill
           variant="secondary"
           isClickable={true}
-          onClick={onOpenIgnoreEditor}
+          onClick={() => hasRepository && onOpenIgnoreEditor()}
           title="Click to edit ignore file"
         >
-          Ignore: {ignoreCount}
+          Ignore: {state.ignore.entries.length}
         </StatusPill>
         <StatusPill
           variant="secondary"
@@ -89,14 +102,14 @@ export function AppHeader({
           onClick={onOpenSuggestedList}
           title="Click to view suggested excludes"
         >
-          Suggested: {suggestedCount}
+          Suggested: {state.suggested.length}
         </StatusPill>
         <StatusPill
           isClickable={true}
           onClick={onOpenIgnoredList}
           title="Click to view ignored paths"
         >
-          Indexed: {indexedCount} files
+          Indexed: {state.indexedCount} files
         </StatusPill>
         <StatusPill variant={pipelineStatusDisplay.variant} error={pipelineStatusDisplay.error}>
           {pipelineStatusDisplay.text}

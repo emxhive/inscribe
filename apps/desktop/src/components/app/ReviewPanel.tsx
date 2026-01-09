@@ -1,47 +1,19 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Button } from '../common';
-import type { ReviewItem } from '../../types';
+import { useAppStateContext, useApplyActions, useReviewActions } from '../../hooks';
 
-interface ReviewPanelProps {
-  selectedItem?: ReviewItem;
-  isEditing: boolean;
-  editorValue: string;
-  isApplyingInProgress: boolean;
-  canRedo: boolean;
-  statusMessage: string;
-  validItemsCount: number;
-  hasInvalidItems: boolean;
-  onToggleEditing: () => void;
-  onEditorChange: (value: string) => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  onResetAll: () => void;
-  onApplySelected: () => void;
-  onApplyValidBlocks: () => void;
-  onApplyAll: () => void;
-  onStatusMessage: (value: string) => void;
-}
+export function ReviewPanel() {
+  const { state, updateState } = useAppStateContext();
+  const reviewActions = useReviewActions();
+  const applyActions = useApplyActions();
 
-export function ReviewPanel({
-  selectedItem,
-  isEditing,
-  editorValue,
-  isApplyingInProgress,
-  canRedo,
-  statusMessage,
-  validItemsCount,
-  hasInvalidItems,
-  onToggleEditing,
-  onEditorChange,
-  onUndo,
-  onRedo,
-  onResetAll,
-  onApplySelected,
-  onApplyValidBlocks,
-  onApplyAll,
-  onStatusMessage,
-}: ReviewPanelProps) {
-  const canApplySelected = selectedItem && selectedItem.status !== 'invalid' && !isApplyingInProgress;
+  const { selectedItem, editorValue, validItemsCount } = reviewActions;
+  const hasInvalidItems = useMemo(
+    () => state.reviewItems.some((item) => item.status === 'invalid'),
+    [state.reviewItems]
+  );
+
+  const canApplySelected = selectedItem && selectedItem.status !== 'invalid' && !state.isApplyingInProgress;
 
   return (
     <section className="review-panel">
@@ -53,10 +25,10 @@ export function ReviewPanel({
         <Button
           variant="ghost"
           type="button"
-          onClick={onToggleEditing}
+          onClick={() => updateState({ isEditing: !state.isEditing })}
           disabled={!selectedItem}
         >
-          {isEditing ? 'Preview' : 'Edit'}
+          {state.isEditing ? 'Preview' : 'Edit'}
         </Button>
       </div>
 
@@ -73,11 +45,11 @@ export function ReviewPanel({
       )}
 
       <div className="editor-shell">
-        {isEditing ? (
+        {state.isEditing ? (
           <textarea
             className="code-editor"
             value={editorValue}
-            onChange={(e) => onEditorChange(e.target.value)}
+            onChange={(e) => reviewActions.handleEditorChange(e.target.value)}
           />
         ) : (
           <pre className="code-preview">
@@ -89,50 +61,50 @@ export function ReviewPanel({
       <div className="action-bar">
         <button
           type="button"
-          onClick={onUndo}
+          onClick={applyActions.handleUndo}
           title="Undo last apply (single-step)"
-          disabled={isApplyingInProgress}
+          disabled={state.isApplyingInProgress}
         >
           Undo last apply (single-step)
         </button>
         <button
           type="button"
-          onClick={onRedo}
-          disabled={!canRedo || isApplyingInProgress}
+          onClick={applyActions.handleRedo}
+          disabled={!state.canRedo || state.isApplyingInProgress}
         >
           Redo Apply
         </button>
-        <button type="button" onClick={onResetAll} disabled={isApplyingInProgress}>
+        <button type="button" onClick={reviewActions.handleResetAll} disabled={state.isApplyingInProgress}>
           Reset All
         </button>
         <div className="action-spacer" />
         <Button
           variant="ghost"
           type="button"
-          onClick={onApplySelected}
+          onClick={applyActions.handleApplySelected}
           disabled={!canApplySelected}
         >
-          {isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
+          {state.isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
         </Button>
         <Button
           variant="ghost"
           type="button"
-          onClick={onApplyValidBlocks}
-          disabled={validItemsCount === 0 || isApplyingInProgress}
+          onClick={applyActions.handleApplyValidBlocks}
+          disabled={validItemsCount === 0 || state.isApplyingInProgress}
         >
-          {isApplyingInProgress ? 'Applying...' : 'Apply Valid Blocks'}
+          {state.isApplyingInProgress ? 'Applying...' : 'Apply Valid Blocks'}
         </Button>
         <Button
           variant="primary"
           type="button"
-          onClick={onApplyAll}
-          disabled={hasInvalidItems || isApplyingInProgress}
+          onClick={applyActions.handleApplyAll}
+          disabled={hasInvalidItems || state.isApplyingInProgress}
         >
-          {isApplyingInProgress ? 'Applying...' : 'Apply All Changes'}
+          {state.isApplyingInProgress ? 'Applying...' : 'Apply All Changes'}
         </Button>
       </div>
 
-      <div className="status-banner">{statusMessage}</div>
+      <div className="status-banner">{state.statusMessage}</div>
     </section>
   );
 }

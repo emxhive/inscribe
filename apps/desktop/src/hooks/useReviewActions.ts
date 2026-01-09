@@ -1,14 +1,12 @@
 import { useCallback, useMemo } from 'react';
-import type { AppState, ReviewItem } from '../types';
+import { useAppStateContext } from './useAppStateContext';
+import type { ReviewItem } from '../types';
 
 /**
  * Hook for review-related operations and derived data
  */
-export function useReviewActions(
-  state: AppState,
-  updateState: (updates: Partial<AppState>) => void,
-  updateReviewItemContent: (id: string, content: string) => void
-) {
+export function useReviewActions() {
+  const { state, updateState, updateReviewItemContent } = useAppStateContext();
   const handleSelectItem = useCallback((id: string) => {
     updateState({ selectedItemId: id, isEditing: false });
   }, [updateState]);

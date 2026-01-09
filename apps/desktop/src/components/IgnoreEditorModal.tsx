@@ -1,48 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Button } from './common';
+import { useAppStateContext, useRepositoryActions } from '../hooks';
 
 interface IgnoreEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentContent: string;
-  suggested: string[];
-  onSave: (content: string) => void;
 }
 
 export function IgnoreEditorModal({
   isOpen,
   onClose,
-  currentContent,
-  suggested,
-  onSave,
 }: IgnoreEditorModalProps) {
+  const { state, updateState } = useAppStateContext();
+  const { handleSaveIgnore } = useRepositoryActions();
   const [content, setContent] = useState<string>('');
 
   useEffect(() => {
-    if (isOpen) {
-      // Build content with suggested entries commented out
-      let fullContent = currentContent;
-      
-      // Add suggested section if there are suggestions
-      if (suggested.length > 0) {
-        const suggestedSection = [
-          '',
-          '# --- Suggested (commented) ---',
-          ...suggested.map((entry) => `# ${entry}`),
-        ].join('\n');
-        
-        // Only add if not already present
-        if (!fullContent.includes('# --- Suggested (commented) ---')) {
-          fullContent = fullContent.trim() + suggestedSection + '\n';
-        }
+    const loadContent = async () => {
+      if (!isOpen) return;
+      if (!state.repoRoot) {
+        setContent('');
+        return;
       }
-      
-      setContent(fullContent);
-    }
-  }, [isOpen, currentContent, suggested]);
 
-  const handleSave = () => {
-    onSave(content);
+      try {
+        const result = await window.inscribeAPI.readIgnoreRaw(state.repoRoot);
+        let fullContent = result.content || '';
+
+        if (state.suggested.length > 0) {
+          const suggestedSection = [
+            '',
+            '# --- Suggested (commented) ---',
+            ...state.suggested.map((entry) => `# ${entry}`),
+          ].join('\n');
+
+          if (!fullContent.includes('# --- Suggested (commented) ---')) {
+            fullContent = fullContent.trim() + suggestedSection + '\n';
+          }
+        }
+
+        setContent(fullContent);
+      } catch (error) {
+        console.error('Failed to open ignore editor:', error);
+        updateState({ statusMessage: 'Failed to open ignore editor' });
+        setContent('');
+      }
+    };
+
+    loadContent();
+  }, [isOpen, state.repoRoot, state.suggested, updateState]);
+
+  const handleSave = async () => {
+    if (!state.repoRoot) return;
+    await handleSaveIgnore(content);
     onClose();
   };
 

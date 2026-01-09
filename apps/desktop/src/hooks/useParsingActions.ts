@@ -1,15 +1,13 @@
 import { useCallback } from 'react';
 import type { ParseResult } from '@inscribe/shared';
 import { buildReviewItems } from '../utils';
-import type { AppState } from '../types';
+import { useAppStateContext } from './useAppStateContext';
 
 /**
  * Hook for parsing-related operations
  */
-export function useParsingActions(
-  state: AppState,
-  updateState: (updates: Partial<AppState>) => void
-) {
+export function useParsingActions() {
+  const { state, updateState } = useAppStateContext();
   const handleParseBlocks = useCallback(async () => {
     if (!state.repoRoot) {
       updateState({

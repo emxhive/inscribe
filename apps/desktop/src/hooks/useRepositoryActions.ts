@@ -1,13 +1,11 @@
 import { useCallback } from 'react';
-import type { AppState } from '../types';
+import { useAppStateContext } from './useAppStateContext';
 
 /**
  * Hook for repository-related operations
  */
-export function useRepositoryActions(
-  state: AppState,
-  updateState: (updates: Partial<AppState>) => void
-) {
+export function useRepositoryActions() {
+  const { state, updateState } = useAppStateContext();
   const handleBrowseRepo = useCallback(async () => {
     try {
       const selectedPath = await window.inscribeAPI.selectRepository(state.repoRoot || undefined);

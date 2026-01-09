@@ -4,7 +4,7 @@
 import type { ParseResult, ParsedBlock, ValidationError } from '@inscribe/shared';
 
 import { buildReviewItems } from '../utils';
-import {AppMode, ReviewItem} from "@inscribe/desktop/types";
+import {AppMode, ReviewItem, PipelineStatus} from "@inscribe/desktop/types";
 
 type ParsingStateSetters = {
   setParseErrors: (errors: string[]) => void;
@@ -14,6 +14,8 @@ type ParsingStateSetters = {
   setSelectedItemId: (id: string | null) => void;
   setMode: (mode: AppMode) => void;
   setStatusMessage: (message: string) => void;
+  setPipelineStatus: (status: PipelineStatus) => void;
+  setIsParsingInProgress: (isInProgress: boolean) => void;
 };
 
 export function createParsingHandlers(setters: ParsingStateSetters) {
@@ -25,28 +27,36 @@ export function createParsingHandlers(setters: ParsingStateSetters) {
     setSelectedItemId,
     setMode,
     setStatusMessage,
+    setPipelineStatus,
+    setIsParsingInProgress,
   } = setters;
 
   const handleParseBlocks = async (repoRoot: string | null, aiInput: string) => {
     if (!repoRoot) {
       setStatusMessage('Error: No repository selected');
       setParseErrors(['No repository selected. Please select a repository first.']);
+      setPipelineStatus('idle');
       return;
     }
 
     if (!aiInput.trim()) {
       setStatusMessage('Error: No input provided');
       setParseErrors(['No input provided. Please paste AI response.']);
+      setPipelineStatus('idle');
       return;
     }
 
     try {
+      setIsParsingInProgress(true);
+      setPipelineStatus('parsing');
       setStatusMessage('Parsing code blocks...');
       const parseResult: ParseResult = await window.inscribeAPI.parseBlocks(aiInput);
       
       if (parseResult.errors && parseResult.errors.length > 0) {
         setParseErrors(parseResult.errors);
         setStatusMessage(`Parse failed: ${parseResult.errors.length} error(s)`);
+        setPipelineStatus('parse-failure');
+        setIsParsingInProgress(false);
         return;
       }
 
@@ -73,6 +83,8 @@ export function createParsingHandlers(setters: ParsingStateSetters) {
 
       // Navigate to review
       setMode('review');
+      setPipelineStatus('parse-success');
+      setIsParsingInProgress(false);
       const errorCount = validationErrors?.length || 0;
       if (errorCount > 0) {
         setStatusMessage(`Ready to review: ${reviewItems.length} files, ${errorCount} validation error(s)`);
@@ -83,6 +95,8 @@ export function createParsingHandlers(setters: ParsingStateSetters) {
       console.error('Failed to parse blocks:', error);
       setParseErrors([String(error)]);
       setStatusMessage('Failed to parse blocks');
+      setPipelineStatus('parse-failure');
+      setIsParsingInProgress(false);
     }
   };
 

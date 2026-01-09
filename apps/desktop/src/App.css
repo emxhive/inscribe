@@ -346,6 +346,17 @@ body {
   box-shadow: 0 8px 20px rgba(79, 70, 229, 0.25);
 }
 
+.primary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: var(--accent);
+}
+
+.primary-btn:disabled:hover {
+  background: var(--accent);
+  box-shadow: none;
+}
+
 .ghost-btn {
   background: transparent;
   border: 1px solid var(--border);
@@ -360,6 +371,18 @@ body {
 .ghost-btn:hover {
   border-color: var(--accent);
   background: #eef2ff;
+}
+
+.ghost-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: transparent;
+  border-color: var(--border);
+}
+
+.ghost-btn:disabled:hover {
+  background: transparent;
+  border-color: var(--border);
 }
 
 .review-panel {
@@ -421,6 +444,18 @@ body {
 .action-bar button:hover {
   border-color: var(--accent);
   background: #eef2ff;
+}
+
+.action-bar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.action-bar button:disabled:hover {
+  background: var(--surface);
+  border-color: var(--border);
 }
 
 .action-bar .primary-btn {
@@ -643,6 +678,54 @@ body {
 .clickable:hover {
   opacity: 0.8;
   transform: translateY(-1px);
+}
+
+/* Breadcrumb Styles */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  height: 28px;
+}
+
+.breadcrumb-item {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: default;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.breadcrumb-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.breadcrumb-item.completed {
+  color: var(--text);
+  cursor: pointer;
+}
+
+.breadcrumb-item.completed:hover {
+  color: var(--accent);
+}
+
+.breadcrumb-item.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.breadcrumb-separator {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0 2px;
 }
 
 /* Error banner */

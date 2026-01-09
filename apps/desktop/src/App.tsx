@@ -4,7 +4,7 @@ import { useAppState } from './useAppState';
 import { ScopeModal } from './components/ScopeModal';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
-import { Button, StatusPill, EmptyState, FileListItem } from './components/common';
+import { Button, StatusPill, EmptyState, FileListItem, Breadcrumb } from './components/common';
 import { getPathBasename, toSentenceCase } from './utils';
 import {
   createRepositoryHandlers,
@@ -37,6 +37,9 @@ export default function App() {
     updateReviewItemContent,
     setLastAppliedPlan,
     clearRedo,
+    setPipelineStatus,
+    setIsParsingInProgress,
+    setIsApplyingInProgress,
   } = useAppState();
 
   const [scopeModalOpen, setScopeModalOpen] = useState(false);
@@ -81,8 +84,10 @@ export default function App() {
         setSelectedItemId,
         setMode,
         setStatusMessage,
+        setPipelineStatus,
+        setIsParsingInProgress,
       }),
-    [setParseErrors, setParsedBlocks, setValidationErrors, setReviewItems, setSelectedItemId, setMode, setStatusMessage]
+    [setParseErrors, setParsedBlocks, setValidationErrors, setReviewItems, setSelectedItemId, setMode, setStatusMessage, setPipelineStatus, setIsParsingInProgress]
   );
 
   const reviewHandlers = useMemo(
@@ -98,8 +103,8 @@ export default function App() {
   );
 
   const applyHandlers = useMemo(
-    () => createApplyHandlers({ setLastAppliedPlan, setStatusMessage, clearRedo }, repositoryHandlers.initRepo),
-    [setLastAppliedPlan, setStatusMessage, clearRedo, repositoryHandlers.initRepo]
+    () => createApplyHandlers({ setLastAppliedPlan, setStatusMessage, clearRedo, setPipelineStatus, setIsApplyingInProgress }, repositoryHandlers.initRepo),
+    [setLastAppliedPlan, setStatusMessage, clearRedo, setPipelineStatus, setIsApplyingInProgress, repositoryHandlers.initRepo]
   );
 
   // Wrap handlers with the current state
@@ -113,6 +118,7 @@ export default function App() {
   const handleResetAll = useCallback(() => reviewHandlers.handleResetAll(state.reviewItems), [reviewHandlers, state.reviewItems]);
   const handleApplySelected = useCallback(() => applyHandlers.handleApplySelected(state.repoRoot, state.selectedItemId, state.reviewItems), [applyHandlers, state.repoRoot, state.selectedItemId, state.reviewItems]);
   const handleApplyAll = useCallback(() => applyHandlers.handleApplyAll(state.repoRoot, state.reviewItems), [applyHandlers, state.repoRoot, state.reviewItems]);
+  const handleApplyValidBlocks = useCallback(() => applyHandlers.handleApplyValidBlocks(state.repoRoot, state.reviewItems), [applyHandlers, state.repoRoot, state.reviewItems]);
   const handleUndo = useCallback(() => applyHandlers.handleUndo(state.repoRoot), [applyHandlers, state.repoRoot]);
   const handleRedo = useCallback(() => applyHandlers.handleRedo(state.repoRoot, state.lastAppliedPlan), [applyHandlers, state.repoRoot, state.lastAppliedPlan]);
 
@@ -122,6 +128,36 @@ export default function App() {
 
   // Get repo name (last segment of path) or default
   const repoName = getPathBasename(state.repoRoot || '') || 'Repository';
+
+  // Navigation handler for breadcrumb
+  const handleNavigateToStage = useCallback((stage: 'parse' | 'review') => {
+    if (stage === 'parse') {
+      setMode('intake');
+      setPipelineStatus('idle');
+    }
+  }, [setMode, setPipelineStatus]);
+
+  // Get pipeline status display text and variant
+  const getPipelineStatusDisplay = () => {
+    switch (state.pipelineStatus) {
+      case 'parsing':
+        return { text: 'Parsing...', variant: 'accent' as const, error: false };
+      case 'parse-success':
+        return { text: 'Parse Success', variant: 'accent' as const, error: false };
+      case 'parse-failure':
+        return { text: 'Parse Failed', variant: 'accent' as const, error: true };
+      case 'applying':
+        return { text: 'Applying...', variant: 'accent' as const, error: false };
+      case 'apply-success':
+        return { text: 'Apply Success', variant: 'accent' as const, error: false };
+      case 'apply-failure':
+        return { text: 'Apply Failed', variant: 'accent' as const, error: true };
+      default:
+        return { text: toSentenceCase(state.indexStatus.state), variant: 'accent' as const, error: state.indexStatus.state === 'error' };
+    }
+  };
+
+  const pipelineStatusDisplay = getPipelineStatusDisplay();
 
   return (
     <div className="app-shell">
@@ -146,6 +182,10 @@ export default function App() {
         </div>
 
         <div className="status-pills">
+          <Breadcrumb 
+            currentStage={state.mode === 'intake' ? 'parse' : 'review'}
+            onNavigate={handleNavigateToStage}
+          />
           <StatusPill 
             variant="secondary"
             isClickable={true}
@@ -178,10 +218,10 @@ export default function App() {
             Indexed: {state.indexedCount} files
           </StatusPill>
           <StatusPill 
-            variant="accent"
-            error={state.indexStatus.state === 'error'}
+            variant={pipelineStatusDisplay.variant}
+            error={pipelineStatusDisplay.error}
           >
-            {toSentenceCase(state.indexStatus.state)}
+            {pipelineStatusDisplay.text}
           </StatusPill>
         </div>
       </header>
@@ -255,10 +295,10 @@ export default function App() {
                   variant="primary"
                   type="button" 
                   onClick={handleParseBlocks}
-                  disabled={!state.repoRoot}
-                  title={!state.repoRoot ? 'Select a repository first' : ''}
+                  disabled={!state.repoRoot || state.isParsingInProgress}
+                  title={!state.repoRoot ? 'Select a repository first' : state.isParsingInProgress ? 'Parsing in progress...' : ''}
                 >
-                  Parse Code Blocks
+                  {state.isParsingInProgress ? 'Parsing...' : 'Parse Code Blocks'}
                 </Button>
               </footer>
             </section>
@@ -308,17 +348,17 @@ export default function App() {
               </div>
 
               <div className="action-bar">
-                <button type="button" onClick={handleUndo} title="Undo last apply (single-step)">
+                <button type="button" onClick={handleUndo} title="Undo last apply (single-step)" disabled={state.isApplyingInProgress}>
                   Undo last apply (single-step)
                 </button>
                 <button 
                   type="button" 
                   onClick={handleRedo}
-                  disabled={!state.canRedo}
+                  disabled={!state.canRedo || state.isApplyingInProgress}
                 >
                   Redo Apply
                 </button>
-                <button type="button" onClick={handleResetAll}>
+                <button type="button" onClick={handleResetAll} disabled={state.isApplyingInProgress}>
                   Reset All
                 </button>
                 <div className="action-spacer" />
@@ -326,17 +366,25 @@ export default function App() {
                   variant="ghost"
                   type="button" 
                   onClick={handleApplySelected}
-                  disabled={!selectedItem || selectedItem.status === 'invalid'}
+                  disabled={!selectedItem || selectedItem.status === 'invalid' || state.isApplyingInProgress}
                 >
-                  Apply Selected
+                  {state.isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
+                </Button>
+                <Button 
+                  variant="ghost"
+                  type="button" 
+                  onClick={handleApplyValidBlocks}
+                  disabled={state.reviewItems.filter(item => item.status !== 'invalid').length === 0 || state.isApplyingInProgress}
+                >
+                  {state.isApplyingInProgress ? 'Applying...' : 'Apply Valid Blocks'}
                 </Button>
                 <Button 
                   variant="primary"
                   type="button" 
                   onClick={handleApplyAll}
-                  disabled={state.reviewItems.some(item => item.status === 'invalid')}
+                  disabled={state.reviewItems.some(item => item.status === 'invalid') || state.isApplyingInProgress}
                 >
-                  Apply All Changes
+                  {state.isApplyingInProgress ? 'Applying...' : 'Apply All Changes'}
                 </Button>
               </div>
 

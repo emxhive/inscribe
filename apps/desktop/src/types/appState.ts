@@ -9,6 +9,15 @@ import type {
 
 export type AppMode = 'intake' | 'review';
 
+export type PipelineStatus = 
+  | 'idle'
+  | 'parsing'
+  | 'parse-success'
+  | 'parse-failure'
+  | 'applying'
+  | 'apply-success'
+  | 'apply-failure';
+
 export interface ReviewItem {
   id: string;
   file: string;
@@ -45,6 +54,9 @@ export interface AppState {
   // UI state
   isEditing: boolean;
   statusMessage: string;
+  pipelineStatus: PipelineStatus;
+  isParsingInProgress: boolean;
+  isApplyingInProgress: boolean;
 
   // Apply/Undo/Redo state
   lastAppliedPlan: ApplyPlan | null;

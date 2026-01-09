@@ -129,6 +129,12 @@ export default function App() {
   // Get repo name (last segment of path) or default
   const repoName = getPathBasename(state.repoRoot || '') || 'Repository';
 
+  // Memoize valid items count for performance
+  const validItemsCount = useMemo(
+    () => state.reviewItems.filter(item => item.status !== 'invalid').length,
+    [state.reviewItems]
+  );
+
   // Navigation handler for breadcrumb
   const handleNavigateToStage = useCallback((stage: 'parse' | 'review') => {
     if (stage === 'parse') {
@@ -374,7 +380,7 @@ export default function App() {
                   variant="ghost"
                   type="button" 
                   onClick={handleApplyValidBlocks}
-                  disabled={state.reviewItems.filter(item => item.status !== 'invalid').length === 0 || state.isApplyingInProgress}
+                  disabled={validItemsCount === 0 || state.isApplyingInProgress}
                 >
                   {state.isApplyingInProgress ? 'Applying...' : 'Apply Valid Blocks'}
                 </Button>

@@ -101,13 +101,17 @@ export function createApplyHandlers(
   };
 
   const handleApplyValidBlocks = async (repoRoot: string | null, reviewItems: ReviewItem[]) => {
-    if (!repoRoot) return;
+    if (!repoRoot) {
+      setPipelineStatus('idle');
+      return;
+    }
     
     // Filter only valid items
     const validItems = reviewItems.filter(item => item.status !== 'invalid');
     
     if (validItems.length === 0) {
       setStatusMessage('No valid files to apply');
+      setPipelineStatus('idle');
       return;
     }
 

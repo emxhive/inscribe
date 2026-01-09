@@ -136,10 +136,16 @@ export default function App() {
   );
 
   // Navigation handler for breadcrumb
+  // Only allows navigation back to previously completed stages
   const handleNavigateToStage = useCallback((stage: 'parse' | 'review') => {
     if (stage === 'parse') {
       setMode('intake');
       setPipelineStatus('idle');
+    } else if (stage === 'review') {
+      // Review stage can only be reached by parsing, not by direct navigation
+      // This case is included for completeness, but the breadcrumb will disable
+      // navigation to future (not yet completed) stages
+      setMode('review');
     }
   }, [setMode, setPipelineStatus]);
 

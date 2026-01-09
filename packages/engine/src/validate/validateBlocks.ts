@@ -50,21 +50,9 @@ function validateBlock(
       resolvedPath = resolved.resolvedPath;
       normalizedFile = normalizeRelativePath(resolved.relativePath);
     } else {
-      const resolved = resolveAndAssertWithinScope(repoRoot, block.file, scopeRoots);
+      const resolved = resolveAndAssertWithinScope(repoRoot, block.file, scopeRoots, ignores);
       resolvedPath = resolved.resolvedPath;
       normalizedFile = normalizeRelativePath(resolved.relativePath);
-      
-      // Check if file path is in an ignored path for non-create modes
-      const filePrefix = ensureTrailingSlash(normalizedFile);
-      const ignoreMatch = ignores.find(ignored => filePrefix.startsWith(ignored));
-
-      if (ignoreMatch) {
-        errors.push({
-          blockIndex: block.blockIndex,
-          file: normalizedFile,
-          message: `File is ignored by rules: ${ignores.join(', ')}`,
-        });
-      }
     }
   } catch (error) {
     errors.push({

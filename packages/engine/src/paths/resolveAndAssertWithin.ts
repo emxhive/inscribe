@@ -49,14 +49,15 @@ export function resolveAndAssertWithinRepo(
 }
 
 /**
- * Resolve a path and assert it's within scope roots.
+ * Resolve a path and assert it's within scope roots and not in ignored prefixes.
  * This is used for REPLACE, APPEND, and RANGE modes which must operate
  * on files within the configured scope.
  */
 export function resolveAndAssertWithinScope(
   repoRoot: string,
   userPath: string,
-  scopeRoots: string[]
+  scopeRoots: string[],
+  ignorePrefixes: string[]
 ): ResolvedPathInfo {
   const resolvedRepoRoot = path.resolve(repoRoot);
   const normalizedUserPath = normalizeRelativePath(userPath);
@@ -77,6 +78,14 @@ export function resolveAndAssertWithinScope(
   }
 
   const relativePath = normalizeRelativePath(path.relative(resolvedRepoRoot, resolvedTarget));
+  
+  // Check if path is under any ignored prefix
+  const filePrefix = ensureTrailingSlash(relativePath);
+  const ignoreMatch = ignorePrefixes.find(ignored => filePrefix.startsWith(ignored));
+  
+  if (ignoreMatch) {
+    throw new Error(`File is in ignored path: ${ignoreMatch}`);
+  }
 
   return {
     resolvedPath: resolvedTarget,
@@ -93,5 +102,5 @@ export function resolveAndAssertWithin(
   userPath: string,
   allowedRoots?: string[]
 ): ResolvedPathInfo {
-  return resolveAndAssertWithinScope(repoRoot, userPath, allowedRoots || []);
+  return resolveAndAssertWithinScope(repoRoot, userPath, allowedRoots || [], []);
 }

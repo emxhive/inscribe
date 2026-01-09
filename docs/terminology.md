@@ -112,23 +112,18 @@ Replaces content between two anchor points in an existing file, keeping the anch
 ## Repository Structure
 
 ### Repository Root
-The base directory of your repository where Inscribe operates.
+The base directory of your repository where Inscribe operates. All file paths in blocks are relative to this root.
 
 ### Scope Roots
-Directories where Inscribe is allowed to modify existing files (for REPLACE, APPEND, and RANGE modes). Scope roots define the working area for operations that change existing code.
+Configurable directories where Inscribe is allowed to modify existing files. These are used by REPLACE, APPEND, and RANGE modes to restrict which files can be changed.
 
-**Note:** CREATE mode is more permissive - it can create new files anywhere under the repository root (as long as the path is not ignored), without being restricted to scope roots.
-
-### Indexed Roots
-Directories where Inscribe is allowed to create or modify files.
-
-**V1 Indexed Roots:**
+**Example scope configuration:**
 - `app/` - Application source code
 - `routes/` - Route definitions
-- `resources/` - Resource files
-- `database/` - Database migrations
 - `config/` - Configuration files
 - `tests/` - Test files
+
+**Note:** CREATE mode is more permissive - it can create new files anywhere under the repository root (as long as the path is not ignored), without being restricted to scope roots. This allows you to create new top-level directories and files without reconfiguring scope first.
 
 ### Ignored Paths
 Directories that Inscribe will never touch.

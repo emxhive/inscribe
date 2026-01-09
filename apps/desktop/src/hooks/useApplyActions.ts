@@ -1,14 +1,16 @@
 import { useCallback } from 'react';
 import { buildApplyPlanFromItems } from '../utils';
 import { useAppStateContext } from './useAppStateContext';
-import { useRepositoryActions } from './useRepositoryActions';
+import { initRepositoryState } from './useRepositoryActions';
 
 /**
  * Hook for apply/undo/redo operations
  */
 export function useApplyActions() {
   const { state, updateState, setLastAppliedPlan, clearRedo } = useAppStateContext();
-  const { initRepo } = useRepositoryActions();
+  const refreshRepo = useCallback(async (repoRoot: string) => {
+    await initRepositoryState(repoRoot, updateState);
+  }, [updateState]);
   const handleApplySelected = useCallback(async () => {
     if (!state.repoRoot || !state.selectedItemId) return;
     
@@ -36,7 +38,7 @@ export function useApplyActions() {
           pipelineStatus: 'apply-success',
           statusMessage: `✓ Applied: ${selectedItem.file}. Undo restores only the most recent apply batch.`
         });
-        await initRepo(state.repoRoot);
+        await refreshRepo(state.repoRoot);
       } else {
         updateState({
           pipelineStatus: 'apply-failure',
@@ -52,7 +54,7 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, state.selectedItemId, state.reviewItems, updateState, setLastAppliedPlan, initRepo]);
+  }, [state.repoRoot, state.selectedItemId, state.reviewItems, updateState, setLastAppliedPlan, refreshRepo]);
 
   const handleApplyAll = useCallback(async () => {
     if (!state.repoRoot) return;
@@ -84,7 +86,7 @@ export function useApplyActions() {
           pipelineStatus: 'apply-success',
           statusMessage: `✓ Applied all: ${state.reviewItems.length} file(s). Undo restores only the most recent apply batch.`
         });
-        await initRepo(state.repoRoot);
+        await refreshRepo(state.repoRoot);
       } else {
         updateState({
           pipelineStatus: 'apply-failure',
@@ -100,7 +102,7 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, state.reviewItems, updateState, setLastAppliedPlan, initRepo]);
+  }, [state.repoRoot, state.reviewItems, updateState, setLastAppliedPlan, refreshRepo]);
 
   const handleApplyValidBlocks = useCallback(async () => {
     if (!state.repoRoot) return;
@@ -137,7 +139,7 @@ export function useApplyActions() {
           pipelineStatus: 'apply-success',
           statusMessage: message
         });
-        await initRepo(state.repoRoot);
+        await refreshRepo(state.repoRoot);
       } else {
         updateState({
           pipelineStatus: 'apply-failure',
@@ -153,7 +155,7 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, state.reviewItems, updateState, setLastAppliedPlan, initRepo]);
+  }, [state.repoRoot, state.reviewItems, updateState, setLastAppliedPlan, refreshRepo]);
 
   const handleUndo = useCallback(async () => {
     if (!state.repoRoot) return;
@@ -172,7 +174,7 @@ export function useApplyActions() {
           pipelineStatus: 'apply-success',
           statusMessage: `✓ Undo successful: ${result.message} (Undo restores only the most recent apply batch.)`
         });
-        await initRepo(state.repoRoot);
+        await refreshRepo(state.repoRoot);
       } else {
         updateState({
           pipelineStatus: 'apply-failure',
@@ -188,7 +190,7 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, updateState, initRepo]);
+  }, [state.repoRoot, updateState, refreshRepo]);
 
   const handleRedo = useCallback(async () => {
     if (!state.repoRoot || !state.lastAppliedPlan) return;
@@ -208,7 +210,7 @@ export function useApplyActions() {
           pipelineStatus: 'apply-success',
           statusMessage: '✓ Redo successful'
         });
-        await initRepo(state.repoRoot);
+        await refreshRepo(state.repoRoot);
       } else {
         updateState({
           pipelineStatus: 'apply-failure',
@@ -224,7 +226,7 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, state.lastAppliedPlan, updateState, clearRedo, initRepo]);
+  }, [state.repoRoot, state.lastAppliedPlan, updateState, clearRedo, refreshRepo]);
 
   return {
     handleApplySelected,

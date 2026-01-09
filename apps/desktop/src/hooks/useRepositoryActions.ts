@@ -1,5 +1,24 @@
 import { useCallback } from 'react';
 import { useAppStateContext } from './useAppStateContext';
+import type { AppState } from '../types';
+
+export async function initRepositoryState(
+  repoRoot: string,
+  updateState: (updates: Partial<AppState>) => void
+) {
+  updateState({ statusMessage: 'Initializing repository...' });
+  const result = await window.inscribeAPI.repoInit(repoRoot);
+
+  updateState({
+    topLevelFolders: result.topLevelFolders || [],
+    scope: result.scope || [],
+    ignore: result.ignore || { entries: [], source: 'none', path: '' },
+    suggested: result.suggested || [],
+    indexedCount: result.indexedCount || 0,
+    indexStatus: result.indexStatus || { state: 'complete' },
+    statusMessage: `Repository initialized: ${result.indexedCount || 0} files indexed`
+  });
+}
 
 /**
  * Hook for repository-related operations
@@ -16,17 +35,7 @@ export function useRepositoryActions() {
         statusMessage: 'Initializing repository...'
       });
 
-      const result = await window.inscribeAPI.repoInit(selectedPath);
-      
-      updateState({
-        topLevelFolders: result.topLevelFolders || [],
-        scope: result.scope || [],
-        ignore: result.ignore || { entries: [], source: 'none', path: '' },
-        suggested: result.suggested || [],
-        indexedCount: result.indexedCount || 0,
-        indexStatus: result.indexStatus || { state: 'complete' },
-        statusMessage: `Repository initialized: ${result.indexedCount || 0} files indexed`
-      });
+      await initRepositoryState(selectedPath, updateState);
     } catch (error) {
       console.error('Failed to select repository:', error);
       updateState({ 
@@ -38,18 +47,7 @@ export function useRepositoryActions() {
 
   const initRepo = useCallback(async (repoRoot: string) => {
     try {
-      updateState({ statusMessage: 'Initializing repository...' });
-      const result = await window.inscribeAPI.repoInit(repoRoot);
-      
-      updateState({
-        topLevelFolders: result.topLevelFolders || [],
-        scope: result.scope || [],
-        ignore: result.ignore || { entries: [], source: 'none', path: '' },
-        suggested: result.suggested || [],
-        indexedCount: result.indexedCount || 0,
-        indexStatus: result.indexStatus || { state: 'complete' },
-        statusMessage: `Repository initialized: ${result.indexedCount || 0} files indexed`
-      });
+      await initRepositoryState(repoRoot, updateState);
     } catch (error) {
       console.error('Failed to initialize repository:', error);
       updateState({ 
@@ -81,22 +79,6 @@ export function useRepositoryActions() {
     }
   }, [state.repoRoot, updateState]);
 
-  const handleOpenIgnoreEditor = useCallback(async (
-    setIgnoreRawContent: (content: string) => void,
-    setIgnoreModalOpen: (open: boolean) => void
-  ) => {
-    if (!state.repoRoot) return;
-    
-    try {
-      const result = await window.inscribeAPI.readIgnoreRaw(state.repoRoot);
-      setIgnoreRawContent(result.content || '');
-      setIgnoreModalOpen(true);
-    } catch (error) {
-      console.error('Failed to open ignore editor:', error);
-      updateState({ statusMessage: 'Failed to open ignore editor' });
-    }
-  }, [state.repoRoot, updateState]);
-
   const handleSaveIgnore = useCallback(async (content: string) => {
     if (!state.repoRoot) return;
     
@@ -124,7 +106,6 @@ export function useRepositoryActions() {
   return {
     handleBrowseRepo,
     handleSaveScope,
-    handleOpenIgnoreEditor,
     handleSaveIgnore,
     initRepo,
   };

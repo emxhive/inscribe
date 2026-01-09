@@ -27,6 +27,22 @@ export function AppHeader({
   const repoName = getPathBasename(state.repoRoot || '') || 'Repository';
   const hasRepository = Boolean(state.repoRoot);
 
+  const requireRepository = useCallback((action: () => void, message: string) => {
+    if (!hasRepository) {
+      updateState({ statusMessage: message });
+      return;
+    }
+    action();
+  }, [hasRepository, updateState]);
+
+  const handleScopeClick = useCallback(() => {
+    requireRepository(onOpenScopeModal, 'Select a repository to configure scope.');
+  }, [onOpenScopeModal, requireRepository]);
+
+  const handleIgnoreClick = useCallback(() => {
+    requireRepository(onOpenIgnoreEditor, 'Select a repository to edit ignore rules.');
+  }, [onOpenIgnoreEditor, requireRepository]);
+
   const handleNavigateToMode = useCallback((targetMode: 'parse' | 'review') => {
     if (targetMode === 'parse') {
       updateState({ mode: 'intake', pipelineStatus: 'idle' });
@@ -82,16 +98,16 @@ export function AppHeader({
         />
         <StatusPill
           variant="secondary"
-          isClickable={true}
-          onClick={() => hasRepository && onOpenScopeModal()}
+          isClickable={hasRepository}
+          onClick={handleScopeClick}
           title="Click to configure scope"
         >
           Scope: {state.scope.length}
         </StatusPill>
         <StatusPill
           variant="secondary"
-          isClickable={true}
-          onClick={() => hasRepository && onOpenIgnoreEditor()}
+          isClickable={hasRepository}
+          onClick={handleIgnoreClick}
           title="Click to edit ignore file"
         >
           Ignore: {state.ignore.entries.length}

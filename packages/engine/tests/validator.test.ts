@@ -99,7 +99,8 @@ const x = 1;
     expect(errors[0].message).toContain('does not exist');
   });
 
-  it('should fail if file not in indexed root', () => {
+  it('should allow create mode outside indexed roots (but not ignored)', () => {
+    // This test verifies that CREATE mode can create files outside scope
     const blocks: ParsedBlock[] = [
       {
         file: 'other/file.js',
@@ -111,11 +112,11 @@ const x = 1;
     ];
 
     const errors = validateBlocks(blocks, tempDir);
-    expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].message).toContain('scope roots');
+    // Should pass - CREATE is allowed outside scope as long as not ignored
+    expect(errors).toEqual([]);
   });
 
-  it('should reject traversal outside scope roots', () => {
+  it('should reject create mode in ignored paths', () => {
     fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
     fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
     setScopeState(tempDir, ['src']);
@@ -132,7 +133,95 @@ const x = 1;
 
     const errors = validateBlocks(blocks, tempDir);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors.some(error => error.message.includes('scope roots'))).toBe(true);
+    // Should fail because .git/ is an ignored path
+    expect(errors.some(error => error.message.includes('ignored'))).toBe(true);
+  });
+
+  it('should reject create mode outside repo root', () => {
+    setScopeState(tempDir, ['app']);
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: '../outside/file.js',
+        mode: 'create',
+        directives: {},
+        content: 'content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('outside repository root');
+  });
+
+  it('should enforce scope restriction for replace mode', () => {
+    setScopeState(tempDir, ['app']);
+    
+    // Create a file outside scope
+    fs.mkdirSync(path.join(tempDir, 'other'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'other', 'file.js'), 'content');
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'other/file.js',
+        mode: 'replace',
+        directives: {},
+        content: 'new content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('scope roots');
+  });
+
+  it('should enforce scope restriction for append mode', () => {
+    setScopeState(tempDir, ['app']);
+    
+    // Create a file outside scope
+    fs.mkdirSync(path.join(tempDir, 'other'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'other', 'file.js'), 'content');
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'other/file.js',
+        mode: 'append',
+        directives: {},
+        content: 'more content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('scope roots');
+  });
+
+  it('should enforce scope restriction for range mode', () => {
+    setScopeState(tempDir, ['app']);
+    
+    // Create a file outside scope
+    fs.mkdirSync(path.join(tempDir, 'other'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'other', 'file.js'), '// start\nold\n// end\n');
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'other/file.js',
+        mode: 'range',
+        directives: {
+          START: '// start',
+          END: '// end',
+        },
+        content: 'new content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('scope roots');
   });
 
   it('should validate range mode with valid anchors', () => {

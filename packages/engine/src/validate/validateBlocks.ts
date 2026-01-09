@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import { ParsedBlock, ValidationError } from '@inscribe/shared';
 import { getEffectiveIgnorePrefixes, getOrCreateScope } from '../repository';
-import { resolveAndAssertWithin } from '../paths/resolveAndAssertWithin';
+import { resolveAndAssertWithinRepo, resolveAndAssertWithinScope } from '../paths/resolveAndAssertWithin';
 import { ensureTrailingSlash, normalizeRelativePath } from '../util/path';
 import { validateRangeAnchors } from './validateRangeAnchors';
 
@@ -37,13 +37,35 @@ function validateBlock(
   const errors: ValidationError[] = [];
   const scopeState = getOrCreateScope(repoRoot);
   const scopeRoots = scopeState.scope;
+  const ignores = getEffectiveIgnorePrefixes(repoRoot);
 
   let resolvedPath: string;
   let normalizedFile: string;
+  
   try {
-    const resolved = resolveAndAssertWithin(repoRoot, block.file, scopeRoots);
-    resolvedPath = resolved.resolvedPath;
-    normalizedFile = normalizeRelativePath(resolved.relativePath);
+    // For CREATE mode, allow files anywhere under repo root (not ignored)
+    // For other modes, enforce scope restrictions
+    if (block.mode === 'create') {
+      const resolved = resolveAndAssertWithinRepo(repoRoot, block.file, ignores);
+      resolvedPath = resolved.resolvedPath;
+      normalizedFile = normalizeRelativePath(resolved.relativePath);
+    } else {
+      const resolved = resolveAndAssertWithinScope(repoRoot, block.file, scopeRoots);
+      resolvedPath = resolved.resolvedPath;
+      normalizedFile = normalizeRelativePath(resolved.relativePath);
+      
+      // Check if file path is in an ignored path for non-create modes
+      const filePrefix = ensureTrailingSlash(normalizedFile);
+      const ignoreMatch = ignores.find(ignored => filePrefix.startsWith(ignored));
+
+      if (ignoreMatch) {
+        errors.push({
+          blockIndex: block.blockIndex,
+          file: normalizedFile,
+          message: `File is ignored by rules: ${ignores.join(', ')}`,
+        });
+      }
+    }
   } catch (error) {
     errors.push({
       blockIndex: block.blockIndex,
@@ -51,19 +73,6 @@ function validateBlock(
       message: error instanceof Error ? error.message : 'Invalid file path',
     });
     return errors;
-  }
-
-  // Check if file path is in an ignored path
-  const ignores = getEffectiveIgnorePrefixes(repoRoot);
-  const filePrefix = ensureTrailingSlash(normalizedFile);
-  const ignoreMatch = ignores.find(ignored => filePrefix.startsWith(ignored));
-
-  if (ignoreMatch) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: normalizedFile,
-      message: `File is ignored by rules: ${ignores.join(', ')}`,
-    });
   }
 
   const fileExists = fs.existsSync(resolvedPath);

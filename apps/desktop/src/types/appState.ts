@@ -7,6 +7,11 @@ import type {
   ValidationError,
 } from '@inscribe/shared';
 
+/**
+ * Application workflow modes
+ * - 'intake': Initial mode where user pastes AI response (corresponds to 'parse' stage in UI)
+ * - 'review': Mode where user reviews and applies parsed changes (corresponds to 'review' stage in UI)
+ */
 export type AppMode = 'intake' | 'review';
 
 export type PipelineStatus = 

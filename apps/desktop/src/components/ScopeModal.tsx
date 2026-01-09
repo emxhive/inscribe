@@ -1,28 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button } from './common';
+import { useAppStateContext, useRepositoryActions } from '../hooks';
 
 interface ScopeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  topLevelFolders: string[];
-  currentScope: string[];
-  onSave: (newScope: string[]) => void;
-  disabled?: boolean;
 }
 
 export function ScopeModal({
   isOpen,
   onClose,
-  topLevelFolders,
-  currentScope,
-  onSave,
-  disabled = false,
 }: ScopeModalProps) {
-  const [selectedFolders, setSelectedFolders] = useState<Set<string>>(new Set(currentScope));
+  const { state } = useAppStateContext();
+  const { handleSaveScope } = useRepositoryActions();
+  const [selectedFolders, setSelectedFolders] = useState<Set<string>>(new Set(state.scope));
 
   useEffect(() => {
-    setSelectedFolders(new Set(currentScope));
-  }, [currentScope, isOpen]);
+    setSelectedFolders(new Set(state.scope));
+  }, [state.scope, isOpen]);
 
   const handleToggle = (folder: string) => {
     const newSelected = new Set(selectedFolders);
@@ -35,7 +30,7 @@ export function ScopeModal({
   };
 
   const handleSave = () => {
-    onSave(Array.from(selectedFolders).sort());
+    handleSaveScope(Array.from(selectedFolders).sort());
     onClose();
   };
 
@@ -49,7 +44,7 @@ export function ScopeModal({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={disabled}>
+          <Button variant="primary" onClick={handleSave} disabled={!state.repoRoot}>
             Save Scope
           </Button>
         </>
@@ -59,11 +54,11 @@ export function ScopeModal({
         Select the top-level folders to include in the scope. Only files within these folders
         will be indexed and available for modifications.
       </p>
-      {topLevelFolders.length === 0 ? (
+      {state.topLevelFolders.length === 0 ? (
         <p className="empty-message">No top-level folders found in repository</p>
       ) : (
         <ul className="folder-list">
-          {topLevelFolders.map((folder) => (
+          {state.topLevelFolders.map((folder) => (
             <li key={folder} className="folder-item">
               <label>
                 <input

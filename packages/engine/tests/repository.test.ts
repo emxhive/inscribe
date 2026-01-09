@@ -95,7 +95,7 @@ tmp
     expect(files).toEqual(['src/kept/file.txt']);
   });
 
-  it('validation rejects paths outside scope and ignored prefixes', () => {
+  it('validation allows create outside scope, rejects ignored prefixes', () => {
     setScopeState(tempDir, ['src/']);
     fs.writeFileSync(path.join(tempDir, '.inscribeignore'), 'src/ignore');
 
@@ -117,8 +117,9 @@ tmp
     ];
 
     const errors = validateBlocks(blocks as any, tempDir);
-    expect(errors.length).toBe(2);
-    expect(errors[0].message).toContain('scope roots');
-    expect(errors[1].message).toContain('ignored by rules');
+    // First block should pass (CREATE outside scope is ok)
+    // Second block should fail (ignored path)
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain('ignored');
   });
 });

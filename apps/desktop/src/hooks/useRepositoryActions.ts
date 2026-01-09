@@ -1,3 +1,5 @@
+import type { ParsedBlock } from '@inscribe/shared';
+import { buildReviewItems } from '../utils';
 import { useAppStateContext } from './useAppStateContext';
 import type { AppState } from '../types';
 
@@ -24,6 +26,36 @@ export async function initRepositoryState(
  */
 export function useRepositoryActions() {
   const { state, updateState } = useAppStateContext();
+  const revalidateParsedBlocks = async (repoRoot: string, parsedBlocks: ParsedBlock[]) => {
+    if (parsedBlocks.length === 0) return;
+
+    updateState({ statusMessage: 'Re-validating blocks...' });
+
+    const [validationErrors, applyPlan] = await Promise.all([
+      window.inscribeAPI.validateBlocks(parsedBlocks, repoRoot),
+      window.inscribeAPI.validateAndBuildApplyPlan(parsedBlocks, repoRoot),
+    ]);
+
+    const combinedErrors = validationErrors.length > 0 ? validationErrors : applyPlan.errors || [];
+    const reviewItems = buildReviewItems(parsedBlocks, combinedErrors);
+    const errorCount = combinedErrors.length;
+    const nextSelectedId = state.selectedItemId && reviewItems.some(item => item.id === state.selectedItemId)
+      ? state.selectedItemId
+      : reviewItems.length > 0
+        ? reviewItems[0].id
+        : null;
+
+    updateState({
+      validationErrors: combinedErrors,
+      reviewItems,
+      selectedItemId: nextSelectedId,
+      mode: 'review',
+      pipelineStatus: 'parse-success',
+      statusMessage: errorCount > 0
+        ? `Ready to review: ${reviewItems.length} files, ${errorCount} validation error(s)`
+        : `Ready to review: ${reviewItems.length} files`
+    });
+  };
   const handleBrowseRepo = async () => {
     try {
       const selectedPath = await window.inscribeAPI.selectRepository(state.repoRoot || undefined);
@@ -69,6 +101,7 @@ export function useRepositoryActions() {
         indexStatus: result.indexStatus || { state: 'complete' },
         statusMessage: `Scope updated: ${result.indexedCount || 0} files indexed`
       });
+      await revalidateParsedBlocks(state.repoRoot, state.parsedBlocks);
     } catch (error) {
       console.error('Failed to update scope:', error);
       updateState({ 

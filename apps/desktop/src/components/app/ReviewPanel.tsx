@@ -7,10 +7,10 @@ export function ReviewPanel() {
   const reviewActions = useReviewActions();
   const applyActions = useApplyActions();
 
-  const { selectedItem, editorValue, validItemsCount } = reviewActions;
+  const { selectedItem, editorValue, pendingItemsCount } = reviewActions;
   const hasInvalidItems = state.reviewItems.some((item) => item.status === 'invalid');
 
-  const canApplySelected = selectedItem && selectedItem.status !== 'invalid' && !state.isApplyingInProgress;
+  const canApplySelected = selectedItem && selectedItem.status === 'pending' && !state.isApplyingInProgress;
 
   return (
     <section className="review-panel">
@@ -87,7 +87,7 @@ export function ReviewPanel() {
           variant="ghost"
           type="button"
           onClick={applyActions.handleApplyValidBlocks}
-          disabled={validItemsCount === 0 || state.isApplyingInProgress}
+          disabled={pendingItemsCount === 0 || state.isApplyingInProgress}
         >
           {state.isApplyingInProgress ? 'Applying...' : 'Apply Valid Blocks'}
         </Button>

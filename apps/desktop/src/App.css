@@ -231,6 +231,10 @@ body {
   color: var(--warn);
 }
 
+.status-icon.pending {
+  color: var(--muted);
+}
+
 .meta {
   display: flex;
   gap: 8px;
@@ -774,6 +778,10 @@ body {
 
 .status-icon.error {
   color: #dc2626;
+}
+
+.status-icon.pending {
+  color: var(--muted);
 }
 
 /* Pill accent states */

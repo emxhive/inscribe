@@ -10,6 +10,13 @@ export function useApplyActions() {
   const refreshRepo = async (repoRoot: string) => {
     await initRepositoryState(repoRoot, updateState);
   };
+  const markItemsApplied = (ids: string[]) => {
+    updateState((prev) => ({
+      reviewItems: prev.reviewItems.map((item) =>
+        ids.includes(item.id) ? { ...item, status: 'applied' } : item
+      ),
+    }));
+  };
   const handleApplySelected = async () => {
     if (!state.repoRoot || !state.selectedItemId) return;
     
@@ -18,6 +25,10 @@ export function useApplyActions() {
 
     if (selectedItem.status === 'invalid') {
       updateState({ statusMessage: `Cannot apply: ${selectedItem.validationError}` });
+      return;
+    }
+    if (selectedItem.status === 'applied') {
+      updateState({ statusMessage: 'Selected file has already been applied' });
       return;
     }
 
@@ -33,6 +44,7 @@ export function useApplyActions() {
       
       if (result.success) {
         setLastAppliedPlan(plan);
+        markItemsApplied([selectedItem.id]);
         updateState({
           pipelineStatus: 'apply-success',
           statusMessage: `✓ Applied: ${selectedItem.file}. Undo restores only the most recent apply batch.`
@@ -64,8 +76,9 @@ export function useApplyActions() {
       return;
     }
 
-    if (state.reviewItems.length === 0) {
-      updateState({ statusMessage: 'No files to apply' });
+    const pendingItems = state.reviewItems.filter(item => item.status === 'pending');
+    if (pendingItems.length === 0) {
+      updateState({ statusMessage: 'No pending files to apply' });
       return;
     }
 
@@ -73,17 +86,18 @@ export function useApplyActions() {
       updateState({
         isApplyingInProgress: true,
         pipelineStatus: 'applying',
-        statusMessage: `Applying ${state.reviewItems.length} file(s)...`
+        statusMessage: `Applying ${pendingItems.length} file(s)...`
       });
 
-      const plan = buildApplyPlanFromItems(state.reviewItems);
+      const plan = buildApplyPlanFromItems(pendingItems);
       const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
       
       if (result.success) {
         setLastAppliedPlan(plan);
+        markItemsApplied(pendingItems.map((item) => item.id));
         updateState({
           pipelineStatus: 'apply-success',
-          statusMessage: `✓ Applied all: ${state.reviewItems.length} file(s). Undo restores only the most recent apply batch.`
+          statusMessage: `✓ Applied all: ${pendingItems.length} file(s). Undo restores only the most recent apply batch.`
         });
         await refreshRepo(state.repoRoot);
       } else {
@@ -106,33 +120,34 @@ export function useApplyActions() {
   const handleApplyValidBlocks = async () => {
     if (!state.repoRoot) return;
     
-    const validItems = state.reviewItems.filter(item => item.status !== 'invalid');
+    const pendingItems = state.reviewItems.filter(item => item.status === 'pending');
     
-    if (validItems.length === 0) {
+    if (pendingItems.length === 0) {
       updateState({ 
-        statusMessage: 'No valid files to apply',
+        statusMessage: 'No pending valid files to apply',
         pipelineStatus: 'idle'
       });
       return;
     }
 
-    const invalidCount = state.reviewItems.length - validItems.length;
+    const invalidCount = state.reviewItems.filter(item => item.status === 'invalid').length;
 
     try {
       updateState({
         isApplyingInProgress: true,
         pipelineStatus: 'applying',
-        statusMessage: `Applying ${validItems.length} valid file(s)...`
+        statusMessage: `Applying ${pendingItems.length} valid file(s)...`
       });
 
-      const plan = buildApplyPlanFromItems(validItems);
+      const plan = buildApplyPlanFromItems(pendingItems);
       const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
       
       if (result.success) {
         setLastAppliedPlan(plan);
+        markItemsApplied(pendingItems.map((item) => item.id));
         const message = invalidCount > 0
-          ? `✓ Applied ${validItems.length} valid file(s). ${invalidCount} file(s) with errors were skipped.`
-          : `✓ Applied all: ${validItems.length} file(s).`;
+          ? `✓ Applied ${pendingItems.length} valid file(s). ${invalidCount} file(s) with errors were skipped.`
+          : `✓ Applied all: ${pendingItems.length} file(s).`;
         
         updateState({
           pipelineStatus: 'apply-success',

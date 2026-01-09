@@ -21,6 +21,7 @@ export function useReviewActions() {
     const resetItems = state.reviewItems.map(item => ({
       ...item,
       editedContent: item.originalContent,
+      status: item.status === 'invalid' ? 'invalid' : 'pending',
     }));
     updateState({ 
       reviewItems: resetItems,
@@ -33,7 +34,7 @@ export function useReviewActions() {
 
   const editorValue = selectedItem?.editedContent || '';
 
-  const validItemsCount = state.reviewItems.filter(item => item.status !== 'invalid').length;
+  const pendingItemsCount = state.reviewItems.filter(item => item.status === 'pending').length;
 
   return {
     handleSelectItem,
@@ -41,6 +42,6 @@ export function useReviewActions() {
     handleResetAll,
     selectedItem,
     editorValue,
-    validItemsCount,
+    pendingItemsCount,
   };
 }

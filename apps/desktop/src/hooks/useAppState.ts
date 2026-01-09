@@ -45,7 +45,13 @@ export function useAppState() {
     setState((prev) => ({
       ...prev,
       reviewItems: prev.reviewItems.map((item) =>
-        item.id === id ? { ...item, editedContent } : item
+        item.id === id
+          ? {
+              ...item,
+              editedContent,
+              status: item.status === 'invalid' ? 'invalid' : 'pending',
+            }
+          : item
       ),
     }));
   };

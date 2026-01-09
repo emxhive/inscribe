@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Button } from './common';
 import { useAppStateContext, useRepositoryActions } from '../hooks';
 
@@ -16,43 +16,43 @@ export function IgnoreEditorModal({
   const [content, setContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadContent = useCallback(async () => {
-    if (!state.repoRoot) {
-      setContent('');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const result = await window.inscribeAPI.readIgnoreRaw(state.repoRoot);
-      let fullContent = result.content || '';
-
-      if (state.suggested.length > 0) {
-        const suggestedSection = [
-          '',
-          '# --- Suggested (commented) ---',
-          ...state.suggested.map((entry) => `# ${entry}`),
-        ].join('\n');
-
-        if (!fullContent.includes('# --- Suggested (commented) ---')) {
-          fullContent = fullContent.trim() + suggestedSection + '\n';
-        }
-      }
-
-      setContent(fullContent);
-    } catch (error) {
-      console.error('Failed to open ignore editor:', error);
-      updateState({ statusMessage: 'Failed to open ignore editor' });
-      setContent('');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [state.repoRoot, state.suggested, updateState]);
-
   useEffect(() => {
     if (!isOpen) return;
+    const loadContent = async () => {
+      if (!state.repoRoot) {
+        setContent('');
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const result = await window.inscribeAPI.readIgnoreRaw(state.repoRoot);
+        let fullContent = result.content || '';
+
+        if (state.suggested.length > 0) {
+          const suggestedSection = [
+            '',
+            '# --- Suggested (commented) ---',
+            ...state.suggested.map((entry) => `# ${entry}`),
+          ].join('\n');
+
+          if (!fullContent.includes('# --- Suggested (commented) ---')) {
+            fullContent = fullContent.trim() + suggestedSection + '\n';
+          }
+        }
+
+        setContent(fullContent);
+      } catch (error) {
+        console.error('Failed to open ignore editor:', error);
+        updateState({ statusMessage: 'Failed to open ignore editor' });
+        setContent('');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     loadContent();
-  }, [isOpen, loadContent]);
+  }, [isOpen, state.repoRoot, state.suggested, updateState]);
 
   const handleSave = async () => {
     if (!state.repoRoot) return;

@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { useAppStateContext } from './useAppStateContext';
 import type { AppState } from '../types';
 
@@ -25,7 +24,7 @@ export async function initRepositoryState(
  */
 export function useRepositoryActions() {
   const { state, updateState } = useAppStateContext();
-  const handleBrowseRepo = useCallback(async () => {
+  const handleBrowseRepo = async () => {
     try {
       const selectedPath = await window.inscribeAPI.selectRepository(state.repoRoot || undefined);
       if (!selectedPath) return;
@@ -43,9 +42,9 @@ export function useRepositoryActions() {
         indexStatus: { state: 'error', message: String(error) }
       });
     }
-  }, [state.repoRoot, updateState]);
+  };
 
-  const initRepo = useCallback(async (repoRoot: string) => {
+  const initRepo = async (repoRoot: string) => {
     try {
       await initRepositoryState(repoRoot, updateState);
     } catch (error) {
@@ -55,9 +54,9 @@ export function useRepositoryActions() {
         indexStatus: { state: 'error', message: String(error) }
       });
     }
-  }, [updateState]);
+  };
 
-  const handleSaveScope = useCallback(async (newScope: string[]) => {
+  const handleSaveScope = async (newScope: string[]) => {
     if (!state.repoRoot) return;
     
     try {
@@ -77,9 +76,9 @@ export function useRepositoryActions() {
         indexStatus: { state: 'error', message: String(error) }
       });
     }
-  }, [state.repoRoot, updateState]);
+  };
 
-  const handleSaveIgnore = useCallback(async (content: string) => {
+  const handleSaveIgnore = async (content: string) => {
     if (!state.repoRoot) return;
     
     try {
@@ -101,7 +100,7 @@ export function useRepositoryActions() {
       console.error('Failed to save ignore file:', error);
       updateState({ statusMessage: 'Failed to save ignore file' });
     }
-  }, [state.repoRoot, initRepo, updateState]);
+  };
 
   return {
     handleBrowseRepo,

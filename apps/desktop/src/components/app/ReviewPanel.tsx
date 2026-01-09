@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Button } from '../common';
 import { useAppStateContext, useApplyActions, useReviewActions } from '../../hooks';
 
@@ -8,10 +8,7 @@ export function ReviewPanel() {
   const applyActions = useApplyActions();
 
   const { selectedItem, editorValue, validItemsCount } = reviewActions;
-  const hasInvalidItems = useMemo(
-    () => state.reviewItems.some((item) => item.status === 'invalid'),
-    [state.reviewItems]
-  );
+  const hasInvalidItems = state.reviewItems.some((item) => item.status === 'invalid');
 
   const canApplySelected = selectedItem && selectedItem.status !== 'invalid' && !state.isApplyingInProgress;
 

@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { buildApplyPlanFromItems } from '../utils';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
@@ -8,10 +7,10 @@ import { initRepositoryState } from './useRepositoryActions';
  */
 export function useApplyActions() {
   const { state, updateState, setLastAppliedPlan, clearRedo } = useAppStateContext();
-  const refreshRepo = useCallback(async (repoRoot: string) => {
+  const refreshRepo = async (repoRoot: string) => {
     await initRepositoryState(repoRoot, updateState);
-  }, [updateState]);
-  const handleApplySelected = useCallback(async () => {
+  };
+  const handleApplySelected = async () => {
     if (!state.repoRoot || !state.selectedItemId) return;
     
     const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
@@ -54,9 +53,9 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, state.selectedItemId, state.reviewItems, updateState, setLastAppliedPlan, refreshRepo]);
+  };
 
-  const handleApplyAll = useCallback(async () => {
+  const handleApplyAll = async () => {
     if (!state.repoRoot) return;
     
     const invalidItems = state.reviewItems.filter(item => item.status === 'invalid');
@@ -102,9 +101,9 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, state.reviewItems, updateState, setLastAppliedPlan, refreshRepo]);
+  };
 
-  const handleApplyValidBlocks = useCallback(async () => {
+  const handleApplyValidBlocks = async () => {
     if (!state.repoRoot) return;
     
     const validItems = state.reviewItems.filter(item => item.status !== 'invalid');
@@ -155,9 +154,9 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, state.reviewItems, updateState, setLastAppliedPlan, refreshRepo]);
+  };
 
-  const handleUndo = useCallback(async () => {
+  const handleUndo = async () => {
     if (!state.repoRoot) return;
     
     try {
@@ -190,9 +189,9 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, updateState, refreshRepo]);
+  };
 
-  const handleRedo = useCallback(async () => {
+  const handleRedo = async () => {
     if (!state.repoRoot || !state.lastAppliedPlan) return;
     
     try {
@@ -226,7 +225,7 @@ export function useApplyActions() {
     } finally {
       updateState({ isApplyingInProgress: false });
     }
-  }, [state.repoRoot, state.lastAppliedPlan, updateState, clearRedo, refreshRepo]);
+  };
 
   return {
     handleApplySelected,

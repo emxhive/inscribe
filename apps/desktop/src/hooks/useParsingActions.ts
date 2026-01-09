@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import type { ParseResult } from '@inscribe/shared';
 import { buildReviewItems } from '../utils';
 import { useAppStateContext } from './useAppStateContext';
@@ -8,7 +7,7 @@ import { useAppStateContext } from './useAppStateContext';
  */
 export function useParsingActions() {
   const { state, updateState } = useAppStateContext();
-  const handleParseBlocks = useCallback(async () => {
+  const handleParseBlocks = async () => {
     if (!state.repoRoot) {
       updateState({
         statusMessage: 'Error: No repository selected',
@@ -82,7 +81,7 @@ export function useParsingActions() {
         isParsingInProgress: false
       });
     }
-  }, [state.repoRoot, state.aiInput, updateState]);
+  };
 
   return {
     handleParseBlocks,

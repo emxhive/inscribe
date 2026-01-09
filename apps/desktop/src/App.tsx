@@ -4,7 +4,8 @@ import { useAppState } from './useAppState';
 import { ScopeModal } from './components/ScopeModal';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
-import { Button, StatusPill, EmptyState, FileListItem, Breadcrumb } from './components/common';
+import { AppHeader } from './components/app/AppHeader';
+import { MainContent } from './components/app/MainContent';
 import { getPathBasename, toSentenceCase } from './utils';
 import {
   createRepositoryHandlers,
@@ -173,265 +174,51 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="top-bar">
-        <div className="repo-section">
-          <span className="repo-name">{repoName}</span>
-          <input 
-            className="repo-path-input"
-            value={state.repoRoot || ''} 
-            readOnly 
-            placeholder="No repository selected"
-          />
-          <button 
-            className="folder-btn"
-            type="button" 
-            title="Browse for repository" 
-            aria-label="Browse for repository"
-            onClick={handleBrowseRepo}
-          >
-            📂
-          </button>
-        </div>
+      <AppHeader
+        repoName={repoName}
+        repoRoot={state.repoRoot}
+        scopeCount={state.scope.length}
+        ignoreCount={state.ignore.entries.length}
+        suggestedCount={state.suggested.length}
+        indexedCount={state.indexedCount}
+        pipelineStatusDisplay={pipelineStatusDisplay}
+        mode={state.mode}
+        onBrowseRepo={handleBrowseRepo}
+        onNavigateStage={handleNavigateToStage}
+        onOpenScopeModal={() => state.repoRoot && setScopeModalOpen(true)}
+        onOpenIgnoreEditor={() => state.repoRoot && handleOpenIgnoreEditor()}
+        onOpenSuggestedList={() => setSuggestedListModalOpen(true)}
+        onOpenIgnoredList={() => setIgnoredListModalOpen(true)}
+      />
 
-        <div className="status-pills">
-          <Breadcrumb 
-            currentStage={state.mode === 'intake' ? 'parse' : 'review'}
-            onNavigate={handleNavigateToStage}
-          />
-          <StatusPill 
-            variant="secondary"
-            isClickable={true}
-            onClick={() => state.repoRoot && setScopeModalOpen(true)}
-            title="Click to configure scope"
-          >
-            Scope: {state.scope.length}
-          </StatusPill>
-          <StatusPill 
-            variant="secondary"
-            isClickable={true}
-            onClick={() => state.repoRoot && handleOpenIgnoreEditor()}
-            title="Click to edit ignore file"
-          >
-            Ignore: {state.ignore.entries.length}
-          </StatusPill>
-          <StatusPill 
-            variant="secondary"
-            isClickable={true}
-            onClick={() => setSuggestedListModalOpen(true)}
-            title="Click to view suggested excludes"
-          >
-            Suggested: {state.suggested.length}
-          </StatusPill>
-          <StatusPill 
-            isClickable={true}
-            onClick={() => setIgnoredListModalOpen(true)}
-            title="Click to view ignored paths"
-          >
-            Indexed: {state.indexedCount} files
-          </StatusPill>
-          <StatusPill 
-            variant={pipelineStatusDisplay.variant}
-            error={pipelineStatusDisplay.error}
-          >
-            {pipelineStatusDisplay.text}
-          </StatusPill>
-        </div>
-      </header>
-
-      <div className="layout">
-        <aside className="sidebar">
-          <div className="sidebar-header">
-            <div>
-              <p className="eyebrow">
-                {state.mode === 'intake' ? 'Parsed Code Blocks' : 'Code Changes'}
-              </p>
-              <h3>{state.mode === 'intake' ? '0 files' : `${state.reviewItems.length} files`}</h3>
-            </div>
-          </div>
-
-          {state.mode === 'intake' && (
-            <EmptyState message="Paste AI response to begin" />
-          )}
-
-          {state.mode === 'review' && (
-            <ul className="file-list">
-              {state.reviewItems.map((item) => (
-                <FileListItem
-                  key={item.id}
-                  file={item.file}
-                  lineCount={item.lineCount}
-                  language={item.language}
-                  mode={item.mode}
-                  status={item.status}
-                  validationError={item.validationError}
-                  isSelected={state.selectedItemId === item.id}
-                  onClick={() => handleSelectItem(item.id)}
-                />
-              ))}
-            </ul>
-          )}
-        </aside>
-
-        <main className="main-panel">
-          {state.mode === 'intake' && (
-            <section className="intake-card">
-              <header className="section-header">
-                <div>
-                  <p className="eyebrow">AI Response Input</p>
-                  <h2>Paste the AI reply to parse code blocks</h2>
-                </div>
-              </header>
-
-              {state.parseErrors.length > 0 && (
-                <div className="error-banner">
-                  <strong>Parse Errors:</strong>
-                  <ul>
-                    {state.parseErrors.map((error, idx) => (
-                      <li key={idx}>{error}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="input-area">
-                <textarea
-                  placeholder="Paste the AI response here. Must contain @inscribe BEGIN / END blocks."
-                  value={state.aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                />
-              </div>
-
-              <footer className="intake-footer">
-                <span className="char-count">{state.aiInput.length} characters</span>
-                <Button 
-                  variant="primary"
-                  type="button" 
-                  onClick={handleParseBlocks}
-                  disabled={!state.repoRoot || state.isParsingInProgress}
-                  title={!state.repoRoot ? 'Select a repository first' : state.isParsingInProgress ? 'Parsing in progress...' : ''}
-                >
-                  {state.isParsingInProgress ? 'Parsing...' : 'Parse Code Blocks'}
-                </Button>
-              </footer>
-            </section>
-          )}
-
-          {state.mode === 'review' && (
-            <section className="review-panel">
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Review & Apply</p>
-                  <h2>{selectedItem?.file || 'Select a file from the left'}</h2>
-                </div>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  onClick={() => setIsEditing(!state.isEditing)}
-                  disabled={!selectedItem}
-                >
-                  {state.isEditing ? 'Preview' : 'Edit'}
-                </Button>
-              </div>
-
-              {selectedItem?.validationError && (
-                <div className="error-banner">
-                  <strong>Validation Error:</strong> {selectedItem.validationError}
-                </div>
-              )}
-
-              {selectedItem?.mode === 'range' && (
-                <p className="range-help">
-                  Range anchors must match exactly and be unique; duplicates fail; no partial apply.
-                </p>
-              )}
-
-              <div className="editor-shell">
-                {state.isEditing ? (
-                  <textarea
-                    className="code-editor"
-                    value={editorValue}
-                    onChange={(e) => handleEditorChange(e.target.value)}
-                  />
-                ) : (
-                  <pre className="code-preview">
-                    <code>{editorValue}</code>
-                  </pre>
-                )}
-              </div>
-
-              <div className="action-bar">
-                <button type="button" onClick={handleUndo} title="Undo last apply (single-step)" disabled={state.isApplyingInProgress}>
-                  Undo last apply (single-step)
-                </button>
-                <button 
-                  type="button" 
-                  onClick={handleRedo}
-                  disabled={!state.canRedo || state.isApplyingInProgress}
-                >
-                  Redo Apply
-                </button>
-                <button type="button" onClick={handleResetAll} disabled={state.isApplyingInProgress}>
-                  Reset All
-                </button>
-                <div className="action-spacer" />
-                <Button 
-                  variant="ghost"
-                  type="button" 
-                  onClick={handleApplySelected}
-                  disabled={!selectedItem || selectedItem.status === 'invalid' || state.isApplyingInProgress}
-                >
-                  {state.isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
-                </Button>
-                <Button 
-                  variant="ghost"
-                  type="button" 
-                  onClick={handleApplyValidBlocks}
-                  disabled={validItemsCount === 0 || state.isApplyingInProgress}
-                >
-                  {state.isApplyingInProgress ? 'Applying...' : 'Apply Valid Blocks'}
-                </Button>
-                <Button 
-                  variant="primary"
-                  type="button" 
-                  onClick={handleApplyAll}
-                  disabled={state.reviewItems.some(item => item.status === 'invalid') || state.isApplyingInProgress}
-                >
-                  {state.isApplyingInProgress ? 'Applying...' : 'Apply All Changes'}
-                </Button>
-              </div>
-
-              <div className="status-banner">{state.statusMessage}</div>
-            </section>
-          )}
-        </main>
-
-        <aside className="right-rail">
-          <button
-            type="button"
-            className="rail-btn"
-            aria-label="View history"
-            onClick={() => setStatusMessage('History (placeholder)')}
-          >
-            🕑
-          </button>
-          <button
-            type="button"
-            className="rail-btn"
-            aria-label="Open settings"
-            onClick={() => setStatusMessage('Settings (placeholder)')}
-          >
-            ⚙️
-          </button>
-          <button
-            type="button"
-            className="rail-btn"
-            aria-label="Show information"
-            onClick={() => setStatusMessage('Info (placeholder)')}
-          >
-            ℹ️
-          </button>
-        </aside>
-      </div>
+      <MainContent
+        mode={state.mode}
+        reviewItems={state.reviewItems}
+        selectedItemId={state.selectedItemId}
+        selectedItem={selectedItem}
+        parseErrors={state.parseErrors}
+        aiInput={state.aiInput}
+        isEditing={state.isEditing}
+        isParsingInProgress={state.isParsingInProgress}
+        isApplyingInProgress={state.isApplyingInProgress}
+        canRedo={state.canRedo}
+        statusMessage={state.statusMessage}
+        validItemsCount={validItemsCount}
+        editorValue={editorValue}
+        onSelectItem={handleSelectItem}
+        onAiInputChange={setAiInput}
+        onParseBlocks={handleParseBlocks}
+        onToggleEditing={() => setIsEditing(!state.isEditing)}
+        onEditorChange={handleEditorChange}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onResetAll={handleResetAll}
+        onApplySelected={handleApplySelected}
+        onApplyValidBlocks={handleApplyValidBlocks}
+        onApplyAll={handleApplyAll}
+        onStatusMessage={setStatusMessage}
+        canParse={Boolean(state.repoRoot)}
+      />
 
       {/* Modals */}
       <ScopeModal

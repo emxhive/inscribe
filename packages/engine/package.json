@@ -7,7 +7,6 @@
   "scripts": {
     "build": "tsc",
     "dev:build": "tsc --watch",
-
     "test": "vitest run",
     "test:watch": "vitest",
     "dev": "vitest"

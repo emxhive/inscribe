@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type {ApplyPlan, IgnoreRules, IndexStatus, ParsedBlock, ValidationError} from '@inscribe/shared';
-import type { AppMode, AppState, ReviewItem } from './types';
+import type { AppMode, AppState, ReviewItem, PipelineStatus } from './types';
 
 export const initialState: AppState = {
   repoRoot: null,
@@ -21,6 +21,9 @@ export const initialState: AppState = {
 
   isEditing: false,
   statusMessage: 'Ready',
+  pipelineStatus: 'idle',
+  isParsingInProgress: false,
+  isApplyingInProgress: false,
 
   lastAppliedPlan: null,
   canRedo: false,
@@ -114,6 +117,18 @@ export function useAppState() {
     setState((prev) => ({ ...prev, lastAppliedPlan: null, canRedo: false }));
   }, []);
 
+  const setPipelineStatus = useCallback((pipelineStatus: PipelineStatus) => {
+    setState((prev) => ({ ...prev, pipelineStatus }));
+  }, []);
+
+  const setIsParsingInProgress = useCallback((isParsingInProgress: boolean) => {
+    setState((prev) => ({ ...prev, isParsingInProgress }));
+  }, []);
+
+  const setIsApplyingInProgress = useCallback((isApplyingInProgress: boolean) => {
+    setState((prev) => ({ ...prev, isApplyingInProgress }));
+  }, []);
+
   return {
     state,
     updateState,
@@ -136,5 +151,8 @@ export function useAppState() {
     updateReviewItemContent,
     setLastAppliedPlan,
     clearRedo,
+    setPipelineStatus,
+    setIsParsingInProgress,
+    setIsApplyingInProgress,
   };
 }

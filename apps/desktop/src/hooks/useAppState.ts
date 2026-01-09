@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import type {ApplyPlan, IgnoreRules, IndexStatus, ParsedBlock, ValidationError} from '@inscribe/shared';
 import type { AppMode, AppState, ReviewItem, PipelineStatus } from '../types';
 
@@ -33,30 +33,30 @@ export function useAppState() {
   const [state, setState] = useState<AppState>(initialState);
 
   // Single updater function for all state updates
-  const updateState = useCallback((updates: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {
+  const updateState = (updates: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {
     setState((prev) => {
       const changes = typeof updates === 'function' ? updates(prev) : updates;
       return { ...prev, ...changes };
     });
-  }, []);
+  };
 
   // Specialized updaters for complex operations
-  const updateReviewItemContent = useCallback((id: string, editedContent: string) => {
+  const updateReviewItemContent = (id: string, editedContent: string) => {
     setState((prev) => ({
       ...prev,
       reviewItems: prev.reviewItems.map((item) =>
         item.id === id ? { ...item, editedContent } : item
       ),
     }));
-  }, []);
+  };
 
-  const setLastAppliedPlan = useCallback((plan: ApplyPlan | null) => {
+  const setLastAppliedPlan = (plan: ApplyPlan | null) => {
     setState((prev) => ({ ...prev, lastAppliedPlan: plan, canRedo: plan !== null }));
-  }, []);
+  };
 
-  const clearRedo = useCallback(() => {
+  const clearRedo = () => {
     setState((prev) => ({ ...prev, lastAppliedPlan: null, canRedo: false }));
-  }, []);
+  };
 
   return {
     state,

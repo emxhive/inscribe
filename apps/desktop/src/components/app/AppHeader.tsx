@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React from 'react';
 import { Breadcrumb, StatusPill } from '../common';
 import { useRepositoryActions, useAppStateContext } from '../../hooks';
 import { getPathBasename, toSentenceCase } from '../../utils';
@@ -27,31 +27,31 @@ export function AppHeader({
   const repoName = getPathBasename(state.repoRoot || '') || 'Repository';
   const hasRepository = Boolean(state.repoRoot);
 
-  const requireRepository = useCallback((action: () => void, message: string) => {
+  const requireRepository = (action: () => void, message: string) => {
     if (!hasRepository) {
       updateState({ statusMessage: message });
       return;
     }
     action();
-  }, [hasRepository, updateState]);
+  };
 
-  const handleScopeClick = useCallback(() => {
+  const handleScopeClick = () => {
     requireRepository(onOpenScopeModal, 'Select a repository to configure scope.');
-  }, [onOpenScopeModal, requireRepository]);
+  };
 
-  const handleIgnoreClick = useCallback(() => {
+  const handleIgnoreClick = () => {
     requireRepository(onOpenIgnoreEditor, 'Select a repository to edit ignore rules.');
-  }, [onOpenIgnoreEditor, requireRepository]);
+  };
 
-  const handleNavigateToMode = useCallback((targetMode: 'parse' | 'review') => {
+  const handleNavigateToMode = (targetMode: 'parse' | 'review') => {
     if (targetMode === 'parse') {
       updateState({ mode: 'intake', pipelineStatus: 'idle' });
     } else if (targetMode === 'review') {
       updateState({ mode: 'review' });
     }
-  }, [updateState]);
+  };
 
-  const pipelineStatusDisplay = useMemo<PipelineStatusDisplay>(() => {
+  const pipelineStatusDisplay: PipelineStatusDisplay = (() => {
     switch (state.pipelineStatus) {
       case 'parsing':
         return { text: 'Parsing...', variant: 'accent', error: false };
@@ -68,7 +68,7 @@ export function AppHeader({
       default:
         return { text: toSentenceCase(state.indexStatus.state), variant: 'accent', error: state.indexStatus.state === 'error' };
     }
-  }, [state.pipelineStatus, state.indexStatus.state]);
+  })();
 
   return (
     <header className="top-bar">

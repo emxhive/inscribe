@@ -1,4 +1,5 @@
 import { buildApplyPlanFromItems } from '../utils';
+import type { ReviewItem } from '../types';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
 
@@ -11,9 +12,10 @@ export function useApplyActions() {
     await initRepositoryState(repoRoot, updateState);
   };
   const markItemsApplied = (ids: string[]) => {
+    const appliedStatus: ReviewItem['status'] = 'applied';
     updateState((prev) => ({
       reviewItems: prev.reviewItems.map((item) =>
-        ids.includes(item.id) ? { ...item, status: 'applied' } : item
+        ids.includes(item.id) ? { ...item, status: appliedStatus } : item
       ),
     }));
   };

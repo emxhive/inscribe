@@ -44,15 +44,18 @@ export function useAppState() {
   const updateReviewItemContent = (id: string, editedContent: string) => {
     setState((prev) => ({
       ...prev,
-      reviewItems: prev.reviewItems.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              editedContent,
-              status: item.status === 'invalid' ? 'invalid' : 'pending',
-            }
-          : item
-      ),
+      reviewItems: prev.reviewItems.map((item) => {
+        if (item.id !== id) {
+          return item;
+        }
+        const status: ReviewItem['status'] =
+          item.status === 'invalid' ? 'invalid' : 'pending';
+        return {
+          ...item,
+          editedContent,
+          status,
+        };
+      }),
     }));
   };
 

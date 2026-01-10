@@ -18,11 +18,15 @@ export function useReviewActions() {
   };
 
   const handleResetAll = () => {
-    const resetItems = state.reviewItems.map(item => ({
-      ...item,
-      editedContent: item.originalContent,
-      status: item.status === 'invalid' ? 'invalid' : 'pending',
-    }));
+    const resetItems: ReviewItem[] = state.reviewItems.map((item) => {
+      const status: ReviewItem['status'] =
+        item.status === 'invalid' ? 'invalid' : 'pending';
+      return {
+        ...item,
+        editedContent: item.originalContent,
+        status,
+      };
+    });
     updateState({ 
       reviewItems: resetItems,
       statusMessage: 'Reset all to original content'

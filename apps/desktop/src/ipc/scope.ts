@@ -4,7 +4,7 @@ import {
   setScopeState,
   indexRepository,
   getIndexStatus,
-} from '@inscribe/engine';
+} from '@engine';
 
 /**
  * Register scope-related IPC handlers

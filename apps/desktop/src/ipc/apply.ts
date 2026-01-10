@@ -2,8 +2,8 @@ import { ipcMain } from 'electron';
 import {
   applyChanges,
   undoLastApply,
-} from '@inscribe/engine';
-import type { ApplyPlan } from '@inscribe/shared';
+} from '@engine';
+import type { ApplyPlan } from '@shared';
 
 /**
  * Register apply/undo IPC handlers

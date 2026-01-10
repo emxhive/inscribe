@@ -3,7 +3,7 @@
  * Applies changes with backups and supports undo
  */
 
-import { ApplyPlan, ApplyResult, Operation, ValidationError } from '@inscribe/shared';
+import { ApplyPlan, ApplyResult, Operation, ValidationError } from '@shared';
 import { applyOperation } from './applyOperation';
 import { createBackup } from './backups';
 

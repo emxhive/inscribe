@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ApplyPlan, BACKUP_DIR, Operation } from '@inscribe/shared';
+import { ApplyPlan, BACKUP_DIR, Operation } from '@shared';
 
 interface BackupMetadata {
   timestamp: string;

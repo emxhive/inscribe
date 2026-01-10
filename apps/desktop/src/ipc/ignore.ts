@@ -10,7 +10,7 @@ import {
   setScopeState,
   indexRepository,
   getIndexStatus,
-} from '@inscribe/engine';
+} from '@engine';
 
 /**
  * Register ignore-related IPC handlers

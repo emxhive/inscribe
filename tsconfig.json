@@ -13,12 +13,12 @@
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "@inscribe/shared": ["packages/shared/dist"],
-      "@inscribe/shared/*": ["packages/shared/dist/*"],
-      "@inscribe/engine": ["packages/engine/dist"],
-      "@inscribe/engine/*": ["packages/engine/dist/*"],
-      "@inscribe/desktop": ["apps/desktop/src"],
-      "@inscribe/desktop/*": ["apps/desktop/src/*"]
+      "@shared": ["packages/shared/dist"],
+      "@shared/*": ["packages/shared/dist/*"],
+      "@engine": ["packages/engine/dist"],
+      "@engine/*": ["packages/engine/dist/*"],
+      "@desktop": ["apps/desktop/src"],
+      "@desktop/*": ["apps/desktop/src/*"]
     }
   },
   "include": ["packages/*/src", "apps/*/src"],

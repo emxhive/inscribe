@@ -1,5 +1,5 @@
 {
-    "name": "@inscribe/desktop",
+    "name": "@desktop",
     "version": "0.1.0",
     "private": true,
     "main": "dist/main.js",
@@ -16,8 +16,8 @@
     "dependencies": {
         "@fontsource/inter": "^5.2.8",
         "@fontsource/jetbrains-mono": "^5.2.8",
-        "@inscribe/engine": "0.1.0",
-        "@inscribe/shared": "0.1.0",
+        "@engine": "0.1.0",
+        "@shared": "0.1.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0"
     },

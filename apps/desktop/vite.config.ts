@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@inscribe/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
+      '@shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
     },
   },
   server: {

@@ -1,4 +1,4 @@
-import type { ParsedBlock } from '@inscribe/shared';
+import type { ParsedBlock } from '@shared';
 import { buildReviewItems } from '../utils';
 import { useAppStateContext } from './useAppStateContext';
 import type { AppState } from '../types';

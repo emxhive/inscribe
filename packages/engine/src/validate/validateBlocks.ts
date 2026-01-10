@@ -4,7 +4,7 @@
  */
 
 import * as fs from 'fs';
-import { ParsedBlock, ValidationError } from '@inscribe/shared';
+import { ParsedBlock, ValidationError } from '@shared';
 import { getEffectiveIgnorePrefixes, getOrCreateScope } from '../repository';
 import { resolveAndAssertWithinRepo, resolveAndAssertWithinScope } from '../paths/resolveAndAssertWithin';
 import { ensureTrailingSlash, normalizeRelativePath } from '../util/path';

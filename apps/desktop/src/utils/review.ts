@@ -1,8 +1,8 @@
-import type { ApplyPlan, ParsedBlock, ValidationError } from '@inscribe/shared';
+import type { ApplyPlan, ParsedBlock, ValidationError } from '@shared';
 
 import { getLanguageFromFilename } from './language';
 import { countLines } from './text';
-import type { ReviewItem } from '@inscribe/desktop/types';
+import type { ReviewItem } from '@desktop/types';
 
 /**
  * Review item construction utilities

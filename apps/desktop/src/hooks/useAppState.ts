@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type {ApplyPlan, IgnoreRules, IndexStatus, ParsedBlock, ValidationError} from '@inscribe/shared';
+import type {ApplyPlan, IgnoreRules, IndexStatus, ParsedBlock, ValidationError} from '@shared';
 import type { AppMode, AppState, ReviewItem, PipelineStatus } from '../types';
 
 export const initialState: AppState = {

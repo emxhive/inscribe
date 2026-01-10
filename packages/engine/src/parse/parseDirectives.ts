@@ -16,7 +16,7 @@ import {
   extractMarkerValue,
   isValidMode,
   type Mode,
-} from '@inscribe/shared';
+} from '@shared';
 
 export interface DirectiveParseResult {
   file: string;

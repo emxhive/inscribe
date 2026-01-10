@@ -9,7 +9,7 @@ import {
   INSCRIBE_BEGIN,
   INSCRIBE_END,
   matchesMarker,
-} from '@inscribe/shared';
+} from '@shared';
 import { parseSingleBlock, BlockParseResult } from './parseSingleBlock';
 import { parseFallbackBlocks } from './parseFallback';
 

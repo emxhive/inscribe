@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { IGNORED_PATHS, INSCRIBE_IGNORE_FILE } from '@inscribe/shared';
-import type { IgnoreRules } from '@inscribe/shared';
+import { IGNORED_PATHS, INSCRIBE_IGNORE_FILE } from '@shared';
+import type { IgnoreRules } from '@shared';
 import { normalizePrefix } from './pathing';
 
 export function readIgnoreRules(repoRoot: string): IgnoreRules {

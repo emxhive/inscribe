@@ -3,8 +3,8 @@ import {
   parseBlocks,
   validateBlocks,
   buildApplyPlan,
-} from '@inscribe/engine';
-import type { ApplyPlan, ParsedBlock, ValidationError } from '@inscribe/shared';
+} from '@engine';
+import type { ApplyPlan, ParsedBlock, ValidationError } from '@shared';
 
 /**
  * Register parsing and validation IPC handlers

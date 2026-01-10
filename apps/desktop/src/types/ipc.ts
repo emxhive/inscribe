@@ -7,7 +7,7 @@ import type {
   ParsedBlock,
   ValidationError,
   UndoResult,
-} from '@inscribe/shared';
+} from '@shared';
 
 export interface RepoInitResult {
   topLevelFolders: string[];

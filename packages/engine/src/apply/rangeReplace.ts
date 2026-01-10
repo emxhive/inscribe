@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { Operation } from '@inscribe/shared';
+import { Operation } from '@shared';
 import { findAllOccurrences } from '../util/textSearch';
 
 /**

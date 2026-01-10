@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Operation } from '@inscribe/shared';
+import { Operation } from '@shared';
 import {resolveAndAssertWithin, resolveAndAssertWithinRepo} from '../paths/resolveAndAssertWithin';
 import { applyRangeReplace } from './rangeReplace';
 

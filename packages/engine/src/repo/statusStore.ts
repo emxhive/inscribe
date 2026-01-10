@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 import * as path from 'path';
-import type { IndexStatus } from '@shared';
+import type { IndexStatus } from '@inscribe/shared';
 
 const indexStatusMap = new Map<string, IndexStatus & { count?: number }>();
 

@@ -6,8 +6,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     alias: {
-      '@shared': path.resolve(__dirname, '../shared/src'),
-      '@engine': path.resolve(__dirname, './src'),
+      '@inscribe/shared': path.resolve(__dirname, '../shared/src'),
+      '@inscribe/engine': path.resolve(__dirname, './src'),
     },
   },
 });

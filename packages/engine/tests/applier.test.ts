@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { applyChanges, undoLastApply } from '../src';
-import { ApplyPlan } from '@shared';
+import { ApplyPlan } from '@inscribe/shared';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

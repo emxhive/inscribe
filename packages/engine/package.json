@@ -1,5 +1,5 @@
 {
-  "name": "@engine",
+  "name": "@inscribe/engine",
   "version": "0.1.0",
   "description": "Core parsing, validation, and apply logic for Inscribe",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@shared": "0.1.0"
+    "@inscribe/shared": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.27",

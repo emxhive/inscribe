@@ -7,7 +7,7 @@ import {
   readIgnoreRules,
   indexRepository,
   getIndexStatus,
-} from '@engine';
+} from '@inscribe/engine';
 
 /**
  * Register repository-related IPC handlers

@@ -1,6 +1,8 @@
 import * as fs from 'fs';
-import { ParsedBlock, ValidationError } from '@shared';
+
 import { findAllOccurrences } from '../util/textSearch';
+import {ParsedBlock, ValidationError} from "@inscribe/shared";
+
 
 /**
  * Validate range mode anchors

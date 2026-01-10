@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { SCOPE_STORE_FILE, INSCRIBE_DIR } from '@shared';
+import { SCOPE_STORE_FILE, INSCRIBE_DIR } from '@inscribe/shared';
 
 export function getUserDataPath(): string {
   if (process.env.INSCRIBE_USER_DATA) {

@@ -1,5 +1,5 @@
 import { useAppStateContext } from './useAppStateContext';
-import type { ReviewItem } from '../types';
+import type { ReviewItem } from '@/types';
 
 /**
  * Hook for review-related operations and derived data

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useAppStateContext, useApplyActions, useReviewActions } from '../../hooks';
+import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
 import { AlertCircle } from 'lucide-react';
 
 export function ReviewPanel() {

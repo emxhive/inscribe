@@ -1,6 +1,6 @@
 import React from 'react';
 import { EmptyState, FileListItem } from '../common';
-import { useAppStateContext, useReviewActions } from '../../hooks';
+import { useAppStateContext, useReviewActions } from '@/hooks';
 
 export function FileSidebar() {
   const { state } = useAppStateContext();

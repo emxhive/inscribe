@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from './common';
 import { Button } from '@/components/ui/button';
-import { useAppStateContext, useRepositoryActions } from '../hooks';
+import { useAppStateContext, useRepositoryActions } from '@/hooks';
 
 interface ScopeModalProps {
   isOpen: boolean;

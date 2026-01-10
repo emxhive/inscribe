@@ -1,4 +1,4 @@
-import type { ApplyPlan, ParsedBlock, ValidationError } from '@shared';
+import type { ApplyPlan, ParsedBlock, ValidationError } from '@inscribe/shared';
 
 import { getLanguageFromFilename } from './language';
 import { countLines } from './text';

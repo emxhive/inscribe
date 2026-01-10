@@ -6,7 +6,7 @@ import type {
   ParsedBlock,
   UndoResult,
   ValidationError,
-} from '@shared';
+} from '@inscribe/shared';
 import type {
   IgnoreWriteResult,
   ReadIgnoreRawResult,

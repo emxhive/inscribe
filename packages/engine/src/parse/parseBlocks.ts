@@ -9,7 +9,7 @@ import {
   INSCRIBE_BEGIN,
   INSCRIBE_END,
   matchesMarker,
-} from '@shared';
+} from '@inscribe/shared';
 import { parseSingleBlock, BlockParseResult } from './parseSingleBlock';
 import { parseFallbackBlocks } from './parseFallback';
 
@@ -111,4 +111,3 @@ export function parseBlocks(content: string): ParseResult {
   // Return both successfully parsed blocks and accumulated errors
   return { blocks, errors };
 }
-

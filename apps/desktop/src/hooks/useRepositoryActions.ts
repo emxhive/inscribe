@@ -1,7 +1,7 @@
-import type { ParsedBlock } from '@shared';
-import { buildReviewItems } from '../utils';
+import type { ParsedBlock } from '@inscribe/shared';
+import { buildReviewItems } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
-import type { AppState } from '../types';
+import type { AppState } from '@/types';
 
 export async function initRepositoryState(
   repoRoot: string,

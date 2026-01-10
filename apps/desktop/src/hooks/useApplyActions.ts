@@ -1,5 +1,5 @@
-import { buildApplyPlanFromItems } from '../utils';
-import type { ReviewItem } from '../types';
+import { buildApplyPlanFromItems } from '@/utils';
+import type { ReviewItem } from '@/types';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
 

@@ -2,7 +2,7 @@
  * Functions for parsing a single Inscribe block
  */
 
-import { ParsedBlock, Mode } from '@shared';
+import { ParsedBlock, Mode } from '@inscribe/shared';
 import { parseDirectives } from './parseDirectives';
 import { extractFencedBlock } from './parseFencedBlock';
 

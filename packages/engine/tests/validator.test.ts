@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { setScopeState, validateBlocks } from '../src';
-import { ParsedBlock } from '@shared';
+import { ParsedBlock } from '@inscribe/shared';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

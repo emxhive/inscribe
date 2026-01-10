@@ -1,8 +1,8 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Folder, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { useRepositoryActions, useAppStateContext } from '../../hooks';
-import { getPathBasename, toSentenceCase } from '../../utils';
+import { useRepositoryActions, useAppStateContext } from '@/hooks';
+import { getPathBasename, toSentenceCase } from '@/utils';
 
 interface PipelineStatusDisplay {
   text: string;

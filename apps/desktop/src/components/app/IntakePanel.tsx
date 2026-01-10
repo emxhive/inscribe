@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { useAppStateContext, useParsingActions } from '../../hooks';
+import { useAppStateContext, useParsingActions } from '@/hooks';
 import { AlertCircle } from 'lucide-react';
 
 export function IntakePanel() {

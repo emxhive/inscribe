@@ -3,7 +3,7 @@
  * Builds deterministic apply plans from validated blocks
  */
 
-import { ParsedBlock, ApplyPlan, Operation } from '@shared';
+import { ParsedBlock, ApplyPlan, Operation } from '@inscribe/shared';
 
 /**
  * Build an applied plan from already-validated blocks.

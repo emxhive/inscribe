@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { HEAVY_DIR_NAMES, HEAVY_FILE_COUNT_THRESHOLD } from '@shared';
+import { HEAVY_DIR_NAMES, HEAVY_FILE_COUNT_THRESHOLD } from '@inscribe/shared';
 import { listTopLevelFolders } from './topLevel';
 
 const heavyDirNameSet = new Set<string>(HEAVY_DIR_NAMES as readonly string[]);

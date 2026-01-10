@@ -3,7 +3,7 @@
  * Looks for FILE: directives followed by fenced code blocks
  */
 
-import {ParsedBlock, ParseResult, matchesMarker, INSCRIBE_BEGIN, DIRECTIVE_FILE} from '@shared';
+import {ParsedBlock, ParseResult, matchesMarker, INSCRIBE_BEGIN, DIRECTIVE_FILE} from '@inscribe/shared';
 import { isFileDirective } from './parseUtils';
 
 /**

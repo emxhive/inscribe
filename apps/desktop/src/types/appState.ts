@@ -5,7 +5,7 @@ import type {
   Mode as OperationMode,
   ParsedBlock,
   ValidationError,
-} from '@shared';
+} from '@inscribe/shared';
 
 /**
  * Application workflow modes

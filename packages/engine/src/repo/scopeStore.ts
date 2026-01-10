@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ScopeState } from '@shared';
+import type { ScopeState } from '@inscribe/shared';
 import { computeDefaultScope } from './suggest';
 import { listTopLevelFolders } from './topLevel';
 import { normalizePrefix } from './pathing';

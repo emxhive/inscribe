@@ -1,8 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Operation } from '@shared';
-import {resolveAndAssertWithin, resolveAndAssertWithinRepo} from '../paths/resolveAndAssertWithin';
+import { Operation } from '@inscribe/shared';
+
 import { applyRangeReplace } from './rangeReplace';
+import {resolveAndAssertWithinRepo} from "../paths/resolveAndAssertWithin";
 
 export function applyOperation(operation: Operation, repoRoot: string): void {
   const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, []);

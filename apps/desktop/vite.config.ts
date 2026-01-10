@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@inscribe/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {

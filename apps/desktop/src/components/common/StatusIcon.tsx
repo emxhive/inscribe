@@ -1,4 +1,5 @@
 import React from 'react';
+import { CheckCircle2, XCircle, Circle } from 'lucide-react';
 
 export type StatusType = 'pending' | 'applied' | 'invalid';
 
@@ -8,18 +9,39 @@ interface StatusIconProps {
 }
 
 export function StatusIcon({ status, error }: StatusIconProps) {
-  const iconClass = status === 'invalid' ? 'error' : status === 'applied' ? 'success' : 'pending';
-  const icon = status === 'invalid' ? '❌' : status === 'applied' ? '✅' : '•';
   const ariaLabel = error ?? (status === 'pending' ? 'Pending' : status);
 
+  if (status === 'invalid') {
+    return (
+      <span title={ariaLabel}>
+        <XCircle
+          className="h-3 w-3 text-destructive flex-shrink-0"
+          role="img"
+          aria-label={ariaLabel}
+        />
+      </span>
+    );
+  }
+
+  if (status === 'applied') {
+    return (
+      <span title={ariaLabel}>
+        <CheckCircle2
+          className="h-3 w-3 text-green-600 flex-shrink-0"
+          role="img"
+          aria-label={ariaLabel}
+        />
+      </span>
+    );
+  }
+
   return (
-    <span
-      className={`status-icon ${iconClass}`}
-      role="img"
-      aria-label={ariaLabel}
-      title={ariaLabel}
-    >
-      {icon}
+    <span title={ariaLabel}>
+      <Circle
+        className="h-3 w-3 text-muted-foreground flex-shrink-0"
+        role="img"
+        aria-label={ariaLabel}
+      />
     </span>
   );
 }

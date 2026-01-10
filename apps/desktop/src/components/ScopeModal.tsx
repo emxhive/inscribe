@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button } from './common';
+import { Modal } from './common';
+import { Button } from '@/components/ui/button';
 import { useAppStateContext, useRepositoryActions } from '../hooks';
 
 interface ScopeModalProps {
@@ -41,28 +42,29 @@ export function ScopeModal({
       title="Configure Scope"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={!state.repoRoot}>
+          <Button onClick={handleSave} disabled={!state.repoRoot}>
             Save Scope
           </Button>
         </>
       }
     >
-      <p className="modal-description">
+      <p className="mb-4 text-muted-foreground text-sm leading-relaxed m-0">
         Select the top-level folders to include in the scope. Only files within these folders
         will be indexed and available for modifications.
       </p>
       {state.topLevelFolders.length === 0 ? (
-        <p className="empty-message">No top-level folders found in repository</p>
+        <p className="text-center text-muted-foreground py-8 text-sm">No top-level folders found in repository</p>
       ) : (
-        <ul className="folder-list">
+        <ul className="list-none p-0 m-0">
           {state.topLevelFolders.map((folder) => (
-            <li key={folder} className="folder-item">
-              <label>
+            <li key={folder} className="p-3 border border-border rounded-md mb-2 bg-secondary">
+              <label className="flex items-center gap-3 cursor-pointer text-sm">
                 <input
                   type="checkbox"
+                  className="w-4 h-4 cursor-pointer"
                   checked={selectedFolders.has(folder)}
                   onChange={() => handleToggle(folder)}
                 />

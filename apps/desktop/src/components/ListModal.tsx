@@ -1,5 +1,6 @@
 import React from 'react';
-import { Modal, Button } from './common';
+import { Modal } from './common';
+import { Button } from '@/components/ui/button';
 
 interface ListModalProps {
   isOpen: boolean;
@@ -22,17 +23,17 @@ export function ListModal({
       onClose={onClose}
       title={title}
       footer={
-        <Button variant="primary" onClick={onClose}>
+        <Button onClick={onClose}>
           Close
         </Button>
       }
     >
       {items.length === 0 ? (
-        <p className="empty-message">{emptyMessage}</p>
+        <p className="text-center text-muted-foreground py-8 text-sm">{emptyMessage}</p>
       ) : (
-        <ul className="item-list">
+        <ul className="list-none p-0 m-0">
           {items.map((item, index) => (
-            <li key={index} className="item">
+            <li key={index} className="p-3 border border-border rounded-md mb-2 bg-secondary">
               {item}
             </li>
           ))}

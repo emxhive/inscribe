@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { EmptyState, FileListItem } from '../common';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
@@ -80,12 +80,9 @@ export function FileSidebar() {
     }));
   };
 
-  const presentDirectives = useMemo(() => {
-    if (!selectedBlock) {
-      return [];
-    }
-    return DIRECTIVE_KEYS.filter((key) => selectedBlock.directives[key]);
-  }, [selectedBlock]);
+  const presentDirectives = selectedBlock
+    ? DIRECTIVE_KEYS.filter((key) => selectedBlock.directives[key])
+    : [];
 
   const handleAddDirective = (key: typeof DIRECTIVE_KEYS[number]) => {
     if (!selectedBlock) {

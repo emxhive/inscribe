@@ -190,9 +190,10 @@ export function parseIntakeStructure(input: string): {
     }
   });
 
-  if (current) {
-    current.errors.push('Missing @inscribe END');
-    finalizeBlock(current, lines.length - 1);
+  const openBlock = current as IntakeBlock | null;
+  if (openBlock) {
+    openBlock.errors.push('Missing @inscribe END');
+    finalizeBlock(openBlock, lines.length - 1);
   }
 
   return { blocks, lines: lineMeta };

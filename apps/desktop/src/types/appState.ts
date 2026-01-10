@@ -55,6 +55,7 @@ export interface AppState {
   validationErrors: ValidationError[];
   reviewItems: ReviewItem[];
   selectedItemId: string | null;
+  selectedIntakeBlockId: string | null;
 
   // UI state
   isEditing: boolean;

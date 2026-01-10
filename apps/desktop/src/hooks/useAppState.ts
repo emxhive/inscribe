@@ -18,6 +18,7 @@ export const initialState: AppState = {
   validationErrors: [],
   reviewItems: [],
   selectedItemId: null,
+  selectedIntakeBlockId: null,
 
   isEditing: false,
   statusMessage: 'Ready',

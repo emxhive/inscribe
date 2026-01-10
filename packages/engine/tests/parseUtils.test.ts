@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeMarker, matchesMarker, startsWithMarker, extractMarkerValue } from '@inscribe/shared';
+import { normalizeMarker, matchesMarker, startsWithMarker, extractMarkerValue, parseDirectiveLine } from '@inscribe/shared';
 
 describe('Parse Utilities', () => {
   describe('normalizeMarker', () => {
@@ -79,6 +79,36 @@ describe('Parse Utilities', () => {
     it('should handle marker without value', () => {
       expect(extractMarkerValue('@inscribe FILE:', '@inscribe FILE:')).toBe('');
       expect(extractMarkerValue('@inscribe FILE:   ', '@inscribe FILE:')).toBe('');
+    });
+  });
+
+  describe('parseDirectiveLine', () => {
+    it('should parse directives without prefix', () => {
+      const parsed = parseDirectiveLine('FILE: path/to/file.ts');
+      expect(parsed.matched).toBe(true);
+      expect(parsed.key).toBe('FILE');
+      expect(parsed.value).toBe('path/to/file.ts');
+      expect(parsed.usedPrefix).toBe(false);
+    });
+
+    it('should parse directives with @inscribe prefix', () => {
+      const parsed = parseDirectiveLine('@inscribe MODE: create');
+      expect(parsed.matched).toBe(true);
+      expect(parsed.key).toBe('MODE');
+      expect(parsed.value).toBe('create');
+      expect(parsed.usedPrefix).toBe(true);
+    });
+
+    it('should ignore unknown directives without prefix', () => {
+      const parsed = parseDirectiveLine('UNKNOWN: value');
+      expect(parsed.matched).toBe(false);
+      expect(parsed.usedPrefix).toBe(false);
+    });
+
+    it('should capture unknown prefixed directives for warnings', () => {
+      const parsed = parseDirectiveLine('@inscribe UNKNOWN: value');
+      expect(parsed.matched).toBe(false);
+      expect(parsed.usedPrefix).toBe(true);
     });
   });
 });

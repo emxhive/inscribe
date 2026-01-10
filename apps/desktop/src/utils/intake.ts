@@ -1,21 +1,15 @@
 import {
   INSCRIBE_BEGIN,
   INSCRIBE_END,
-  INSCRIBE_FILE,
-  INSCRIBE_MODE,
   INSCRIBE_PREFIX,
-  INSCRIBE_START,
-  INSCRIBE_END_ANCHOR,
-  INSCRIBE_SCOPE_START,
-  INSCRIBE_SCOPE_END,
-  DIRECTIVE_KEYS,
   VALID_MODES,
   matchesMarker,
   startsWithMarker,
-  extractMarkerValue,
+  parseDirectiveLine,
+  DirectiveKey,
 } from '@inscribe/shared';
 
-export type IntakeDirectiveKey = (typeof DIRECTIVE_KEYS)[number];
+export type IntakeDirectiveKey = DirectiveKey;
 
 export interface IntakeDirective {
   key: IntakeDirectiveKey;
@@ -44,14 +38,7 @@ export interface IntakeLineMeta {
   status?: 'warning' | 'error';
 }
 
-const DIRECTIVE_MARKERS: Record<IntakeDirectiveKey, string> = {
-  FILE: INSCRIBE_FILE,
-  MODE: INSCRIBE_MODE,
-  START: INSCRIBE_START,
-  END: INSCRIBE_END_ANCHOR,
-  SCOPE_START: INSCRIBE_SCOPE_START,
-  SCOPE_END: INSCRIBE_SCOPE_END,
-};
+const isFenceLine = (line: string) => line.trim().startsWith('```');
 
 export function parseIntakeStructure(input: string): {
   blocks: IntakeBlock[];
@@ -65,7 +52,7 @@ export function parseIntakeStructure(input: string): {
   }));
 
   const blocks: IntakeBlock[] = [];
-  let current: IntakeBlock | null = null;
+  let current: (IntakeBlock & { directivesLocked?: boolean }) | null = null;
 
   const finalizeBlock = (block: IntakeBlock, endLine: number) => {
     block.endLine = endLine;
@@ -121,6 +108,7 @@ export function parseIntakeStructure(input: string): {
         errors: [],
         status: 'valid',
         label: '',
+        directivesLocked: false,
       };
 
       lineMeta[lineIndex].type = 'begin';
@@ -163,30 +151,39 @@ export function parseIntakeStructure(input: string): {
 
     lineMeta[lineIndex].blockId = current.id;
 
-    if (startsWithMarker(line, INSCRIBE_PREFIX)) {
-      const directiveMatch = (Object.entries(DIRECTIVE_MARKERS) as Array<[IntakeDirectiveKey, string]>)
-        .find(([, marker]) => startsWithMarker(line, marker));
+    if (isFenceLine(line)) {
+      current.directivesLocked = true;
+      return;
+    }
 
-      if (!directiveMatch) {
+    if (current.directivesLocked) {
+      return;
+    }
+
+    const parsed = parseDirectiveLine(line);
+    if (!parsed.matched) {
+      if (parsed.usedPrefix) {
         current.warnings.push('Unknown directive');
         lineMeta[lineIndex].type = 'unknown-directive';
         lineMeta[lineIndex].status = 'warning';
-        return;
       }
+      return;
+    }
 
-      const [key, marker] = directiveMatch;
-      const value = extractMarkerValue(line, marker);
-      current.directives[key] = {
-        key,
-        value,
-        lineIndex,
-        raw: line,
-      };
-      lineMeta[lineIndex].type = 'directive';
-      if (!value) {
-        current.warnings.push(`${key} directive missing value`);
-        lineMeta[lineIndex].status = 'warning';
-      }
+    const key = parsed.key as IntakeDirectiveKey;
+    const value = parsed.value ?? '';
+
+    current.directives[key] = {
+      key,
+      value,
+      lineIndex,
+      raw: line,
+    };
+
+    lineMeta[lineIndex].type = 'directive';
+    if (!value) {
+      current.warnings.push(`${key} directive missing value`);
+      lineMeta[lineIndex].status = 'warning';
     }
   });
 
@@ -212,8 +209,10 @@ export function updateDirectiveInText(
 
   const lines = input.split('\n');
   const nextValue = value.trim();
-  const marker = `${INSCRIBE_PREFIX} ${key}:`;
   const directive = block.directives[key];
+  const marker = directive && directive.raw.trim().startsWith(INSCRIBE_PREFIX)
+    ? `${INSCRIBE_PREFIX} ${key}:`
+    : `${key}:`;
 
   if (directive) {
     const line = lines[directive.lineIndex] ?? '';

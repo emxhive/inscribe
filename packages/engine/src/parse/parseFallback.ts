@@ -3,8 +3,21 @@
  * Looks for FILE: directives followed by fenced code blocks
  */
 
-import {ParsedBlock, ParseResult, matchesMarker, INSCRIBE_BEGIN, DIRECTIVE_FILE} from '@inscribe/shared';
+import { ParsedBlock, ParseResult, matchesMarker, INSCRIBE_BEGIN, DIRECTIVE_FILE } from '@inscribe/shared';
 import { isFileDirective } from './parseUtils';
+import { extractFencedBlock } from './parseFencedBlock';
+
+function findFenceStartBeforeStop(lines: string[], startIndex: number): number {
+  for (let j = startIndex; j < lines.length; j++) {
+    if (isFileDirective(lines[j]) || matchesMarker(lines[j], INSCRIBE_BEGIN)) {
+      return -1;
+    }
+    if (lines[j].trim().startsWith('```')) {
+      return j;
+    }
+  }
+  return -1;
+}
 
 /**
  * Parse content without inscribe tags (fallback mode)
@@ -29,40 +42,20 @@ export function parseFallbackBlocks(content: string): ParseResult {
       }
       
       // Look for the next fenced code block
-      let fenceStartIndex = -1;
-      for (let j = i + 1; j < lines.length; j++) {
-        const nextTrimmed = lines[j].trim();
-        if (nextTrimmed.startsWith('```')) {
-          fenceStartIndex = j;
-          break;
-        }
-        // Stop if we hit another FILE: directive or an inscribe tag
-        if (isFileDirective(lines[j]) || matchesMarker(lines[j], INSCRIBE_BEGIN)) {
-          break;
-        }
-      }
-      
+      const fenceStartIndex = findFenceStartBeforeStop(lines, i + 1);
+
       if (fenceStartIndex === -1) {
         continue; // No code block found for this FILE: directive
       }
-      
-      // Find the closing fence (must be exactly ``` to avoid matching opening fences)
-      let fenceEndIndex = -1;
-      for (let j = fenceStartIndex + 1; j < lines.length; j++) {
-        if (lines[j].trim() === '```') {
-          fenceEndIndex = j;
-          break;
-        }
-      }
-      
-      if (fenceEndIndex === -1) {
-        errors.push(`Block ${blockIndex}: Fenced code block not closed for file: ${file}`);
+
+      const fencedResult = extractFencedBlock(lines, fenceStartIndex);
+      if (fencedResult.error) {
+        errors.push(`Block ${blockIndex}: ${fencedResult.error} for file: ${file}`);
         return { blocks: [], errors };
       }
-      
-      // Extract content between fences
-      const contentLines = lines.slice(fenceStartIndex + 1, fenceEndIndex);
-      const content = contentLines.join('\n');
+
+      const fenceEndIndex = fencedResult.endIndex ?? fenceStartIndex;
+      const content = fencedResult.content ?? '';
       
       blocks.push({
         file,

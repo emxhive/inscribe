@@ -14,3 +14,4 @@ out/
 packages/*/src/**/*.js
 packages/*/src/**/*.d.ts
 /.prodex@inscribe
+/packages/engine/debug_playground

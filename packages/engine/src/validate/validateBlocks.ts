@@ -48,11 +48,11 @@ function validateBlock(
     if (block.mode === 'create') {
       const resolved = resolveAndAssertWithinRepo(repoRoot, block.file, ignores);
       resolvedPath = resolved.resolvedPath;
-      normalizedFile = normalizeRelativePath(resolved.relativePath);
+      normalizeRelativePath(resolved.relativePath);
     } else {
       const resolved = resolveAndAssertWithinScope(repoRoot, block.file, scopeRoots, ignores);
       resolvedPath = resolved.resolvedPath;
-      normalizedFile = normalizeRelativePath(resolved.relativePath);
+      normalizeRelativePath(resolved.relativePath);
     }
   } catch (error) {
     errors.push({

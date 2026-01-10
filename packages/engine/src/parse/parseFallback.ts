@@ -3,7 +3,7 @@
  * Looks for FILE: directives followed by fenced code blocks
  */
 
-import { ParsedBlock, ParseResult, matchesMarker, INSCRIBE_BEGIN } from '@inscribe/shared';
+import {ParsedBlock, ParseResult, matchesMarker, INSCRIBE_BEGIN, DIRECTIVE_FILE} from '@inscribe/shared';
 import { isFileDirective } from './parseUtils';
 
 /**
@@ -22,7 +22,7 @@ export function parseFallbackBlocks(content: string): ParseResult {
     
     // Look for FILE: directive (matches case-insensitively by converting to uppercase)
     if (isFileDirective(lines[i])) {
-      const file = trimmed.substring('FILE:'.length).trim();
+      const file = trimmed.substring(DIRECTIVE_FILE.length).trim();
       
       if (!file) {
         continue; // Skip empty FILE: directives

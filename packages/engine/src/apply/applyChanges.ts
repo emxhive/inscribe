@@ -20,18 +20,16 @@ function validateOperation(operation: Operation, index: number): string[] {
     errors.push(`Unknown operation type: ${String(operation.type)}`);
   }
 
-  if (typeof operation.file !== 'string' || operation.file.trim().length === 0) {
+  if (operation.file.trim().length === 0) {
     errors.push(`Operation ${index} requires a non-empty file path`);
   }
 
-  if (typeof operation.content !== 'string') {
-    errors.push(`Operation ${index} requires string content`);
-  }
+
 
   if (operation.type === 'range') {
     const directives = operation.directives || {};
-    const hasStart = typeof directives.START === 'string' && directives.START.length > 0;
-    const hasEnd = typeof directives.END === 'string' && directives.END.length > 0;
+    const hasStart = directives.START.length > 0;
+    const hasEnd = directives.END.length > 0;
     if (!hasStart || !hasEnd) {
       errors.push('Range operation requires START and END directives');
     }

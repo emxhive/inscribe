@@ -7,19 +7,19 @@ All requirements from the V1 specification have been successfully implemented an
 ## Summary
 
 ### Components Delivered
-1. **Shared Package** (`@inscribe/shared`)
+1. **Shared Package** (`@shared`)
    - Complete TypeScript type definitions
    - Constants for indexed roots, ignored paths, directives
    - CommonJS module format for Electron compatibility
 
-2. **Engine Package** (`@inscribe/engine`)
+2. **Engine Package** (`@engine`)
    - Parser: Extracts and parses Inscribe blocks
    - Validator: Strict validation with detailed error messages
    - Planner: Deterministic apply plan generation
    - Applier: Atomic operations with backup/undo support
    - 23 comprehensive tests (100% passing)
 
-3. **Desktop Application** (`@inscribe/desktop`)
+3. **Desktop Application** (`@desktop`)
    - Electron main process with IPC handlers
    - React UI with 5 core components
    - Vite dev server and production build

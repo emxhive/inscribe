@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeMarker, matchesMarker, startsWithMarker, extractMarkerValue } from '@inscribe/shared';
+import { normalizeMarker, matchesMarker, startsWithMarker, extractMarkerValue } from '@shared';
 
 describe('Parse Utilities', () => {
   describe('normalizeMarker', () => {

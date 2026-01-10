@@ -7,8 +7,8 @@
 
     "resolve": {
         "aliases": {
-            "@inscribe/engine": "packages/engine/src",
-            "@inscribe/shared": "packages/shared/src",
+            "@engine": "packages/engine/src",
+            "@shared": "packages/shared/src",
             "@app": "apps/desktop/src",
             "@": "apps/desktop/src"
         }

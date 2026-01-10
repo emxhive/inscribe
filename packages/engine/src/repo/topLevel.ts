@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { IGNORED_PATHS } from '@inscribe/shared';
+import { IGNORED_PATHS } from '@shared';
 import { normalizePrefix } from './pathing';
 
 const normalizedDefaultIgnores = Array.from(IGNORED_PATHS).map((p: string) => normalizePrefix(p));

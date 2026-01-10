@@ -1,4 +1,4 @@
-import type { ParseResult } from '@inscribe/shared';
+import type { ParseResult } from '@shared';
 import { buildReviewItems } from '../utils';
 import { useAppStateContext } from './useAppStateContext';
 

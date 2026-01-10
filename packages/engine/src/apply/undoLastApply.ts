@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { UndoResult } from '@inscribe/shared';
+import { UndoResult } from '@shared';
 import { getBackupRoot, getLatestBackupPath, readBackupMetadata } from './backups';
 
 /**

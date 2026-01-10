@@ -10,7 +10,7 @@ export function MainContent() {
   const { state, updateState } = useAppStateContext();
 
   return (
-    <div className="flex-1 grid grid-cols-[280px_1fr_64px] min-h-0 xl:grid-cols-[280px_1fr_64px] lg:grid-cols-[240px_1fr] md:grid-cols-1">
+    <div className="flex-1 grid grid-cols-[280px_1fr_64px] min-h-0">
       <FileSidebar />
 
       <main className="flex flex-col min-h-0 p-5 bg-transparent">
@@ -19,7 +19,7 @@ export function MainContent() {
         {state.mode === 'review' && <ReviewPanel />}
       </main>
 
-      <aside className="hidden xl:flex flex-col items-center gap-2.5 p-3 bg-card border-l border-border">
+      <aside className="flex flex-col items-center gap-2.5 p-3 bg-card border-l border-border">
         <Button
           variant="outline"
           size="icon"

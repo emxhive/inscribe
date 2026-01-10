@@ -7,7 +7,7 @@ export function FileSidebar() {
   const { handleSelectItem } = useReviewActions();
 
   return (
-    <aside className="flex flex-col gap-3 p-4 bg-card border-r border-border md:hidden">
+    <aside className="flex flex-col gap-3 p-4 bg-card border-r border-border">
       <div className="flex flex-col gap-1">
         <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
           {state.mode === 'intake' ? 'Parsed Code Blocks' : 'Code Changes'}

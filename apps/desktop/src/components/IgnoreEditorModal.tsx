@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Button } from './common';
+import { Modal } from './common';
+import { Button } from '@/components/ui/button';
 import { useAppStateContext, useRepositoryActions } from '../hooks';
 
 interface IgnoreEditorModalProps {
@@ -68,22 +69,22 @@ export function IgnoreEditorModal({
       size="large"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={isLoading || !state.repoRoot}>
+          <Button onClick={handleSave} disabled={isLoading || !state.repoRoot}>
             Save
           </Button>
         </>
       }
     >
-      <p className="modal-description">
+      <p className="mb-4 text-muted-foreground text-sm leading-relaxed m-0">
         Edit the ignore rules. Each line should contain a folder or file pattern to exclude.
         Lines starting with # are comments.
       </p>
-      {isLoading && <p className="modal-description">Loading current ignore rules...</p>}
+      {isLoading && <p className="text-muted-foreground text-sm mb-4">Loading current ignore rules...</p>}
       <textarea
-        className="ignore-editor"
+        className="w-full min-h-[300px] p-3 border border-border rounded-md font-mono text-sm leading-relaxed resize-y bg-slate-900 text-slate-200"
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="# Add ignore patterns here, one per line&#10;# Example:&#10;dist/&#10;build/"

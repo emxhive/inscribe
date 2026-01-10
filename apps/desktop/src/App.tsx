@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import './App.css';
 import { AppStateProvider, useAppStateContext } from './hooks';
 import { ScopeModal } from './components/ScopeModal';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
 import { AppHeader } from './components/app/AppHeader';
 import { MainContent } from './components/app/MainContent';
+import { StatusBar } from './components/StatusBar';
 
 export default function App() {
   return (
@@ -25,7 +25,7 @@ function AppShell() {
   const hasRepository = Boolean(state.repoRoot);
 
   return (
-    <div className="app-shell">
+    <div className="flex flex-col min-h-screen bg-background">
       <AppHeader
         onOpenScopeModal={() => hasRepository && setScopeModalOpen(true)}
         onOpenIgnoreEditor={() => hasRepository && setIgnoreModalOpen(true)}
@@ -34,6 +34,8 @@ function AppShell() {
       />
 
       <MainContent />
+
+      <StatusBar />
 
       {/* Modals */}
       <ScopeModal

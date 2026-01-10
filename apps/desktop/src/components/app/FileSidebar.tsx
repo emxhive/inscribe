@@ -7,20 +7,20 @@ export function FileSidebar() {
   const { handleSelectItem } = useReviewActions();
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <div>
-          <p className="eyebrow">
-            {state.mode === 'intake' ? 'Parsed Code Blocks' : 'Code Changes'}
-          </p>
-          <h3>{state.mode === 'intake' ? '0 files' : `${state.reviewItems.length} files`}</h3>
-        </div>
+    <aside className="flex flex-col gap-3 p-4 bg-card border-r border-border md:hidden">
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+          {state.mode === 'intake' ? 'Parsed Code Blocks' : 'Code Changes'}
+        </p>
+        <h3 className="text-lg font-semibold">
+          {state.mode === 'intake' ? '0 files' : `${state.reviewItems.length} files`}
+        </h3>
       </div>
 
       {state.mode === 'intake' && <EmptyState message="Paste AI response to begin" />}
 
       {state.mode === 'review' && (
-        <ul className="file-list">
+        <ul className="flex flex-col gap-2.5 overflow-y-auto list-none p-0 m-0">
           {state.reviewItems.map((item) => (
             <FileListItem
               key={item.id}

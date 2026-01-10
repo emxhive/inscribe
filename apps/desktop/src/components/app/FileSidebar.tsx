@@ -1,15 +1,34 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, FileListItem } from '../common';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
 import { updateDirectiveInText } from '@/utils/intake';
 import { cn } from '@/lib/utils';
+import { DIRECTIVE_KEYS } from '@inscribe/shared';
+
+const MIN_SIDEBAR_WIDTH = 240;
+const MAX_SIDEBAR_WIDTH = 420;
+const SIDEBAR_WIDTH_STORAGE_KEY = 'inscribe:intake:sidebarWidth';
 
 export function FileSidebar() {
   const { state, updateState } = useAppStateContext();
   const { handleSelectItem } = useReviewActions();
   const { blocks } = useIntakeBlocks();
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 280;
+    }
+    const stored = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    const parsed = stored ? Number(stored) : 280;
+    if (!Number.isFinite(parsed)) {
+      return 280;
+    }
+    return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, parsed));
+  });
+  const [dragging, setDragging] = useState(false);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const directiveRefs = useRef(new Map<string, HTMLInputElement | null>());
 
   useEffect(() => {
     if (state.mode !== 'intake') {
@@ -24,7 +43,35 @@ export function FileSidebar() {
     }
   }, [blocks, selectedBlock, state.mode, state.selectedIntakeBlockId, updateState]);
 
-  const handleDirectiveChange = (key: 'FILE' | 'MODE' | 'START' | 'END', value: string) => {
+  useEffect(() => {
+    if (!dragging) {
+      return;
+    }
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!sidebarRef.current) {
+        return;
+      }
+      const nextWidth = Math.min(
+        MAX_SIDEBAR_WIDTH,
+        Math.max(MIN_SIDEBAR_WIDTH, event.clientX - sidebarRef.current.getBoundingClientRect().left),
+      );
+      setSidebarWidth(nextWidth);
+    };
+
+    const handleMouseUp = () => {
+      setDragging(false);
+      window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragging, sidebarWidth]);
+
+  const handleDirectiveChange = (key: typeof DIRECTIVE_KEYS[number], value: string) => {
     if (!selectedBlock) {
       return;
     }
@@ -33,8 +80,35 @@ export function FileSidebar() {
     }));
   };
 
+  const presentDirectives = useMemo(() => {
+    if (!selectedBlock) {
+      return [];
+    }
+    return DIRECTIVE_KEYS.filter((key) => selectedBlock.directives[key]);
+  }, [selectedBlock]);
+
+  const handleAddDirective = (key: typeof DIRECTIVE_KEYS[number]) => {
+    if (!selectedBlock) {
+      return;
+    }
+    if (selectedBlock.directives[key]) {
+      directiveRefs.current.get(key)?.focus();
+      return;
+    }
+    updateState((prev) => ({
+      aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, '', { allowEmptyInsert: true }),
+    }));
+    requestAnimationFrame(() => {
+      directiveRefs.current.get(key)?.focus();
+    });
+  };
+
   return (
-    <aside className="flex flex-col gap-3 p-4 bg-card border-r border-border min-h-0">
+    <aside
+      ref={sidebarRef}
+      className="relative flex flex-col gap-3 p-4 bg-card border-r border-border min-h-0"
+      style={{ width: sidebarWidth }}
+    >
       <div className="flex flex-col gap-1">
         <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
           {state.mode === 'intake' ? 'Parsed Code Blocks' : 'Code Changes'}
@@ -49,7 +123,7 @@ export function FileSidebar() {
       )}
 
       {state.mode === 'intake' && blocks.length > 0 && (
-        <div className="flex flex-col gap-3 min-h-0">
+        <div className="flex flex-col gap-3 min-h-0 flex-1">
           <ul className="flex-1 min-h-0 overflow-y-auto list-none p-0 m-0 space-y-2.5">
             {blocks.map((block) => (
               <li key={block.id}>
@@ -89,23 +163,47 @@ export function FileSidebar() {
             ))}
           </ul>
 
-          <div className="border-t border-border pt-3 mt-auto">
+          <div className="border-t border-border pt-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
               Directives
             </p>
             {selectedBlock ? (
               <div className="mt-3 space-y-3">
-                {(['FILE', 'MODE', 'START', 'END'] as const).map((key) => (
-                  <label key={key} className="block text-xs text-muted-foreground">
-                    <span className="text-[11px] font-semibold text-foreground">{key}</span>
-                    <input
-                      value={selectedBlock.directives[key]?.value ?? ''}
-                      onChange={(event) => handleDirectiveChange(key, event.target.value)}
-                      className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                      placeholder={`@inscribe ${key.toLowerCase()}:`}
-                    />
-                  </label>
-                ))}
+                {presentDirectives.length > 0 ? (
+                  presentDirectives.map((key) => (
+                    <label key={key} className="block text-xs text-muted-foreground">
+                      <span className="text-[11px] font-semibold text-foreground">{key}</span>
+                      <input
+                        ref={(element) => directiveRefs.current.set(key, element)}
+                        value={selectedBlock.directives[key]?.value ?? ''}
+                        onChange={(event) => handleDirectiveChange(key, event.target.value)}
+                        className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                        placeholder={`@inscribe ${key.toLowerCase()}:`}
+                      />
+                    </label>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">No directives found.</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <label className="text-[11px] font-semibold text-foreground">Add directive</label>
+                  <select
+                    className="flex-1 rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    value=""
+                    onChange={(event) => {
+                      if (event.target.value) {
+                        handleAddDirective(event.target.value as typeof DIRECTIVE_KEYS[number]);
+                      }
+                    }}
+                  >
+                    <option value="" disabled>Select</option>
+                    {DIRECTIVE_KEYS.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 {(selectedBlock.warnings.length > 0 || selectedBlock.errors.length > 0) && (
                   <div className="rounded-md border border-border bg-muted/50 p-2 text-[11px] text-muted-foreground">
                     {selectedBlock.errors.length > 0 && (
@@ -145,6 +243,17 @@ export function FileSidebar() {
             />
           ))}
         </ul>
+      )}
+      {state.mode === 'intake' && (
+        <button
+          type="button"
+          aria-label="Resize sidebar"
+          onMouseDown={() => setDragging(true)}
+          className={cn(
+            'absolute top-0 right-0 h-full w-1.5 cursor-col-resize',
+            dragging ? 'bg-primary/20' : 'hover:bg-border',
+          )}
+        />
       )}
     </aside>
   );

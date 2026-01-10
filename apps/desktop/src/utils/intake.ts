@@ -6,13 +6,16 @@ import {
   INSCRIBE_PREFIX,
   INSCRIBE_START,
   INSCRIBE_END_ANCHOR,
+  INSCRIBE_SCOPE_START,
+  INSCRIBE_SCOPE_END,
+  DIRECTIVE_KEYS,
   VALID_MODES,
   matchesMarker,
   startsWithMarker,
   extractMarkerValue,
 } from '@inscribe/shared';
 
-export type IntakeDirectiveKey = 'FILE' | 'MODE' | 'START' | 'END';
+export type IntakeDirectiveKey = (typeof DIRECTIVE_KEYS)[number];
 
 export interface IntakeDirective {
   key: IntakeDirectiveKey;
@@ -46,6 +49,8 @@ const DIRECTIVE_MARKERS: Record<IntakeDirectiveKey, string> = {
   MODE: INSCRIBE_MODE,
   START: INSCRIBE_START,
   END: INSCRIBE_END_ANCHOR,
+  SCOPE_START: INSCRIBE_SCOPE_START,
+  SCOPE_END: INSCRIBE_SCOPE_END,
 };
 
 export function parseIntakeStructure(input: string): {
@@ -198,6 +203,7 @@ export function updateDirectiveInText(
   block: IntakeBlock,
   key: IntakeDirectiveKey,
   value: string,
+  options?: { allowEmptyInsert?: boolean },
 ): string {
   if (block.startLine < 0) {
     return input;
@@ -219,13 +225,14 @@ export function updateDirectiveInText(
     return lines.join('\n');
   }
 
-  if (!nextValue) {
+  if (!nextValue && !options?.allowEmptyInsert) {
     return input;
   }
 
   const beginLine = lines[block.startLine] ?? '';
   const leadingWhitespace = beginLine.match(/^\s*/)?.[0] ?? '';
   const insertIndex = Math.min(block.startLine + 1, lines.length);
-  lines.splice(insertIndex, 0, `${leadingWhitespace}${marker} ${value}`);
+  const suffix = nextValue ? ` ${value}` : '';
+  lines.splice(insertIndex, 0, `${leadingWhitespace}${marker}${suffix}`);
   return lines.join('\n');
 }

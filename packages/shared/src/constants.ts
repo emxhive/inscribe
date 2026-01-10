@@ -62,6 +62,16 @@ export const DIRECTIVE_END = `${KEYWORD_END}:`;
 export const DIRECTIVE_SCOPE_START = `${KEYWORD_SCOPE_START}:`;
 export const DIRECTIVE_SCOPE_END = `${KEYWORD_SCOPE_END}:`;
 
+// Canonical directive keywords for intake/editor UI
+export const DIRECTIVE_KEYS = [
+  KEYWORD_FILE,
+  KEYWORD_MODE,
+  KEYWORD_START,
+  KEYWORD_END,
+  KEYWORD_SCOPE_START,
+  KEYWORD_SCOPE_END,
+] as const;
+
 // Full marker strings (composed from prefix + keyword/directive)
 export const INSCRIBE_BEGIN = `${INSCRIBE_PREFIX} ${KEYWORD_BEGIN}`;
 export const INSCRIBE_END = `${INSCRIBE_PREFIX} ${KEYWORD_END}`;

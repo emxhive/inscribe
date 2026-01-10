@@ -2,7 +2,7 @@ import type { ApplyPlan, ParsedBlock, ValidationError } from '@inscribe/shared';
 
 import { getLanguageFromFilename } from './language';
 import { countLines } from './text';
-import {ReviewItem} from "@inscribe/desktop/types";
+import type { ReviewItem } from '@inscribe/desktop/types';
 
 /**
  * Review item construction utilities
@@ -23,10 +23,11 @@ export function buildReviewItems(
     errorMap.set(error.blockIndex, errors);
   }
 
-  return blocks.map((block) => {
+  return blocks.map((block): ReviewItem => {
     const errors = errorMap.get(block.blockIndex) || [];
     const hasErrors = errors.length > 0;
     const validationError = hasErrors ? errors.map((e) => e.message).join('; ') : undefined;
+    const status: ReviewItem['status'] = hasErrors ? 'invalid' : 'pending';
 
     return {
       id: `${block.blockIndex}-${block.file}`,
@@ -34,7 +35,7 @@ export function buildReviewItems(
       mode: block.mode,
       language: getLanguageFromFilename(block.file),
       lineCount: countLines(block.content),
-      status: hasErrors ? 'invalid' : 'pending',
+      status,
       originalContent: block.content,
       editedContent: block.content,
       validationError,

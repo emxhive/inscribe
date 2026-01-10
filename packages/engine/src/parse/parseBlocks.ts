@@ -40,6 +40,16 @@ function processBlockResult(
   }
 }
 
+function finalizeBlock(
+  blockLines: string[],
+  blockIndex: number,
+  blocks: ParsedBlock[],
+  errors: string[]
+): void {
+  const blockResult = parseSingleBlock(blockLines, blockIndex);
+  processBlockResult(blockResult, blockIndex, blocks, errors);
+}
+
 /**
  * Parse content to extract all Inscribe blocks
  * Collects all errors and warnings, continuing to process remaining blocks
@@ -64,8 +74,7 @@ export function parseBlocks(content: string): ParseResult {
         // This is the fallback behavior to handle user error gracefully.
         
         // Try to parse the previous block
-        const blockResult = parseSingleBlock(blockLines, blockIndex);
-        processBlockResult(blockResult, blockIndex, blocks, errors);
+        finalizeBlock(blockLines, blockIndex, blocks, errors);
         
         // Add a warning about the implicit END
         errors.push(`Block ${blockIndex}: BEGIN found without END at line ${i + 1}. Treating this BEGIN as implicit END and start of new block.`);
@@ -83,8 +92,7 @@ export function parseBlocks(content: string): ParseResult {
       }
 
       // Parse the block
-      const blockResult = parseSingleBlock(blockLines, blockIndex);
-      processBlockResult(blockResult, blockIndex, blocks, errors);
+      finalizeBlock(blockLines, blockIndex, blocks, errors);
 
       inBlock = false;
       blockIndex++;
@@ -99,8 +107,7 @@ export function parseBlocks(content: string): ParseResult {
     errors.push(`Block ${blockIndex}: BEGIN without matching END`);
     
     // Try to parse it anyway as a best effort
-    const blockResult = parseSingleBlock(blockLines, blockIndex);
-    processBlockResult(blockResult, blockIndex, blocks, errors);
+    finalizeBlock(blockLines, blockIndex, blocks, errors);
   }
 
   if (blocks.length === 0 && errors.length === 0) {

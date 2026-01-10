@@ -5,6 +5,7 @@
 export interface FencedBlockResult {
   content?: string;
   error?: string;
+  endIndex?: number;
 }
 
 /**
@@ -39,7 +40,7 @@ export function extractFencedBlock(lines: string[], startIndex: number): FencedB
   // Extract content between fences
   const content = lines.slice(startIndex + 1, fenceEnd).join('\n');
 
-  return { content };
+  return { content, endIndex: fenceEnd };
 }
 
 /**

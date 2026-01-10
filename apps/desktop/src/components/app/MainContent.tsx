@@ -2,7 +2,7 @@ import React from 'react';
 import { FileSidebar } from './FileSidebar';
 import { IntakePanel } from './IntakePanel';
 import { ReviewPanel } from './ReviewPanel';
-import { useAppStateContext } from '../../hooks';
+import { useAppStateContext } from '@/hooks';
 import { History, Settings, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 

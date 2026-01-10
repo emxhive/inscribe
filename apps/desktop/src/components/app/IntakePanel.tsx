@@ -1,12 +1,70 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { useAppStateContext, useParsingActions } from '@/hooks';
+import { useAppStateContext, useParsingActions, useIntakeBlocks } from '@/hooks';
 import { AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function IntakePanel() {
   const { state, updateState } = useAppStateContext();
   const { handleParseBlocks } = useParsingActions();
   const canParse = Boolean(state.repoRoot);
+  const { lines } = useIntakeBlocks();
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
+  const overlayRef = useRef<HTMLPreElement | null>(null);
+
+  const lineClasses = useMemo(() => {
+    return lines.map((line) => {
+      return cn(
+        'whitespace-pre-wrap',
+        line.blockId === state.selectedIntakeBlockId && 'bg-primary/10',
+        line.type === 'begin' && 'text-sky-800 bg-sky-100/70',
+        line.type === 'end' && 'text-sky-800 bg-sky-100/70',
+        line.type === 'directive' && 'text-emerald-800 bg-emerald-100/60',
+        line.type === 'unknown-directive' && 'text-amber-800 bg-amber-100/70',
+        line.status === 'warning' && 'bg-amber-200/70 text-amber-900',
+        line.status === 'error' && 'bg-red-200/70 text-red-900',
+      );
+    });
+  }, [lines, state.selectedIntakeBlockId]);
+
+  useEffect(() => {
+    const textarea = textAreaRef.current;
+    if (!textarea) {
+      return;
+    }
+    const overlay = overlayRef.current;
+    if (overlay) {
+      overlay.scrollTop = textarea.scrollTop;
+      overlay.scrollLeft = textarea.scrollLeft;
+    }
+  }, [state.aiInput]);
+
+  useEffect(() => {
+    const textarea = textAreaRef.current;
+    if (!textarea || !state.selectedIntakeBlockId) {
+      return;
+    }
+    const selectedLineIndex = lines.find((line) => line.blockId === state.selectedIntakeBlockId)?.lineIndex;
+    if (selectedLineIndex === undefined) {
+      return;
+    }
+    const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight || '0');
+    if (!Number.isFinite(lineHeight) || lineHeight === 0) {
+      return;
+    }
+    textarea.scrollTop = Math.max(0, selectedLineIndex * lineHeight - lineHeight * 2);
+    if (overlayRef.current) {
+      overlayRef.current.scrollTop = textarea.scrollTop;
+    }
+  }, [lines, state.selectedIntakeBlockId]);
+
+  const handleScroll = () => {
+    if (!overlayRef.current || !textAreaRef.current) {
+      return;
+    }
+    overlayRef.current.scrollTop = textAreaRef.current.scrollTop;
+    overlayRef.current.scrollLeft = textAreaRef.current.scrollLeft;
+  };
 
   return (
     <section className="flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
@@ -32,12 +90,27 @@ export function IntakePanel() {
       )}
 
       <div className="flex-1 min-h-[320px]">
-        <textarea
-          className="w-full h-full resize-none border border-border rounded-lg p-3 text-sm leading-relaxed font-mono text-foreground bg-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-          placeholder="Paste the AI response here. Must contain @inscribe BEGIN / END blocks."
-          value={state.aiInput}
-          onChange={(e) => updateState({ aiInput: e.target.value })}
-        />
+        <div className="relative w-full h-full border border-border rounded-lg bg-secondary focus-within:ring-2 focus-within:ring-primary focus-within:border-primary">
+          <pre
+            ref={overlayRef}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 overflow-auto p-3 text-sm leading-relaxed font-mono text-transparent"
+          >
+            {lines.map((line, index) => (
+              <div key={`${line.lineIndex}-${index}`} className={lineClasses[index]}>
+                {line.text.length === 0 ? ' ' : line.text}
+              </div>
+            ))}
+          </pre>
+          <textarea
+            ref={textAreaRef}
+            className="relative z-10 w-full h-full resize-none rounded-lg bg-transparent p-3 text-sm leading-relaxed font-mono text-foreground focus:outline-none"
+            placeholder="Paste the AI response here. Must contain @inscribe BEGIN / END blocks."
+            value={state.aiInput}
+            onChange={(e) => updateState({ aiInput: e.target.value })}
+            onScroll={handleScroll}
+          />
+        </div>
       </div>
 
       <footer className="flex items-center justify-between gap-3">

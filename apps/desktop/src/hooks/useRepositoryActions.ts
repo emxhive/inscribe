@@ -1,3 +1,4 @@
+import { buildIgnoreMatcher, matchIgnoredPath, normalizeRelativePath } from '@inscribe/shared';
 import type { ParsedBlock } from '@inscribe/shared';
 import { buildReviewItems } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
@@ -5,29 +6,19 @@ import { initialState } from './useAppState';
 import type { AppState } from '@/types';
 import type { RepoInitResult } from '@/types/ipc';
 
-const normalizeRelativePath = (input: string): string =>
-  input.trim().replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+/g, '/');
-
-const ensureTrailingSlash = (input: string): string => (input.endsWith('/') ? input : `${input}/`);
-
-const normalizePrefix = (input: string): string => ensureTrailingSlash(normalizeRelativePath(input));
-
-const isTopLevelFolderIgnored = (folder: string, ignoreEntries: string[]): boolean => {
-  const folderPrefix = normalizePrefix(folder);
-  return ignoreEntries.some(entry => normalizePrefix(entry) === folderPrefix);
-};
-
 const getTopLevelSegment = (input: string): string => {
   const normalized = normalizeRelativePath(input);
   const [segment] = normalized.split('/').filter(Boolean);
   return segment || '';
 };
 
-const pruneScopeForIgnoredFolders = (scope: string[], ignoreEntries: string[]): string[] =>
-  scope.filter(entry => {
+const pruneScopeForIgnoredFolders = (scope: string[], ignoreEntries: string[]): string[] => {
+  const ignoreMatcher = buildIgnoreMatcher(ignoreEntries);
+  return scope.filter(entry => {
     const topLevel = getTopLevelSegment(entry);
-    return topLevel.length === 0 || !isTopLevelFolderIgnored(topLevel, ignoreEntries);
+    return topLevel.length === 0 || !matchIgnoredPath(topLevel, ignoreMatcher, { isDirectory: true });
   });
+};
 
 const scopesEqual = (left: string[], right: string[]): boolean =>
   left.length === right.length && left.every((value, index) => value === right[index]);

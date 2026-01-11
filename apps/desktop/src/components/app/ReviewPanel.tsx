@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
@@ -8,11 +8,82 @@ export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
   const reviewActions = useReviewActions();
   const applyActions = useApplyActions();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const indentString = '\t';
 
   const { selectedItem, editorValue, pendingItemsCount } = reviewActions;
   const hasInvalidItems = state.reviewItems.some((item) => item.status === 'invalid');
 
   const canApplySelected = selectedItem && selectedItem.status === 'pending' && !state.isApplyingInProgress;
+
+  const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Tab') {
+      return;
+    }
+    event.preventDefault();
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      return;
+    }
+    const { selectionStart, selectionEnd, value } = textarea;
+
+    if (event.shiftKey) {
+      const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+      const lineEnd = (() => {
+        const nextLineBreak = value.indexOf('\n', selectionEnd);
+        return nextLineBreak === -1 ? value.length : nextLineBreak;
+      })();
+      const block = value.slice(lineStart, lineEnd);
+      const lines = block.split('\n');
+      const selectionStartOffset = selectionStart - lineStart;
+      const selectionEndOffset = selectionEnd - lineStart;
+      let removedBeforeStart = 0;
+      let removedBeforeEnd = 0;
+      let cursor = 0;
+      const updatedLines = lines.map((line, index) => {
+        const originalLength = line.length;
+        const hasIndent = line.startsWith(indentString);
+        if (hasIndent) {
+          if (cursor < selectionStartOffset) {
+            removedBeforeStart += indentString.length;
+          }
+          if (cursor < selectionEndOffset) {
+            removedBeforeEnd += indentString.length;
+          }
+          line = line.slice(indentString.length);
+        }
+        cursor += originalLength;
+        if (index < lines.length - 1) {
+          cursor += 1;
+        }
+        return line;
+      });
+      const newValue = `${value.slice(0, lineStart)}${updatedLines.join('\n')}${value.slice(lineEnd)}`;
+      const nextSelectionStart = Math.max(lineStart, selectionStart - removedBeforeStart);
+      const nextSelectionEnd = Math.max(lineStart, selectionEnd - removedBeforeEnd);
+      reviewActions.handleEditorChange(newValue);
+      requestAnimationFrame(() => {
+        if (!textareaRef.current) {
+          return;
+        }
+        textareaRef.current.selectionStart = nextSelectionStart;
+        textareaRef.current.selectionEnd = nextSelectionEnd;
+      });
+      return;
+    }
+
+    const newValue = `${value.slice(0, selectionStart)}${indentString}${value.slice(selectionEnd)}`;
+    const nextSelectionStart = selectionStart + indentString.length;
+    const nextSelectionEnd = selectionEnd + indentString.length;
+    reviewActions.handleEditorChange(newValue);
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) {
+        return;
+      }
+      textareaRef.current.selectionStart = nextSelectionStart;
+      textareaRef.current.selectionEnd = nextSelectionEnd;
+    });
+  };
 
   return (
     <section className="flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
@@ -49,9 +120,11 @@ export function ReviewPanel() {
       <div className="flex-1 min-h-[320px] border border-border rounded-lg p-3 bg-secondary flex">
         {state.isEditing ? (
           <textarea
+            ref={textareaRef}
             className="flex-1 w-full h-full border-none rounded-lg p-3.5 font-mono text-sm leading-relaxed bg-slate-900 text-slate-200 resize-none outline-none"
             value={editorValue}
             onChange={(e) => reviewActions.handleEditorChange(e.target.value)}
+            onKeyDown={handleEditorKeyDown}
           />
         ) : (
           <pre className="flex-1 w-full h-full overflow-auto border-none rounded-lg p-3.5 font-mono text-sm leading-relaxed bg-slate-900 text-slate-200">

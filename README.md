@@ -83,4 +83,5 @@ When applying changes, Inscribe creates a snapshot at `.inscribe/backups/<timest
 
 ## Documentation
 
-See `docs/terminology.md` for detailed terminology and directive reference.
+See [`docs/terminology.md`](docs/terminology.md) for detailed terminology and directive reference.
+

@@ -25,6 +25,8 @@ export const initialState: AppState = {
   pipelineStatus: 'idle',
   isParsingInProgress: false,
   isApplyingInProgress: false,
+  isIntakeMaximized: false,
+  isReviewMaximized: false,
   isRestoringRepo: true,
 
   lastAppliedPlan: null,

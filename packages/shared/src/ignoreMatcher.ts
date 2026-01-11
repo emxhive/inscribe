@@ -1,4 +1,4 @@
-import picomatch from 'picomatch';
+import picomatch from 'picomatch/browser';
 
 export type IgnoreMatcher = {
   prefixes: string[];

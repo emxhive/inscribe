@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
@@ -15,7 +15,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Eye, Pencil } from 'lucide-react';
 
 export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
@@ -76,6 +76,33 @@ export function ReviewPanel() {
     return baseExtensions;
   }, [languageExtension]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!selectedItem || event.defaultPrevented) {
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (key === 'e' && !state.isEditing) {
+        updateState({ isEditing: true });
+        event.preventDefault();
+      }
+      if (key === 'p' && state.isEditing) {
+        updateState({ isEditing: false });
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedItem, state.isEditing, updateState]);
+
   return (
     <section className="flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
       <div className="flex items-start justify-between gap-3">
@@ -85,11 +112,14 @@ export function ReviewPanel() {
         </div>
         <Button
           variant="outline"
+          size="icon"
           type="button"
           onClick={() => updateState({ isEditing: !state.isEditing })}
           disabled={!selectedItem}
+          aria-label={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
+          title={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
         >
-          {state.isEditing ? 'Preview' : 'Edit'}
+          {state.isEditing ? <Eye /> : <Pencil />}
         </Button>
       </div>
 

@@ -21,10 +21,11 @@ export const initialState: AppState = {
   selectedIntakeBlockId: null,
 
   isEditing: false,
-  statusMessage: 'Ready',
+  statusMessage: 'Restoring last repository...',
   pipelineStatus: 'idle',
   isParsingInProgress: false,
   isApplyingInProgress: false,
+  isRestoringRepo: true,
 
   lastAppliedPlan: null,
   canRedo: false,

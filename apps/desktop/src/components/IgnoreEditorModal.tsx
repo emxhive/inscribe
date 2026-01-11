@@ -91,6 +91,9 @@ export function IgnoreEditorModal({
         rows={20}
         disabled={isLoading}
       />
+      <p className="mt-2 text-xs text-muted-foreground">
+        Supports literal prefixes, glob patterns (e.g., **/.*/), and optional regex: entries.
+      </p>
     </Modal>
   );
 }

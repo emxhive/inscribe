@@ -1,6 +1,7 @@
 import type { ParsedBlock } from '@inscribe/shared';
 import { buildReviewItems } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
+import { initialState } from './useAppState';
 import type { AppState } from '@/types';
 
 export async function initRepositoryState(
@@ -26,6 +27,32 @@ export async function initRepositoryState(
  */
 export function useRepositoryActions() {
   const { state, updateState } = useAppStateContext();
+  const resetRepositoryState = (repoRoot: string | null, statusMessage: string) => {
+    updateState({
+      repoRoot,
+      topLevelFolders: [],
+      scope: [],
+      ignore: initialState.ignore,
+      suggested: [],
+      indexedCount: 0,
+      indexStatus: { state: 'idle' },
+      mode: 'intake',
+      aiInput: '',
+      parseErrors: [],
+      parsedBlocks: [],
+      validationErrors: [],
+      reviewItems: [],
+      selectedItemId: null,
+      selectedIntakeBlockId: null,
+      isEditing: false,
+      pipelineStatus: 'idle',
+      isParsingInProgress: false,
+      isApplyingInProgress: false,
+      lastAppliedPlan: null,
+      canRedo: false,
+      statusMessage,
+    });
+  };
   const revalidateParsedBlocks = async (repoRoot: string, parsedBlocks: ParsedBlock[]) => {
     if (parsedBlocks.length === 0) return;
 
@@ -61,10 +88,7 @@ export function useRepositoryActions() {
       const selectedPath = await window.inscribeAPI.selectRepository(state.repoRoot || undefined);
       if (!selectedPath) return;
 
-      updateState({ 
-        repoRoot: selectedPath,
-        statusMessage: 'Initializing repository...'
-      });
+      resetRepositoryState(selectedPath, 'Initializing repository...');
 
       await initRepositoryState(selectedPath, updateState);
     } catch (error) {
@@ -85,6 +109,26 @@ export function useRepositoryActions() {
         statusMessage: 'Failed to initialize repository',
         indexStatus: { state: 'error', message: String(error) }
       });
+    }
+  };
+
+  const restoreLastRepo = async () => {
+    updateState({ isRestoringRepo: true, statusMessage: 'Restoring last repository...' });
+    try {
+      const lastRepo = await window.inscribeAPI.getLastVisitedRepo();
+      if (!lastRepo) {
+        resetRepositoryState(null, 'Select a repository to start.');
+        return;
+      }
+
+      resetRepositoryState(lastRepo, 'Initializing repository...');
+      await initRepositoryState(lastRepo, updateState);
+    } catch (error) {
+      console.error('Failed to restore last repository:', error);
+      resetRepositoryState(null, 'Unable to restore last repository. Select a repository to start.');
+      updateState({ indexStatus: { state: 'error', message: String(error) } });
+    } finally {
+      updateState({ isRestoringRepo: false });
     }
   };
 
@@ -140,5 +184,6 @@ export function useRepositoryActions() {
     handleSaveScope,
     handleSaveIgnore,
     initRepo,
+    restoreLastRepo,
   };
 }

@@ -84,6 +84,19 @@ function normalizeScopeForRepo(repoRoot: string, scope: string[]): string[] {
   return normalized.filter(entry => topLevelSet.has(entry));
 }
 
+function isAccessibleRepoRoot(repoRoot: string): boolean {
+  try {
+    const stats = fs.statSync(repoRoot);
+    if (!stats.isDirectory()) {
+      return false;
+    }
+    fs.accessSync(repoRoot, fs.constants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getScopeState(repoRoot: string): ScopeState | undefined {
   const store = readScopeStore();
   return store[repoKey(repoRoot)];
@@ -106,4 +119,23 @@ export function getOrCreateScope(repoRoot: string): ScopeState {
 
   const { scope, suggested } = computeDefaultScope(repoRoot);
   return recordScopeState(repoRoot, scope, { lastSuggested: suggested });
+}
+
+export function getLastVisitedRepo(): string | null {
+  const store = readScopeStore();
+  const entries = Object.values(store)
+    .filter((state): state is ScopeState => Boolean(state && state.repoRoot))
+    .map((state) => ({
+      repoRoot: state.repoRoot,
+      updatedAt: Date.parse(state.updatedAt) || 0,
+    }))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  for (const entry of entries) {
+    if (isAccessibleRepoRoot(entry.repoRoot)) {
+      return entry.repoRoot;
+    }
+  }
+
+  return null;
 }

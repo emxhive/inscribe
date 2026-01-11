@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { AppStateProvider, useAppStateContext } from './hooks';
+import React, { useEffect, useState } from 'react';
+import { AppStateProvider, useAppStateContext, useRepositoryActions } from './hooks';
 import { ScopeModal } from './components/ScopeModal';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
@@ -17,12 +17,17 @@ export default function App() {
 
 function AppShell() {
   const { state } = useAppStateContext();
+  const repositoryActions = useRepositoryActions();
   const [scopeModalOpen, setScopeModalOpen] = useState(false);
   const [ignoreModalOpen, setIgnoreModalOpen] = useState(false);
   const [ignoredListModalOpen, setIgnoredListModalOpen] = useState(false);
   const [suggestedListModalOpen, setSuggestedListModalOpen] = useState(false);
 
   const hasRepository = Boolean(state.repoRoot);
+
+  useEffect(() => {
+    void repositoryActions.restoreLastRepo();
+  }, []);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">

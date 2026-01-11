@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import {
   getOrCreateScope,
+  getLastVisitedRepo,
   listTopLevelFolders,
   computeSuggestedExcludes,
   setScopeState,
@@ -13,6 +14,10 @@ import {
  * Register repository-related IPC handlers
  */
 export function registerRepositoryHandlers() {
+  ipcMain.handle('repo-last-visited', async () => {
+    return getLastVisitedRepo();
+  });
+
   ipcMain.handle('repo-init', async (_event, repoRoot: string) => {
     try {
       const scopeState = getOrCreateScope(repoRoot);

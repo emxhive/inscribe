@@ -42,6 +42,7 @@ export interface ReadIgnoreRawResult {
 
 export interface InscribeAPI {
   selectRepository: (defaultPath?: string) => Promise<string | null>;
+  getLastVisitedRepo: () => Promise<string | null>;
   repoInit: (repoRoot: string) => Promise<RepoInitResult>;
   getScope: (repoRoot: string) => Promise<string[]>;
   setScope: (repoRoot: string, scope: string[]) => Promise<ScopeUpdateResult>;

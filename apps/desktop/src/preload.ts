@@ -18,6 +18,9 @@ const api = {
   selectRepository: (defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke('select-repository', defaultPath),
 
+  getLastVisitedRepo: (): Promise<string | null> =>
+    ipcRenderer.invoke('repo-last-visited'),
+
   repoInit: (repoRoot: string): Promise<RepoInitResult> =>
     ipcRenderer.invoke('repo-init', repoRoot),
 

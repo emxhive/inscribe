@@ -62,6 +62,7 @@ export interface IndexStatus {
 
 export interface IgnoreRules {
   entries: string[];
+  regexEntries: RegExp[];
   source: 'file' | 'none';
   path: string;
 }

@@ -22,7 +22,8 @@ function isWithin(basePath: string, targetPath: string): boolean {
 export function resolveAndAssertWithinRepo(
   repoRoot: string,
   userPath: string,
-  ignorePrefixes: string[]
+  ignorePrefixes: string[],
+  ignoreRegexes: RegExp[] = []
 ): ResolvedPathInfo {
   const resolvedRepoRoot = path.resolve(repoRoot);
   const normalizedUserPath = normalizeRelativePath(userPath);
@@ -37,9 +38,14 @@ export function resolveAndAssertWithinRepo(
   // Check if path is under any ignored prefix
   const filePrefix = ensureTrailingSlash(relativePath);
   const ignoreMatch = ignorePrefixes.find(ignored => filePrefix.startsWith(ignored));
-  
+
   if (ignoreMatch) {
     throw new Error(`File is in ignored path: ${ignoreMatch}`);
+  }
+
+  const regexMatch = ignoreRegexes.find(regex => regex.test(relativePath));
+  if (regexMatch) {
+    throw new Error(`File is in ignored path: regex:${regexMatch.source}`);
   }
 
   return {
@@ -57,7 +63,8 @@ export function resolveAndAssertWithinScope(
   repoRoot: string,
   userPath: string,
   scopeRoots: string[],
-  ignorePrefixes: string[]
+  ignorePrefixes: string[],
+  ignoreRegexes: RegExp[] = []
 ): ResolvedPathInfo {
   const resolvedRepoRoot = path.resolve(repoRoot);
   const normalizedUserPath = normalizeRelativePath(userPath);
@@ -82,9 +89,14 @@ export function resolveAndAssertWithinScope(
   // Check if path is under any ignored prefix
   const filePrefix = ensureTrailingSlash(relativePath);
   const ignoreMatch = ignorePrefixes.find(ignored => filePrefix.startsWith(ignored));
-  
+
   if (ignoreMatch) {
     throw new Error(`File is in ignored path: ${ignoreMatch}`);
+  }
+
+  const regexMatch = ignoreRegexes.find(regex => regex.test(relativePath));
+  if (regexMatch) {
+    throw new Error(`File is in ignored path: regex:${regexMatch.source}`);
   }
 
   return {

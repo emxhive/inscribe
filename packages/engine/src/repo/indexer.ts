@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { getEffectiveIgnorePrefixes } from './ignoreRules';
+import { getEffectiveIgnoreRules } from './ignoreRules';
 import { ensureTrailingSlash, normalizeRelativePath } from './pathing';
 import { getOrCreateScope, setScopeState } from './scopeStore';
 import { setIndexStatusComplete, setIndexStatusError, setIndexStatusRunning } from './statusStore';
@@ -11,7 +11,7 @@ export function indexRepository(repoRoot: string, providedScope?: string[]): str
     : getOrCreateScope(repoRoot);
 
   const scope = scopeState.scope;
-  const ignores = getEffectiveIgnorePrefixes(repoRoot);
+  const { prefixes: ignores, regexEntries } = getEffectiveIgnoreRules(repoRoot);
 
   setIndexStatusRunning(repoRoot);
 
@@ -21,7 +21,7 @@ export function indexRepository(repoRoot: string, providedScope?: string[]): str
     for (const root of scope) {
       const rootPath = path.join(repoRoot, root);
       if (fs.existsSync(rootPath) && fs.statSync(rootPath).isDirectory()) {
-        collectFiles(rootPath, repoRoot, files, ignores);
+        collectFiles(rootPath, repoRoot, files, ignores, regexEntries);
       }
     }
 
@@ -42,7 +42,8 @@ function collectFiles(
   dir: string,
   repoRoot: string,
   files: string[],
-  ignores: string[]
+  ignores: string[],
+  ignoreRegexes: RegExp[]
 ): void {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
@@ -59,10 +60,18 @@ function collectFiles(
       if (isIgnoredDir) {
         continue;
       }
-      collectFiles(fullPath, repoRoot, files, ignores);
+      const isIgnoredByRegex = ignoreRegexes.some(regex => regex.test(relativeDir));
+      if (isIgnoredByRegex) {
+        continue;
+      }
+      collectFiles(fullPath, repoRoot, files, ignores, ignoreRegexes);
     } else if (entry.isFile()) {
       const isIgnoredFile = ignores.some(prefix => relativePath.startsWith(prefix));
-      if (!isIgnoredFile) {
+      if (isIgnoredFile) {
+        continue;
+      }
+      const isIgnoredByRegex = ignoreRegexes.some(regex => regex.test(relativePath));
+      if (!isIgnoredByRegex) {
         files.push(relativePath);
       }
     }

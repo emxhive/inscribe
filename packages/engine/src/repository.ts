@@ -1,5 +1,10 @@
 export { getScopeState, getOrCreateScope, setScopeState } from './repo/scopeStore';
-export { readIgnoreRules, writeIgnoreFile, getEffectiveIgnorePrefixes } from './repo/ignoreRules';
+export {
+  readIgnoreRules,
+  writeIgnoreFile,
+  getEffectiveIgnorePrefixes,
+  getEffectiveIgnoreRules,
+} from './repo/ignoreRules';
 export { listTopLevelFolders } from './repo/topLevel';
 export { computeSuggestedExcludes, computeDefaultScope } from './repo/suggest';
 export { indexRepository } from './repo/indexer';

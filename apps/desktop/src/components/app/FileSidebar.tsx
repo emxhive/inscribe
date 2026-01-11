@@ -225,7 +225,7 @@ export function FileSidebar() {
       )}
 
       {state.mode === 'review' && (
-        <ul className="flex flex-col gap-2.5 overflow-y-auto list-none p-0 m-0">
+        <ul className="flex flex-col gap-2.5 overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">
           {state.reviewItems.map((item) => (
             <FileListItem
               key={item.id}
@@ -241,17 +241,15 @@ export function FileSidebar() {
           ))}
         </ul>
       )}
-      {state.mode === 'intake' && (
-        <button
-          type="button"
-          aria-label="Resize sidebar"
-          onMouseDown={() => setDragging(true)}
-          className={cn(
-            'absolute top-0 right-0 h-full w-1.5 cursor-col-resize',
-            dragging ? 'bg-primary/20' : 'hover:bg-border',
-          )}
-        />
-      )}
+      <button
+        type="button"
+        aria-label="Resize sidebar"
+        onMouseDown={() => setDragging(true)}
+        className={cn(
+          'absolute top-0 right-0 h-full w-1.5 cursor-col-resize',
+          dragging ? 'bg-primary/20' : 'hover:bg-border',
+        )}
+      />
     </aside>
   );
 }

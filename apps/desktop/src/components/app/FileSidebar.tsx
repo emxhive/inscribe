@@ -6,26 +6,19 @@ import { updateDirectiveInText } from '@/utils/intake';
 import { cn } from '@/lib/utils';
 import { DIRECTIVE_KEYS } from '@inscribe/shared';
 
-const MIN_SIDEBAR_WIDTH = 240;
-const MAX_SIDEBAR_WIDTH = 420;
-const SIDEBAR_WIDTH_STORAGE_KEY = 'inscribe:intake:sidebarWidth';
+export const MIN_SIDEBAR_WIDTH = 240;
+export const MAX_SIDEBAR_WIDTH = 420;
 
-export function FileSidebar() {
+type FileSidebarProps = {
+  sidebarWidth: number;
+  onResize: (width: number, options?: { persist?: boolean }) => void;
+};
+
+export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   const { state, updateState } = useAppStateContext();
   const { handleSelectItem } = useReviewActions();
   const { blocks } = useIntakeBlocks();
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    if (typeof window === 'undefined') {
-      return 280;
-    }
-    const stored = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
-    const parsed = stored ? Number(stored) : 280;
-    if (!Number.isFinite(parsed)) {
-      return 280;
-    }
-    return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, parsed));
-  });
   const [dragging, setDragging] = useState(false);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const directiveRefs = useRef(new Map<string, HTMLInputElement | null>());
@@ -55,12 +48,12 @@ export function FileSidebar() {
         MAX_SIDEBAR_WIDTH,
         Math.max(MIN_SIDEBAR_WIDTH, event.clientX - sidebarRef.current.getBoundingClientRect().left),
       );
-      setSidebarWidth(nextWidth);
+      onResize(nextWidth);
     };
 
     const handleMouseUp = () => {
       setDragging(false);
-      window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
+      onResize(sidebarWidth, { persist: true });
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -69,7 +62,7 @@ export function FileSidebar() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragging, sidebarWidth]);
+  }, [dragging, onResize, sidebarWidth]);
 
   const handleDirectiveChange = (key: typeof DIRECTIVE_KEYS[number], value: string) => {
     if (!selectedBlock) {

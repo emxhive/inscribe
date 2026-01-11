@@ -1,16 +1,10 @@
+import { normalizePrefix, normalizeRelativePath } from '@inscribe/shared';
 import type { ParsedBlock } from '@inscribe/shared';
 import { buildReviewItems } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 import { initialState } from './useAppState';
 import type { AppState } from '@/types';
 import type { RepoInitResult } from '@/types/ipc';
-
-const normalizeRelativePath = (input: string): string =>
-  input.trim().replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+/g, '/');
-
-const ensureTrailingSlash = (input: string): string => (input.endsWith('/') ? input : `${input}/`);
-
-const normalizePrefix = (input: string): string => ensureTrailingSlash(normalizeRelativePath(input));
 
 const isTopLevelFolderIgnored = (folder: string, ignoreEntries: string[]): boolean => {
   const folderPrefix = normalizePrefix(folder);

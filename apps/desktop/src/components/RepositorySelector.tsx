@@ -17,7 +17,7 @@ export default function RepositorySelector({
 
   const handleSelect = async () => {
     try {
-      const path = await (window as any).inscribeAPI.selectRepository(input);
+      const path = await window.inscribeAPI.selectRepository(input);
       if (path) {
         setInput(path);
         onSelect(path);

@@ -65,6 +65,7 @@ export interface AppState {
   isApplyingInProgress: boolean;
   isIntakeMaximized: boolean;
   isReviewMaximized: boolean;
+  isRestoringRepo: boolean;
 
   // Apply/Undo/Redo state
   lastAppliedPlan: ApplyPlan | null;

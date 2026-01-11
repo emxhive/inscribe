@@ -18,10 +18,16 @@ export function MainContent() {
     <div className={layoutClass}>
       {!isPanelMaximized && <FileSidebar />}
 
-      <main className="flex flex-1 flex-col min-h-0 overflow-y-auto p-5 bg-transparent">
-        {state.mode === 'intake' && <IntakePanel />}
+      <main className="flex flex-col min-h-0 overflow-y-auto p-5 bg-transparent">
+        {state.isRestoringRepo && (
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">
+            Restoring last repository...
+          </div>
+        )}
 
-        {state.mode === 'review' && <ReviewPanel />}
+        {!state.isRestoringRepo && state.mode === 'intake' && <IntakePanel />}
+
+        {!state.isRestoringRepo && state.mode === 'review' && <ReviewPanel />}
       </main>
 
       {!isPanelMaximized && (

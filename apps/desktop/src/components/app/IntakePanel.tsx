@@ -11,6 +11,7 @@ export function IntakePanel() {
   const { lines } = useIntakeBlocks();
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const overlayRef = useRef<HTMLPreElement | null>(null);
+  const indentString = '\t';
 
   const lineClasses = useMemo(() => {
     return lines.map((line) => {
@@ -66,6 +67,29 @@ export function IntakePanel() {
     overlayRef.current.scrollLeft = textAreaRef.current.scrollLeft;
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Tab') {
+      return;
+    }
+    event.preventDefault();
+    const textarea = textAreaRef.current;
+    if (!textarea) {
+      return;
+    }
+    const { selectionStart, selectionEnd, value } = textarea;
+    const newValue = `${value.slice(0, selectionStart)}${indentString}${value.slice(selectionEnd)}`;
+    const nextSelectionStart = selectionStart + indentString.length;
+    const nextSelectionEnd = selectionEnd + indentString.length;
+    updateState({ aiInput: newValue });
+    requestAnimationFrame(() => {
+      if (!textAreaRef.current) {
+        return;
+      }
+      textAreaRef.current.selectionStart = nextSelectionStart;
+      textAreaRef.current.selectionEnd = nextSelectionEnd;
+    });
+  };
+
   return (
     <section className="flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
       <header className="flex items-start justify-between gap-3">
@@ -108,6 +132,7 @@ export function IntakePanel() {
             placeholder="Paste the AI response here. Must contain @inscribe BEGIN / END blocks."
             value={state.aiInput}
             onChange={(e) => updateState({ aiInput: e.target.value })}
+            onKeyDown={handleKeyDown}
             onScroll={handleScroll}
           />
         </div>

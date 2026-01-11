@@ -42,12 +42,12 @@ export function AppHeader({
       {/* Repository section */}
       <div className="flex items-center gap-2 min-w-0">
         <div className="w-32 flex-shrink-0">
-          <span className="text-sm font-medium text-foreground truncate block" title={repoName || 'Repository'}>
+          <span className="text-sm font-semibold text-foreground truncate block" title={repoName || 'Repository'}>
             {repoName || 'Repository'}
           </span>
         </div>
         <input
-          className="w-80 border border-input bg-secondary rounded-md px-2.5 py-1.5 text-xs text-muted-foreground h-8 focus:outline-none"
+          className="w-80 border border-input bg-secondary rounded-md px-2.5 py-1.5 text-xs font-semibold text-foreground placeholder:text-muted-foreground h-8 focus:outline-none"
           value={state.repoRoot || ''}
           readOnly
           placeholder="No repository selected"
@@ -67,7 +67,7 @@ export function AppHeader({
       {/* Toolbar controls section */}
       <div className="flex gap-4 items-center ml-auto">
         <button
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors h-8 px-2 rounded hover:bg-accent disabled:opacity-50"
+          className="text-xs font-semibold text-muted-foreground hover:text-accent-foreground transition-colors h-8 px-2 rounded hover:bg-accent disabled:opacity-50"
           onClick={handleScopeClick}
           title="Click to configure scope"
           disabled={!hasRepository}
@@ -75,7 +75,7 @@ export function AppHeader({
           Scope: {state.scope.length}
         </button>
         <button
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors h-8 px-2 rounded hover:bg-accent disabled:opacity-50"
+          className="text-xs font-semibold text-muted-foreground hover:text-accent-foreground transition-colors h-8 px-2 rounded hover:bg-accent disabled:opacity-50"
           onClick={handleIgnoreClick}
           title="Click to edit ignore file"
           disabled={!hasRepository}
@@ -83,14 +83,14 @@ export function AppHeader({
           Ignore: {state.ignore.entries.length}
         </button>
         <button
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors h-8 px-2 rounded hover:bg-accent"
+          className="text-xs font-semibold text-muted-foreground hover:text-accent-foreground transition-colors h-8 px-2 rounded hover:bg-accent"
           onClick={onOpenSuggestedList}
           title="Click to view suggested excludes"
         >
           Suggested: {state.suggested.length}
         </button>
         <button
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors h-8 px-2 rounded hover:bg-accent"
+          className="text-xs font-semibold text-muted-foreground hover:text-accent-foreground transition-colors h-8 px-2 rounded hover:bg-accent"
           onClick={onOpenIgnoredList}
           title="Click to view indexed files"
         >

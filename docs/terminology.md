@@ -8,7 +8,7 @@ This document provides detailed definitions and explanations of key terms and co
 A specially marked section in pasted content that contains explicit instructions for file operations. Each block is delimited by `@inscribe BEGIN` and `@inscribe END` markers.
 
 **Structure:**
-```
+
 @inscribe BEGIN
 FILE: <path>
 MODE: <mode>
@@ -19,7 +19,7 @@ MODE: <mode>
 ```
 
 @inscribe END
-```
+
 
 ### Directives
 Commands within an Inscribe block that specify how to process the code content. Directives can be specified with or without the `@inscribe` prefix (except for BEGIN and END which always require it).

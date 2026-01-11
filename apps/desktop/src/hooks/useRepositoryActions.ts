@@ -2,11 +2,39 @@ import type { ParsedBlock } from '@inscribe/shared';
 import { buildReviewItems } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 import type { AppState } from '@/types';
+import type { RepoInitResult } from '@/types/ipc';
+
+const normalizeRelativePath = (input: string): string =>
+  input.trim().replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+/g, '/');
+
+const ensureTrailingSlash = (input: string): string => (input.endsWith('/') ? input : `${input}/`);
+
+const normalizePrefix = (input: string): string => ensureTrailingSlash(normalizeRelativePath(input));
+
+const isTopLevelFolderIgnored = (folder: string, ignoreEntries: string[]): boolean => {
+  const folderPrefix = normalizePrefix(folder);
+  return ignoreEntries.some(entry => normalizePrefix(entry) === folderPrefix);
+};
+
+const getTopLevelSegment = (input: string): string => {
+  const normalized = normalizeRelativePath(input);
+  const [segment] = normalized.split('/').filter(Boolean);
+  return segment || '';
+};
+
+const pruneScopeForIgnoredFolders = (scope: string[], ignoreEntries: string[]): string[] =>
+  scope.filter(entry => {
+    const topLevel = getTopLevelSegment(entry);
+    return topLevel.length === 0 || !isTopLevelFolderIgnored(topLevel, ignoreEntries);
+  });
+
+const scopesEqual = (left: string[], right: string[]): boolean =>
+  left.length === right.length && left.every((value, index) => value === right[index]);
 
 export async function initRepositoryState(
   repoRoot: string,
   updateState: (updates: Partial<AppState>) => void
-) {
+): Promise<RepoInitResult> {
   updateState({ statusMessage: 'Initializing repository...' });
   const result = await window.inscribeAPI.repoInit(repoRoot);
 
@@ -19,6 +47,8 @@ export async function initRepositoryState(
     indexStatus: result.indexStatus || { state: 'complete' },
     statusMessage: `Repository initialized: ${result.indexedCount || 0} files indexed`
   });
+
+  return result;
 }
 
 /**
@@ -76,9 +106,9 @@ export function useRepositoryActions() {
     }
   };
 
-  const initRepo = async (repoRoot: string) => {
+  const initRepo = async (repoRoot: string): Promise<RepoInitResult | null> => {
     try {
-      await initRepositoryState(repoRoot, updateState);
+      return await initRepositoryState(repoRoot, updateState);
     } catch (error) {
       console.error('Failed to initialize repository:', error);
       updateState({ 
@@ -86,6 +116,7 @@ export function useRepositoryActions() {
         indexStatus: { state: 'error', message: String(error) }
       });
     }
+    return null;
   };
 
   const handleSaveScope = async (newScope: string[]) => {
@@ -125,7 +156,13 @@ export function useRepositoryActions() {
           indexStatus: result.indexStatus || { state: 'complete' },
           statusMessage: `Ignore rules updated: ${result.indexedCount || 0} files indexed`
         });
-        await initRepo(state.repoRoot);
+        const refreshed = await initRepo(state.repoRoot);
+        if (refreshed) {
+          const prunedScope = pruneScopeForIgnoredFolders(refreshed.scope || [], refreshed.ignore.entries);
+          if (!scopesEqual(prunedScope, refreshed.scope || [])) {
+            await handleSaveScope(prunedScope);
+          }
+        }
       } else {
         updateState({ statusMessage: `Failed to update ignore rules: ${result.error || 'Unknown error'}` });
       }

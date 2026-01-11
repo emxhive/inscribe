@@ -32,16 +32,16 @@ export function FileListItem({
       )}
       onClick={onClick}
     >
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-2 items-center min-w-0">
         <StatusIcon status={status} error={validationError} />
-        <span className="font-mono text-sm text-foreground break-words">{file}</span>
+        <span className="font-mono text-sm text-foreground truncate" title={file}>{file}</span>
       </div>
-      <div className="flex gap-2 items-center mt-1.5 text-muted-foreground text-xs">
-        <span>{lineCount} lines</span>
+      <div className="flex gap-2 items-center mt-1.5 text-muted-foreground text-xs min-w-0">
+        <span className="truncate">{lineCount} lines</span>
         <span>•</span>
-        <span>{language}</span>
+        <span className="truncate">{language}</span>
         <span>•</span>
-        <span>{mode}</span>
+        <span className="truncate">{mode}</span>
       </div>
       {validationError && (
         <div className="text-[11px] text-destructive mt-1 overflow-hidden text-ellipsis whitespace-nowrap" title={validationError}>

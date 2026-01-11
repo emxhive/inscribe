@@ -63,8 +63,6 @@ export interface AppState {
   pipelineStatus: PipelineStatus;
   isParsingInProgress: boolean;
   isApplyingInProgress: boolean;
-  isIntakeMaximized: boolean;
-  isReviewMaximized: boolean;
   isRestoringRepo: boolean;
 
   // Apply/Undo/Redo state

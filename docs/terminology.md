@@ -9,9 +9,9 @@ A specially marked section in pasted content that contains explicit instructions
 
 **Structure:**
 
-@inscribe BEGIN
-FILE: <path>
-MODE: <mode>
+ @inscribe BEGIN<br>
+ FILE: <path><br>
+ MODE: <mode><br>
 [additional directives]
 
 ```<language>

@@ -63,6 +63,7 @@ export interface AppState {
   pipelineStatus: PipelineStatus;
   isParsingInProgress: boolean;
   isApplyingInProgress: boolean;
+  isRestoringRepo: boolean;
 
   // Apply/Undo/Redo state
   lastAppliedPlan: ApplyPlan | null;

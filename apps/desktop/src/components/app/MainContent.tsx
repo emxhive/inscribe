@@ -13,9 +13,15 @@ export function MainContent() {
       <FileSidebar />
 
       <main className="flex flex-col min-h-0 overflow-y-auto p-5 bg-transparent">
-        {state.mode === 'intake' && <IntakePanel />}
+        {state.isRestoringRepo && (
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">
+            Restoring last repository...
+          </div>
+        )}
 
-        {state.mode === 'review' && <ReviewPanel />}
+        {!state.isRestoringRepo && state.mode === 'intake' && <IntakePanel />}
+
+        {!state.isRestoringRepo && state.mode === 'review' && <ReviewPanel />}
       </main>
 
       <aside className="flex flex-col items-center gap-2.5 p-3 bg-card border-l border-border">

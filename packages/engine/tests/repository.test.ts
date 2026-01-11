@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -8,6 +8,7 @@ import {
   computeSuggestedExcludes,
   computeDefaultScope,
   indexRepository,
+  getLastVisitedRepo,
   setScopeState,
   validateBlocks,
 } from '../src';
@@ -121,5 +122,38 @@ tmp
     // Second block should fail (ignored path)
     expect(errors.length).toBe(1);
     expect(errors[0].message).toContain('ignored');
+  });
+
+  it('returns the most recently visited repo from the scope store', () => {
+    const firstRepo = path.join(tempDir, 'first');
+    const secondRepo = path.join(tempDir, 'second');
+    fs.mkdirSync(firstRepo, { recursive: true });
+    fs.mkdirSync(secondRepo, { recursive: true });
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2024-01-01T00:00:00Z'));
+      setScopeState(firstRepo, ['src/']);
+      vi.setSystemTime(new Date('2024-01-01T00:00:01Z'));
+      setScopeState(secondRepo, ['src/']);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(getLastVisitedRepo()).toBe(secondRepo);
+  });
+
+  it('falls back when the last visited repo is missing', () => {
+    const firstRepo = path.join(tempDir, 'first');
+    const secondRepo = path.join(tempDir, 'second');
+    fs.mkdirSync(firstRepo, { recursive: true });
+    fs.mkdirSync(secondRepo, { recursive: true });
+
+    setScopeState(firstRepo, ['src/']);
+    setScopeState(secondRepo, ['src/']);
+
+    fs.rmSync(secondRepo, { recursive: true, force: true });
+
+    expect(getLastVisitedRepo()).toBe(firstRepo);
   });
 });

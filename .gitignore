@@ -4,6 +4,7 @@ build/
 .inscribe/backups/
 *.log
 .DS_Store
+.idea/
 .env
 .env.local
 .inscribe/cache/

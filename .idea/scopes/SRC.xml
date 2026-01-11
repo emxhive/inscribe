@@ -1,3 +1,0 @@
-<component name="DependencyValidationManager">
-  <scope name="SRC" pattern="file[inscribe]:apps/desktop/src/*||file[inscribe]:packages/engine/src//*||file[inscribe]:packages/shared/src//*||file[inscribe]:apps/desktop/src//*" />
-</component>

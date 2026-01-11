@@ -15,7 +15,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@inscribe/shared": "0.1.0"
+    "@inscribe/shared": "0.1.0",
+    "picomatch": "^2.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.19.27",

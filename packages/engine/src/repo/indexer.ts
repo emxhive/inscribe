@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { getEffectiveIgnorePrefixes } from './ignoreRules';
-import { ensureTrailingSlash, normalizeRelativePath } from './pathing';
+import { getEffectiveIgnoreMatchers, matchIgnoredPath, type IgnoreMatcher } from './ignoreRules';
+import { normalizeRelativePath } from './pathing';
 import { getOrCreateScope, setScopeState } from './scopeStore';
 import { setIndexStatusComplete, setIndexStatusError, setIndexStatusRunning } from './statusStore';
 
@@ -11,7 +11,7 @@ export function indexRepository(repoRoot: string, providedScope?: string[]): str
     : getOrCreateScope(repoRoot);
 
   const scope = scopeState.scope;
-  const ignores = getEffectiveIgnorePrefixes(repoRoot);
+  const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
 
   setIndexStatusRunning(repoRoot);
 
@@ -21,7 +21,7 @@ export function indexRepository(repoRoot: string, providedScope?: string[]): str
     for (const root of scope) {
       const rootPath = path.join(repoRoot, root);
       if (fs.existsSync(rootPath) && fs.statSync(rootPath).isDirectory()) {
-        collectFiles(rootPath, repoRoot, files, ignores);
+        collectFiles(rootPath, repoRoot, files, ignoreMatcher);
       }
     }
 
@@ -36,13 +36,13 @@ export function indexRepository(repoRoot: string, providedScope?: string[]): str
 }
 
 /**
- * Recursively collect files under the given directory while skipping ignored prefixes and symlinks.
+ * Recursively collect files under the given directory while skipping ignored prefixes/globs and symlinks.
  */
 function collectFiles(
   dir: string,
   repoRoot: string,
   files: string[],
-  ignores: string[]
+  ignoreMatcher: IgnoreMatcher
 ): void {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
@@ -54,15 +54,14 @@ function collectFiles(
       continue;
     }
     if (entry.isDirectory()) {
-      const relativeDir = ensureTrailingSlash(relativePath);
-      const isIgnoredDir = ignores.some(prefix => relativeDir.startsWith(prefix));
-      if (isIgnoredDir) {
+      const ignoreMatch = matchIgnoredPath(relativePath, ignoreMatcher, { isDirectory: true });
+      if (ignoreMatch) {
         continue;
       }
-      collectFiles(fullPath, repoRoot, files, ignores);
+      collectFiles(fullPath, repoRoot, files, ignoreMatcher);
     } else if (entry.isFile()) {
-      const isIgnoredFile = ignores.some(prefix => relativePath.startsWith(prefix));
-      if (!isIgnoredFile) {
+      const ignoreMatch = matchIgnoredPath(relativePath, ignoreMatcher);
+      if (!ignoreMatch) {
         files.push(relativePath);
       }
     }

@@ -116,7 +116,7 @@ export function ReviewPanel() {
             height="100%"
             theme={oneDark}
             extensions={editorExtensions}
-            onChange={(value) => reviewActions.handleEditorChange(value)}
+            onChange={(value: string) => reviewActions.handleEditorChange(value)}
             basicSetup={{ lineNumbers: false, foldGutter: false }}
           />
         ) : (

@@ -95,6 +95,18 @@ tmp
     expect(files).toEqual(['src/kept/file.txt']);
   });
 
+  it('indexes only scoped and non-ignored files with glob ignores', () => {
+    fs.mkdirSync(path.join(tempDir, 'src', 'kept'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'src', 'ignored', 'nested'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, '.inscribeignore'), 'src/**/ignored/**');
+    fs.writeFileSync(path.join(tempDir, 'src', 'kept', 'file.txt'), 'ok');
+    fs.writeFileSync(path.join(tempDir, 'src', 'ignored', 'nested', 'skip.txt'), 'skip');
+
+    setScopeState(tempDir, ['src/']);
+    const files = indexRepository(tempDir);
+    expect(files).toEqual(['src/kept/file.txt']);
+  });
+
   it('validation allows create outside scope, rejects ignored prefixes', () => {
     setScopeState(tempDir, ['src/']);
     fs.writeFileSync(path.join(tempDir, '.inscribeignore'), 'src/ignore');

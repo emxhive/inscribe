@@ -3,10 +3,13 @@ import * as path from 'path';
 import { Operation } from '@inscribe/shared';
 
 import { applyRangeReplace } from './rangeReplace';
-import {resolveAndAssertWithinRepo} from "../paths/resolveAndAssertWithin";
+import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
+import { type IgnoreMatcher } from '../repo/ignoreRules';
+
+const emptyIgnoreMatcher: IgnoreMatcher = { prefixes: [], globs: [] };
 
 export function applyOperation(operation: Operation, repoRoot: string): void {
-  const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, []);
+  const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, emptyIgnoreMatcher);
   const filePath = resolvedPath;
 
   switch (operation.type) {

@@ -2,12 +2,13 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 
 export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
   const reviewActions = useReviewActions();
   const applyActions = useApplyActions();
+  const isMaximized = state.isReviewMaximized;
 
   const { selectedItem, editorValue, pendingItemsCount } = reviewActions;
   const hasInvalidItems = state.reviewItems.some((item) => item.status === 'invalid');
@@ -21,14 +22,39 @@ export function ReviewPanel() {
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Review & Apply</p>
           <h2 className="text-xl font-semibold mt-0.5">{selectedItem?.file || 'Select a file from the left'}</h2>
         </div>
-        <Button
-          variant="outline"
-          type="button"
-          onClick={() => updateState({ isEditing: !state.isEditing })}
-          disabled={!selectedItem}
-        >
-          {state.isEditing ? 'Preview' : 'Edit'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => updateState({ isEditing: !state.isEditing })}
+            disabled={!selectedItem}
+          >
+            {state.isEditing ? 'Preview' : 'Edit'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={() =>
+              updateState((prev) => ({
+                isReviewMaximized: !prev.isReviewMaximized,
+                isIntakeMaximized: false,
+              }))
+            }
+          >
+            {isMaximized ? (
+              <>
+                <Minimize2 className="h-4 w-4 mr-2" />
+                Restore
+              </>
+            ) : (
+              <>
+                <Maximize2 className="h-4 w-4 mr-2" />
+                Maximize
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {selectedItem?.validationError && (

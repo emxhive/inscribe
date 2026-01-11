@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAppStateContext, useParsingActions, useIntakeBlocks } from '@/hooks';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function IntakePanel() {
@@ -11,6 +11,7 @@ export function IntakePanel() {
   const { lines } = useIntakeBlocks();
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const overlayRef = useRef<HTMLPreElement | null>(null);
+  const isMaximized = state.isIntakeMaximized;
 
   const lineClasses = useMemo(() => {
     return lines.map((line) => {
@@ -73,6 +74,29 @@ export function IntakePanel() {
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">AI Response Input</p>
           <h2 className="text-xl font-semibold mt-0.5">Paste the AI reply to parse code blocks</h2>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onClick={() =>
+            updateState((prev) => ({
+              isIntakeMaximized: !prev.isIntakeMaximized,
+              isReviewMaximized: false,
+            }))
+          }
+        >
+          {isMaximized ? (
+            <>
+              <Minimize2 className="h-4 w-4 mr-2" />
+              Restore
+            </>
+          ) : (
+            <>
+              <Maximize2 className="h-4 w-4 mr-2" />
+              Maximize
+            </>
+          )}
+        </Button>
       </header>
 
       {state.parseErrors.length > 0 && (

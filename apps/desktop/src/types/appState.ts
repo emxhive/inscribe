@@ -63,6 +63,8 @@ export interface AppState {
   pipelineStatus: PipelineStatus;
   isParsingInProgress: boolean;
   isApplyingInProgress: boolean;
+  isIntakeMaximized: boolean;
+  isReviewMaximized: boolean;
 
   // Apply/Undo/Redo state
   lastAppliedPlan: ApplyPlan | null;

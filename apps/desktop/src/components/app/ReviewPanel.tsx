@@ -1,4 +1,17 @@
-import React, { useRef } from 'react';
+import React, { useMemo } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
+import { keymap } from '@codemirror/view';
+import { indentWithTab } from '@codemirror/commands';
+import { indentUnit } from '@codemirror/language';
+import { javascript } from '@codemirror/lang-javascript';
+import { json } from '@codemirror/lang-json';
+import { markdown } from '@codemirror/lang-markdown';
+import { python } from '@codemirror/lang-python';
+import { html } from '@codemirror/lang-html';
+import { css } from '@codemirror/lang-css';
+import { xml } from '@codemirror/lang-xml';
+import { yaml } from '@codemirror/lang-yaml';
+import { oneDark } from '@codemirror/theme-one-dark';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
@@ -8,82 +21,60 @@ export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
   const reviewActions = useReviewActions();
   const applyActions = useApplyActions();
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const indentString = '\t';
 
   const { selectedItem, editorValue, pendingItemsCount } = reviewActions;
   const hasInvalidItems = state.reviewItems.some((item) => item.status === 'invalid');
 
   const canApplySelected = selectedItem && selectedItem.status === 'pending' && !state.isApplyingInProgress;
 
-  const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== 'Tab') {
-      return;
+  const languageExtension = useMemo(() => {
+    const fileName = selectedItem?.file;
+    if (!fileName) {
+      return null;
     }
-    event.preventDefault();
-    const textarea = textareaRef.current;
-    if (!textarea) {
-      return;
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    if (!extension) {
+      return null;
     }
-    const { selectionStart, selectionEnd, value } = textarea;
+    switch (extension) {
+      case 'ts':
+      case 'tsx':
+        return javascript({ typescript: true, jsx: extension === 'tsx' });
+      case 'js':
+      case 'jsx':
+        return javascript({ jsx: extension === 'jsx' });
+      case 'json':
+        return json();
+      case 'md':
+      case 'markdown':
+        return markdown();
+      case 'py':
+        return python();
+      case 'html':
+      case 'htm':
+        return html();
+      case 'css':
+      case 'scss':
+      case 'sass':
+        return css();
+      case 'xml':
+      case 'svg':
+        return xml();
+      case 'yml':
+      case 'yaml':
+        return yaml();
+      default:
+        return null;
+    }
+  }, [selectedItem?.file]);
 
-    if (event.shiftKey) {
-      const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
-      const lineEnd = (() => {
-        const nextLineBreak = value.indexOf('\n', selectionEnd);
-        return nextLineBreak === -1 ? value.length : nextLineBreak;
-      })();
-      const block = value.slice(lineStart, lineEnd);
-      const lines = block.split('\n');
-      const selectionStartOffset = selectionStart - lineStart;
-      const selectionEndOffset = selectionEnd - lineStart;
-      let removedBeforeStart = 0;
-      let removedBeforeEnd = 0;
-      let cursor = 0;
-      const updatedLines = lines.map((line, index) => {
-        const originalLength = line.length;
-        const hasIndent = line.startsWith(indentString);
-        if (hasIndent) {
-          if (cursor < selectionStartOffset) {
-            removedBeforeStart += indentString.length;
-          }
-          if (cursor < selectionEndOffset) {
-            removedBeforeEnd += indentString.length;
-          }
-          line = line.slice(indentString.length);
-        }
-        cursor += originalLength;
-        if (index < lines.length - 1) {
-          cursor += 1;
-        }
-        return line;
-      });
-      const newValue = `${value.slice(0, lineStart)}${updatedLines.join('\n')}${value.slice(lineEnd)}`;
-      const nextSelectionStart = Math.max(lineStart, selectionStart - removedBeforeStart);
-      const nextSelectionEnd = Math.max(lineStart, selectionEnd - removedBeforeEnd);
-      reviewActions.handleEditorChange(newValue);
-      requestAnimationFrame(() => {
-        if (!textareaRef.current) {
-          return;
-        }
-        textareaRef.current.selectionStart = nextSelectionStart;
-        textareaRef.current.selectionEnd = nextSelectionEnd;
-      });
-      return;
+  const editorExtensions = useMemo(() => {
+    const baseExtensions = [indentUnit.of('\t'), keymap.of([indentWithTab])];
+    if (languageExtension) {
+      baseExtensions.push(languageExtension);
     }
-
-    const newValue = `${value.slice(0, selectionStart)}${indentString}${value.slice(selectionEnd)}`;
-    const nextSelectionStart = selectionStart + indentString.length;
-    const nextSelectionEnd = selectionEnd + indentString.length;
-    reviewActions.handleEditorChange(newValue);
-    requestAnimationFrame(() => {
-      if (!textareaRef.current) {
-        return;
-      }
-      textareaRef.current.selectionStart = nextSelectionStart;
-      textareaRef.current.selectionEnd = nextSelectionEnd;
-    });
-  };
+    return baseExtensions;
+  }, [languageExtension]);
 
   return (
     <section className="flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
@@ -119,17 +110,26 @@ export function ReviewPanel() {
 
       <div className="flex-1 min-h-[320px] border border-border rounded-lg p-3 bg-secondary flex">
         {state.isEditing ? (
-          <textarea
-            ref={textareaRef}
-            className="flex-1 w-full h-full border-none rounded-lg p-3.5 font-mono text-sm leading-relaxed bg-slate-900 text-slate-200 resize-none outline-none"
+          <CodeMirror
+            className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
             value={editorValue}
-            onChange={(e) => reviewActions.handleEditorChange(e.target.value)}
-            onKeyDown={handleEditorKeyDown}
+            height="100%"
+            theme={oneDark}
+            extensions={editorExtensions}
+            onChange={(value) => reviewActions.handleEditorChange(value)}
+            basicSetup={{ lineNumbers: false, foldGutter: false }}
           />
         ) : (
-          <pre className="flex-1 w-full h-full overflow-auto border-none rounded-lg p-3.5 font-mono text-sm leading-relaxed bg-slate-900 text-slate-200">
-            <code>{editorValue}</code>
-          </pre>
+          <CodeMirror
+            className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
+            value={editorValue}
+            height="100%"
+            theme={oneDark}
+            extensions={editorExtensions}
+            editable={false}
+            readOnly
+            basicSetup={{ lineNumbers: false, foldGutter: false }}
+          />
         )}
       </div>
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { buildIgnoreMatcher, matchIgnoredPath } from '@inscribe/shared';
 import { Modal } from './common';
 import { Button } from '@/components/ui/button';
 import { useAppStateContext, useRepositoryActions } from '@/hooks';
@@ -8,6 +7,11 @@ interface ScopeModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const normalizePrefix = (input: string) => {
+  const trimmed = input.trim().replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+/g, '/');
+  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`;
+};
 
 export function ScopeModal({
   isOpen,
@@ -20,10 +24,9 @@ export function ScopeModal({
     (state as { defaultIgnoreEntries?: string[] }).defaultIgnoreEntries,
     (state as { defaultIgnores?: string[] }).defaultIgnores,
   ].find((entries): entries is string[] => Array.isArray(entries)) ?? [];
-  const ignoreEntries = [...state.ignore.entries, ...defaultIgnoreEntries];
-  const ignoreMatcher = buildIgnoreMatcher(ignoreEntries);
+  const ignoreEntries = [...state.ignore.entries, ...defaultIgnoreEntries].map(normalizePrefix);
   const ignoredTopLevelFolders = new Set(
-    state.topLevelFolders.filter((folder) => matchIgnoredPath(folder, ignoreMatcher, { isDirectory: true }))
+    state.topLevelFolders.filter((folder) => ignoreEntries.includes(normalizePrefix(folder)))
   );
 
   useEffect(() => {

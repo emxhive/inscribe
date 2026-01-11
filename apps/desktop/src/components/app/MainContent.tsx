@@ -1,5 +1,5 @@
-import React from 'react';
-import { FileSidebar } from './FileSidebar';
+import React, { useCallback, useState } from 'react';
+import { FileSidebar, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from './FileSidebar';
 import { IntakePanel } from './IntakePanel';
 import { ReviewPanel } from './ReviewPanel';
 import { useAppStateContext } from '@/hooks';
@@ -7,10 +7,35 @@ import { History, Settings, Info } from 'lucide-react';
 
 export function MainContent() {
   const { state, updateState } = useAppStateContext();
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 280;
+    }
+    const stored = window.localStorage.getItem('inscribe:intake:sidebarWidth');
+    const parsed = stored ? Number(stored) : 280;
+    if (!Number.isFinite(parsed)) {
+      return 280;
+    }
+    return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, parsed));
+  });
+
+  const handleSidebarResize = useCallback(
+    (width: number, options?: { persist?: boolean }) => {
+      const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
+      setSidebarWidth(clamped);
+      if (options?.persist && typeof window !== 'undefined') {
+        window.localStorage.setItem('inscribe:intake:sidebarWidth', String(clamped));
+      }
+    },
+    [],
+  );
 
   return (
-    <div className="flex-1 grid grid-cols-[280px_1fr_64px] min-h-0 overflow-hidden">
-      <FileSidebar />
+    <div
+      className="flex-1 grid min-h-0 overflow-hidden"
+      style={{ gridTemplateColumns: `${sidebarWidth}px 1fr 64px` }}
+    >
+      <FileSidebar sidebarWidth={sidebarWidth} onResize={handleSidebarResize} />
 
       <main className="flex flex-col min-h-0 overflow-y-auto p-5 bg-transparent">
         {state.isRestoringRepo && (

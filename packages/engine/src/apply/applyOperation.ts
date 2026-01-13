@@ -4,12 +4,11 @@ import { Operation } from '@inscribe/shared';
 
 import { applyRangeReplace } from './rangeReplace';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
-import { type IgnoreMatcher } from '../repo/ignoreRules';
-
-const emptyIgnoreMatcher: IgnoreMatcher = { prefixes: [], globs: [] };
+import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
 
 export function applyOperation(operation: Operation, repoRoot: string): void {
-  const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, emptyIgnoreMatcher);
+  const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
+  const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
   const filePath = resolvedPath;
 
   switch (operation.type) {

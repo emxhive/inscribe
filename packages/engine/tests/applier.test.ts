@@ -258,6 +258,26 @@ old content
     expect(fs.existsSync(escapedPath)).toBe(false);
   });
 
+  it('should reject apply operations that target ignored paths', () => {
+    fs.writeFileSync(path.join(tempDir, '.inscribeignore'), 'ignored-dir/');
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'create',
+          file: 'ignored-dir/new.txt',
+          content: 'content',
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(false);
+    expect(result.errors?.[0]).toContain('ignored path');
+    expect(fs.existsSync(path.join(tempDir, 'ignored-dir', 'new.txt'))).toBe(false);
+  });
+
   it('should fail range apply when anchors are missing', () => {
     const filePath = path.join(tempDir, 'app', 'range.js');
     fs.writeFileSync(filePath, 'content');

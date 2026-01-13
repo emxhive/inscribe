@@ -5,8 +5,8 @@
 
 import * as fs from 'fs';
 import { ParsedBlock, ValidationError } from '@inscribe/shared';
-import { getEffectiveIgnoreMatchers, getOrCreateScope } from '../repository';
-import { resolveAndAssertWithinRepo, resolveAndAssertWithinScope } from '../paths/resolveAndAssertWithin';
+import { getEffectiveIgnoreMatchers } from '../repository';
+import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { normalizeRelativePath } from '../util/path';
 import { validateRangeAnchors } from './validateRangeAnchors';
 
@@ -35,25 +35,15 @@ function validateBlock(
   repoRoot: string
 ): ValidationError[] {
   const errors: ValidationError[] = [];
-  const scopeState = getOrCreateScope(repoRoot);
-  const scopeRoots = scopeState.scope;
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
 
   let resolvedPath: string;
-  let normalizedFile: string;
   
   try {
-    // For CREATE mode, allow files anywhere under repo root (not ignored)
-    // For other modes, enforce scope restrictions
-    if (block.mode === 'create') {
-      const resolved = resolveAndAssertWithinRepo(repoRoot, block.file, ignoreMatcher);
-      resolvedPath = resolved.resolvedPath;
-      normalizeRelativePath(resolved.relativePath);
-    } else {
-      const resolved = resolveAndAssertWithinScope(repoRoot, block.file, scopeRoots, ignoreMatcher);
-      resolvedPath = resolved.resolvedPath;
-      normalizeRelativePath(resolved.relativePath);
-    }
+    // All modes must remain within the repository root and respect ignore rules
+    const resolved = resolveAndAssertWithinRepo(repoRoot, block.file, ignoreMatcher);
+    resolvedPath = resolved.resolvedPath;
+    normalizeRelativePath(resolved.relativePath);
   } catch (error) {
     errors.push({
       blockIndex: block.blockIndex,

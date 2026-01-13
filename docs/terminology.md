@@ -28,9 +28,7 @@ Commands within an Inscribe block that specify how to process the code content. 
 
 - **FILE:** Specifies the relative path from repository root where the file will be created or modified
   - Format: `FILE: relative/path/from/repo/root.ext` or `@inscribe FILE: relative/path/from/repo/root.ext`
-  - For CREATE mode: Path must be under repository root and not in an ignored directory
-  - For other modes (REPLACE, APPEND, RANGE): Path must be within configured scope roots
-  - Path must not be in an ignored directory
+  - Path must be under repository root and not in an ignored directory
 
 - **MODE:** Specifies the operation type
   - Format: `MODE: <create|replace|append|range>` or `@inscribe MODE: <create|replace|append|range>`
@@ -76,35 +74,35 @@ Replaces the entire content of an existing file.
 
 **Requirements:**
 - File MUST exist
-- Path must be within configured scope roots
+- Path must be under repository root and not ignored
 
 **Failure conditions:**
 - File does not exist
-- Path is not under scope roots
 - Path is in an ignored directory
+- Path escapes the repository root
 
 ### append
 Appends content to the end of an existing file.
 
 **Requirements:**
 - File MUST exist
-- Path must be within configured scope roots
+- Path must be under repository root and not ignored
 
 **Failure conditions:**
 - File does not exist
-- Path is not under scope roots
 - Path is in an ignored directory
+- Path escapes the repository root
 
 ### range
 Replaces content between two anchor points in an existing file, keeping the anchors intact.
 
 **Requirements:**
 - File MUST exist
-- Path must be within configured scope roots
 - START directive is required
 - END directive is required
 - Both anchors must match exactly once
 - END anchor must appear after START anchor
+- Path must be under repository root and not ignored
 
 **Optional:**
 - SCOPE_START and SCOPE_END can narrow the search area
@@ -115,15 +113,13 @@ Replaces content between two anchor points in an existing file, keeping the anch
 The base directory of your repository where Inscribe operates. All file paths in blocks are relative to this root.
 
 ### Scope Roots
-Configurable directories where Inscribe is allowed to modify existing files. These are used by REPLACE, APPEND, and RANGE modes to restrict which files can be changed.
+Configurable directories that help Inscribe focus indexing and suggestions. With the repo-wide modification policy, all modes can operate anywhere under the repository root (subject to ignore rules), so scope roots no longer restrict where changes may be applied.
 
 **Example scope configuration:**
 - `app/` - Application source code
 - `routes/` - Route definitions
 - `config/` - Configuration files
 - `tests/` - Test files
-
-**Note:** CREATE mode is more permissive - it can create new files anywhere under the repository root (as long as the path is not ignored), without being restricted to scope roots. This allows you to create new top-level directories and files without reconfiguring scope first.
 
 ### Ignored Paths
 Directories that Inscribe will never touch.

@@ -4,7 +4,7 @@ import { Operation } from '@inscribe/shared';
 
 import { applyRangeReplace } from './rangeReplace';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
-import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
+import { getEffectiveIgnoreMatchers } from '../repository';
 
 export function applyOperation(operation: Operation, repoRoot: string): void {
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);

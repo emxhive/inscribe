@@ -49,33 +49,11 @@ MODE: create | replace | append | range
 - **append** — file MUST exist, content appended to end
 - **range** — file MUST exist, partial replace between anchors
 
-## LLM Usage Note (Copy/Paste)
+## LLM Usage
 
-The following note is intended for LLMs and users who want to prompt them. Copy it as-is when instructing an assistant:
+When working with AI assistants that generate code, you can instruct them to format their responses using Inscribe blocks. This allows you to safely review and apply only the tagged portions.
 
-```txt
-INSCRIBE – LLM USAGE NOTE
-
-When a user asks you to use Inscribe:
-
-- Preserve your normal response behavior.
-  - Write explanations, comments, and notes as usual.
-  - Use fenced code blocks normally where helpful.
-
-- Only apply Inscribe tags to code blocks that are meant to be processed by Inscribe.
-  - Do not change or restrict other parts of the response.
-
-For each code block intended for Inscribe:
-- Add `@inscribe BEGIN` on a plain text line immediately before the fenced code block.
-- Add Inscribe directives (e.g. FILE:, MODE:) immediately after the BEGIN line.
-- Keep the code itself inside a normal Markdown fenced code block.
-- Add `@inscribe END` on a plain text line immediately after the fenced code block.
-
-Notes:
-- Inscribe tags must not be fenced.
-- Do not wrap multiple code blocks or the entire response in a single Inscribe block.
-- All non-Inscribe content should remain unchanged.
-```
+See the [LLM Usage Note in the terminology documentation](docs/terminology.md#llm-usage-note-copypaste) for complete instructions to copy/paste when prompting an LLM.
 
 ## Backups & Undo
 

@@ -155,7 +155,7 @@ const x = 1;
     expect(errors[0].message).toContain('outside repository root');
   });
 
-  it('should enforce scope restriction for replace mode', () => {
+  it('allows replace mode outside configured scope', () => {
     setScopeState(tempDir, ['app']);
     
     // Create a file outside scope
@@ -173,11 +173,10 @@ const x = 1;
     ];
 
     const errors = validateBlocks(blocks, tempDir);
-    expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].message).toContain('scope roots');
+    expect(errors).toEqual([]);
   });
 
-  it('should enforce scope restriction for append mode', () => {
+  it('allows append mode outside configured scope', () => {
     setScopeState(tempDir, ['app']);
     
     // Create a file outside scope
@@ -195,11 +194,10 @@ const x = 1;
     ];
 
     const errors = validateBlocks(blocks, tempDir);
-    expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].message).toContain('scope roots');
+    expect(errors).toEqual([]);
   });
 
-  it('should enforce scope restriction for range mode', () => {
+  it('allows range mode outside configured scope', () => {
     setScopeState(tempDir, ['app']);
     
     // Create a file outside scope
@@ -220,8 +218,27 @@ const x = 1;
     ];
 
     const errors = validateBlocks(blocks, tempDir);
+    expect(errors).toEqual([]);
+  });
+
+  it('rejects non-create modes in ignored paths', () => {
+    fs.mkdirSync(path.join(tempDir, 'ignored'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'ignored', 'file.js'), 'content');
+    fs.writeFileSync(path.join(tempDir, '.inscribeignore'), 'ignored/');
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'ignored/file.js',
+        mode: 'replace',
+        directives: {},
+        content: 'new content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].message).toContain('scope roots');
+    expect(errors[0].message).toContain('ignored');
   });
 
   it('should validate range mode with valid anchors', () => {

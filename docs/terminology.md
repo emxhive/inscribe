@@ -24,6 +24,8 @@ A specially marked section in pasted content that contains explicit instructions
 ### Directives
 Commands within an Inscribe block that specify how to process the code content. Directives can be specified with or without the `@inscribe` prefix (except for BEGIN and END which always require it).
 
+**Important:** Each directive value must be single-line only. The parser processes directives line-by-line, so multiline directive values are not supported.
+
 #### Required Directives
 
 - **FILE:** Specifies the relative path from repository root where the file will be created or modified
@@ -38,21 +40,29 @@ Commands within an Inscribe block that specify how to process the code content. 
 
 - **START:** (required for range mode) The beginning anchor for partial replacement
   - Format: `START: <exact substring>` or `@inscribe START: <exact substring>`
+  - Anchors are **literal substring matches** (not regex, not whole-line matches)
+  - Can match anywhere within a line (beginning, middle, or end)
   - Must match exactly once in the target file (or within scope)
   
 - **END:** (required for range mode) The ending anchor for partial replacement
   - Format: `END: <exact substring>` or `@inscribe END: <exact substring>`
+  - Anchors are **literal substring matches** (not regex, not whole-line matches)
+  - Can match anywhere within a line (beginning, middle, or end)
   - Must match exactly once in the target file (or within scope)
   - Must appear after START anchor in the file
 
 - **SCOPE_START:** (optional for range mode) Narrows the search area for anchors
   - Format: `SCOPE_START: <exact substring>` or `@inscribe SCOPE_START: <exact substring>`
+  - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Must match exactly once in the target file
+  - **Must be provided together with SCOPE_END** (providing only one is invalid)
   
 - **SCOPE_END:** (optional for range mode) Defines the end of the search area
   - Format: `SCOPE_END: <exact substring>` or `@inscribe SCOPE_END: <exact substring>`
+  - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Must match exactly once in the target file
   - Must appear after SCOPE_START in the file
+  - **Must be provided together with SCOPE_START** (providing only one is invalid)
 
 ## Modes
 
@@ -93,6 +103,24 @@ Appends content to the end of an existing file.
 - Path is in an ignored directory
 - Path escapes the repository root
 
+**Important:** Inscribe does **not** automatically insert a newline when appending. If you need a newline before your appended content, include it explicitly (e.g., start your fenced code content with a blank line).
+
+**Example with leading newline:**
+
+````
+@inscribe BEGIN
+FILE: src/config.js
+MODE: append
+
+```javascript
+
+// New configuration section
+export const newFeature = true;
+```
+
+@inscribe END
+````
+
 ### range
 Replaces content between two anchor points in an existing file, keeping the anchors intact.
 
@@ -106,6 +134,24 @@ Replaces content between two anchor points in an existing file, keeping the anch
 
 **Optional:**
 - SCOPE_START and SCOPE_END can narrow the search area
+
+## When to Use Each Mode
+
+Choosing the right mode depends on your specific use case:
+
+| Mode | Best For | Example Use Cases |
+|------|----------|-------------------|
+| **create** | Adding entirely new files | Creating a new component, adding a new test file, scaffolding configuration files |
+| **replace** | Completely rewriting existing files | Major refactoring, regenerating auto-generated files, replacing obsolete implementations |
+| **append** | Adding content to the end of a file | Adding new test cases, appending log entries, adding exports to an index file |
+| **range** | Surgical edits within a file | Updating a specific function, modifying a configuration section, changing one method in a class |
+
+**General Guidelines:**
+
+- Use **create** when the file doesn't exist yet
+- Use **replace** when you need to change most or all of the file's content
+- Use **append** when adding new content that logically goes at the end (remember to include leading newlines if needed)
+- Use **range** for precise, localized changes where you want to preserve surrounding context
 
 ## Repository Structure
 
@@ -148,3 +194,31 @@ Before every apply, Inscribe creates a backup at `.inscribe/backups/<timestamp>/
 
 ### Undo
 Restores files from the most recent backup (blind restore, no merge).
+
+## LLM Usage Note (Copy/Paste)
+
+The following note is intended for LLMs and users who want to prompt them. Copy it as-is when instructing an assistant:
+
+```txt
+INSCRIBE – LLM USAGE NOTE
+
+When a user asks you to use Inscribe:
+
+- Preserve your normal response behavior.
+  - Write explanations, comments, and notes as usual.
+  - Use fenced code blocks normally where helpful.
+
+- Only apply Inscribe tags to code blocks that are meant to be processed by Inscribe.
+  - Do not change or restrict other parts of the response.
+
+For each code block intended for Inscribe:
+- Add `@inscribe BEGIN` on a plain text line immediately before the fenced code block.
+- Add Inscribe directives (e.g. FILE:, MODE:) immediately after the BEGIN line.
+- Keep the code itself inside a normal Markdown fenced code block.
+- Add `@inscribe END` on a plain text line immediately after the fenced code block.
+
+Notes:
+- Inscribe tags must not be fenced.
+- Do not wrap multiple code blocks or the entire response in a single Inscribe block.
+- All non-Inscribe content should remain unchanged.
+```

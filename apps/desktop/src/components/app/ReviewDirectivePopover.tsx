@@ -1,0 +1,160 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReviewItem } from '@/types';
+
+const REVIEW_DIRECTIVE_KEYS = ['FILE', 'MODE', 'START', 'END', 'SCOPE_START', 'SCOPE_END'] as const;
+type ReviewDirectiveKey = typeof REVIEW_DIRECTIVE_KEYS[number];
+
+type ReviewDirectivePopoverProps = {
+  isOpen: boolean;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  item: ReviewItem | null;
+  onSave: (updates: Partial<Record<ReviewDirectiveKey, string>>) => void;
+  onClose: () => void;
+};
+
+export function ReviewDirectivePopover({
+  isOpen,
+  anchorRef,
+  item,
+  onSave,
+  onClose,
+}: ReviewDirectivePopoverProps) {
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [draft, setDraft] = useState<Partial<Record<ReviewDirectiveKey, string>>>({});
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !item) {
+      setPosition(null);
+      return;
+    }
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) {
+      setPosition(null);
+      return;
+    }
+    setPosition({ top: rect.top + rect.height / 2, left: rect.right + 12 });
+  }, [anchorRef, isOpen, item]);
+
+  useEffect(() => {
+    if (!isOpen || !item) {
+      setDraft({});
+      return;
+    }
+    const nextDraft: Partial<Record<ReviewDirectiveKey, string>> = {};
+    REVIEW_DIRECTIVE_KEYS.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(item.directives, key)) {
+        nextDraft[key] = item.directives[key];
+      }
+    });
+    setDraft(nextDraft);
+  }, [isOpen, item]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (
+        popoverRef.current?.contains(target ?? null) ||
+        anchorRef.current?.contains(target ?? null)
+      ) {
+        return;
+      }
+      onClose();
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [anchorRef, isOpen, onClose]);
+
+  const missingReviewDirectives = useMemo(
+    () =>
+      REVIEW_DIRECTIVE_KEYS.filter((key) => !Object.prototype.hasOwnProperty.call(draft, key)),
+    [draft],
+  );
+
+  if (!isOpen || !item || !position) {
+    return null;
+  }
+
+  return (
+    <div
+      ref={popoverRef}
+      className="fixed z-50 w-80 rounded-lg border border-border bg-card shadow-lg p-3"
+      style={{ top: position.top, left: position.left, transform: 'translateY(-50%)' }}
+    >
+      <p className="text-xs font-semibold text-foreground uppercase tracking-wider">
+        Edit directives
+      </p>
+      <div className="mt-3 space-y-2.5">
+        {Object.keys(draft).length > 0 ? (
+          REVIEW_DIRECTIVE_KEYS.filter((key) =>
+            Object.prototype.hasOwnProperty.call(draft, key),
+          ).map((key) => (
+            <label key={key} className="block text-xs text-muted-foreground">
+              <span className="text-[11px] font-semibold text-foreground">{key}</span>
+              <input
+                value={draft[key] ?? ''}
+                onChange={(event) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    [key]: event.target.value,
+                  }))
+                }
+                className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                placeholder={`@inscribe ${key.toLowerCase()}:`}
+              />
+            </label>
+          ))
+        ) : (
+          <p className="text-xs text-muted-foreground">No directives yet.</p>
+        )}
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <label className="text-[11px] font-semibold text-foreground">Add directive</label>
+        <select
+          className="flex-1 rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+          value=""
+          onChange={(event) => {
+            if (event.target.value) {
+              const key = event.target.value as ReviewDirectiveKey;
+              setDraft((prev) => ({
+                ...prev,
+                [key]: prev[key] ?? '',
+              }));
+            }
+          }}
+        >
+          <option value="" disabled>
+            Select
+          </option>
+          {missingReviewDirectives.map((key) => (
+            <option key={key} value={key}>
+              {key}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary/70"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => onSave(draft)}
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}

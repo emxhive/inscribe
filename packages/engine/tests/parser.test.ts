@@ -50,7 +50,7 @@ END_BEFORE: // end marker
     expect(result.blocks[0].directives.END_BEFORE).toBe('// end marker');
   });
 
-  it('should fail on missing FILE directive', () => {
+  it('should fail on missing FILE header', () => {
     const content = `
 @inscribe BEGIN
 MODE: create
@@ -65,10 +65,10 @@ content
     const result = parseBlocks(content);
     
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0]).toContain('Missing FILE directive');
+    expect(result.errors[0]).toContain('Missing FILE header');
   });
 
-  it('should default MODE to replace when missing', () => {
+  it('should fail on missing MODE header', () => {
     const content = `
 @inscribe BEGIN
 FILE: app/test.js
@@ -81,9 +81,10 @@ content
     `.trim();
 
     const result = parseBlocks(content);
-    
-    expect(result.errors).toEqual([]);
-    expect(result.blocks[0].mode).toBe('replace');
+
+    expect(result.blocks).toHaveLength(0);
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0]).toContain('Missing MODE header');
   });
 
   it('should fail on invalid MODE', () => {
@@ -102,7 +103,8 @@ content
     const result = parseBlocks(content);
     
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0]).toContain('Invalid MODE');
+    expect(result.blocks).toHaveLength(0);
+    expect(result.errors[0]).toContain('Invalid MODE header');
   });
 
   it('should fail on unclosed fenced code block', () => {
@@ -178,11 +180,12 @@ More random text
   });
 
   describe('Fallback mode (without inscribe tags)', () => {
-    it('should parse fenced code block with FILE: directive', () => {
+    it('should parse fenced code block with FILE/MODE headers', () => {
       const content = `
 Some text here
 
 FILE: app/test.js
+MODE: replace
 
 \`\`\`javascript
 console.log('hello world');
@@ -200,11 +203,12 @@ More text
       expect(result.blocks[0].content).toBe("console.log('hello world');");
     });
 
-    it('should parse multiple fenced code blocks with FILE: directives', () => {
+    it('should parse multiple fenced code blocks with FILE/MODE headers', () => {
       const content = `
 Some intro text
 
 FILE: app/test1.js
+MODE: replace
 
 \`\`\`javascript
 console.log('first');
@@ -213,6 +217,7 @@ console.log('first');
 Some middle text
 
 FILE: app/test2.js
+MODE: append
 
 \`\`\`javascript
 console.log('second');
@@ -225,13 +230,16 @@ console.log('second');
       expect(result.blocks).toHaveLength(2);
       expect(result.blocks[0].file).toBe('app/test1.js');
       expect(result.blocks[0].content).toBe("console.log('first');");
+      expect(result.blocks[0].mode).toBe('replace');
       expect(result.blocks[1].file).toBe('app/test2.js');
       expect(result.blocks[1].content).toBe("console.log('second');");
+      expect(result.blocks[1].mode).toBe('append');
     });
 
     it('should handle FILE: without leading space after colon', () => {
       const content = `
 FILE:app/test.js
+MODE: create
 
 \`\`\`
 content here
@@ -243,9 +251,10 @@ content here
       expect(result.errors).toEqual([]);
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.blocks[0].mode).toBe('create');
     });
 
-    it('should ignore fenced blocks without FILE: directive', () => {
+    it('should ignore fenced blocks without FILE: header', () => {
       const content = `
 Some text
 
@@ -254,6 +263,7 @@ console.log('orphan');
 \`\`\`
 
 FILE: app/test.js
+MODE: replace
 
 \`\`\`javascript
 console.log('valid');
@@ -278,6 +288,7 @@ wrong content
 
 @inscribe BEGIN
 FILE: app/correct.js
+MODE: replace
 
 \`\`\`
 correct content
@@ -294,7 +305,7 @@ correct content
       expect(result.blocks[0].content).toBe('correct content');
     });
 
-    it('should fail when no inscribe blocks and no FILE: directives found', () => {
+    it('should fail when no inscribe blocks and no FILE: headers found', () => {
       const content = `
 Just some text
 
@@ -314,6 +325,7 @@ console.log('orphan');
       const content = `
 @InScRiBe BeGiN
 FILE: app/test.js
+MODE: create
 
 \`\`\`
 content
@@ -326,6 +338,7 @@ content
       
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.blocks[0].mode).toBe('create');
     });
 
     it('should parse directives with extra whitespace', () => {
@@ -403,6 +416,7 @@ content1
 
 @inscribe BEGIN
 FILE: app/test2.js
+MODE: replace
 
 \`\`\`
 content2
@@ -416,14 +430,16 @@ content2
       // First block should fail (no FILE), second should succeed
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].file).toBe('app/test2.js');
+      expect(result.blocks[0].mode).toBe('replace');
       expect(result.errors.length).toBeGreaterThan(0);
-      expect(result.errors.some(e => e.includes('Missing FILE directive'))).toBe(true);
+      expect(result.errors.some(e => e.includes('Missing FILE header'))).toBe(true);
     });
 
     it('should warn on unknown directives but continue parsing', () => {
       const content = `
 @inscribe BEGIN
 FILE: app/test.js
+MODE: replace
 @inscribe UNKNOWN_DIRECTIVE: some value
 
 \`\`\`
@@ -455,10 +471,8 @@ content
 
       const result = parseBlocks(content);
       
-      expect(result.blocks).toHaveLength(1);
-      expect(result.blocks[0].file).toBe('app/test.js');
-      expect(result.blocks[0].mode).toBe('replace'); // Default mode
-      expect(result.errors.some(e => e.includes('Invalid MODE'))).toBe(true);
+      expect(result.blocks).toHaveLength(0);
+      expect(result.errors.some(e => e.includes('Invalid MODE header'))).toBe(true);
     });
 
     it('should handle END without BEGIN and continue', () => {
@@ -467,6 +481,7 @@ content
 
 @inscribe BEGIN
 FILE: app/test.js
+MODE: replace
 
 \`\`\`
 content
@@ -479,6 +494,7 @@ content
       
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.blocks[0].mode).toBe('replace');
       expect(result.errors.some(e => e.includes('END without matching BEGIN'))).toBe(true);
     });
   });
@@ -488,6 +504,7 @@ content
       const content = `
 @inscribe BEGIN
 FILE: app/test1.js
+MODE: replace
 
 \`\`\`
 content1
@@ -495,6 +512,7 @@ content1
 
 @inscribe BEGIN
 FILE: app/test2.js
+MODE: replace
 
 \`\`\`
 content2
@@ -520,6 +538,7 @@ content2
       const content = `
 @inscribe BEGIN
 FILE: app/test1.js
+MODE: replace
 
 \`\`\`
 content1
@@ -527,6 +546,7 @@ content1
 
 @inscribe BEGIN
 FILE: app/test2.js
+MODE: replace
 
 \`\`\`
 content2
@@ -534,6 +554,7 @@ content2
 
 @inscribe BEGIN
 FILE: app/test3.js
+MODE: replace
 
 \`\`\`
 content3
@@ -556,6 +577,7 @@ content3
       const content = `
 @inscribe BEGIN
 FILE: app/test.js
+MODE: replace
 
 \`\`\`
 content
@@ -588,7 +610,7 @@ content
       expect(result.blocks).toHaveLength(0);
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors.some(e => e.includes('BEGIN without matching END'))).toBe(true);
-      expect(result.errors.some(e => e.includes('Missing FILE directive'))).toBe(true);
+      expect(result.errors.some(e => e.includes('Missing FILE header'))).toBe(true);
     });
   });
 
@@ -641,6 +663,7 @@ content
       const content = `
 @inscribe BEGIN
 FILE: app/test.js
+MODE: create
 @inscribe MODE: create
 
 \`\`\`

@@ -5,8 +5,8 @@
 import { startsWithMarker } from '@inscribe/shared';
 
 /**
- * Check if a line contains a FILE: directive (case-insensitive)
+ * Check if a line contains a FILE: header (case-insensitive)
  */
-export function isFileDirective(line: string): boolean {
+export function isFileHeader(line: string): boolean {
   return startsWithMarker(line, 'FILE:');
 }

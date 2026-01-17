@@ -1,10 +1,9 @@
 /**
- * Functions for parsing Inscribe directives
+ * Functions for parsing Inscribe headers and directives
  */
 
 import {
   VALID_MODES,
-  DEFAULT_MODE,
   isValidMode,
   type Mode,
   parseDirectiveLine,
@@ -34,18 +33,19 @@ const FIELD_KEY_MAP: Partial<Record<FieldKey, string | null>> = {
 };
 
 /**
- * Parse directives from block lines
- * @param lines - Array of lines containing directives
- * @returns Parsed directives with file, mode, and optional warnings
+ * Parse headers and directives from block lines
+ * @param lines - Array of lines containing headers/directives
+ * @returns Parsed headers/directives with file, mode, and optional warnings
  */
 export function parseDirectives(lines: string[]): DirectiveParseResult {
   const directives: Record<string, string> = {};
   const warnings: string[] = [];
   let file = '';
-  let mode: Mode = DEFAULT_MODE;
+  let mode: Mode | null = null;
+  let modeError: string | null = null;
   let contentStartIndex = -1;
 
-  // Extract directives
+  // Extract headers and directives
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
 
@@ -69,11 +69,12 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
     if (parsed.key === 'FILE') {
       file = value;
     } else if (parsed.key === 'MODE') {
-      if (isValidMode(value)) {
+      if (!value) {
+        modeError = 'Missing MODE header';
+      } else if (isValidMode(value)) {
         mode = value;
       } else {
-        warnings.push(`Invalid MODE: ${value}. Using default: ${DEFAULT_MODE}`);
-        mode = DEFAULT_MODE;
+        modeError = `Invalid MODE header: ${value}`;
       }
     } else if (fieldKey) {
       directives[fieldKey] = value;
@@ -83,10 +84,30 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
   if (!file) {
     return { 
       file: '', 
-      mode: DEFAULT_MODE, 
+      mode: VALID_MODES[0], 
       directives: {}, 
       contentStartIndex: -1, 
-      error: 'Missing FILE directive' 
+      error: 'Missing FILE header',
+    };
+  }
+
+  if (modeError) {
+    return {
+      file,
+      mode: VALID_MODES[0],
+      directives,
+      contentStartIndex,
+      error: modeError,
+    };
+  }
+
+  if (!mode) {
+    return {
+      file,
+      mode: VALID_MODES[0],
+      directives,
+      contentStartIndex,
+      error: 'Missing MODE header',
     };
   }
 

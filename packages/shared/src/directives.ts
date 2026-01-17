@@ -1,6 +1,6 @@
 import {
-  DIRECTIVE_FILE,
-  DIRECTIVE_MODE,
+  HEADER_FILE,
+  HEADER_MODE,
   DIRECTIVE_START,
   DIRECTIVE_START_BEFORE,
   DIRECTIVE_START_AFTER,
@@ -10,15 +10,19 @@ import {
   DIRECTIVE_SCOPE_START,
   DIRECTIVE_SCOPE_END,
   INSCRIBE_PREFIX,
+  HEADER_KEYS,
   DIRECTIVE_KEYS,
+  ALL_FIELD_KEYS,
 } from './constants';
 import { startsWithMarker, extractMarkerValue } from './parseUtils';
 
+export type HeaderKey = (typeof HEADER_KEYS)[number];
 export type DirectiveKey = (typeof DIRECTIVE_KEYS)[number];
+export type FieldKey = (typeof ALL_FIELD_KEYS)[number];
 
-export const DIRECTIVE_MARKERS: Record<DirectiveKey, string> = {
-  FILE: DIRECTIVE_FILE,
-  MODE: DIRECTIVE_MODE,
+export const FIELD_MARKERS: Record<FieldKey, string> = {
+  FILE: HEADER_FILE,
+  MODE: HEADER_MODE,
   START: DIRECTIVE_START,
   START_BEFORE: DIRECTIVE_START_BEFORE,
   START_AFTER: DIRECTIVE_START_AFTER,
@@ -31,33 +35,40 @@ export const DIRECTIVE_MARKERS: Record<DirectiveKey, string> = {
 
 export interface ParsedDirectiveLine {
   matched: boolean;
-  key?: DirectiveKey;
+  key?: FieldKey;
   value?: string;
   usedPrefix: boolean;
   raw: string;
 }
 
 /**
- * Parse a single directive line, supporting optional @inscribe prefix.
- * Returns matched=false when the line does not correspond to a known directive.
+ * Parse a single header or directive line.
+ * @inscribe prefix is NOT accepted for headers/directives - only BEGIN/END use the prefix.
+ * Returns matched=false when the line does not correspond to a known field.
  */
 export function parseDirectiveLine(line: string): ParsedDirectiveLine {
   const trimmed = line.trim();
   const usedPrefix = startsWithMarker(trimmed, INSCRIBE_PREFIX);
-  const directiveLine = usedPrefix ? extractMarkerValue(trimmed, INSCRIBE_PREFIX) : trimmed;
+  
+  // If prefix is used, reject it for headers/directives
+  // (only BEGIN/END should use the prefix)
+  if (usedPrefix) {
+    return { matched: false, usedPrefix: true, raw: line };
+  }
 
-  for (const key of DIRECTIVE_KEYS) {
-    const marker = DIRECTIVE_MARKERS[key];
-    if (startsWithMarker(directiveLine, marker)) {
+  // Check all field markers (headers + directives) without prefix
+  for (const key of ALL_FIELD_KEYS) {
+    const marker = FIELD_MARKERS[key];
+    if (startsWithMarker(trimmed, marker)) {
       return {
         matched: true,
         key,
-        value: extractMarkerValue(directiveLine, marker),
-        usedPrefix,
+        value: extractMarkerValue(trimmed, marker),
+        usedPrefix: false,
         raw: line,
       };
     }
   }
 
-  return { matched: false, usedPrefix, raw: line };
+  return { matched: false, usedPrefix: false, raw: line };
 }

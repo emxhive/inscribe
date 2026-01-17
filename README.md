@@ -42,6 +42,8 @@ MODE: create | replace | append | range
 @inscribe END
 ````
 
+**Important:** Only `@inscribe BEGIN` and `@inscribe END` use the `@inscribe` prefix. Headers (`FILE:`, `MODE:`) and directives (e.g., `START:`, `END:`) must be written **without** the `@inscribe` prefix.
+
 ### Supported Modes
 
 - **create** — file MUST NOT exist

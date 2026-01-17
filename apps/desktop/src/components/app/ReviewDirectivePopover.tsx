@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReviewItem } from '@/types';
+import { HEADER_KEYS, DIRECTIVE_KEYS } from '@inscribe/shared';
 
-const REVIEW_DIRECTIVE_KEYS = ['FILE', 'MODE', 'START', 'END', 'SCOPE_START', 'SCOPE_END'] as const;
-type ReviewDirectiveKey = typeof REVIEW_DIRECTIVE_KEYS[number];
+// All editable fields: headers (FILE, MODE) + directives
+const ALL_EDITABLE_KEYS = [...HEADER_KEYS, ...DIRECTIVE_KEYS] as const;
+type EditableKey = typeof ALL_EDITABLE_KEYS[number];
 
 type ReviewDirectivePopoverProps = {
   isOpen: boolean;
   anchorRef: React.RefObject<HTMLElement | null>;
   item: ReviewItem | null;
-  onSave: (updates: Partial<Record<ReviewDirectiveKey, string>>) => void;
+  onSave: (updates: Partial<Record<EditableKey, string>>) => void;
   onClose: () => void;
 };
 
@@ -20,7 +22,7 @@ export function ReviewDirectivePopover({
   onClose,
 }: ReviewDirectivePopoverProps) {
   const popoverRef = useRef<HTMLDivElement | null>(null);
-  const [draft, setDraft] = useState<Partial<Record<ReviewDirectiveKey, string>>>({});
+  const [draft, setDraft] = useState<Partial<Record<EditableKey, string>>>({});
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
@@ -41,9 +43,14 @@ export function ReviewDirectivePopover({
       setDraft({});
       return;
     }
-    const nextDraft: Partial<Record<ReviewDirectiveKey, string>> = {};
-    REVIEW_DIRECTIVE_KEYS.forEach((key) => {
-      if (Object.prototype.hasOwnProperty.call(item.directives, key)) {
+    // Initialize draft from headers (file, mode) and directives
+    const nextDraft: Partial<Record<EditableKey, string>> = {
+      FILE: item.file,
+      MODE: item.mode,
+    };
+    // Add directives from item.directives
+    DIRECTIVE_KEYS.forEach((key) => {
+      if (item.directives[key]) {
         nextDraft[key] = item.directives[key];
       }
     });
@@ -71,9 +78,9 @@ export function ReviewDirectivePopover({
     };
   }, [anchorRef, isOpen, onClose]);
 
-  const missingReviewDirectives = useMemo(
+  const missingEditableFields = useMemo(
     () =>
-      REVIEW_DIRECTIVE_KEYS.filter((key) => !Object.prototype.hasOwnProperty.call(draft, key)),
+      ALL_EDITABLE_KEYS.filter((key) => !Object.prototype.hasOwnProperty.call(draft, key)),
     [draft],
   );
 
@@ -88,40 +95,46 @@ export function ReviewDirectivePopover({
       style={{ top: position.top, left: position.left, transform: 'translateY(-50%)' }}
     >
       <p className="text-xs font-semibold text-foreground uppercase tracking-wider">
-        Edit directives
+        Edit Headers & Directives
       </p>
       <div className="mt-3 space-y-2.5">
         {Object.keys(draft).length > 0 ? (
-          REVIEW_DIRECTIVE_KEYS.filter((key) =>
+          ALL_EDITABLE_KEYS.filter((key) =>
             Object.prototype.hasOwnProperty.call(draft, key),
-          ).map((key) => (
-            <label key={key} className="block text-xs text-muted-foreground">
-              <span className="text-[11px] font-semibold text-foreground">{key}</span>
-              <input
-                value={draft[key] ?? ''}
-                onChange={(event) =>
-                  setDraft((prev) => ({
-                    ...prev,
-                    [key]: event.target.value,
-                  }))
-                }
-                className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                placeholder={`@inscribe ${key.toLowerCase()}:`}
-              />
-            </label>
-          ))
+          ).map((key) => {
+            const isHeader = HEADER_KEYS.includes(key as any);
+            return (
+              <label key={key} className="block text-xs text-muted-foreground">
+                <span className="text-[11px] font-semibold text-foreground">
+                  {key}
+                  {isHeader && <span className="ml-1 text-[10px] text-muted-foreground">(header)</span>}
+                </span>
+                <input
+                  value={draft[key] ?? ''}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      [key]: event.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  placeholder={`${key}:`}
+                />
+              </label>
+            );
+          })
         ) : (
-          <p className="text-xs text-muted-foreground">No directives yet.</p>
+          <p className="text-xs text-muted-foreground">No fields yet.</p>
         )}
       </div>
       <div className="mt-3 flex items-center gap-2">
-        <label className="text-[11px] font-semibold text-foreground">Add directive</label>
+        <label className="text-[11px] font-semibold text-foreground">Add field</label>
         <select
           className="flex-1 rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
           value=""
           onChange={(event) => {
             if (event.target.value) {
-              const key = event.target.value as ReviewDirectiveKey;
+              const key = event.target.value as EditableKey;
               setDraft((prev) => ({
                 ...prev,
                 [key]: prev[key] ?? '',
@@ -132,7 +145,7 @@ export function ReviewDirectivePopover({
           <option value="" disabled>
             Select
           </option>
-          {missingReviewDirectives.map((key) => (
+          {missingEditableFields.map((key) => (
             <option key={key} value={key}>
               {key}
             </option>

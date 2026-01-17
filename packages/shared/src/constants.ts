@@ -45,11 +45,15 @@ export const HEAVY_FILE_COUNT_THRESHOLD = 200;
 // Base prefix - single source of truth for the inscribe marker
 export const INSCRIBE_PREFIX = '@inscribe';
 
-// Directive keywords (without prefix or colon)
+// Block boundary keywords (used with prefix)
 export const KEYWORD_BEGIN = 'BEGIN';
 export const KEYWORD_END = 'END';
+
+// Header keywords (required fields, without prefix or colon)
 export const KEYWORD_FILE = 'FILE';
 export const KEYWORD_MODE = 'MODE';
+
+// Directive keywords (optional fields, without prefix or colon)
 export const KEYWORD_START = 'START';
 export const KEYWORD_START_BEFORE = 'START_BEFORE';
 export const KEYWORD_START_AFTER = 'START_AFTER';
@@ -58,9 +62,11 @@ export const KEYWORD_SCOPE_END = 'SCOPE_END';
 export const KEYWORD_END_BEFORE = 'END_BEFORE';
 export const KEYWORD_END_AFTER = 'END_AFTER';
 
-// Composed directive names (with colon suffix for value directives)
-export const DIRECTIVE_FILE = `${KEYWORD_FILE}:`;
-export const DIRECTIVE_MODE = `${KEYWORD_MODE}:`;
+// Header markers (with colon suffix, no prefix)
+export const HEADER_FILE = `${KEYWORD_FILE}:`;
+export const HEADER_MODE = `${KEYWORD_MODE}:`;
+
+// Directive markers (with colon suffix, no prefix)
 export const DIRECTIVE_START = `${KEYWORD_START}:`;
 export const DIRECTIVE_END = `${KEYWORD_END}:`;
 export const DIRECTIVE_START_BEFORE = `${KEYWORD_START_BEFORE}:`;
@@ -70,10 +76,14 @@ export const DIRECTIVE_END_AFTER = `${KEYWORD_END_AFTER}:`;
 export const DIRECTIVE_SCOPE_START = `${KEYWORD_SCOPE_START}:`;
 export const DIRECTIVE_SCOPE_END = `${KEYWORD_SCOPE_END}:`;
 
-// Canonical directive keywords for intake/editor UI
-export const DIRECTIVE_KEYS = [
+// Canonical header keys
+export const HEADER_KEYS = [
   KEYWORD_FILE,
   KEYWORD_MODE,
+] as const;
+
+// Canonical directive keys (excludes headers)
+export const DIRECTIVE_KEYS = [
   KEYWORD_START,
   KEYWORD_START_BEFORE,
   KEYWORD_START_AFTER,
@@ -84,19 +94,15 @@ export const DIRECTIVE_KEYS = [
   KEYWORD_SCOPE_END,
 ] as const;
 
-// Full marker strings (composed from prefix + keyword/directive)
+// All block field keys (headers + directives combined)
+export const ALL_FIELD_KEYS = [
+  ...HEADER_KEYS,
+  ...DIRECTIVE_KEYS,
+] as const;
+
+// Block boundary markers (with prefix)
 export const INSCRIBE_BEGIN = `${INSCRIBE_PREFIX} ${KEYWORD_BEGIN}`;
 export const INSCRIBE_END = `${INSCRIBE_PREFIX} ${KEYWORD_END}`;
-export const INSCRIBE_FILE = `${INSCRIBE_PREFIX} ${DIRECTIVE_FILE}`;
-export const INSCRIBE_MODE = `${INSCRIBE_PREFIX} ${DIRECTIVE_MODE}`;
-export const INSCRIBE_START = `${INSCRIBE_PREFIX} ${DIRECTIVE_START}`;
-export const INSCRIBE_END_ANCHOR = `${INSCRIBE_PREFIX} ${DIRECTIVE_END}`;
-export const INSCRIBE_START_BEFORE = `${INSCRIBE_PREFIX} ${DIRECTIVE_START_BEFORE}`;
-export const INSCRIBE_START_AFTER = `${INSCRIBE_PREFIX} ${DIRECTIVE_START_AFTER}`;
-export const INSCRIBE_END_BEFORE = `${INSCRIBE_PREFIX} ${DIRECTIVE_END_BEFORE}`;
-export const INSCRIBE_END_AFTER = `${INSCRIBE_PREFIX} ${DIRECTIVE_END_AFTER}`;
-export const INSCRIBE_SCOPE_START = `${INSCRIBE_PREFIX} ${DIRECTIVE_SCOPE_START}`;
-export const INSCRIBE_SCOPE_END = `${INSCRIBE_PREFIX} ${DIRECTIVE_SCOPE_END}`;
 
 // Valid modes
 export const VALID_MODES = ['create', 'replace', 'append', 'range'] as const;

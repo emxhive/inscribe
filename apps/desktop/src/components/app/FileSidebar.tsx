@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
 import { updateDirectiveInText } from '@/utils/intake';
 import { cn } from '@/lib/utils';
-import { DIRECTIVE_KEYS } from '@inscribe/shared';
+import { ALL_FIELD_KEYS } from '@inscribe/shared';
 import type { ReviewItem } from '@/types';
 import { ReviewDirectivePopover } from './ReviewDirectivePopover';
 
@@ -68,7 +68,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     };
   }, [dragging, onResize, sidebarWidth]);
 
-  const handleDirectiveChange = (key: typeof DIRECTIVE_KEYS[number], value: string) => {
+  const handleDirectiveChange = (key: typeof ALL_FIELD_KEYS[number], value: string) => {
     if (!selectedBlock) {
       return;
     }
@@ -78,10 +78,10 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   };
 
   const presentDirectives = selectedBlock
-    ? DIRECTIVE_KEYS.filter((key) => selectedBlock.directives[key])
+    ? ALL_FIELD_KEYS.filter((key) => selectedBlock.directives[key])
     : [];
 
-  const handleAddDirective = (key: typeof DIRECTIVE_KEYS[number]) => {
+  const handleAddDirective = (key: typeof ALL_FIELD_KEYS[number]) => {
     if (!selectedBlock) {
       return;
     }
@@ -168,7 +168,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
 
           <div className="border-t border-border pt-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-              Directives
+              Headers & Directives
             </p>
             {selectedBlock ? (
               <div className="mt-3 space-y-3">
@@ -181,26 +181,26 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                         value={selectedBlock.directives[key]?.value ?? ''}
                         onChange={(event) => handleDirectiveChange(key, event.target.value)}
                         className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder={`@inscribe ${key.toLowerCase()}:`}
+                        placeholder={`${key}:`}
                       />
                     </label>
                   ))
                 ) : (
-                  <p className="text-xs text-muted-foreground">No directives found.</p>
+                  <p className="text-xs text-muted-foreground">No fields found.</p>
                 )}
                 <div className="flex items-center gap-2">
-                  <label className="text-[11px] font-semibold text-foreground">Add directive</label>
+                  <label className="text-[11px] font-semibold text-foreground">Add field</label>
                   <select
                     className="flex-1 rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                     value=""
                     onChange={(event) => {
                       if (event.target.value) {
-                        handleAddDirective(event.target.value as typeof DIRECTIVE_KEYS[number]);
+                        handleAddDirective(event.target.value as typeof ALL_FIELD_KEYS[number]);
                       }
                     }}
                   >
                     <option value="" disabled>Select</option>
-                    {DIRECTIVE_KEYS.map((key) => (
+                    {ALL_FIELD_KEYS.map((key) => (
                       <option key={key} value={key}>
                         {key}
                       </option>
@@ -223,7 +223,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
               </div>
             ) : (
               <p className="text-xs text-muted-foreground mt-2">
-                Select a block to edit directives.
+                Select a block to edit.
               </p>
             )}
           </div>

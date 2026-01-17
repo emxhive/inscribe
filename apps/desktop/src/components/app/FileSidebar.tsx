@@ -5,6 +5,8 @@ import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
 import { updateDirectiveInText } from '@/utils/intake';
 import { cn } from '@/lib/utils';
 import { DIRECTIVE_KEYS } from '@inscribe/shared';
+import type { ReviewItem } from '@/types';
+import { ReviewDirectivePopover } from './ReviewDirectivePopover';
 
 export const MIN_SIDEBAR_WIDTH = 240;
 export const MAX_SIDEBAR_WIDTH = 420;
@@ -16,12 +18,14 @@ type FileSidebarProps = {
 
 export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   const { state, updateState } = useAppStateContext();
-  const { handleSelectItem } = useReviewActions();
+  const { handleSelectItem, handleUpdateDirectives } = useReviewActions();
   const { blocks } = useIntakeBlocks();
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
   const [dragging, setDragging] = useState(false);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const directiveRefs = useRef(new Map<string, HTMLInputElement | null>());
+  const directiveAnchorRef = useRef<HTMLElement | null>(null);
+  const [directiveEditorItemId, setDirectiveEditorItemId] = useState<string | null>(null);
 
   useEffect(() => {
     if (state.mode !== 'intake') {
@@ -91,6 +95,15 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     requestAnimationFrame(() => {
       directiveRefs.current.get(key)?.focus();
     });
+  };
+
+  const handleOpenDirectiveEditor = (
+    item: ReviewItem,
+    event: React.MouseEvent<HTMLLIElement>,
+  ) => {
+    event.stopPropagation();
+    directiveAnchorRef.current = event.currentTarget;
+    setDirectiveEditorItemId(item.id);
   };
 
   return (
@@ -218,21 +231,37 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
       )}
 
       {state.mode === 'review' && (
-        <ul className="flex flex-col gap-2.5 overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">
-          {state.reviewItems.map((item) => (
-            <FileListItem
-              key={item.id}
-              file={item.file}
-              lineCount={item.lineCount}
-              language={item.language}
-              mode={item.mode}
-              status={item.status}
-              validationError={item.validationError}
-              isSelected={state.selectedItemId === item.id}
-              onClick={() => handleSelectItem(item.id)}
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col gap-2.5 overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">
+            {state.reviewItems.map((item) => (
+              <FileListItem
+                key={item.id}
+                file={item.file}
+                lineCount={item.lineCount}
+                language={item.language}
+                mode={item.mode}
+                status={item.status}
+                validationError={item.validationError}
+                isSelected={state.selectedItemId === item.id}
+                onClick={() => handleSelectItem(item.id)}
+                onDoubleClick={(event) => handleOpenDirectiveEditor(item, event)}
+              />
+            ))}
+          </ul>
+          <ReviewDirectivePopover
+            isOpen={Boolean(directiveEditorItemId)}
+            anchorRef={directiveAnchorRef}
+            item={state.reviewItems.find((item) => item.id === directiveEditorItemId) ?? null}
+            onClose={() => setDirectiveEditorItemId(null)}
+            onSave={async (updates) => {
+              if (!directiveEditorItemId) {
+                return;
+              }
+              setDirectiveEditorItemId(null);
+              await handleUpdateDirectives(directiveEditorItemId, updates);
+            }}
+          />
+        </>
       )}
       <button
         type="button"

@@ -11,6 +11,7 @@ interface FileListItemProps {
   validationError?: string;
   isSelected: boolean;
   onClick: () => void;
+  onDoubleClick?: (event: React.MouseEvent<HTMLLIElement>) => void;
 }
 
 export function FileListItem({
@@ -22,6 +23,7 @@ export function FileListItem({
   validationError,
   isSelected,
   onClick,
+  onDoubleClick,
 }: FileListItemProps) {
   return (
     <li
@@ -31,6 +33,7 @@ export function FileListItem({
         isSelected && "border-primary shadow-[0_0_0_3px_rgba(79,70,229,0.12)] bg-indigo-50/30"
       )}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
     >
       <div className="flex gap-2 items-center min-w-0">
         <StatusIcon status={status} error={validationError} />

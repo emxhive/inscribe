@@ -92,8 +92,8 @@ old content
           file: 'app/range.js',
           content: 'new content',
           directives: {
-            START: '// start',
-            END: '// end',
+            START_AFTER: '// start',
+            END_BEFORE: '// end',
           },
         },
       ],
@@ -107,6 +107,38 @@ old content
     expect(content).toContain('// start');
     expect(content).toContain('// end');
     expect(content).not.toContain('old content');
+  });
+
+  it('should apply range replace including anchors', () => {
+    const filePath = path.join(tempDir, 'app', 'range-inclusive.js');
+    fs.writeFileSync(filePath, `// start
+old content
+// end
+keep
+`);
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-inclusive.js',
+          content: 'new content',
+          directives: {
+            START: '// start',
+            END: '// end',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('new content');
+    expect(content).not.toContain('// start');
+    expect(content).not.toContain('// end');
+    expect(content).toContain('keep');
   });
 
   it('should create backup before applying', () => {
@@ -298,7 +330,7 @@ old content
     const result = applyChanges(plan, tempDir);
 
     expect(result.success).toBe(false);
-    expect(result.errors?.[0]).toContain('Range operation requires START and END directives');
+    expect(result.errors?.[0]).toContain('Range operation requires exactly one of START');
   });
 
   it('should fail range apply when END anchor is missing', () => {
@@ -321,7 +353,7 @@ old content
     const result = applyChanges(plan, tempDir);
 
     expect(result.success).toBe(false);
-    expect(result.errors?.[0]).toContain('Range operation requires START and END directives');
+    expect(result.errors?.[0]).toContain('Range operation requires exactly one of START');
   });
 
   it('should enforce unique anchors during range apply', () => {
@@ -348,7 +380,7 @@ old content
     expect(result.errors?.[0]).toContain('START anchor matches multiple times');
   });
 
-  it('should fail when END anchor is not unique', () => {
+  it('should allow multiple END anchors', () => {
     const filePath = path.join(tempDir, 'app', 'range.js');
     fs.writeFileSync(filePath, '// start\ncontent\n// end\n// end');
 
@@ -359,8 +391,8 @@ old content
           file: 'app/range.js',
           content: 'new',
           directives: {
-            START: '// start',
-            END: '// end',
+            START_AFTER: '// start',
+            END_BEFORE: '// end',
           },
         },
       ],
@@ -368,8 +400,11 @@ old content
 
     const result = applyChanges(plan, tempDir);
 
-    expect(result.success).toBe(false);
-    expect(result.errors?.[0]).toContain('END anchor matches multiple times');
+    expect(result.success).toBe(true);
+    const updated = fs.readFileSync(filePath, 'utf-8');
+    expect(updated).toContain('// end');
+    expect(updated).toContain('new');
+    expect(updated).not.toContain('content');
   });
 
   it('should enforce scoped anchors during range apply', () => {
@@ -383,8 +418,8 @@ old content
           file: 'app/range.js',
           content: 'new content',
           directives: {
-            START: '// start',
-            END: '// end',
+            START_AFTER: '// start',
+            END_BEFORE: '// end',
             SCOPE_START: '// missing scope',
             SCOPE_END: '// scope end',
           },
@@ -409,8 +444,8 @@ old content
           file: 'app/range.js',
           content: 'new content',
           directives: {
-            START: '// start',
-            END: '// end',
+            START_AFTER: '// start',
+            END_BEFORE: '// end',
             SCOPE_START: '// scope start',
             SCOPE_END: '// scope end',
           },
@@ -435,8 +470,8 @@ old content
           file: 'app/range.js',
           content: 'new content',
           directives: {
-            START: '// start',
-            END: '// end',
+            START_AFTER: '// start',
+            END_BEFORE: '// end',
             SCOPE_START: '// scope start',
             SCOPE_END: '// scope end',
           },
@@ -452,5 +487,33 @@ old content
     expect(updated).toContain('// end');
     expect(updated).toContain('new content');
     expect(updated).not.toContain('old content');
+  });
+
+  it('should allow multiple SCOPE_END anchors', () => {
+    const filePath = path.join(tempDir, 'app', 'range.js');
+    fs.writeFileSync(filePath, '// scope start\n// start\nold\n// end\n// scope end\n// scope end');
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range.js',
+          content: 'new',
+          directives: {
+            START_AFTER: '// start',
+            END_BEFORE: '// end',
+            SCOPE_START: '// scope start',
+            SCOPE_END: '// scope end',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const updated = fs.readFileSync(filePath, 'utf-8');
+    expect(updated).toContain('new');
+    expect(updated).toContain('// scope end');
   });
 });

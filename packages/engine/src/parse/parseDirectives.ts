@@ -24,7 +24,11 @@ const DIRECTIVE_KEY_MAP: Partial<Record<DirectiveKey, string | null>> = {
   FILE: null,
   MODE: null,
   START: 'START',
+  START_BEFORE: 'START_BEFORE',
+  START_AFTER: 'START_AFTER',
   END: 'END',
+  END_BEFORE: 'END_BEFORE',
+  END_AFTER: 'END_AFTER',
   SCOPE_START: 'SCOPE_START',
   SCOPE_END: 'SCOPE_END',
 };

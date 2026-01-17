@@ -31,8 +31,8 @@ console.log('hello');
 @inscribe BEGIN
 FILE: app/test.js
 MODE: range
-START: // start marker
-END: // end marker
+START_AFTER: // start marker
+END_BEFORE: // end marker
 
 \`\`\`javascript
 // new code
@@ -46,8 +46,8 @@ END: // end marker
     expect(result.errors).toEqual([]);
     expect(result.blocks).toHaveLength(1);
     expect(result.blocks[0].mode).toBe('range');
-    expect(result.blocks[0].directives.START).toBe('// start marker');
-    expect(result.blocks[0].directives.END).toBe('// end marker');
+    expect(result.blocks[0].directives.START_AFTER).toBe('// start marker');
+    expect(result.blocks[0].directives.END_BEFORE).toBe('// end marker');
   });
 
   it('should fail on missing FILE directive', () => {

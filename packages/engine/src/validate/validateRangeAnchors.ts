@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 
-import { findAllOccurrences } from '../util/textSearch';
+import { findAllOccurrences, MatchRange } from '../util/textSearch';
 import {ParsedBlock, ValidationError} from "@inscribe/shared";
 
 
@@ -12,20 +12,50 @@ export function validateRangeAnchors(
   filePath: string
 ): ValidationError[] {
   const errors: ValidationError[] = [];
+  const directives = block.directives ?? {};
+  const startKeys = ['START', 'START_BEFORE', 'START_AFTER'] as const;
+  const endKeys = ['END', 'END_BEFORE', 'END_AFTER'] as const;
 
-  if (!block.directives.START) {
+  const startDirectives = startKeys
+    .map(key => ({ key, value: directives[key] }))
+    .filter(entry => entry.value);
+  const endDirectives = endKeys
+    .map(key => ({ key, value: directives[key] }))
+    .filter(entry => entry.value);
+
+  if (startDirectives.length === 0) {
     errors.push({
       blockIndex: block.blockIndex,
       file: block.file,
-      message: 'MODE: range requires START directive',
+      message: 'MODE: range requires exactly one of START, START_BEFORE, START_AFTER directives',
     });
   }
 
-  if (!block.directives.END) {
+  if (endDirectives.length === 0) {
     errors.push({
       blockIndex: block.blockIndex,
       file: block.file,
-      message: 'MODE: range requires END directive',
+      message: 'MODE: range requires exactly one of END, END_BEFORE, END_AFTER directives',
+    });
+  }
+
+  if (errors.length > 0) {
+    return errors;
+  }
+
+  if (startDirectives.length > 1) {
+    errors.push({
+      blockIndex: block.blockIndex,
+      file: block.file,
+      message: 'Multiple START directives provided; use only one of START, START_BEFORE, START_AFTER',
+    });
+  }
+
+  if (endDirectives.length > 1) {
+    errors.push({
+      blockIndex: block.blockIndex,
+      file: block.file,
+      message: 'Multiple END directives provided; use only one of END, END_BEFORE, END_AFTER',
     });
   }
 
@@ -38,15 +68,26 @@ export function validateRangeAnchors(
 
   // Check for SCOPE if provided
   let searchContent = content;
-  if (block.directives.SCOPE_START && block.directives.SCOPE_END) {
-    const scopeStartMatches = findAllOccurrences(content, block.directives.SCOPE_START);
-    const scopeEndMatches = findAllOccurrences(content, block.directives.SCOPE_END);
+  const hasScopeStart = Boolean(directives.SCOPE_START);
+  const hasScopeEnd = Boolean(directives.SCOPE_END);
+  if (hasScopeStart !== hasScopeEnd) {
+    errors.push({
+      blockIndex: block.blockIndex,
+      file: block.file,
+      message: 'SCOPE_START and SCOPE_END must be provided together',
+    });
+    return errors;
+  }
+
+  if (directives.SCOPE_START && directives.SCOPE_END) {
+    const scopeStartMatches = findAllOccurrences(content, directives.SCOPE_START);
+    const scopeEndMatches = findAllOccurrences(content, directives.SCOPE_END);
 
     if (scopeStartMatches.length === 0) {
       errors.push({
         blockIndex: block.blockIndex,
         file: block.file,
-        message: `SCOPE_START anchor not found: "${block.directives.SCOPE_START}"`,
+        message: `SCOPE_START anchor not found: "${directives.SCOPE_START}"`,
       });
     }
 
@@ -54,7 +95,7 @@ export function validateRangeAnchors(
       errors.push({
         blockIndex: block.blockIndex,
         file: block.file,
-        message: `SCOPE_END anchor not found: "${block.directives.SCOPE_END}"`,
+        message: `SCOPE_END anchor not found: "${directives.SCOPE_END}"`,
       });
     }
 
@@ -66,41 +107,29 @@ export function validateRangeAnchors(
       });
     }
 
-    if (scopeEndMatches.length > 1) {
-      errors.push({
-        blockIndex: block.blockIndex,
-        file: block.file,
-        message: `SCOPE_END anchor matches multiple times (${scopeEndMatches.length}), must match exactly once`,
-      });
-    }
-
     if (errors.length > 0) {
       return errors;
     }
 
-    const scopeStart = scopeStartMatches[0];
-    const scopeEndStr = block.directives.SCOPE_END;
-    if (!scopeEndStr) {
-      // This should never happen due to earlier checks, but for safety
-      return errors;
-    }
-    const scopeEnd = scopeEndMatches[0] + scopeEndStr.length;
-
-    if (scopeStart >= scopeEnd) {
+    const scopeStartMatch = scopeStartMatches[0];
+    const scopeEndMatch = findFirstMatchAfter(scopeEndMatches, scopeStartMatch);
+    if (!scopeEndMatch) {
       errors.push({
         blockIndex: block.blockIndex,
         file: block.file,
-        message: 'SCOPE_END must come after SCOPE_START',
+        message: 'SCOPE_END anchor not found after SCOPE_START',
       });
       return errors;
     }
 
-    searchContent = content.substring(scopeStart, scopeEnd);
+    searchContent = content.substring(scopeStartMatch.start, scopeEndMatch.end);
   }
 
   // Validate START and END anchors
-  const startAnchor = block.directives.START;
-  const endAnchor = block.directives.END;
+  const startDirective = startDirectives[0];
+  const endDirective = endDirectives[0];
+  const startAnchor = startDirective.value;
+  const endAnchor = endDirective.value;
   
   if (!startAnchor || !endAnchor) {
     // This should never happen due to earlier checks
@@ -114,7 +143,7 @@ export function validateRangeAnchors(
     errors.push({
       blockIndex: block.blockIndex,
       file: block.file,
-      message: `START anchor not found: "${block.directives.START}"`,
+      message: `${startDirective.key} anchor not found: "${startAnchor}"`,
     });
   }
 
@@ -122,7 +151,7 @@ export function validateRangeAnchors(
     errors.push({
       blockIndex: block.blockIndex,
       file: block.file,
-      message: `END anchor not found: "${block.directives.END}"`,
+      message: `${endDirective.key} anchor not found: "${endAnchor}"`,
     });
   }
 
@@ -130,15 +159,7 @@ export function validateRangeAnchors(
     errors.push({
       blockIndex: block.blockIndex,
       file: block.file,
-      message: `START anchor matches multiple times (${startMatches.length}), must match exactly once`,
-    });
-  }
-
-  if (endMatches.length > 1) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: `END anchor matches multiple times (${endMatches.length}), must match exactly once`,
+      message: `${startDirective.key} anchor matches multiple times (${startMatches.length}), must match exactly once`,
     });
   }
 
@@ -146,16 +167,20 @@ export function validateRangeAnchors(
     return errors;
   }
 
-  const startPos = startMatches[0];
-  const endPos = endMatches[0];
+  const startMatch = startMatches[0];
+  const endMatch = findFirstMatchAfter(endMatches, startMatch);
 
-  if (startPos >= endPos) {
+  if (!endMatch) {
     errors.push({
       blockIndex: block.blockIndex,
       file: block.file,
-      message: 'END anchor must come after START anchor',
+      message: `${endDirective.key} anchor not found after ${startDirective.key}`,
     });
   }
 
   return errors;
+}
+
+function findFirstMatchAfter(matches: MatchRange[], startMatch: MatchRange): MatchRange | undefined {
+  return matches.find(match => match.start >= startMatch.end);
 }

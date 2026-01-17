@@ -38,30 +38,38 @@ Commands within an Inscribe block that specify how to process the code content. 
 
 #### Optional Directives (Mode-Specific)
 
-- **START:** (required for range mode) The beginning anchor for partial replacement
-  - Format: `START: <exact substring>` or `@inscribe START: <exact substring>`
+- **START / START_BEFORE / START_AFTER:** (exactly one required for range mode) The beginning anchor for partial replacement
+  - Format: `START: <exact substring>` / `START_BEFORE: <exact substring>` / `START_AFTER: <exact substring>`
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Can match anywhere within a line (beginning, middle, or end)
-  - Must match exactly once in the target file (or within scope)
+  - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
+  - START anchor must match exactly once in the target file (or within scope)
+  - **START** begins replacement at the anchor (the anchor is replaced)
+  - **START_BEFORE** begins replacement on the line before the anchor (previous line + anchor line + rest)
+  - **START_AFTER** begins replacement immediately after the anchor (previous default behavior)
   
-- **END:** (required for range mode) The ending anchor for partial replacement
-  - Format: `END: <exact substring>` or `@inscribe END: <exact substring>`
+- **END / END_BEFORE / END_AFTER:** (exactly one required for range mode) The ending anchor for partial replacement
+  - Format: `END: <exact substring>` / `END_BEFORE: <exact substring>` / `END_AFTER: <exact substring>`
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Can match anywhere within a line (beginning, middle, or end)
-  - Must match exactly once in the target file (or within scope)
-  - Must appear after START anchor in the file
+  - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
+  - END anchor can appear multiple times; Inscribe uses the **first END after START**
+  - **END** ends replacement at the anchor (the anchor is replaced)
+  - **END_BEFORE** ends replacement on the line before the anchor (anchor line is excluded)
+  - **END_AFTER** ends replacement on the line after the anchor
 
 - **SCOPE_START:** (optional for range mode) Narrows the search area for anchors
   - Format: `SCOPE_START: <exact substring>` or `@inscribe SCOPE_START: <exact substring>`
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
+  - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
   - Must match exactly once in the target file
   - **Must be provided together with SCOPE_END** (providing only one is invalid)
   
 - **SCOPE_END:** (optional for range mode) Defines the end of the search area
   - Format: `SCOPE_END: <exact substring>` or `@inscribe SCOPE_END: <exact substring>`
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
-  - Must match exactly once in the target file
-  - Must appear after SCOPE_START in the file
+  - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
+  - Can match multiple times; Inscribe uses the **first SCOPE_END after SCOPE_START**
   - **Must be provided together with SCOPE_START** (providing only one is invalid)
 
 ## Modes
@@ -122,18 +130,19 @@ export const newFeature = true;
 ````
 
 ### range
-Replaces content between two anchor points in an existing file, keeping the anchors intact.
+Replaces content between two anchor points in an existing file. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive).
 
 **Requirements:**
 - File MUST exist
-- START directive is required
-- END directive is required
-- Both anchors must match exactly once
-- END anchor must appear after START anchor
+- Exactly one START directive is required (START / START_BEFORE / START_AFTER) and it must match exactly once
+- Exactly one END directive is required (END / END_BEFORE / END_AFTER); it can match multiple times
+- The selected END must be the first occurrence after START
+- If no END exists after START, the range is invalid
 - Path must be under repository root and not ignored
 
 **Optional:**
 - SCOPE_START and SCOPE_END can narrow the search area
+- SCOPE_START must match exactly once; SCOPE_END can match multiple times and the first occurrence after SCOPE_START is used
 
 ## When to Use Each Mode
 
@@ -210,6 +219,7 @@ When a user asks you to use Inscribe:
 
 - Only apply Inscribe tags to code blocks that are meant to be processed by Inscribe.
   - Do not change or restrict other parts of the response.
+  - If you cannot find unique anchors, widen the replacement area so that the START and END anchors are unambiguous.
 
 For each code block intended for Inscribe:
 - Add `@inscribe BEGIN` on a plain text line immediately before the fenced code block.

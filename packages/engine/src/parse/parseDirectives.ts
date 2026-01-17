@@ -8,7 +8,7 @@ import {
   isValidMode,
   type Mode,
   parseDirectiveLine,
-  DirectiveKey,
+  FieldKey,
 } from '@inscribe/shared';
 
 export interface DirectiveParseResult {
@@ -20,7 +20,7 @@ export interface DirectiveParseResult {
   warnings?: string[];
 }
 
-const DIRECTIVE_KEY_MAP: Partial<Record<DirectiveKey, string | null>> = {
+const FIELD_KEY_MAP: Partial<Record<FieldKey, string | null>> = {
   FILE: null,
   MODE: null,
   START: 'START',
@@ -58,12 +58,12 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
     const parsed = parseDirectiveLine(trimmed);
     if (!parsed.matched) {
       if (parsed.usedPrefix && parsed.raw.trim()) {
-        warnings.push(`Unknown directive: ${parsed.raw.trim()}`);
+        warnings.push(`Invalid directive format: ${parsed.raw.trim()} (headers and directives should not use @inscribe prefix)`);
       }
       continue;
     }
 
-    const directiveKey = DIRECTIVE_KEY_MAP[parsed.key!];
+    const fieldKey = FIELD_KEY_MAP[parsed.key!];
     const value = parsed.value ?? '';
 
     if (parsed.key === 'FILE') {
@@ -75,8 +75,8 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
         warnings.push(`Invalid MODE: ${value}. Using default: ${DEFAULT_MODE}`);
         mode = DEFAULT_MODE;
       }
-    } else if (directiveKey) {
-      directives[directiveKey] = value;
+    } else if (fieldKey) {
+      directives[fieldKey] = value;
     }
   }
 

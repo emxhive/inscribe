@@ -6,10 +6,10 @@ import {
   matchesMarker,
   startsWithMarker,
   parseDirectiveLine,
-  DirectiveKey,
+  FieldKey,
 } from '@inscribe/shared';
 
-export type IntakeDirectiveKey = DirectiveKey;
+export type IntakeDirectiveKey = FieldKey;
 
 export interface IntakeDirective {
   key: IntakeDirectiveKey;
@@ -163,7 +163,7 @@ export function parseIntakeStructure(input: string): {
     const parsed = parseDirectiveLine(line);
     if (!parsed.matched) {
       if (parsed.usedPrefix) {
-        current.warnings.push('Unknown directive');
+        current.warnings.push('Invalid directive format (headers and directives should not use @inscribe prefix)');
         lineMeta[lineIndex].type = 'unknown-directive';
         lineMeta[lineIndex].status = 'warning';
       }

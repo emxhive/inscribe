@@ -247,8 +247,8 @@ const x = 1;
         file: 'app/range-test.js',
         mode: 'range',
         directives: {
-          START: '// start',
-          END: '// end',
+          START_AFTER: '// start',
+          END_BEFORE: '// end',
         },
         content: 'new content',
         blockIndex: 0,
@@ -265,7 +265,7 @@ const x = 1;
         file: 'app/range-test.js',
         mode: 'range',
         directives: {
-          END: '// end',
+          END_BEFORE: '// end',
         },
         content: 'content',
         blockIndex: 0,
@@ -274,7 +274,7 @@ const x = 1;
 
     const errors = validateBlocks(blocks, tempDir);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].message).toContain('START');
+    expect(errors[0].message).toContain('START_BEFORE');
   });
 
   it('should fail range mode with non-matching anchor', () => {
@@ -283,8 +283,8 @@ const x = 1;
         file: 'app/range-test.js',
         mode: 'range',
         directives: {
-          START: '// nonexistent',
-          END: '// end',
+          START_AFTER: '// nonexistent',
+          END_BEFORE: '// end',
         },
         content: 'content',
         blockIndex: 0,
@@ -294,5 +294,116 @@ const x = 1;
     const errors = validateBlocks(blocks, tempDir);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].message).toContain('not found');
+  });
+
+  it('allows range mode with multiple END anchors after START', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'app', 'range-multi-end.js'),
+      `// start
+const x = 1;
+// end
+// end
+`
+    );
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/range-multi-end.js',
+        mode: 'range',
+        directives: {
+          START_AFTER: '// start',
+          END_BEFORE: '// end',
+        },
+        content: 'new content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors).toEqual([]);
+  });
+
+  it('rejects range mode when END is only before START', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'app', 'range-end-before.js'),
+      `// end
+// start
+const x = 1;
+`
+    );
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/range-end-before.js',
+        mode: 'range',
+        directives: {
+          START_AFTER: '// start',
+          END_BEFORE: '// end',
+        },
+        content: 'new content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('not found after');
+  });
+
+  it('allows scope with non-unique SCOPE_END', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'app', 'range-scope.js'),
+      `// scope start
+// start
+const x = 1;
+// end
+// scope end
+// scope end
+`
+    );
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/range-scope.js',
+        mode: 'range',
+        directives: {
+          START_AFTER: '// start',
+          END_BEFORE: '// end',
+          SCOPE_START: '// scope start',
+          SCOPE_END: '// scope end',
+        },
+        content: 'new content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors).toEqual([]);
+  });
+
+  it('falls back to whitespace-insensitive anchor matching', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'app', 'range-whitespace.js'),
+      `// start   marker
+const x = 1;
+// end marker
+`
+    );
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/range-whitespace.js',
+        mode: 'range',
+        directives: {
+          START_AFTER: '// start marker',
+          END_BEFORE: '// end marker',
+        },
+        content: 'new content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors).toEqual([]);
   });
 });

@@ -28,10 +28,12 @@ function validateOperation(operation: Operation, index: number): string[] {
 
   if (operation.type === 'range') {
     const directives = operation.directives || {};
-    const hasStart = directives.START.length > 0;
-    const hasEnd = directives.END.length > 0;
-    if (!hasStart || !hasEnd) {
-      errors.push('Range operation requires START and END directives');
+    const startKeys = ['START', 'START_BEFORE', 'START_AFTER'];
+    const endKeys = ['END', 'END_BEFORE', 'END_AFTER'];
+    const startMatches = startKeys.filter(key => directives[key]);
+    const endMatches = endKeys.filter(key => directives[key]);
+    if (startMatches.length !== 1 || endMatches.length !== 1) {
+      errors.push('Range operation requires exactly one of START, START_BEFORE, START_AFTER and one of END, END_BEFORE, END_AFTER directives');
     }
   }
 

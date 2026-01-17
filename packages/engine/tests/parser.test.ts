@@ -331,8 +331,8 @@ content
     it('should parse directives with extra whitespace', () => {
       const content = `
 @inscribe   BEGIN
-@inscribe   FILE:   app/test.js
-@inscribe   MODE:   create
+FILE:   app/test.js
+MODE:   create
 
 \`\`\`
 content
@@ -351,8 +351,8 @@ content
     it('should parse mixed case directive names', () => {
       const content = `
 @inscribe BEGIN
-@InScRiBe FiLe: app/test.js
-@INSCRIBE mode: replace
+FiLe: app/test.js
+mode: replace
 
 \`\`\`
 content
@@ -437,7 +437,7 @@ content
       
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].file).toBe('app/test.js');
-      expect(result.errors.some(e => e.includes('Unknown directive'))).toBe(true);
+      expect(result.errors.some(e => e.includes('Invalid directive format'))).toBe(true);
     });
 
     it('should handle invalid MODE gracefully with warning', () => {
@@ -652,9 +652,9 @@ content
 
       const result = parseBlocks(content);
       
+      // Should have warnings about invalid format  
       expect(result.errors.length).toBeGreaterThan(0);
-      // Missing FILE because prefixed directive is not recognized
-      expect(result.errors[0]).toContain('FILE');
+      expect(result.errors.some(e => e.includes('Invalid directive format'))).toBe(true);
     });
 
     it('should reject @inscribe prefixed START directive', () => {
@@ -676,8 +676,7 @@ content
       
       // Should have warnings about invalid format
       expect(result.blocks).toHaveLength(1);
-      expect(result.blocks[0].warnings).toBeDefined();
-      expect(result.blocks[0].warnings?.some(w => w.includes('Invalid directive format'))).toBe(true);
+      expect(result.errors.some(e => e.includes('Invalid directive format'))).toBe(true);
     });
 
     it('should reject all prefixed directives and headers', () => {

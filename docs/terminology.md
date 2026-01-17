@@ -21,25 +21,32 @@ A specially marked section in pasted content that contains explicit instructions
 @inscribe END
 
 
-### Directives
-Commands within an Inscribe block that specify how to process the code content. Directives can be specified with or without the `@inscribe` prefix (except for BEGIN and END which always require it).
+### Block Headers
+Required fields that specify the target file and operation mode. Headers are always required and must be specified **without** the `@inscribe` prefix.
 
-**Important:** Each directive value must be single-line only. The parser processes directives line-by-line, so multiline directive values are not supported.
-
-#### Required Directives
+#### Required Headers
 
 - **FILE:** Specifies the relative path from repository root where the file will be created or modified
-  - Format: `FILE: relative/path/from/repo/root.ext` or `@inscribe FILE: relative/path/from/repo/root.ext`
+  - Format: `FILE: relative/path/from/repo/root.ext`
   - Path must be under repository root and not in an ignored directory
+  - **Must not use `@inscribe` prefix**
 
 - **MODE:** Specifies the operation type
-  - Format: `MODE: <create|replace|append|range>` or `@inscribe MODE: <create|replace|append|range>`
+  - Format: `MODE: <create|replace|append|range>`
   - Must be exactly one of the four supported modes
+  - **Must not use `@inscribe` prefix**
 
-#### Optional Directives (Mode-Specific)
+### Directives
+Optional commands within an Inscribe block that provide additional instructions for processing the code content. Directives must be specified **without** the `@inscribe` prefix.
+
+**Important:** 
+- Each directive value must be single-line only. The parser processes directives line-by-line, so multiline directive values are not supported.
+- Directives do **not** use the `@inscribe` prefix. Only `BEGIN` and `END` markers use the prefix.
+- The `FILE:` and `MODE:` fields are headers, not directives.
 
 - **START / START_BEFORE / START_AFTER:** (exactly one required for range mode) The beginning anchor for partial replacement
   - Format: `START: <exact substring>` / `START_BEFORE: <exact substring>` / `START_AFTER: <exact substring>`
+  - **Must not use `@inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Can match anywhere within a line (beginning, middle, or end)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
@@ -50,6 +57,7 @@ Commands within an Inscribe block that specify how to process the code content. 
   
 - **END / END_BEFORE / END_AFTER:** (exactly one required for range mode) The ending anchor for partial replacement
   - Format: `END: <exact substring>` / `END_BEFORE: <exact substring>` / `END_AFTER: <exact substring>`
+  - **Must not use `@inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Can match anywhere within a line (beginning, middle, or end)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
@@ -59,18 +67,31 @@ Commands within an Inscribe block that specify how to process the code content. 
   - **END_AFTER** ends replacement on the line after the anchor
 
 - **SCOPE_START:** (optional for range mode) Narrows the search area for anchors
-  - Format: `SCOPE_START: <exact substring>` or `@inscribe SCOPE_START: <exact substring>`
+  - Format: `SCOPE_START: <exact substring>`
+  - **Must not use `@inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
   - Must match exactly once in the target file
   - **Must be provided together with SCOPE_END** (providing only one is invalid)
   
 - **SCOPE_END:** (optional for range mode) Defines the end of the search area
-  - Format: `SCOPE_END: <exact substring>` or `@inscribe SCOPE_END: <exact substring>`
+  - Format: `SCOPE_END: <exact substring>`
+  - **Must not use `@inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
   - Can match multiple times; Inscribe uses the **first SCOPE_END after SCOPE_START**
   - **Must be provided together with SCOPE_START** (providing only one is invalid)
+
+### Prefix Usage Rules
+
+The `@inscribe` prefix is **only** used for block boundaries:
+- ✅ `@inscribe BEGIN` - correct
+- ✅ `@inscribe END` - correct
+- ❌ `@inscribe FILE: path/to/file.js` - **INVALID** (use `FILE: path/to/file.js`)
+- ❌ `@inscribe MODE: create` - **INVALID** (use `MODE: create`)
+- ❌ `@inscribe START: anchor` - **INVALID** (use `START: anchor`)
+
+**All headers and directives must be written without the `@inscribe` prefix.** Lines with `@inscribe` prefix that are not `BEGIN` or `END` will be rejected as invalid.
 
 ## Modes
 
@@ -223,12 +244,15 @@ When a user asks you to use Inscribe:
 
 For each code block intended for Inscribe:
 - Add `@inscribe BEGIN` on a plain text line immediately before the fenced code block.
-- Add Inscribe directives (e.g. FILE:, MODE:) immediately after the BEGIN line.
+- Add Inscribe headers (FILE:, MODE:) immediately after the BEGIN line, **without** the `@inscribe` prefix.
+- Add any optional directives (START:, END:, etc.) **without** the `@inscribe` prefix.
 - Keep the code itself inside a normal Markdown fenced code block.
 - Add `@inscribe END` on a plain text line immediately after the fenced code block.
 
 Notes:
 - Inscribe tags must not be fenced.
+- Only `@inscribe BEGIN` and `@inscribe END` use the `@inscribe` prefix.
+- Headers (FILE:, MODE:) and directives (START:, END:, etc.) must NOT use the `@inscribe` prefix.
 - Do not wrap multiple code blocks or the entire response in a single Inscribe block.
 - All non-Inscribe content should remain unchanged.
 ```

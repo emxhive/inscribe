@@ -1,5 +1,6 @@
 import type { ReviewItem } from '@/types';
 import { buildReviewItems } from '@/utils';
+import { HEADER_KEYS, type HeaderKey } from '@inscribe/shared';
 import {
   parseIntakeStructure,
   updateDirectiveInText,
@@ -64,12 +65,13 @@ export async function updateDirectivesAndRebuild({
     if (!targetBlock) {
       return { error: 'Unable to locate block directives.' };
     }
+    const keepEmpty = HEADER_KEYS.includes(key as HeaderKey);
     nextInput = updateDirectiveInText(
       nextInput,
       targetBlock,
       key as IntakeDirectiveKey,
       value ?? '',
-      { allowEmptyInsert: true },
+      { allowEmptyInsert: true, keepEmpty },
     );
   }
 

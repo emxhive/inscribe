@@ -1,15 +1,25 @@
 /**
  * Fallback parser for content without Inscribe tags
- * Looks for FILE: directives followed by fenced code blocks
+ * Looks for FILE/MODE headers followed by fenced code blocks
  */
 
-import { ParsedBlock, ParseResult, matchesMarker, INSCRIBE_BEGIN, HEADER_FILE } from '@inscribe/shared';
-import { isFileDirective } from './parseUtils';
+import {
+  ParsedBlock,
+  ParseResult,
+  matchesMarker,
+  INSCRIBE_BEGIN,
+  HEADER_FILE,
+  HEADER_MODE,
+  extractMarkerValue,
+  startsWithMarker,
+  isValidMode,
+} from '@inscribe/shared';
+import { isFileHeader } from './parseUtils';
 import { extractFencedBlock } from './parseFencedBlock';
 
 function findFenceStartBeforeStop(lines: string[], startIndex: number): number {
   for (let j = startIndex; j < lines.length; j++) {
-    if (isFileDirective(lines[j]) || matchesMarker(lines[j], INSCRIBE_BEGIN)) {
+    if (isFileHeader(lines[j]) || matchesMarker(lines[j], INSCRIBE_BEGIN)) {
       return -1;
     }
     if (lines[j].trim().startsWith('```')) {
@@ -19,9 +29,18 @@ function findFenceStartBeforeStop(lines: string[], startIndex: number): number {
   return -1;
 }
 
+function findModeHeader(lines: string[], startIndex: number, stopIndex: number): string | null {
+  for (let j = startIndex; j < stopIndex; j++) {
+    if (startsWithMarker(lines[j].trim(), HEADER_MODE)) {
+      return extractMarkerValue(lines[j].trim(), HEADER_MODE);
+    }
+  }
+  return null;
+}
+
 /**
  * Parse content without inscribe tags (fallback mode)
- * Looks for FILE: directives followed by fenced code blocks
+ * Looks for FILE/MODE headers followed by fenced code blocks
  */
 export function parseFallbackBlocks(content: string): ParseResult {
   const errors: string[] = [];
@@ -33,19 +52,29 @@ export function parseFallbackBlocks(content: string): ParseResult {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     
-    // Look for FILE: directive (matches case-insensitively by converting to uppercase)
-    if (isFileDirective(lines[i])) {
+    // Look for FILE: header (matches case-insensitively by converting to uppercase)
+    if (isFileHeader(lines[i])) {
       const file = trimmed.substring(HEADER_FILE.length).trim();
       
       if (!file) {
-        continue; // Skip empty FILE: directives
+        continue; // Skip empty FILE: headers
       }
       
       // Look for the next fenced code block
       const fenceStartIndex = findFenceStartBeforeStop(lines, i + 1);
 
       if (fenceStartIndex === -1) {
-        continue; // No code block found for this FILE: directive
+        continue; // No code block found for this FILE: header
+      }
+
+      const mode = findModeHeader(lines, i + 1, fenceStartIndex);
+      if (!mode) {
+        errors.push(`Block ${blockIndex}: Missing MODE header for file: ${file}`);
+        continue;
+      }
+      if (!isValidMode(mode)) {
+        errors.push(`Block ${blockIndex}: Invalid MODE header: ${mode} for file: ${file}`);
+        continue;
       }
 
       const fencedResult = extractFencedBlock(lines, fenceStartIndex);
@@ -59,7 +88,7 @@ export function parseFallbackBlocks(content: string): ParseResult {
       
       blocks.push({
         file,
-        mode: 'replace', // Default to replace mode
+        mode,
         directives: {},
         content,
         blockIndex,

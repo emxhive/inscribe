@@ -20,6 +20,7 @@ export function IntakePanel() {
         line.blockId === state.selectedIntakeBlockId && 'bg-primary/10',
         line.type === 'begin' && 'text-sky-800 bg-sky-100/70',
         line.type === 'end' && 'text-sky-800 bg-sky-100/70',
+        line.type === 'header' && 'text-indigo-800 bg-indigo-100/60',
         line.type === 'directive' && 'text-emerald-800 bg-emerald-100/60',
         line.type === 'unknown-directive' && 'text-amber-800 bg-amber-100/70',
         line.status === 'warning' && 'bg-amber-200/70 text-amber-900',

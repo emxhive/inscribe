@@ -43,8 +43,8 @@ const AI_INPUT = `
 Here is a plan to update your code.
 
 @inscribe BEGIN
-@inscribe FILE: new_feature.ts
-@inscribe MODE: create
+FILE: new_feature.ts
+MODE: create
 \`\`\`typescript
 export function newFeature() {
   return "This is a new feature";
@@ -53,8 +53,8 @@ export function newFeature() {
 @inscribe END
 
 @inscribe BEGIN
-@inscribe FILE: existing_file.ts
-@inscribe MODE: replace
+FILE: existing_file.ts
+MODE: replace
 \`\`\`typescript
 function hello() {
   console.log("Hello Universe");
@@ -67,8 +67,8 @@ function goodbye() {
 @inscribe END
 
 @inscribe BEGIN
-@inscribe FILE: existing_file.ts
-@inscribe MODE: append
+FILE: existing_file.ts
+MODE: append
 \`\`\`typescript
 
 // Appended comment

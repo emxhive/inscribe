@@ -4,9 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
 import { updateDirectiveInText } from '@/utils/intake';
 import { cn } from '@/lib/utils';
-import { ALL_FIELD_KEYS } from '@inscribe/shared';
+import { type DirectiveKey, type HeaderKey } from '@inscribe/shared';
 import type { ReviewItem } from '@/types';
 import { ReviewDirectivePopover } from './ReviewDirectivePopover';
+import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
 
 export const MIN_SIDEBAR_WIDTH = 240;
 export const MAX_SIDEBAR_WIDTH = 420;
@@ -23,7 +24,6 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
   const [dragging, setDragging] = useState(false);
   const sidebarRef = useRef<HTMLElement | null>(null);
-  const directiveRefs = useRef(new Map<string, HTMLInputElement | null>());
   const directiveAnchorRef = useRef<HTMLElement | null>(null);
   const [directiveEditorItemId, setDirectiveEditorItemId] = useState<string | null>(null);
 
@@ -68,7 +68,16 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     };
   }, [dragging, onResize, sidebarWidth]);
 
-  const handleDirectiveChange = (key: typeof ALL_FIELD_KEYS[number], value: string) => {
+  const handleHeaderChange = (key: HeaderKey, value: string) => {
+    if (!selectedBlock) {
+      return;
+    }
+    updateState((prev) => ({
+      aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, value, { keepEmpty: true }),
+    }));
+  };
+
+  const handleDirectiveChange = (key: DirectiveKey, value: string) => {
     if (!selectedBlock) {
       return;
     }
@@ -77,24 +86,16 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     }));
   };
 
-  const presentDirectives = selectedBlock
-    ? ALL_FIELD_KEYS.filter((key) => selectedBlock.directives[key])
-    : [];
-
-  const handleAddDirective = (key: typeof ALL_FIELD_KEYS[number]) => {
+  const handleAddDirective = (key: DirectiveKey) => {
     if (!selectedBlock) {
       return;
     }
     if (selectedBlock.directives[key]) {
-      directiveRefs.current.get(key)?.focus();
       return;
     }
     updateState((prev) => ({
       aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, '', { allowEmptyInsert: true }),
     }));
-    requestAnimationFrame(() => {
-      directiveRefs.current.get(key)?.focus();
-    });
   };
 
   const handleOpenDirectiveEditor = (
@@ -166,67 +167,12 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
             ))}
           </ul>
 
-          <div className="border-t border-border pt-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-              Headers & Directives
-            </p>
-            {selectedBlock ? (
-              <div className="mt-3 space-y-3">
-                {presentDirectives.length > 0 ? (
-                  presentDirectives.map((key) => (
-                    <label key={key} className="block text-xs text-muted-foreground">
-                      <span className="text-[11px] font-semibold text-foreground">{key}</span>
-                      <input
-                        ref={(element) => directiveRefs.current.set(key, element)}
-                        value={selectedBlock.directives[key]?.value ?? ''}
-                        onChange={(event) => handleDirectiveChange(key, event.target.value)}
-                        className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder={`${key}:`}
-                      />
-                    </label>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground">No fields found.</p>
-                )}
-                <div className="flex items-center gap-2">
-                  <label className="text-[11px] font-semibold text-foreground">Add field</label>
-                  <select
-                    className="flex-1 rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    value=""
-                    onChange={(event) => {
-                      if (event.target.value) {
-                        handleAddDirective(event.target.value as typeof ALL_FIELD_KEYS[number]);
-                      }
-                    }}
-                  >
-                    <option value="" disabled>Select</option>
-                    {ALL_FIELD_KEYS.map((key) => (
-                      <option key={key} value={key}>
-                        {key}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {(selectedBlock.warnings.length > 0 || selectedBlock.errors.length > 0) && (
-                  <div className="rounded-md border border-border bg-muted/50 p-2 text-[11px] text-muted-foreground">
-                    {selectedBlock.errors.length > 0 && (
-                      <p className="text-red-700">Error: {selectedBlock.errors[0]}</p>
-                    )}
-                    {selectedBlock.warnings.length > 0 && (
-                      <p className="text-amber-700">Warning: {selectedBlock.warnings[0]}</p>
-                    )}
-                  </div>
-                )}
-                <p className="text-[11px] text-muted-foreground">
-                  Changes update the raw text inline.
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-2">
-                Select a block to edit.
-              </p>
-            )}
-          </div>
+          <HeaderDirectiveEditor
+            block={selectedBlock}
+            onHeaderChange={handleHeaderChange}
+            onDirectiveChange={handleDirectiveChange}
+            onAddDirective={handleAddDirective}
+          />
         </div>
       )}
 

@@ -7,6 +7,7 @@ import {
   startsWithMarker,
   parseDirectiveLine,
   FieldKey,
+  HEADER_KEYS,
 } from '@inscribe/shared';
 
 export type IntakeDirectiveKey = FieldKey;
@@ -34,7 +35,7 @@ export interface IntakeLineMeta {
   text: string;
   lineIndex: number;
   blockId?: string;
-  type: 'text' | 'begin' | 'end' | 'directive' | 'unknown-directive';
+  type: 'text' | 'begin' | 'end' | 'header' | 'directive' | 'unknown-directive';
   status?: 'warning' | 'error';
 }
 
@@ -58,16 +59,16 @@ export function parseIntakeStructure(input: string): {
     block.endLine = endLine;
 
     if (!block.directives.FILE) {
-      block.warnings.push('Missing FILE directive');
+      block.warnings.push('Missing FILE header');
     }
 
     if (!block.directives.MODE) {
-      block.warnings.push('Missing MODE directive');
+      block.warnings.push('Missing MODE header');
     }
 
     const modeValue = block.directives.MODE?.value?.toLowerCase();
     if (modeValue && !VALID_MODES.includes(modeValue as (typeof VALID_MODES)[number])) {
-      block.warnings.push(`Unknown MODE value: ${block.directives.MODE?.value}`);
+      block.warnings.push(`Unknown MODE header value: ${block.directives.MODE?.value}`);
     }
 
     if (modeValue === 'range') {
@@ -163,7 +164,7 @@ export function parseIntakeStructure(input: string): {
     const parsed = parseDirectiveLine(line);
     if (!parsed.matched) {
       if (parsed.usedPrefix) {
-        current.warnings.push('Invalid directive format (headers and directives should not use @inscribe prefix)');
+      current.warnings.push('Invalid header or directive format (headers and directives should not use @inscribe prefix)');
         lineMeta[lineIndex].type = 'unknown-directive';
         lineMeta[lineIndex].status = 'warning';
       }
@@ -180,9 +181,10 @@ export function parseIntakeStructure(input: string): {
       raw: line,
     };
 
-    lineMeta[lineIndex].type = 'directive';
+    const isHeader = HEADER_KEYS.includes(key as (typeof HEADER_KEYS)[number]);
+    lineMeta[lineIndex].type = isHeader ? 'header' : 'directive';
     if (!value) {
-      current.warnings.push(`${key} directive missing value`);
+      current.warnings.push(`${key} ${isHeader ? 'header' : 'directive'} missing value`);
       lineMeta[lineIndex].status = 'warning';
     }
   });
@@ -201,7 +203,7 @@ export function updateDirectiveInText(
   block: IntakeBlock,
   key: IntakeDirectiveKey,
   value: string,
-  options?: { allowEmptyInsert?: boolean },
+  options?: { allowEmptyInsert?: boolean; keepEmpty?: boolean },
 ): string {
   if (block.startLine < 0) {
     return input;
@@ -218,6 +220,10 @@ export function updateDirectiveInText(
     const line = lines[directive.lineIndex] ?? '';
     const leadingWhitespace = line.match(/^\s*/)?.[0] ?? '';
     if (!nextValue) {
+      if (options?.keepEmpty) {
+        lines[directive.lineIndex] = `${leadingWhitespace}${marker}`;
+        return lines.join('\n');
+      }
       lines.splice(directive.lineIndex, 1);
     } else {
       lines[directive.lineIndex] = `${leadingWhitespace}${marker} ${value}`;

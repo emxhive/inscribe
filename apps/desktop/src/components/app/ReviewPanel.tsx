@@ -15,7 +15,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
-import { AlertCircle, Eye, Pencil } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Eye, Pencil } from 'lucide-react';
 
 export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
@@ -24,6 +24,8 @@ export function ReviewPanel() {
 
   const { selectedItem, editorValue, pendingItemsCount } = reviewActions;
   const hasInvalidItems = state.reviewItems.some((item) => item.status === 'invalid');
+  const allChangesApplied =
+    state.reviewItems.length > 0 && state.reviewItems.every((item) => item.status === 'applied');
 
   const canApplySelected = selectedItem && selectedItem.status === 'pending' && !state.isApplyingInProgress;
 
@@ -110,17 +112,31 @@ export function ReviewPanel() {
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Review & Apply</p>
           <h2 className="text-xl font-semibold mt-0.5">{selectedItem?.file || 'Select a file from the left'}</h2>
         </div>
-        <Button
-          variant="outline"
-          size="icon"
-          type="button"
-          onClick={() => updateState({ isEditing: !state.isEditing })}
-          disabled={!selectedItem}
-          aria-label={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
-          title={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
-        >
-          {state.isEditing ? <Eye /> : <Pencil />}
-        </Button>
+        <div className="flex items-center gap-2">
+          {allChangesApplied && (
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              onClick={() => updateState({ mode: 'intake' })}
+              aria-label="Back to intake"
+              title="Back to intake"
+            >
+              <ArrowLeft />
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            type="button"
+            onClick={() => updateState({ isEditing: !state.isEditing })}
+            disabled={!selectedItem}
+            aria-label={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
+            title={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
+          >
+            {state.isEditing ? <Eye /> : <Pencil />}
+          </Button>
+        </div>
       </div>
 
       {selectedItem?.validationError && (

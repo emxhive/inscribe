@@ -83,7 +83,7 @@ describe('Parse Utilities', () => {
   });
 
   describe('parseDirectiveLine', () => {
-    it('should parse directives without prefix', () => {
+    it('should parse headers without prefix', () => {
       const parsed = parseDirectiveLine('FILE: path/to/file.ts');
       expect(parsed.matched).toBe(true);
       expect(parsed.key).toBe('FILE');
@@ -91,11 +91,29 @@ describe('Parse Utilities', () => {
       expect(parsed.usedPrefix).toBe(false);
     });
 
-    it('should parse directives with @inscribe prefix', () => {
-      const parsed = parseDirectiveLine('@inscribe MODE: create');
+    it('should parse directives without prefix', () => {
+      const parsed = parseDirectiveLine('START: some anchor');
       expect(parsed.matched).toBe(true);
-      expect(parsed.key).toBe('MODE');
-      expect(parsed.value).toBe('create');
+      expect(parsed.key).toBe('START');
+      expect(parsed.value).toBe('some anchor');
+      expect(parsed.usedPrefix).toBe(false);
+    });
+
+    it('should reject headers with @inscribe prefix', () => {
+      const parsed = parseDirectiveLine('@inscribe FILE: path/to/file.ts');
+      expect(parsed.matched).toBe(false);
+      expect(parsed.usedPrefix).toBe(true);
+    });
+
+    it('should reject directives with @inscribe prefix', () => {
+      const parsed = parseDirectiveLine('@inscribe MODE: create');
+      expect(parsed.matched).toBe(false);
+      expect(parsed.usedPrefix).toBe(true);
+    });
+
+    it('should reject START directive with @inscribe prefix', () => {
+      const parsed = parseDirectiveLine('@inscribe START: anchor');
+      expect(parsed.matched).toBe(false);
       expect(parsed.usedPrefix).toBe(true);
     });
 

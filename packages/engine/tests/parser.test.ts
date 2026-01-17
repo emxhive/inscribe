@@ -368,7 +368,7 @@ content
       expect(result.blocks[0].mode).toBe('replace');
     });
 
-    it('should support mixed old and new directive formats', () => {
+    it('should reject prefixed headers and directives', () => {
       const content = `
 @inscribe BEGIN
 @inscribe FILE: app/test.js
@@ -383,10 +383,9 @@ content
 
       const result = parseBlocks(content);
       
-      expect(result.errors).toEqual([]);
-      expect(result.blocks).toHaveLength(1);
-      expect(result.blocks[0].file).toBe('app/test.js');
-      expect(result.blocks[0].mode).toBe('create');
+      // Should fail because @inscribe FILE: is invalid
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toContain('FILE');
     });
   });
 
@@ -590,6 +589,117 @@ content
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors.some(e => e.includes('BEGIN without matching END'))).toBe(true);
       expect(result.errors.some(e => e.includes('Missing FILE directive'))).toBe(true);
+    });
+  });
+
+  describe('Header and Directive Format Validation', () => {
+    it('should accept unprefixed FILE and MODE headers', () => {
+      const content = `
+@inscribe BEGIN
+FILE: app/test.js
+MODE: create
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.errors).toEqual([]);
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].file).toBe('app/test.js');
+      expect(result.blocks[0].mode).toBe('create');
+    });
+
+    it('should accept unprefixed directives in range mode', () => {
+      const content = `
+@inscribe BEGIN
+FILE: app/test.js
+MODE: range
+START: anchor1
+END: anchor2
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.errors).toEqual([]);
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].directives.START).toBe('anchor1');
+      expect(result.blocks[0].directives.END).toBe('anchor2');
+    });
+
+    it('should reject @inscribe prefixed MODE header', () => {
+      const content = `
+@inscribe BEGIN
+FILE: app/test.js
+@inscribe MODE: create
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      expect(result.errors.length).toBeGreaterThan(0);
+      // Missing FILE because prefixed directive is not recognized
+      expect(result.errors[0]).toContain('FILE');
+    });
+
+    it('should reject @inscribe prefixed START directive', () => {
+      const content = `
+@inscribe BEGIN
+FILE: app/test.js
+MODE: range
+@inscribe START: anchor1
+END: anchor2
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      // Should have warnings about invalid format
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].warnings).toBeDefined();
+      expect(result.blocks[0].warnings?.some(w => w.includes('Invalid directive format'))).toBe(true);
+    });
+
+    it('should reject all prefixed directives and headers', () => {
+      const content = `
+@inscribe BEGIN
+@inscribe FILE: app/test.js
+@inscribe MODE: range
+@inscribe START: anchor1
+@inscribe END: anchor2
+
+\`\`\`
+content
+\`\`\`
+
+@inscribe END
+      `.trim();
+
+      const result = parseBlocks(content);
+      
+      // Should fail because all directives are prefixed
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toContain('FILE');
     });
   });
 });

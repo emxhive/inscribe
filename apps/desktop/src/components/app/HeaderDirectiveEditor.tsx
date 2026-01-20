@@ -8,6 +8,7 @@ import {
 } from '@inscribe/shared';
 import { cn } from '@/lib/utils';
 import type { IntakeBlock } from '@/utils/intake';
+import { Select } from '@/components/ui/select';
 
 type HeaderDirectiveEditorProps = {
   block: IntakeBlock | null;
@@ -24,7 +25,6 @@ export function HeaderDirectiveEditor({
   onDirectiveChange,
   onAddDirective,
 }: HeaderDirectiveEditorProps) {
-  const modeListId = 'mode-header-options';
   const directiveRefs = useRef(new Map<string, HTMLInputElement | null>());
   const [openSection, setOpenSection] = useState<AccordionSection>('headers');
 
@@ -77,20 +77,24 @@ export function HeaderDirectiveEditor({
             {HEADER_KEYS.map((key) => (
               <label key={key} className="block text-xs text-muted-foreground">
                 <span className="text-[11px] font-semibold text-foreground">{key}</span>
-                <input
-                  value={block.directives[key]?.value ?? ''}
-                  onChange={(event) => onHeaderChange(key, event.target.value)}
-                  list={key === 'MODE' ? modeListId : undefined}
-                  className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                  placeholder={`${key}:`}
-                />
+                {key === 'MODE' ? (
+                  <Select
+                    className="mt-1 font-mono"
+                    value={block.directives.MODE?.value ?? ''}
+                    onChange={(event) => onHeaderChange('MODE', event.target.value)}
+                    placeholder="MODE:"
+                    options={VALID_MODES.map((mode) => ({ value: mode, label: mode }))}
+                  />
+                ) : (
+                  <input
+                    value={block.directives[key]?.value ?? ''}
+                    onChange={(event) => onHeaderChange(key, event.target.value)}
+                    className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder={`${key}:`}
+                  />
+                )}
               </label>
             ))}
-            <datalist id={modeListId}>
-              {VALID_MODES.map((mode) => (
-                <option key={mode} value={mode} />
-              ))}
-            </datalist>
           </div>
         </div>
 
@@ -128,9 +132,11 @@ export function HeaderDirectiveEditor({
             )}
             <div className="flex items-center gap-2">
               <label className="text-[11px] font-semibold text-foreground">Add directive</label>
-              <select
-                className="flex-1 rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              <Select
+                className="flex-1"
                 value=""
+                placeholder="Select"
+                options={missingDirectives.map((key) => ({ value: key, label: key }))}
                 onChange={(event) => {
                   if (event.target.value) {
                     const nextKey = event.target.value as DirectiveKey;
@@ -140,14 +146,7 @@ export function HeaderDirectiveEditor({
                     });
                   }
                 }}
-              >
-                <option value="" disabled>Select</option>
-                {missingDirectives.map((key) => (
-                  <option key={key} value={key}>
-                    {key}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             {(block.warnings.length > 0 || block.errors.length > 0) && (
               <div className="rounded-md border border-border bg-muted/50 p-2 text-[11px] text-muted-foreground">

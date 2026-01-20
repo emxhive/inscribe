@@ -31,14 +31,6 @@ export function validateRangeAnchors(
     });
   }
 
-  if (endDirectives.length === 0) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: 'MODE: range requires exactly one of END, END_BEFORE, END_AFTER directives',
-    });
-  }
-
   if (errors.length > 0) {
     return errors;
   }
@@ -127,31 +119,20 @@ export function validateRangeAnchors(
 
   // Validate START and END anchors
   const startDirective = startDirectives[0];
-  const endDirective = endDirectives[0];
   const startAnchor = startDirective.value;
-  const endAnchor = endDirective.value;
   
-  if (!startAnchor || !endAnchor) {
+  if (!startAnchor) {
     // This should never happen due to earlier checks
     return errors;
   }
 
   const startMatches = findAllOccurrences(searchContent, startAnchor);
-  const endMatches = findAllOccurrences(searchContent, endAnchor);
 
   if (startMatches.length === 0) {
     errors.push({
       blockIndex: block.blockIndex,
       file: block.file,
       message: `${startDirective.key} anchor not found: "${startAnchor}"`,
-    });
-  }
-
-  if (endMatches.length === 0) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: `${endDirective.key} anchor not found: "${endAnchor}"`,
     });
   }
 
@@ -167,15 +148,36 @@ export function validateRangeAnchors(
     return errors;
   }
 
-  const startMatch = startMatches[0];
-  const endMatch = findFirstMatchAfter(endMatches, startMatch);
+  if (endDirectives.length === 1) {
+    const endDirective = endDirectives[0];
+    const endAnchor = endDirective.value;
+    if (!endAnchor) {
+      return errors;
+    }
+    const endMatches = findAllOccurrences(searchContent, endAnchor);
 
-  if (!endMatch) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: `${endDirective.key} anchor not found after ${startDirective.key}`,
-    });
+    if (endMatches.length === 0) {
+      errors.push({
+        blockIndex: block.blockIndex,
+        file: block.file,
+        message: `${endDirective.key} anchor not found: "${endAnchor}"`,
+      });
+    }
+
+    if (errors.length > 0) {
+      return errors;
+    }
+
+    const startMatch = startMatches[0];
+    const endMatch = findFirstMatchAfter(endMatches, startMatch);
+
+    if (!endMatch) {
+      errors.push({
+        blockIndex: block.blockIndex,
+        file: block.file,
+        message: `${endDirective.key} anchor not found after ${startDirective.key}`,
+      });
+    }
   }
 
   return errors;

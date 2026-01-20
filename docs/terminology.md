@@ -44,7 +44,7 @@ Optional commands within an Inscribe block that provide additional instructions 
 - Directives do **not** use the `@inscribe` prefix. Only `BEGIN` and `END` markers use the prefix.
 - The `FILE:` and `MODE:` fields are headers, not directives.
 
-- **START / START_BEFORE / START_AFTER:** (exactly one required for range mode) The beginning anchor for line-based replacement
+- **START / START_BEFORE / START_AFTER:** (exactly one required for range mode) The anchor that selects the starting line for range edits
   - Format: `START: <exact substring>` / `START_BEFORE: <exact substring>` / `START_AFTER: <exact substring>`
   - **Must not use `@inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
@@ -52,11 +52,12 @@ Optional commands within an Inscribe block that provide additional instructions 
   - **Replacements always expand to full line boundaries** (no inline splicing)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
   - START anchor must match exactly once in the target file (or within scope)
+  - If no END directive is provided, START selects the **single line** to replace (the inserted code can be multi-line)
   - **START** begins replacement at the start of the line containing the anchor (the anchor line is replaced)
   - **START_BEFORE** begins replacement at the start of the line before the anchor (previous line + anchor line + rest)
   - **START_AFTER** begins replacement at the start of the line after the anchor
   
-- **END / END_BEFORE / END_AFTER:** (exactly one required for range mode) The ending anchor for line-based replacement
+- **END / END_BEFORE / END_AFTER:** (optional for range mode) The ending anchor for line-based replacement
   - Format: `END: <exact substring>` / `END_BEFORE: <exact substring>` / `END_AFTER: <exact substring>`
   - **Must not use `@inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
@@ -153,14 +154,14 @@ export const newFeature = true;
 ````
 
 ### range
-Replaces content between two anchor points in an existing file. Anchors match substrings, but replacements always operate on full lines. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive).
+Replaces content between two anchor points in an existing file. Anchors match substrings, but replacements always operate on full lines. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive). If END is omitted, Inscribe replaces **exactly one line** (selected by the START directive semantics) and inserts the block content, which may span multiple lines.
 
 **Requirements:**
 - File MUST exist
+- If END is omitted, Inscribe replaces **exactly one line** (selected by the START directive semantics) and inserts the block content, which may span multiple lines
 - Exactly one START directive is required (START / START_BEFORE / START_AFTER) and it must match exactly once
-- Exactly one END directive is required (END / END_BEFORE / END_AFTER); it can match multiple times
-- The selected END must be the first occurrence after START
-- If no END exists after START, the range is invalid
+- END is optional; if provided, exactly one END directive is required (END / END_BEFORE / END_AFTER); it can match multiple times
+- If END is provided, the selected END must be the first occurrence after START
 - Path must be under repository root and not ignored
 
 **Optional:**

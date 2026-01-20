@@ -12,8 +12,8 @@ export function applyRangeReplace(filePath: string, operation: Operation): void 
   const endDirectives = getAnchorDirectives(directives, ['END', 'END_BEFORE', 'END_AFTER'], 'END');
   const { SCOPE_START, SCOPE_END } = directives;
 
-  if (!startDirectives || !endDirectives) {
-    throw new Error('Range operation requires exactly one of START, START_BEFORE, START_AFTER and one of END, END_BEFORE, END_AFTER directives');
+  if (!startDirectives) {
+    throw new Error('Range operation requires exactly one of START, START_BEFORE, START_AFTER directives');
   }
 
   if ((SCOPE_START && !SCOPE_END) || (!SCOPE_START && SCOPE_END)) {
@@ -51,14 +51,9 @@ export function applyRangeReplace(filePath: string, operation: Operation): void 
   }
 
   const startMatches = findAllOccurrences(searchContent, startDirectives.value);
-  const endMatches = findAllOccurrences(searchContent, endDirectives.value);
 
   if (startMatches.length === 0) {
     throw new Error(`${startDirectives.key} anchor not found: "${startDirectives.value}"`);
-  }
-
-  if (endMatches.length === 0) {
-    throw new Error(`${endDirectives.key} anchor not found: "${endDirectives.value}"`);
   }
 
   if (startMatches.length > 1) {
@@ -66,31 +61,52 @@ export function applyRangeReplace(filePath: string, operation: Operation): void 
   }
 
   const startMatch = startMatches[0];
-  const endMatch = findFirstMatchAfter(endMatches, startMatch);
-
-  if (!endMatch) {
-    throw new Error(`${endDirectives.key} anchor not found after ${startDirectives.key}`);
-  }
-
   const absoluteStartMatch = {
     start: searchOffset + startMatch.start,
     end: searchOffset + startMatch.end,
   };
-  const absoluteEndMatch = {
-    start: searchOffset + endMatch.start,
-    end: searchOffset + endMatch.end,
-  };
-  const absoluteStartPos = resolveReplacementStart(content, absoluteStartMatch, startDirectives.key);
-  const absoluteEndPos = resolveReplacementEnd(content, absoluteEndMatch, endDirectives.key);
 
-  if (absoluteStartPos >= absoluteEndPos) {
-    throw new Error('END anchor must come after START anchor');
+  let newContent: string;
+
+  if (endDirectives) {
+    const endMatches = findAllOccurrences(searchContent, endDirectives.value);
+
+    if (endMatches.length === 0) {
+      throw new Error(`${endDirectives.key} anchor not found: "${endDirectives.value}"`);
+    }
+
+    const endMatch = findFirstMatchAfter(endMatches, startMatch);
+
+    if (!endMatch) {
+      throw new Error(`${endDirectives.key} anchor not found after ${startDirectives.key}`);
+    }
+
+    const absoluteEndMatch = {
+      start: searchOffset + endMatch.start,
+      end: searchOffset + endMatch.end,
+    };
+    const absoluteStartPos = resolveReplacementStart(content, absoluteStartMatch, startDirectives.key);
+    const absoluteEndPos = resolveReplacementEnd(content, absoluteEndMatch, endDirectives.key);
+
+    if (absoluteStartPos >= absoluteEndPos) {
+      throw new Error('END anchor must come after START anchor');
+    }
+
+    newContent =
+      content.substring(0, absoluteStartPos) +
+      operation.content +
+      content.substring(absoluteEndPos);
+  } else {
+    const { lineStart, lineEnd } = resolveSingleLineReplacementRange(
+      content,
+      absoluteStartMatch,
+      startDirectives.key
+    );
+    newContent =
+      content.substring(0, lineStart) +
+      operation.content +
+      content.substring(lineEnd);
   }
-
-  const newContent =
-    content.substring(0, absoluteStartPos) +
-    operation.content +
-    content.substring(absoluteEndPos);
 
   fs.writeFileSync(filePath, newContent);
 }
@@ -139,6 +155,28 @@ function resolveReplacementEnd(content: string, match: MatchRange, directiveKey:
       return getNextLineEnd(content, match.end);
     default:
       return match.start;
+  }
+}
+
+function resolveSingleLineReplacementRange(
+  content: string,
+  match: MatchRange,
+  directiveKey: string
+): { lineStart: number; lineEnd: number } {
+  switch (directiveKey) {
+    case 'START_BEFORE': {
+      const lineStart = getPreviousLineStart(content, match.start);
+      return { lineStart, lineEnd: getLineEnd(content, lineStart) };
+    }
+    case 'START_AFTER': {
+      const lineStart = getLineEnd(content, match.end);
+      return { lineStart, lineEnd: getLineEnd(content, lineStart) };
+    }
+    case 'START':
+    default: {
+      const lineStart = getLineStart(content, match.start);
+      return { lineStart, lineEnd: getLineEnd(content, match.end) };
+    }
   }
 }
 

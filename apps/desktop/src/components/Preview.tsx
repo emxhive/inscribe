@@ -30,7 +30,7 @@ export default function Preview({ file, block }: PreviewProps) {
               <strong>START:</strong> {block.directives.START || 'N/A'}
             </p>
             <p>
-              <strong>END:</strong> {block.directives.END || 'N/A'}
+              <strong>END (optional):</strong> {block.directives.END || 'None (single-line replace)'}
             </p>
           </>
         )}

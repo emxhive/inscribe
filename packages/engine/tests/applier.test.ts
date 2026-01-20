@@ -394,16 +394,16 @@ omega
     expect(result.errors?.[0]).toContain('Range operation requires exactly one of START');
   });
 
-  it('should fail range apply when END anchor is missing', () => {
+  it('should replace a single line when END anchor is missing', () => {
     const filePath = path.join(tempDir, 'app', 'range.js');
-    fs.writeFileSync(filePath, 'content');
+    fs.writeFileSync(filePath, `// start\nold line\nnext line\n`);
 
     const plan: ApplyPlan = {
       operations: [
         {
           type: 'range',
           file: 'app/range.js',
-          content: 'new',
+          content: 'replacement\nline',
           directives: {
             START: '// start',
           },
@@ -413,8 +413,33 @@ omega
 
     const result = applyChanges(plan, tempDir);
 
-    expect(result.success).toBe(false);
-    expect(result.errors?.[0]).toContain('Range operation requires exactly one of START');
+    expect(result.success).toBe(true);
+    const updated = fs.readFileSync(filePath, 'utf-8');
+    expect(updated).toBe(`replacement\nline\nold line\nnext line\n`);
+  });
+
+  it('should replace the line after START_AFTER when END is missing', () => {
+    const filePath = path.join(tempDir, 'app', 'range-after.js');
+    fs.writeFileSync(filePath, `// start\nold line\nnext line\n`);
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-after.js',
+          content: 'inserted\n',
+          directives: {
+            START_AFTER: '// start',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const updated = fs.readFileSync(filePath, 'utf-8');
+    expect(updated).toBe(`// start\ninserted\nnext line\n`);
   });
 
   it('should enforce unique anchors during range apply', () => {

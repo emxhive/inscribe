@@ -8,6 +8,8 @@ export const initialState: AppState = {
   scope: [],
   ignore: { entries: [], source: 'none', path: '' },
   suggested: [],
+  indexedFiles: [],
+  indexedFileSet: new Set(),
   indexedCount: 0,
   indexStatus: { state: 'idle' },
 

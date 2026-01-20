@@ -51,6 +51,7 @@ export function registerIgnoreHandlers() {
       suggested,
       defaultScope: defaults.scope,
       topLevelFolders: defaults.topLevel,
+      indexedFiles,
       indexedCount: indexedFiles.length,
       indexStatus: getIndexStatus(repoRoot),
     };

@@ -10,6 +10,7 @@
         "build": "npm run build:electron && npm run typecheck && vite build",
         "build:electron": "tsc --project tsconfig.electron.json",
         "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run",
         "start": "electron dist/main.js",
         "preview": "vite preview"
     },
@@ -47,6 +48,7 @@
         "postcss": "^8.5.6",
         "tailwindcss": "^3.4.19",
         "typescript": "^5.3.3",
+        "vitest": "^1.6.1",
         "vite": "^5.0.8",
         "wait-on": "^7.2.0"
     }

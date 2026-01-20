@@ -8,6 +8,7 @@ import {
   parseDirectiveLine,
   FieldKey,
   HEADER_KEYS,
+  normalizeRelativePath,
 } from '@inscribe/shared';
 
 export type IntakeDirectiveKey = FieldKey;
@@ -41,7 +42,10 @@ export interface IntakeLineMeta {
 
 const isFenceLine = (line: string) => line.trim().startsWith('```');
 
-export function parseIntakeStructure(input: string): {
+export function parseIntakeStructure(
+  input: string,
+  options?: { indexedFileSet?: Set<string> },
+): {
   blocks: IntakeBlock[];
   lines: IntakeLineMeta[];
 } {
@@ -72,11 +76,29 @@ export function parseIntakeStructure(input: string): {
     }
 
     if (modeValue === 'range') {
-      if (!block.directives.START) {
+      const hasStart = Boolean(
+        block.directives.START || block.directives.START_BEFORE || block.directives.START_AFTER
+      );
+      const hasEnd = Boolean(
+        block.directives.END || block.directives.END_BEFORE || block.directives.END_AFTER
+      );
+      if (!hasStart) {
         block.warnings.push('Missing START directive for range mode');
       }
-      if (!block.directives.END) {
+      if (!hasEnd) {
         block.warnings.push('Missing END directive for range mode');
+      }
+    }
+
+    const fileValue = block.directives.FILE?.value?.trim();
+    const normalizedFile = fileValue ? normalizeRelativePath(fileValue) : '';
+    if (options?.indexedFileSet && normalizedFile) {
+      const isIndexed = options.indexedFileSet.has(normalizedFile);
+      if (modeValue === 'create' && isIndexed) {
+        block.warnings.push(`MODE=create targets an existing indexed file: ${normalizedFile}`);
+      }
+      if ((modeValue === 'replace' || modeValue === 'append' || modeValue === 'range') && !isIndexed) {
+        block.warnings.push(`MODE=${modeValue} targets a file that is not indexed: ${normalizedFile}`);
       }
     }
 

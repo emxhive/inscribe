@@ -44,6 +44,8 @@ export interface AppState {
   scope: string[];
   ignore: IgnoreRules;
   suggested: string[];
+  indexedFiles: string[];
+  indexedFileSet: Set<string>;
   indexedCount: number;
   indexStatus: IndexStatus;
 

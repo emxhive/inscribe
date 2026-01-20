@@ -32,6 +32,7 @@ export function registerRepositoryHandlers() {
         scope: scopeState.scope,
         ignore,
         suggested,
+        indexedFiles,
         indexedCount: indexedFiles.length,
         indexStatus: getIndexStatus(repoRoot),
       };
@@ -41,6 +42,7 @@ export function registerRepositoryHandlers() {
         scope: [],
         ignore: { entries: [], source: 'none', path: '' },
         suggested: [],
+        indexedFiles: [],
         indexedCount: 0,
         indexStatus: {
           state: 'error',

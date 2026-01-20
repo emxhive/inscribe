@@ -18,6 +18,8 @@ export function indexRepository(repoRoot: string, providedScope?: string[]): str
   const files: string[] = [];
 
   try {
+    collectRootFiles(repoRoot, files, ignoreMatcher);
+
     for (const root of scope) {
       const rootPath = path.join(repoRoot, root);
       if (fs.existsSync(rootPath) && fs.statSync(rootPath).isDirectory()) {
@@ -32,6 +34,29 @@ export function indexRepository(repoRoot: string, providedScope?: string[]): str
   } catch (error) {
     setIndexStatusError(repoRoot, error);
     return [];
+  }
+}
+
+/**
+ * Collect files directly under the repo root (non-recursive), skipping ignored files and symlinks.
+ */
+function collectRootFiles(repoRoot: string, files: string[], ignoreMatcher: IgnoreMatcher): void {
+  const entries = fs.readdirSync(repoRoot, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const fullPath = path.join(repoRoot, entry.name);
+    const relativePath = normalizeRelativePath(path.relative(repoRoot, fullPath));
+    const ignoreMatch = matchIgnoredPath(relativePath, ignoreMatcher);
+    if (!ignoreMatch) {
+      files.push(relativePath);
+    }
   }
 }
 

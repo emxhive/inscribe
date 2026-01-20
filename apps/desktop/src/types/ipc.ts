@@ -14,12 +14,14 @@ export interface RepoInitResult {
   scope: string[];
   ignore: IgnoreRules;
   suggested: string[];
+  indexedFiles: string[];
   indexedCount: number;
   indexStatus: IndexStatus;
 }
 
 export interface ScopeUpdateResult {
   scope: string[];
+  indexedFiles: string[];
   indexedCount: number;
   indexStatus: IndexStatus;
 }
@@ -30,6 +32,7 @@ export interface IgnoreWriteResult {
   suggested: string[];
   defaultScope: string[];
   topLevelFolders: string[];
+  indexedFiles: string[];
   indexedCount: number;
   indexStatus: IndexStatus;
 }

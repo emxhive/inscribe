@@ -68,8 +68,8 @@ export function ScopeModal({
       }
     >
       <p className="mb-4 text-muted-foreground text-sm leading-relaxed m-0">
-        Select the top-level folders to include in the scope. Only files within these folders
-        will be indexed and available for modifications.
+        Select the top-level folders to include in the scope. Root-level files and files within
+        these folders will be indexed (excluding ignored paths).
       </p>
       {state.topLevelFolders.length === 0 ? (
         <p className="text-center text-muted-foreground py-8 text-sm">No top-level folders found in repository</p>

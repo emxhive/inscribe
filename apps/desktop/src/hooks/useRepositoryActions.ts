@@ -26,21 +26,32 @@ const pruneScopeForIgnoredFolders = (scope: string[], ignoreEntries: string[]): 
 const scopesEqual = (left: string[], right: string[]): boolean =>
   left.length === right.length && left.every((value, index) => value === right[index]);
 
+const buildIndexedFileState = (indexedFiles: string[] | undefined) => {
+  const normalized = (indexedFiles || []).map((file) => normalizeRelativePath(file));
+  return {
+    indexedFiles: normalized,
+    indexedFileSet: new Set(normalized),
+  };
+};
+
 export async function initRepositoryState(
   repoRoot: string,
   updateState: (updates: Partial<AppState>) => void
 ): Promise<RepoInitResult> {
   updateState({ statusMessage: 'Initializing repository...' });
   const result = await window.inscribeAPI.repoInit(repoRoot);
+  const indexedFileState = buildIndexedFileState(result.indexedFiles);
 
   updateState({
     topLevelFolders: result.topLevelFolders || [],
     scope: result.scope || [],
     ignore: result.ignore || { entries: [], source: 'none', path: '' },
     suggested: result.suggested || [],
-    indexedCount: result.indexedCount || 0,
+    indexedFiles: indexedFileState.indexedFiles,
+    indexedFileSet: indexedFileState.indexedFileSet,
+    indexedCount: indexedFileState.indexedFiles.length,
     indexStatus: result.indexStatus || { state: 'complete' },
-    statusMessage: `Repository initialized: ${result.indexedCount || 0} files indexed`
+    statusMessage: `Repository initialized: ${indexedFileState.indexedFiles.length} files indexed`
   });
 
   return result;
@@ -58,6 +69,8 @@ export function useRepositoryActions() {
       scope: [],
       ignore: initialState.ignore,
       suggested: [],
+      indexedFiles: [],
+      indexedFileSet: new Set(),
       indexedCount: 0,
       indexStatus: { state: 'idle' },
       mode: 'intake',
@@ -163,12 +176,15 @@ export function useRepositoryActions() {
     try {
       updateState({ statusMessage: 'Updating scope...' });
       const result = await window.inscribeAPI.setScope(state.repoRoot, newScope);
+      const indexedFileState = buildIndexedFileState(result.indexedFiles);
       
       updateState({
         scope: result.scope || newScope,
-        indexedCount: result.indexedCount || 0,
+        indexedFiles: indexedFileState.indexedFiles,
+        indexedFileSet: indexedFileState.indexedFileSet,
+        indexedCount: indexedFileState.indexedFiles.length,
         indexStatus: result.indexStatus || { state: 'complete' },
-        statusMessage: `Scope updated: ${result.indexedCount || 0} files indexed`
+        statusMessage: `Scope updated: ${indexedFileState.indexedFiles.length} files indexed`
       });
       await revalidateParsedBlocks(state.repoRoot, state.parsedBlocks);
     } catch (error) {
@@ -188,11 +204,14 @@ export function useRepositoryActions() {
       const result = await window.inscribeAPI.writeIgnore(state.repoRoot, content);
       
       if (result.success) {
+        const indexedFileState = buildIndexedFileState(result.indexedFiles);
         updateState({
           suggested: result.suggested || [],
-          indexedCount: result.indexedCount || 0,
+          indexedFiles: indexedFileState.indexedFiles,
+          indexedFileSet: indexedFileState.indexedFileSet,
+          indexedCount: indexedFileState.indexedFiles.length,
           indexStatus: result.indexStatus || { state: 'complete' },
-          statusMessage: `Ignore rules updated: ${result.indexedCount || 0} files indexed`
+          statusMessage: `Ignore rules updated: ${indexedFileState.indexedFiles.length} files indexed`
         });
         const refreshed = await initRepo(state.repoRoot);
         if (refreshed) {

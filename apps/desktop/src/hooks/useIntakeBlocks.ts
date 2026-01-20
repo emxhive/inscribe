@@ -6,6 +6,6 @@ export function useIntakeBlocks() {
   const { state } = useAppStateContext();
 
   return useMemo(() => {
-    return parseIntakeStructure(state.aiInput);
-  }, [state.aiInput]);
+    return parseIntakeStructure(state.aiInput, { indexedFileSet: state.indexedFileSet });
+  }, [state.aiInput, state.indexedFileSet]);
 }

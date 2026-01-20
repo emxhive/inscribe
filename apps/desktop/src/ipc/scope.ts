@@ -24,12 +24,14 @@ export function registerScopeHandlers() {
       const indexedFiles = indexRepository(repoRoot, updated.scope);
       return {
         scope: updated.scope,
+        indexedFiles,
         indexedCount: indexedFiles.length,
         indexStatus: getIndexStatus(repoRoot),
       };
     } catch (error) {
       return {
         scope: [],
+        indexedFiles: [],
         indexedCount: 0,
         indexStatus: {
           state: 'error',

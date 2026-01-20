@@ -141,6 +141,67 @@ keep
     expect(content).toContain('keep');
   });
 
+  it('should expand range boundaries to full lines for substring anchors', () => {
+    const filePath = path.join(tempDir, 'app', 'range-inline.js');
+    fs.writeFileSync(filePath, `alpha foo beta
+charlie bar delta
+omega
+`);
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-inline.js',
+          content: 'new content\n',
+          directives: {
+            START: 'foo',
+            END: 'bar',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toBe(`new content
+omega
+`);
+  });
+
+  it('should not splice mid-line for range directives', () => {
+    const filePath = path.join(tempDir, 'app', 'range-inline-after.js');
+    fs.writeFileSync(filePath, `alpha foo beta
+charlie bar delta
+omega
+`);
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-inline-after.js',
+          content: 'new content\n',
+          directives: {
+            START_AFTER: 'foo',
+            END_BEFORE: 'omega',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toBe(`alpha foo beta
+new content
+omega
+`);
+  });
+
   it('should create backup before applying', () => {
     const filePath = path.join(tempDir, 'app', 'existing.js');
     fs.writeFileSync(filePath, 'original content');

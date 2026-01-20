@@ -119,20 +119,20 @@ function findFirstMatchAfter(matches: MatchRange[], startMatch: MatchRange): Mat
 function resolveReplacementStart(content: string, match: MatchRange, directiveKey: string): number {
   switch (directiveKey) {
     case 'START':
-      return match.start;
+      return getLineStart(content, match.start);
     case 'START_BEFORE':
       return getPreviousLineStart(content, match.start);
     case 'START_AFTER':
-      return match.end;
+      return getLineEnd(content, match.end);
     default:
-      return match.end;
+      return getLineEnd(content, match.end);
   }
 }
 
 function resolveReplacementEnd(content: string, match: MatchRange, directiveKey: string): number {
   switch (directiveKey) {
     case 'END':
-      return match.end;
+      return getLineEnd(content, match.end);
     case 'END_BEFORE':
       return getLineStart(content, match.start);
     case 'END_AFTER':
@@ -156,11 +156,15 @@ function getPreviousLineStart(content: string, index: number): number {
   return previousNewline === -1 ? 0 : previousNewline + 1;
 }
 
+function getLineEnd(content: string, index: number): number {
+  const newline = content.indexOf('\n', index);
+  return newline === -1 ? content.length : newline + 1;
+}
+
 function getNextLineEnd(content: string, index: number): number {
-  const lineEnd = content.indexOf('\n', index);
-  if (lineEnd === -1) {
+  const lineEnd = getLineEnd(content, index);
+  if (lineEnd >= content.length) {
     return content.length;
   }
-  const nextLineEnd = content.indexOf('\n', lineEnd + 1);
-  return nextLineEnd === -1 ? content.length : nextLineEnd + 1;
+  return getLineEnd(content, lineEnd);
 }

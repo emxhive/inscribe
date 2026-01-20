@@ -259,6 +259,23 @@ const x = 1;
     expect(errors).toEqual([]);
   });
 
+  it('should validate range mode with START-only anchors', () => {
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/range-test.js',
+        mode: 'range',
+        directives: {
+          START: '// start',
+        },
+        content: 'new content',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors).toEqual([]);
+  });
+
   it('should fail range mode without START directive', () => {
     const blocks: ParsedBlock[] = [
       {

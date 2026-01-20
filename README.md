@@ -49,7 +49,7 @@ MODE: create | replace | append | range
 - **create** — file MUST NOT exist
 - **replace** — file MUST exist, entire content replaced
 - **append** — file MUST exist, content appended to end
-- **range** — file MUST exist, partial replace between anchors
+- **range** — file MUST exist, partial replace between anchors (or replace a single START-selected line when END is omitted)
 
 ## LLM Usage
 
@@ -64,4 +64,3 @@ When applying changes, Inscribe creates a snapshot at `.inscribe/backups/<timest
 ## Documentation
 
 See [`docs/terminology.md`](docs/terminology.md) for detailed terminology and directive reference.
-

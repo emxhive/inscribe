@@ -79,14 +79,8 @@ export function parseIntakeStructure(
       const hasStart = Boolean(
         block.directives.START || block.directives.START_BEFORE || block.directives.START_AFTER
       );
-      const hasEnd = Boolean(
-        block.directives.END || block.directives.END_BEFORE || block.directives.END_AFTER
-      );
       if (!hasStart) {
         block.warnings.push('Missing START directive for range mode');
-      }
-      if (!hasEnd) {
-        block.warnings.push('Missing END directive for range mode');
       }
     }
 

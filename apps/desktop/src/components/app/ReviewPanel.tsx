@@ -150,7 +150,7 @@ export function ReviewPanel() {
 
       {selectedItem?.mode === 'range' && (
         <p className="text-xs text-muted-foreground bg-secondary px-2 py-1.5 rounded-lg border border-border self-start">
-          Range anchors must match exactly and be unique; duplicates fail; no partial apply.
+          Range anchors must match exactly and be unique; omit END to replace the START-selected line with your block.
         </p>
       )}
 

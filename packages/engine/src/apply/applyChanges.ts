@@ -32,8 +32,8 @@ function validateOperation(operation: Operation, index: number): string[] {
     const endKeys = ['END', 'END_BEFORE', 'END_AFTER'];
     const startMatches = startKeys.filter(key => directives[key]);
     const endMatches = endKeys.filter(key => directives[key]);
-    if (startMatches.length !== 1 || endMatches.length !== 1) {
-      errors.push('Range operation requires exactly one of START, START_BEFORE, START_AFTER and one of END, END_BEFORE, END_AFTER directives');
+    if (startMatches.length !== 1 || endMatches.length > 1) {
+      errors.push('Range operation requires exactly one of START, START_BEFORE, START_AFTER directives and at most one of END, END_BEFORE, END_AFTER directives');
     }
   }
 

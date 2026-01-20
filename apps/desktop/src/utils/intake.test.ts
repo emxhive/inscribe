@@ -33,6 +33,12 @@ describe('parseIntakeStructure', () => {
     const { blocks } = parseIntakeStructure(input);
 
     expect(blocks[0].warnings).not.toContain('Missing START directive for range mode');
-    expect(blocks[0].warnings).not.toContain('Missing END directive for range mode');
+  });
+
+  it('accepts START-only range blocks without warnings', () => {
+    const input = wrapBlock(`FILE: src/range.ts\nMODE: range\nSTART: // start`);
+    const { blocks } = parseIntakeStructure(input);
+
+    expect(blocks[0].warnings).not.toContain('Missing START directive for range mode');
   });
 });

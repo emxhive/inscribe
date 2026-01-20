@@ -22,6 +22,7 @@ function AppShell() {
   const [ignoreModalOpen, setIgnoreModalOpen] = useState(false);
   const [ignoredListModalOpen, setIgnoredListModalOpen] = useState(false);
   const [suggestedListModalOpen, setSuggestedListModalOpen] = useState(false);
+  const [indexedListModalOpen, setIndexedListModalOpen] = useState(false);
 
   const hasRepository = Boolean(state.repoRoot);
 
@@ -33,9 +34,10 @@ function AppShell() {
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       <AppHeader
         onOpenScopeModal={() => hasRepository && setScopeModalOpen(true)}
+        onOpenIgnoredList={() => setIgnoredListModalOpen(true)}
         onOpenIgnoreEditor={() => hasRepository && setIgnoreModalOpen(true)}
         onOpenSuggestedList={() => setSuggestedListModalOpen(true)}
-        onOpenIgnoredList={() => setIgnoredListModalOpen(true)}
+        onOpenIndexedList={() => setIndexedListModalOpen(true)}
       />
 
       <MainContent />
@@ -67,6 +69,14 @@ function AppShell() {
         title="Suggested Excludes"
         items={state.suggested}
         emptyMessage="No suggested excludes"
+      />
+
+      <ListModal
+        isOpen={indexedListModalOpen}
+        onClose={() => setIndexedListModalOpen(false)}
+        title="Indexed Files"
+        items={state.indexedFiles}
+        emptyMessage="No indexed files"
       />
     </div>
   );

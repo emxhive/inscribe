@@ -5,16 +5,18 @@ import { getPathBasename } from '@/utils';
 
 interface AppHeaderProps {
   onOpenScopeModal: () => void;
+  onOpenIgnoredList: () => void;
   onOpenIgnoreEditor: () => void;
   onOpenSuggestedList: () => void;
-  onOpenIgnoredList: () => void;
+  onOpenIndexedList: () => void;
 }
 
 export function AppHeader({
   onOpenScopeModal,
+  onOpenIgnoredList,
   onOpenIgnoreEditor,
   onOpenSuggestedList,
-  onOpenIgnoredList,
+  onOpenIndexedList,
 }: AppHeaderProps) {
   const { state, updateState } = useAppStateContext();
   const repositoryActions = useRepositoryActions();
@@ -33,7 +35,11 @@ export function AppHeader({
     requireRepository(onOpenScopeModal, 'Select a repository to configure scope.');
   };
 
-  const handleIgnoreClick = () => {
+  const handleIgnoredListClick = () => {
+    requireRepository(onOpenIgnoredList, 'Select a repository to view ignored paths.');
+  };
+
+  const handleIgnoreEditorClick = () => {
     requireRepository(onOpenIgnoreEditor, 'Select a repository to edit ignore rules.');
   };
 
@@ -76,11 +82,19 @@ export function AppHeader({
         </button>
         <button
           className="text-xs font-semibold text-muted-foreground hover:text-accent-foreground transition-colors h-8 px-2 rounded hover:bg-accent disabled:opacity-50"
-          onClick={handleIgnoreClick}
-          title="Click to edit ignore file"
+          onClick={handleIgnoredListClick}
+          title="Click to view ignored paths"
           disabled={!hasRepository}
         >
           Ignore: {state.ignore.entries.length}
+        </button>
+        <button
+          className="text-xs font-semibold text-muted-foreground hover:text-accent-foreground transition-colors h-8 px-2 rounded hover:bg-accent disabled:opacity-50"
+          onClick={handleIgnoreEditorClick}
+          title="Click to edit ignore file"
+          disabled={!hasRepository}
+        >
+          Edit Ignore
         </button>
         <button
           className="text-xs font-semibold text-muted-foreground hover:text-accent-foreground transition-colors h-8 px-2 rounded hover:bg-accent"
@@ -91,7 +105,7 @@ export function AppHeader({
         </button>
         <button
           className="text-xs font-semibold text-muted-foreground hover:text-accent-foreground transition-colors h-8 px-2 rounded hover:bg-accent"
-          onClick={onOpenIgnoredList}
+          onClick={onOpenIndexedList}
           title="Click to view indexed files"
         >
           Indexed: {state.indexedCount}

@@ -44,27 +44,29 @@ Optional commands within an Inscribe block that provide additional instructions 
 - Directives do **not** use the `@inscribe` prefix. Only `BEGIN` and `END` markers use the prefix.
 - The `FILE:` and `MODE:` fields are headers, not directives.
 
-- **START / START_BEFORE / START_AFTER:** (exactly one required for range mode) The beginning anchor for partial replacement
+- **START / START_BEFORE / START_AFTER:** (exactly one required for range mode) The beginning anchor for line-based replacement
   - Format: `START: <exact substring>` / `START_BEFORE: <exact substring>` / `START_AFTER: <exact substring>`
   - **Must not use `@inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Can match anywhere within a line (beginning, middle, or end)
+  - **Replacements always expand to full line boundaries** (no inline splicing)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
   - START anchor must match exactly once in the target file (or within scope)
-  - **START** begins replacement at the anchor (the anchor is replaced)
-  - **START_BEFORE** begins replacement on the line before the anchor (previous line + anchor line + rest)
-  - **START_AFTER** begins replacement immediately after the anchor (previous default behavior)
+  - **START** begins replacement at the start of the line containing the anchor (the anchor line is replaced)
+  - **START_BEFORE** begins replacement at the start of the line before the anchor (previous line + anchor line + rest)
+  - **START_AFTER** begins replacement at the start of the line after the anchor
   
-- **END / END_BEFORE / END_AFTER:** (exactly one required for range mode) The ending anchor for partial replacement
+- **END / END_BEFORE / END_AFTER:** (exactly one required for range mode) The ending anchor for line-based replacement
   - Format: `END: <exact substring>` / `END_BEFORE: <exact substring>` / `END_AFTER: <exact substring>`
   - **Must not use `@inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Can match anywhere within a line (beginning, middle, or end)
+  - **Replacements always expand to full line boundaries** (no inline splicing)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
   - END anchor can appear multiple times; Inscribe uses the **first END after START**
-  - **END** ends replacement at the anchor (the anchor is replaced)
-  - **END_BEFORE** ends replacement on the line before the anchor (anchor line is excluded)
-  - **END_AFTER** ends replacement on the line after the anchor
+  - **END** ends replacement at the end of the line containing the anchor (the anchor line is replaced)
+  - **END_BEFORE** ends replacement at the start of the line containing the anchor (anchor line is excluded)
+  - **END_AFTER** ends replacement at the end of the line after the anchor
 
 - **SCOPE_START:** (optional for range mode) Narrows the search area for anchors
   - Format: `SCOPE_START: <exact substring>`
@@ -151,7 +153,7 @@ export const newFeature = true;
 ````
 
 ### range
-Replaces content between two anchor points in an existing file. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive).
+Replaces content between two anchor points in an existing file. Anchors match substrings, but replacements always operate on full lines. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive).
 
 **Requirements:**
 - File MUST exist

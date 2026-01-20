@@ -7,6 +7,7 @@ import {
   type DirectiveKey,
   type HeaderKey,
 } from '@inscribe/shared';
+import { Select } from '@/components/ui/select';
 
 type EditableKey = HeaderKey | DirectiveKey;
 
@@ -25,7 +26,6 @@ export function ReviewDirectivePopover({
   onSave,
   onClose,
 }: ReviewDirectivePopoverProps) {
-  const modeListId = 'mode-header-options-popover';
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState<Partial<Record<EditableKey, string>>>({});
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
@@ -114,25 +114,34 @@ export function ReviewDirectivePopover({
             {HEADER_KEYS.map((key) => (
               <label key={key} className="block text-xs text-muted-foreground">
                 <span className="text-[11px] font-semibold text-foreground">{key}</span>
-                <input
-                  value={draft[key] ?? ''}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      [key]: event.target.value,
-                    }))
-                  }
-                  list={key === 'MODE' ? modeListId : undefined}
-                  className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                  placeholder={`${key}:`}
-                />
+                {key === 'MODE' ? (
+                  <Select
+                    className="mt-1 font-mono"
+                    value={draft.MODE ?? ''}
+                    placeholder="MODE:"
+                    options={VALID_MODES.map((mode) => ({ value: mode, label: mode }))}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        MODE: event.target.value,
+                      }))
+                    }
+                  />
+                ) : (
+                  <input
+                    value={draft[key] ?? ''}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        [key]: event.target.value,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder={`${key}:`}
+                  />
+                )}
               </label>
             ))}
-            <datalist id={modeListId}>
-              {VALID_MODES.map((mode) => (
-                <option key={mode} value={mode} />
-              ))}
-            </datalist>
           </div>
         </div>
         <div>
@@ -163,9 +172,11 @@ export function ReviewDirectivePopover({
           </div>
           <div className="mt-3 flex items-center gap-2">
             <label className="text-[11px] font-semibold text-foreground">Add directive</label>
-            <select
-              className="flex-1 rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            <Select
+              className="flex-1"
               value=""
+              placeholder="Select"
+              options={missingDirectiveKeys.map((key) => ({ value: key, label: key }))}
               onChange={(event) => {
                 if (event.target.value) {
                   const key = event.target.value as DirectiveKey;
@@ -175,16 +186,7 @@ export function ReviewDirectivePopover({
                   }));
                 }
               }}
-            >
-              <option value="" disabled>
-                Select
-              </option>
-              {missingDirectiveKeys.map((key) => (
-                <option key={key} value={key}>
-                  {key}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
       </div>

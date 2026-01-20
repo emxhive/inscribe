@@ -92,20 +92,26 @@ export function applyRangeReplace(filePath: string, operation: Operation): void 
       throw new Error('END anchor must come after START anchor');
     }
 
+    const suffix = content.substring(absoluteEndPos);
+    const insert = normalizeLineInsert(operation.content, suffix);
+
     newContent =
       content.substring(0, absoluteStartPos) +
-      operation.content +
-      content.substring(absoluteEndPos);
+      insert +
+      suffix;
   } else {
     const { lineStart, lineEnd } = resolveSingleLineReplacementRange(
       content,
       absoluteStartMatch,
       startDirectives.key
     );
+    const suffix = content.substring(lineEnd);
+    const insert = normalizeLineInsert(operation.content, suffix);
+
     newContent =
       content.substring(0, lineStart) +
-      operation.content +
-      content.substring(lineEnd);
+      insert +
+      suffix;
   }
 
   fs.writeFileSync(filePath, newContent);
@@ -206,3 +212,10 @@ function getNextLineEnd(content: string, index: number): number {
   }
   return getLineEnd(content, lineEnd);
 }
+
+function normalizeLineInsert(insert: string, suffix: string): string {
+  if (!suffix) return insert;         // nothing after -> don't force a newline
+  if (!insert) return insert;         // empty insert -> leave it alone
+  return insert.endsWith('\n') ? insert : insert + '\n';
+}
+

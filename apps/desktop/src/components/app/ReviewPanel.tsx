@@ -145,7 +145,7 @@ export function ReviewPanel() {
   const previewSections = useMemo(() => {
     if (!previewData) return null;
 
-    const contextLines = 3;
+    const contextLines = 10;
     const contentLines = previewData.content.split('\n');
     const lineStarts: number[] = [];
     let offset = 0;
@@ -171,12 +171,46 @@ export function ReviewPanel() {
     const before = contentLines.slice(beforeStart, startLine).join('\n');
     const after = contentLines.slice(endLine + 1, afterEnd + 1).join('\n');
 
+    // Build unified preview content with text markers
+    const sections: string[] = [];
+    
+    if (before) {
+      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push('// CONTEXT BEFORE');
+      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push(before);
+    }
+    
+    if (previewData.type === 'range' && previewData.removed) {
+      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push('// REMOVED');
+      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push(previewData.removed);
+    }
+    
+    if (previewData.insert) {
+      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push('// INSERTED');
+      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push(previewData.insert);
+    }
+    
+    if (after) {
+      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push('// CONTEXT AFTER');
+      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push(after);
+    }
+
+    const unifiedContent = sections.join('\n');
+
     return {
       before,
       after,
       removed: previewData.removed,
       insert: previewData.insert,
       mode: previewData.type,
+      unifiedContent,
     };
   }, [previewData]);
 
@@ -269,51 +303,20 @@ export function ReviewPanel() {
             basicSetup={{ lineNumbers: false, foldGutter: false }}
           />
         ) : previewSections && (selectedItem?.mode === 'append' || selectedItem?.mode === 'range') ? (
-          <div className="review-preview flex-1 w-full h-full overflow-auto rounded-lg text-sm font-mono text-slate-200 space-y-2">
+          <div className="review-preview flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono">
             {previewError && (
-              <p className="text-xs text-red-200">{previewError}</p>
+              <p className="text-xs text-red-200 px-3 py-2">{previewError}</p>
             )}
-            {previewSections.before && (
-              <div className="review-preview-block px-3 py-2">
-                <CodeMirror
-                  value={previewSections.before}
-                  theme={oneDark}
-                  extensions={editorExtensions}
-                  editable={false}
-                  readOnly
-                  basicSetup={{ lineNumbers: false, foldGutter: false }}
-                />
-              </div>
-            )}
-            {previewSections.mode === 'range' && previewSections.removed && (
-              <pre className="review-preview-block bg-rose-900/40 text-slate-200 whitespace-pre rounded-md px-3 py-2">
-                {previewSections.removed}
-              </pre>
-            )}
-            {previewSections.insert && (
-              <div className="review-preview-block bg-emerald-900/30 rounded-md px-3 py-2">
-                <CodeMirror
-                  value={previewSections.insert}
-                  theme={oneDark}
-                  extensions={editorExtensions}
-                  editable={false}
-                  readOnly
-                  basicSetup={{ lineNumbers: false, foldGutter: false }}
-                />
-              </div>
-            )}
-            {previewSections.after && (
-              <div className="review-preview-block px-3 py-2">
-                <CodeMirror
-                  value={previewSections.after}
-                  theme={oneDark}
-                  extensions={editorExtensions}
-                  editable={false}
-                  readOnly
-                  basicSetup={{ lineNumbers: false, foldGutter: false }}
-                />
-              </div>
-            )}
+            <CodeMirror
+              className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
+              value={previewSections.unifiedContent}
+              height="100%"
+              theme={oneDark}
+              extensions={editorExtensions}
+              editable={false}
+              readOnly
+              basicSetup={{ lineNumbers: true, foldGutter: false }}
+            />
           </div>
         ) : (
           <div className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono flex flex-col gap-2">

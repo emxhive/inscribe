@@ -102,6 +102,9 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     item: ReviewItem,
     event: React.MouseEvent<HTMLLIElement>,
   ) => {
+    if (item.status === 'applied') {
+      return;
+    }
     event.stopPropagation();
     directiveAnchorRef.current = event.currentTarget;
     setDirectiveEditorItemId(item.id);

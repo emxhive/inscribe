@@ -13,11 +13,16 @@ export function useApplyActions() {
   };
   const markItemsApplied = (ids: string[]) => {
     const appliedStatus: ReviewItem['status'] = 'applied';
-    updateState((prev) => ({
-      reviewItems: prev.reviewItems.map((item) =>
+    updateState((prev) => {
+      const nextReviewItems = prev.reviewItems.map((item) =>
         ids.includes(item.id) ? { ...item, status: appliedStatus } : item
-      ),
-    }));
+      );
+      const selectedWasApplied = prev.selectedItemId ? ids.includes(prev.selectedItemId) : false;
+      return {
+        reviewItems: nextReviewItems,
+        ...(selectedWasApplied ? { isEditing: false } : {}),
+      };
+    });
   };
   const handleApplySelected = async () => {
     if (!state.repoRoot || !state.selectedItemId) return;
@@ -29,8 +34,8 @@ export function useApplyActions() {
       updateState({ statusMessage: `Cannot apply: ${selectedItem.validationError}` });
       return;
     }
-    if (selectedItem.status === 'applied') {
-      updateState({ statusMessage: 'Selected file has already been applied' });
+    if (selectedItem.status !== 'pending') {
+      updateState({ statusMessage: 'Selected file is not pending' });
       return;
     }
 
@@ -72,6 +77,12 @@ export function useApplyActions() {
   const handleApplyAll = async () => {
     if (!state.repoRoot) return;
     
+    const hasAnyApplied = state.reviewItems.some(item => item.status === 'applied');
+    if (hasAnyApplied) {
+      updateState({ statusMessage: 'Some files have already been applied' });
+      return;
+    }
+
     const invalidItems = state.reviewItems.filter(item => item.status === 'invalid');
     if (invalidItems.length > 0) {
       updateState({ statusMessage: `Cannot apply: ${invalidItems.length} file(s) have validation errors` });

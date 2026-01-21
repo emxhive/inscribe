@@ -40,3 +40,22 @@
     @apply bg-background text-foreground font-sans;
   }
 }
+
+@layer components {
+  .review-preview .cm-editor {
+    background-color: transparent;
+  }
+
+  .review-preview .cm-scroller {
+    font-family: inherit;
+  }
+
+  .review-preview .cm-content {
+    padding: 0;
+  }
+
+  .review-preview .cm-line {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}

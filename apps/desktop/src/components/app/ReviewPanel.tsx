@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
 import { AlertCircle, ArrowLeft, Eye, Pencil } from 'lucide-react';
+import type { OperationPreview, Operation } from '@inscribe/shared';
 
 export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
@@ -35,6 +36,8 @@ export function ReviewPanel() {
     Boolean(selectedItem) && selectedItem?.status === 'pending' && !isApplyingInProgress;
   const canEditSelection = Boolean(selectedItem) && !selectedIsApplied;
   const isEditing = state.isEditing && canEditSelection;
+  const [previewData, setPreviewData] = useState<OperationPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const languageExtension = useMemo(() => {
     const fileName = selectedItem?.file;
@@ -86,6 +89,96 @@ export function ReviewPanel() {
     }
     return baseExtensions;
   }, [languageExtension]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPreview = async () => {
+      if (!state.repoRoot || !selectedItem || isEditing) {
+        setPreviewData(null);
+        setPreviewError(null);
+        return;
+      }
+
+      if (selectedItem.mode !== 'append' && selectedItem.mode !== 'range') {
+        setPreviewData(null);
+        setPreviewError(null);
+        return;
+      }
+
+      const operation: Operation = {
+        type: selectedItem.mode,
+        file: selectedItem.file,
+        content: editorValue,
+        directives: selectedItem.directives,
+      };
+
+      try {
+        const result = await window.inscribeAPI.previewOperation(operation, state.repoRoot);
+        if (cancelled) return;
+        if ('error' in result) {
+          setPreviewData(null);
+          setPreviewError(result.error);
+          return;
+        }
+        setPreviewData(result);
+        setPreviewError(null);
+      } catch (error) {
+        if (cancelled) return;
+        setPreviewData(null);
+        setPreviewError(error instanceof Error ? error.message : 'Failed to load preview');
+      }
+    };
+
+    void loadPreview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    editorValue,
+    isEditing,
+    selectedItem,
+    state.repoRoot,
+  ]);
+
+  const previewSections = useMemo(() => {
+    if (!previewData) return null;
+
+    const contextLines = 3;
+    const contentLines = previewData.content.split('\n');
+    const lineStarts: number[] = [];
+    let offset = 0;
+    for (const line of contentLines) {
+      lineStarts.push(offset);
+      offset += line.length + 1;
+    }
+
+    const findLineIndex = (position: number) => {
+      for (let i = lineStarts.length - 1; i >= 0; i -= 1) {
+        if (lineStarts[i] <= position) {
+          return i;
+        }
+      }
+      return 0;
+    };
+
+    const safeEnd = Math.max(previewData.replaceEnd - 1, previewData.replaceStart);
+    const startLine = findLineIndex(previewData.replaceStart);
+    const endLine = findLineIndex(safeEnd);
+    const beforeStart = Math.max(0, startLine - contextLines);
+    const afterEnd = Math.min(contentLines.length - 1, endLine + contextLines);
+    const before = contentLines.slice(beforeStart, startLine).join('\n');
+    const after = contentLines.slice(endLine + 1, afterEnd + 1).join('\n');
+
+    return {
+      before,
+      after,
+      removed: previewData.removed,
+      insert: previewData.insert,
+      mode: previewData.type,
+    };
+  }, [previewData]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -175,17 +268,69 @@ export function ReviewPanel() {
             onChange={(value: string) => reviewActions.handleEditorChange(value)}
             basicSetup={{ lineNumbers: false, foldGutter: false }}
           />
+        ) : previewSections && (selectedItem?.mode === 'append' || selectedItem?.mode === 'range') ? (
+          <div className="review-preview flex-1 w-full h-full overflow-auto rounded-lg text-sm font-mono text-slate-200 space-y-2">
+            {previewError && (
+              <p className="text-xs text-red-200">{previewError}</p>
+            )}
+            {previewSections.before && (
+              <div className="review-preview-block px-3 py-2">
+                <CodeMirror
+                  value={previewSections.before}
+                  theme={oneDark}
+                  extensions={editorExtensions}
+                  editable={false}
+                  readOnly
+                  basicSetup={{ lineNumbers: false, foldGutter: false }}
+                />
+              </div>
+            )}
+            {previewSections.mode === 'range' && previewSections.removed && (
+              <pre className="review-preview-block bg-rose-900/40 text-slate-200 whitespace-pre rounded-md px-3 py-2">
+                {previewSections.removed}
+              </pre>
+            )}
+            {previewSections.insert && (
+              <div className="review-preview-block bg-emerald-900/30 rounded-md px-3 py-2">
+                <CodeMirror
+                  value={previewSections.insert}
+                  theme={oneDark}
+                  extensions={editorExtensions}
+                  editable={false}
+                  readOnly
+                  basicSetup={{ lineNumbers: false, foldGutter: false }}
+                />
+              </div>
+            )}
+            {previewSections.after && (
+              <div className="review-preview-block px-3 py-2">
+                <CodeMirror
+                  value={previewSections.after}
+                  theme={oneDark}
+                  extensions={editorExtensions}
+                  editable={false}
+                  readOnly
+                  basicSetup={{ lineNumbers: false, foldGutter: false }}
+                />
+              </div>
+            )}
+          </div>
         ) : (
-          <CodeMirror
-            className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
-            value={editorValue}
-            height="100%"
-            theme={oneDark}
-            extensions={editorExtensions}
-            editable={false}
-            readOnly
-            basicSetup={{ lineNumbers: false, foldGutter: false }}
-          />
+          <div className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono flex flex-col gap-2">
+            {previewError && (
+              <p className="text-xs text-red-200">{previewError}</p>
+            )}
+            <CodeMirror
+              className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
+              value={editorValue}
+              height="100%"
+              theme={oneDark}
+              extensions={editorExtensions}
+              editable={false}
+              readOnly
+              basicSetup={{ lineNumbers: false, foldGutter: false }}
+            />
+          </div>
         )}
       </div>
 

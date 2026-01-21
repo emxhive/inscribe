@@ -3,6 +3,8 @@ import type {
   ApplyResult,
   IgnoreRules,
   IndexStatus,
+  Operation,
+  OperationPreview,
   ParseResult,
   ParsedBlock,
   ValidationError,
@@ -43,6 +45,8 @@ export interface ReadIgnoreRawResult {
   exists: boolean;
 }
 
+export type OperationPreviewResult = OperationPreview | { error: string };
+
 export interface InscribeAPI {
   selectRepository: (defaultPath?: string) => Promise<string | null>;
   getLastVisitedRepo: () => Promise<string | null>;
@@ -58,5 +62,6 @@ export interface InscribeAPI {
   validateBlocks: (blocks: ParsedBlock[], repoRoot: string) => Promise<ValidationError[]>;
   validateAndBuildApplyPlan: (blocks: ParsedBlock[], repoRoot: string) => Promise<ApplyPlan>;
   applyChanges: (plan: ApplyPlan, repoRoot: string) => Promise<ApplyResult>;
+  previewOperation: (operation: Operation, repoRoot: string) => Promise<OperationPreviewResult>;
   undoLastApply: (repoRoot: string) => Promise<UndoResult>;
 }

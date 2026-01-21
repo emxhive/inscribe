@@ -3,6 +3,7 @@ import type {
   ApplyPlan,
   ApplyResult,
   ParseResult,
+  Operation,
   ParsedBlock,
   UndoResult,
   ValidationError,
@@ -56,6 +57,9 @@ const api = {
 
   applyChanges: (plan: ApplyPlan, repoRoot: string): Promise<ApplyResult> =>
     ipcRenderer.invoke('apply-changes', plan, repoRoot),
+
+  previewOperation: (operation: Operation, repoRoot: string) =>
+    ipcRenderer.invoke('preview-operation', operation, repoRoot),
 
   undoLastApply: (repoRoot: string): Promise<UndoResult> =>
     ipcRenderer.invoke('undo-last-apply', repoRoot),

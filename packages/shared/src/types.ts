@@ -32,6 +32,16 @@ export interface Operation {
   directives?: Record<string, string>;
 }
 
+export interface OperationPreview {
+  type: Mode;
+  file: string;
+  content: string;
+  insert: string;
+  replaceStart: number;
+  replaceEnd: number;
+  removed: string;
+}
+
 export interface ApplyPlan {
   operations: Operation[];
   errors?: ValidationError[];

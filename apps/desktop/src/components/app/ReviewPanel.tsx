@@ -22,12 +22,18 @@ export function ReviewPanel() {
   const reviewActions = useReviewActions();
   const applyActions = useApplyActions();
 
-  const { selectedItem, editorValue, pendingItemsCount } = reviewActions;
+  const { selectedItem, editorValue } = reviewActions;
   const hasInvalidItems = state.reviewItems.some((item) => item.status === 'invalid');
-  const allChangesApplied =
+  const hasAnyApplied = state.reviewItems.some((item) => item.status === 'applied');
+  const hasPending = state.reviewItems.some((item) => item.status === 'pending');
+  const allApplied =
     state.reviewItems.length > 0 && state.reviewItems.every((item) => item.status === 'applied');
-
-  const canApplySelected = selectedItem && selectedItem.status === 'pending' && !state.isApplyingInProgress;
+  const selectedIsApplied = selectedItem?.status === 'applied';
+  const isApplyingInProgress = state.isApplyingInProgress;
+  const canApplySelected =
+    Boolean(selectedItem) && selectedItem?.status === 'pending' && !isApplyingInProgress;
+  const canEditSelection = Boolean(selectedItem) && !selectedIsApplied;
+  const isEditing = state.isEditing && canEditSelection;
 
   const languageExtension = useMemo(() => {
     const fileName = selectedItem?.file;
@@ -91,7 +97,7 @@ export function ReviewPanel() {
         return;
       }
       const key = event.key.toLowerCase();
-      if (key === 'e' && !state.isEditing) {
+      if (key === 'e' && !state.isEditing && !selectedIsApplied) {
         updateState({ isEditing: true });
         event.preventDefault();
       }
@@ -103,7 +109,7 @@ export function ReviewPanel() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedItem, state.isEditing, updateState]);
+  }, [selectedItem, selectedIsApplied, state.isEditing, updateState]);
 
   return (
     <section className="flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
@@ -113,7 +119,7 @@ export function ReviewPanel() {
           <h2 className="text-xl font-semibold mt-0.5">{selectedItem?.file || 'Select a file from the left'}</h2>
         </div>
         <div className="flex items-center gap-2">
-          {allChangesApplied && (
+          {allApplied && (
             <Button
               variant="outline"
               size="icon"
@@ -125,17 +131,18 @@ export function ReviewPanel() {
               <ArrowLeft />
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="icon"
-            type="button"
-            onClick={() => updateState({ isEditing: !state.isEditing })}
-            disabled={!selectedItem}
-            aria-label={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
-            title={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
-          >
-            {state.isEditing ? <Eye /> : <Pencil />}
-          </Button>
+          {canEditSelection && (
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              onClick={() => updateState({ isEditing: !state.isEditing })}
+              aria-label={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
+              title={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
+            >
+              {state.isEditing ? <Eye /> : <Pencil />}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -155,7 +162,7 @@ export function ReviewPanel() {
       )}
 
       <div className="flex-1 min-h-[320px] border border-border rounded-lg p-3 bg-secondary flex">
-        {state.isEditing ? (
+        {isEditing ? (
           <CodeMirror
             className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
             value={editorValue}
@@ -186,7 +193,7 @@ export function ReviewPanel() {
           type="button"
           onClick={applyActions.handleUndo}
           title="Undo last apply (single-step)"
-          disabled={state.isApplyingInProgress}
+          disabled={isApplyingInProgress}
         >
           Undo last apply
         </Button>
@@ -195,7 +202,7 @@ export function ReviewPanel() {
           size="sm"
           type="button"
           onClick={applyActions.handleRedo}
-          disabled={!state.canRedo || state.isApplyingInProgress}
+          disabled={!state.canRedo || isApplyingInProgress}
         >
           Redo Apply
         </Button>
@@ -204,7 +211,7 @@ export function ReviewPanel() {
           size="sm"
           type="button" 
           onClick={reviewActions.handleResetAll} 
-          disabled={state.isApplyingInProgress}
+          disabled={isApplyingInProgress}
         >
           Reset All
         </Button>
@@ -216,23 +223,23 @@ export function ReviewPanel() {
           onClick={applyActions.handleApplySelected}
           disabled={!canApplySelected}
         >
-          {state.isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
+          {isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
         </Button>
         <Button
           variant="outline"
           size="sm"
           type="button"
           onClick={applyActions.handleApplyValidBlocks}
-          disabled={pendingItemsCount === 0 || state.isApplyingInProgress}
+          disabled={!hasPending || isApplyingInProgress}
         >
-          {state.isApplyingInProgress ? 'Applying...' : 'Apply Valid Blocks'}
+          {isApplyingInProgress ? 'Applying...' : 'Apply Valid Blocks'}
         </Button>
         <Button
           type="button"
           onClick={applyActions.handleApplyAll}
-          disabled={hasInvalidItems || state.isApplyingInProgress}
+          disabled={!hasPending || hasAnyApplied || hasInvalidItems || isApplyingInProgress}
         >
-          {state.isApplyingInProgress ? 'Applying...' : 'Apply All Changes'}
+          {isApplyingInProgress ? 'Applying...' : 'Apply All Changes'}
         </Button>
       </div>
 

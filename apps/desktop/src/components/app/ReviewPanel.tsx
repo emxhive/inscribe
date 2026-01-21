@@ -171,34 +171,50 @@ export function ReviewPanel() {
     const before = contentLines.slice(beforeStart, startLine).join('\n');
     const after = contentLines.slice(endLine + 1, afterEnd + 1).join('\n');
 
+    // Determine comment style based on file extension
+    const fileName = selectedItem?.file ?? '';
+    const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
+    let commentStart = '//';
+    if (['py', 'yml', 'yaml'].includes(extension)) {
+      commentStart = '#';
+    } else if (['html', 'htm', 'xml', 'svg', 'md', 'markdown'].includes(extension)) {
+      commentStart = '<!--';
+    } else if (['css', 'scss', 'sass'].includes(extension)) {
+      commentStart = '/*';
+    }
+    
+    const separator = '─'.repeat(58);
+    const makeSeparator = () => `${commentStart} ${separator}`;
+    const makeLabel = (label: string) => `${commentStart} ${label}`;
+
     // Build unified preview content with text markers
     const sections: string[] = [];
     
     if (before) {
-      sections.push('// ──────────────────────────────────────────────────────');
-      sections.push('// CONTEXT BEFORE');
-      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push(makeSeparator());
+      sections.push(makeLabel('CONTEXT BEFORE'));
+      sections.push(makeSeparator());
       sections.push(before);
     }
     
     if (previewData.type === 'range' && previewData.removed) {
-      sections.push('// ──────────────────────────────────────────────────────');
-      sections.push('// REMOVED');
-      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push(makeSeparator());
+      sections.push(makeLabel('REMOVED'));
+      sections.push(makeSeparator());
       sections.push(previewData.removed);
     }
     
     if (previewData.insert) {
-      sections.push('// ──────────────────────────────────────────────────────');
-      sections.push('// INSERTED');
-      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push(makeSeparator());
+      sections.push(makeLabel('INSERTED'));
+      sections.push(makeSeparator());
       sections.push(previewData.insert);
     }
     
     if (after) {
-      sections.push('// ──────────────────────────────────────────────────────');
-      sections.push('// CONTEXT AFTER');
-      sections.push('// ──────────────────────────────────────────────────────');
+      sections.push(makeSeparator());
+      sections.push(makeLabel('CONTEXT AFTER'));
+      sections.push(makeSeparator());
       sections.push(after);
     }
 
@@ -212,7 +228,7 @@ export function ReviewPanel() {
       mode: previewData.type,
       unifiedContent,
     };
-  }, [previewData]);
+  }, [previewData, selectedItem?.file]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

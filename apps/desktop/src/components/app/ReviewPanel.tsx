@@ -6,6 +6,7 @@ import { indentUnit } from '@codemirror/language';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
+import { php } from '@codemirror/lang-php';
 import { python } from '@codemirror/lang-python';
 import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
@@ -40,10 +41,8 @@ export function ReviewPanel() {
     if (!fileName) {
       return null;
     }
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    if (!extension) {
-      return null;
-    }
+    const extension = fileName.split('.').pop()?.toLowerCase() ?? 'txt';
+    const shouldPreferPhp = editorValue.includes('<?php');
     switch (extension) {
       case 'ts':
       case 'tsx':
@@ -71,10 +70,14 @@ export function ReviewPanel() {
       case 'yml':
       case 'yaml':
         return yaml();
+      case 'php':
+      case 'phtml':
+        return php();
+      case 'txt':
       default:
-        return null;
+        return shouldPreferPhp ? php() : javascript();
     }
-  }, [selectedItem?.file]);
+  }, [editorValue, selectedItem?.file]);
 
   const editorExtensions = useMemo(() => {
     const baseExtensions = [indentUnit.of('\t'), keymap.of([indentWithTab])];

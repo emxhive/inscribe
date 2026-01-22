@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
-import { keymap } from '@codemirror/view';
+import { Decoration, EditorView, GutterMarker, gutter, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
+import { EditorState, RangeSetBuilder, StateField } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
@@ -18,6 +19,21 @@ import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
 import { AlertCircle, ArrowLeft, Eye, Pencil } from 'lucide-react';
 import type { OperationPreview, Operation } from '@inscribe/shared';
+
+type PreviewLineMarker = 'insert' | 'remove' | null;
+
+class DiffGutterMarker extends GutterMarker {
+  constructor(private readonly marker: string, private readonly className: string) {
+    super();
+  }
+
+  toDOM() {
+    const element = document.createElement('span');
+    element.textContent = this.marker;
+    element.className = this.className;
+    return element;
+  }
+}
 
 export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
@@ -170,55 +186,30 @@ export function ReviewPanel() {
     const afterEnd = Math.min(contentLines.length - 1, endLine + contextLines);
     const before = contentLines.slice(beforeStart, startLine).join('\n');
     const after = contentLines.slice(endLine + 1, afterEnd + 1).join('\n');
-
-    // Determine comment style based on file extension
-    const fileName = selectedItem?.file ?? '';
-    const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
-    let commentStart = '//';
-    if (['py', 'yml', 'yaml'].includes(extension)) {
-      commentStart = '#';
-    } else if (['html', 'htm', 'xml', 'svg', 'md', 'markdown'].includes(extension)) {
-      commentStart = '<!--';
-    } else if (['css', 'scss', 'sass'].includes(extension)) {
-      commentStart = '/*';
-    }
-    
-    const separator = '─'.repeat(58);
-    const makeSeparator = () => `${commentStart} ${separator}`;
-    const makeLabel = (label: string) => `${commentStart} ${label}`;
-
-    // Build unified preview content with text markers
-    const sections: string[] = [];
-    
+    const sections: Array<{ text: string; marker: PreviewLineMarker }> = [];
     if (before) {
-      sections.push(makeSeparator());
-      sections.push(makeLabel('CONTEXT BEFORE'));
-      sections.push(makeSeparator());
-      sections.push(before);
+      sections.push({ text: before, marker: null });
     }
-    
     if (previewData.type === 'range' && previewData.removed) {
-      sections.push(makeSeparator());
-      sections.push(makeLabel('REMOVED'));
-      sections.push(makeSeparator());
-      sections.push(previewData.removed);
+      sections.push({ text: previewData.removed, marker: 'remove' });
     }
-    
     if (previewData.insert) {
-      sections.push(makeSeparator());
-      sections.push(makeLabel('INSERTED'));
-      sections.push(makeSeparator());
-      sections.push(previewData.insert);
+      sections.push({ text: previewData.insert, marker: 'insert' });
     }
-    
     if (after) {
-      sections.push(makeSeparator());
-      sections.push(makeLabel('CONTEXT AFTER'));
-      sections.push(makeSeparator());
-      sections.push(after);
+      sections.push({ text: after, marker: null });
     }
 
-    const unifiedContent = sections.join('\n');
+    const unifiedContent = sections.map((section) => section.text).filter(Boolean).join('\n');
+    const lineMeta: PreviewLineMarker[] = [];
+    sections.forEach((section) => {
+      if (!section.text) {
+        return;
+      }
+      section.text.split('\n').forEach(() => {
+        lineMeta.push(section.marker);
+      });
+    });
 
     return {
       before,
@@ -227,8 +218,87 @@ export function ReviewPanel() {
       insert: previewData.insert,
       mode: previewData.type,
       unifiedContent,
+      lineMeta,
     };
-  }, [previewData, selectedItem?.file]);
+  }, [previewData]);
+
+  const previewExtensions = useMemo(() => {
+    if (!previewSections?.lineMeta?.length) {
+      return [];
+    }
+
+    const insertMarker = new DiffGutterMarker(
+      '+',
+      'cm-review-preview-gutter-marker cm-review-preview-gutter-insert',
+    );
+    const removeMarker = new DiffGutterMarker(
+      '-',
+      'cm-review-preview-gutter-marker cm-review-preview-gutter-remove',
+    );
+    const lineMeta = previewSections.lineMeta;
+    const diffGutter = gutter({
+      class: 'cm-review-preview-gutter',
+      lineMarker(view, line) {
+        const index = view.state.doc.lineAt(line.from).number - 1;
+        const marker = lineMeta[index];
+        if (marker === 'insert') {
+          return insertMarker;
+        }
+        if (marker === 'remove') {
+          return removeMarker;
+        }
+        return null;
+      },
+    });
+
+    const insertLineDecoration = Decoration.line({ attributes: { class: 'cm-review-preview-line-insert' } });
+    const removeLineDecoration = Decoration.line({ attributes: { class: 'cm-review-preview-line-remove' } });
+    const buildLineDecorations = (state: EditorState) => {
+      const builder = new RangeSetBuilder<Decoration>();
+      for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
+        const marker = lineMeta[lineNumber - 1];
+        if (!marker) {
+          continue;
+        }
+        const line = state.doc.line(lineNumber);
+        builder.add(line.from, line.from, marker === 'insert' ? insertLineDecoration : removeLineDecoration);
+      }
+      return builder.finish();
+    };
+    const diffLineField = StateField.define({
+      create: buildLineDecorations,
+      update(decorations, transaction) {
+        if (transaction.docChanged) {
+          return buildLineDecorations(transaction.state);
+        }
+        return decorations;
+      },
+      provide: (field) => EditorView.decorations.from(field),
+    });
+
+    const diffTheme = EditorView.theme({
+      '.cm-review-preview-line-insert': {
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+      },
+      '.cm-review-preview-line-remove': {
+        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+      },
+      '.cm-review-preview-gutter-marker': {
+        display: 'inline-block',
+        width: '1.25rem',
+        textAlign: 'center',
+        fontWeight: '600',
+      },
+      '.cm-review-preview-gutter-insert': {
+        color: 'rgb(59, 130, 246)',
+      },
+      '.cm-review-preview-gutter-remove': {
+        color: 'rgb(239, 68, 68)',
+      },
+    });
+
+    return [diffTheme, diffGutter, diffLineField];
+  }, [previewSections]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -328,7 +398,7 @@ export function ReviewPanel() {
               value={previewSections.unifiedContent}
               height="100%"
               theme={oneDark}
-              extensions={editorExtensions}
+              extensions={[...editorExtensions, ...previewExtensions]}
               editable={false}
               readOnly
               basicSetup={{ lineNumbers: true, foldGutter: false }}

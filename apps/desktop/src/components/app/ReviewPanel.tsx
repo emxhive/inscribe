@@ -202,7 +202,7 @@ export function ReviewPanel() {
       sections.push({ text: after, marker: null });
     }
 
-    const unifiedContent = sections.map((section) => section.text).filter(Boolean).join('\n');
+    let unifiedContent = sections.map((section) => section.text).filter(Boolean).join('\n');
     const lineMeta: PreviewLineMarker[] = [];
     sections.forEach((section) => {
       if (!section.text) {
@@ -213,6 +213,15 @@ export function ReviewPanel() {
       });
     });
 
+    const selectedExtension = selectedItem?.file?.split('.').pop()?.toLowerCase();
+    const shouldPrependPhpTag =
+      (selectedExtension === 'php' || selectedExtension === 'phtml') &&
+      !unifiedContent.startsWith('<?php');
+    if (shouldPrependPhpTag) {
+      unifiedContent = `<?php\n${unifiedContent}`;
+      lineMeta.unshift(null);
+    }
+
     return {
       before,
       after,
@@ -222,7 +231,7 @@ export function ReviewPanel() {
       unifiedContent,
       lineMeta,
     };
-  }, [previewData]);
+  }, [previewData, selectedItem?.file]);
 
   const previewExtensions = useMemo(() => {
     if (!previewSections?.lineMeta?.length) {

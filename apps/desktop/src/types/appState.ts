@@ -13,6 +13,7 @@ import type {
  * - 'review': Mode where user reviews and applies parsed changes (corresponds to 'review' stage in UI)
  */
 export type AppMode = 'intake' | 'review';
+export type OverlayEditor = AppMode | null;
 
 export type PipelineStatus = 
   | 'idle'
@@ -66,6 +67,7 @@ export interface AppState {
   isParsingInProgress: boolean;
   isApplyingInProgress: boolean;
   isRestoringRepo: boolean;
+  overlayEditor: OverlayEditor;
 
   // Apply/Undo/Redo state
   lastAppliedPlan: ApplyPlan | null;

@@ -28,6 +28,7 @@ export const initialState: AppState = {
   isParsingInProgress: false,
   isApplyingInProgress: false,
   isRestoringRepo: true,
+  overlayEditor: null,
 
   lastAppliedPlan: null,
   canRedo: false,

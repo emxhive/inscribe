@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import CodeMirror from '@uiw/react-codemirror';
 import { Decoration, EditorView, GutterMarker, gutter, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
@@ -17,7 +18,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
-import { AlertCircle, ArrowLeft, Eye, Pencil } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Eye, Maximize2, Pencil } from 'lucide-react';
 import type { OperationPreview, Operation } from '@inscribe/shared';
 
 type PreviewLineMarker = 'insert' | 'remove' | null;
@@ -54,6 +55,7 @@ export function ReviewPanel() {
   const isEditing = state.isEditing && canEditSelection;
   const [previewData, setPreviewData] = useState<OperationPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const isOverlayActive = state.overlayEditor === 'review';
 
   const languageExtension = useMemo(() => {
     const fileName = selectedItem?.file;
@@ -327,6 +329,80 @@ export function ReviewPanel() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedItem, selectedIsApplied, state.isEditing, updateState]);
 
+  useEffect(() => {
+    if (!isOverlayActive) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+      updateState({ overlayEditor: null });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOverlayActive, updateState]);
+
+  useEffect(() => {
+    if (!isOverlayActive) {
+      return;
+    }
+    const { style } = document.body;
+    const previousOverflow = style.overflow;
+    style.overflow = 'hidden';
+    return () => {
+      style.overflow = previousOverflow;
+    };
+  }, [isOverlayActive]);
+
+  const editorSurface = (
+    <div className="flex-1 w-full h-full border border-border rounded-lg p-3 bg-secondary flex">
+      {isEditing ? (
+        <CodeMirror
+          className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
+          value={editorValue}
+          height="100%"
+          theme={oneDark}
+          extensions={editorExtensions}
+          onChange={(value: string) => reviewActions.handleEditorChange(value)}
+          basicSetup={{ lineNumbers: false, foldGutter: false }}
+        />
+      ) : previewSections && (selectedItem?.mode === 'append' || selectedItem?.mode === 'range') ? (
+        <div className="review-preview flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono">
+          {previewError && (
+            <p className="text-xs text-red-200 px-3 py-2">{previewError}</p>
+          )}
+          <CodeMirror
+            className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
+            value={previewSections.unifiedContent}
+            height="100%"
+            theme={oneDark}
+            extensions={[...editorExtensions, ...previewExtensions]}
+            editable={false}
+            readOnly
+            basicSetup={{ lineNumbers: true, foldGutter: false }}
+          />
+        </div>
+      ) : (
+        <div className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono flex flex-col gap-2">
+          {previewError && (
+            <p className="text-xs text-red-200">{previewError}</p>
+          )}
+          <CodeMirror
+            className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
+            value={editorValue}
+            height="100%"
+            theme={oneDark}
+            extensions={editorExtensions}
+            editable={false}
+            readOnly
+            basicSetup={{ lineNumbers: false, foldGutter: false }}
+          />
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <section className="flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
       <div className="flex items-start justify-between gap-3">
@@ -359,6 +435,16 @@ export function ReviewPanel() {
               {state.isEditing ? <Eye /> : <Pencil />}
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="icon"
+            type="button"
+            onClick={() => updateState({ overlayEditor: 'review' })}
+            aria-label="Open review overlay editor"
+            title="Open review overlay editor"
+          >
+            <Maximize2 />
+          </Button>
         </div>
       </div>
 
@@ -377,50 +463,8 @@ export function ReviewPanel() {
         </p>
       )}
 
-      <div className="flex-1 min-h-[320px] border border-border rounded-lg p-3 bg-secondary flex">
-        {isEditing ? (
-          <CodeMirror
-            className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
-            value={editorValue}
-            height="100%"
-            theme={oneDark}
-            extensions={editorExtensions}
-            onChange={(value: string) => reviewActions.handleEditorChange(value)}
-            basicSetup={{ lineNumbers: false, foldGutter: false }}
-          />
-        ) : previewSections && (selectedItem?.mode === 'append' || selectedItem?.mode === 'range') ? (
-          <div className="review-preview flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono">
-            {previewError && (
-              <p className="text-xs text-red-200 px-3 py-2">{previewError}</p>
-            )}
-            <CodeMirror
-              className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
-              value={previewSections.unifiedContent}
-              height="100%"
-              theme={oneDark}
-              extensions={[...editorExtensions, ...previewExtensions]}
-              editable={false}
-              readOnly
-              basicSetup={{ lineNumbers: true, foldGutter: false }}
-            />
-          </div>
-        ) : (
-          <div className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono flex flex-col gap-2">
-            {previewError && (
-              <p className="text-xs text-red-200">{previewError}</p>
-            )}
-            <CodeMirror
-              className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
-              value={editorValue}
-              height="100%"
-              theme={oneDark}
-              extensions={editorExtensions}
-              editable={false}
-              readOnly
-              basicSetup={{ lineNumbers: false, foldGutter: false }}
-            />
-          </div>
-        )}
+      <div className="flex-1 min-h-[320px]">
+        {isOverlayActive ? <div className="w-full h-full" /> : editorSurface}
       </div>
 
       <div className="flex items-center gap-2.5 mt-1 flex-wrap">
@@ -483,6 +527,16 @@ export function ReviewPanel() {
       {state.statusMessage && (
         <Badge variant="secondary" className="w-fit">{state.statusMessage}</Badge>
       )}
+      {isOverlayActive && typeof document !== 'undefined'
+        ? createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-5xl h-[calc(100vh-2rem)]">
+              {editorSurface}
+            </div>
+          </div>,
+          document.body,
+        )
+        : null}
     </section>
   );
 }

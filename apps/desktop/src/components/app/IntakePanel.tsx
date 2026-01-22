@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { useAppStateContext, useParsingActions, useIntakeBlocks } from '@/hooks';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function IntakePanel() {
@@ -12,6 +13,7 @@ export function IntakePanel() {
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const overlayRef = useRef<HTMLPreElement | null>(null);
   const indentString = '\t';
+  const isOverlayActive = state.overlayEditor === 'intake';
 
   const lineClasses = useMemo(() => {
     return lines.map((line) => {
@@ -60,6 +62,32 @@ export function IntakePanel() {
     }
   }, [lines, state.selectedIntakeBlockId]);
 
+  useEffect(() => {
+    if (state.overlayEditor !== 'intake') {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+      updateState({ overlayEditor: null });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.overlayEditor, updateState]);
+
+  useEffect(() => {
+    if (state.overlayEditor !== 'intake') {
+      return;
+    }
+    const { style } = document.body;
+    const previousOverflow = style.overflow;
+    style.overflow = 'hidden';
+    return () => {
+      style.overflow = previousOverflow;
+    };
+  }, [state.overlayEditor]);
+
   const handleScroll = () => {
     if (!overlayRef.current || !textAreaRef.current) {
       return;
@@ -91,6 +119,31 @@ export function IntakePanel() {
     });
   };
 
+  const editorSurface = (
+    <div className="relative w-full h-full border border-border rounded-lg bg-secondary focus-within:ring-2 focus-within:ring-primary focus-within:border-primary">
+      <pre
+        ref={overlayRef}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-auto p-3 text-sm leading-relaxed font-mono text-transparent"
+      >
+        {lines.map((line, index) => (
+          <div key={`${line.lineIndex}-${index}`} className={lineClasses[index]}>
+            {line.text.length === 0 ? ' ' : line.text}
+          </div>
+        ))}
+      </pre>
+      <textarea
+        ref={textAreaRef}
+        className="relative z-10 w-full h-full resize-none rounded-lg bg-transparent p-3 text-sm leading-relaxed font-mono text-foreground focus:outline-none"
+        placeholder="Paste the AI response here. Must contain @inscribe BEGIN / END blocks."
+        value={state.aiInput}
+        onChange={(e) => updateState({ aiInput: e.target.value })}
+        onKeyDown={handleKeyDown}
+        onScroll={handleScroll}
+      />
+    </div>
+  );
+
   return (
     <section className="flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
       <header className="flex items-start justify-between gap-3">
@@ -98,6 +151,16 @@ export function IntakePanel() {
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">AI Response Input</p>
           <h2 className="text-xl font-semibold mt-0.5">Paste the AI reply to parse code blocks</h2>
         </div>
+        <Button
+          variant="outline"
+          size="icon"
+          type="button"
+          onClick={() => updateState({ overlayEditor: 'intake' })}
+          aria-label="Open intake overlay editor"
+          title="Open intake overlay editor"
+        >
+          <Maximize2 />
+        </Button>
       </header>
 
       {state.parseErrors.length > 0 && (
@@ -115,28 +178,7 @@ export function IntakePanel() {
       )}
 
       <div className="flex-1 min-h-[320px]">
-        <div className="relative w-full h-full border border-border rounded-lg bg-secondary focus-within:ring-2 focus-within:ring-primary focus-within:border-primary">
-          <pre
-            ref={overlayRef}
-            aria-hidden
-            className="pointer-events-none absolute inset-0 overflow-auto p-3 text-sm leading-relaxed font-mono text-transparent"
-          >
-            {lines.map((line, index) => (
-              <div key={`${line.lineIndex}-${index}`} className={lineClasses[index]}>
-                {line.text.length === 0 ? ' ' : line.text}
-              </div>
-            ))}
-          </pre>
-          <textarea
-            ref={textAreaRef}
-            className="relative z-10 w-full h-full resize-none rounded-lg bg-transparent p-3 text-sm leading-relaxed font-mono text-foreground focus:outline-none"
-            placeholder="Paste the AI response here. Must contain @inscribe BEGIN / END blocks."
-            value={state.aiInput}
-            onChange={(e) => updateState({ aiInput: e.target.value })}
-            onKeyDown={handleKeyDown}
-            onScroll={handleScroll}
-          />
-        </div>
+        {isOverlayActive ? <div className="w-full h-full" /> : editorSurface}
       </div>
 
       <footer className="flex items-center justify-between gap-3">
@@ -150,6 +192,16 @@ export function IntakePanel() {
           {state.isParsingInProgress ? 'Parsing...' : 'Parse Code Blocks'}
         </Button>
       </footer>
+      {isOverlayActive && typeof document !== 'undefined'
+        ? createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-5xl h-[calc(100vh-2rem)]">
+              {editorSurface}
+            </div>
+          </div>,
+          document.body,
+        )
+        : null}
     </section>
   );
 }

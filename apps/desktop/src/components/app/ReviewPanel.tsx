@@ -278,7 +278,7 @@ export function ReviewPanel() {
 
     const diffTheme = EditorView.theme({
       '.cm-review-preview-line-insert': {
-        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        backgroundColor: 'rgba(34, 197, 94, 0.2)',
       },
       '.cm-review-preview-line-remove': {
         backgroundColor: 'rgba(239, 68, 68, 0.2)',
@@ -290,7 +290,7 @@ export function ReviewPanel() {
         fontWeight: '600',
       },
       '.cm-review-preview-gutter-insert': {
-        color: 'rgb(59, 130, 246)',
+        color: 'rgb(34, 197, 94)',
       },
       '.cm-review-preview-gutter-remove': {
         color: 'rgb(239, 68, 68)',

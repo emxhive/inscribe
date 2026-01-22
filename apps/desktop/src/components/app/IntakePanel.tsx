@@ -194,8 +194,8 @@ export function IntakePanel() {
       </footer>
       {isOverlayActive && typeof document !== 'undefined'
         ? createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-            <div className="w-full max-w-5xl h-[calc(100vh-2rem)]">
+          <div className="fixed inset-0 z-[100] bg-black/60">
+            <div className="w-full h-full">
               {editorSurface}
             </div>
           </div>,

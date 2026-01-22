@@ -49,13 +49,19 @@ export default function RepositorySelector({
         readOnly={false}
       />
       <button onClick={handleSelect}>Browse</button>
-      {selectedPath && <p className="selected">✓ {selectedPath}</p>}
+      {selectedPath && (
+        <p className="selected">
+          ✓ <span className="inline-code">{selectedPath}</span>
+        </p>
+      )}
 
       <div className="indexed-summary">
         <h4>Indexed roots</h4>
         <ul>
           {indexedRoots.map((root) => (
-            <li key={root}>{root}</li>
+            <li key={root}>
+              <span className="inline-code">{root}</span>
+            </li>
           ))}
         </ul>
         <p>Total indexed files: {indexedFilesCount}</p>

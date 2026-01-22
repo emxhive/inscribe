@@ -19,7 +19,9 @@ export default function Preview({ file, block }: PreviewProps) {
 
   return (
     <div className="preview">
-      <h4>Preview: {file}</h4>
+      <h4>
+        Preview: <span className="inline-code">{file}</span>
+      </h4>
       <div className="preview-info">
         <p>
           <strong>Mode:</strong> {block.mode}

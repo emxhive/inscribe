@@ -18,7 +18,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
-import { AlertCircle, ArrowLeft, Eye, Maximize2, Pencil } from 'lucide-react';
+import { ArrowLeft, Eye, Maximize2, Pencil } from 'lucide-react';
 import type { OperationPreview, Operation } from '@inscribe/shared';
 
 type PreviewLineMarker = 'insert' | 'remove' | null;
@@ -379,7 +379,7 @@ export function ReviewPanel() {
       ) : previewSections && (selectedItem?.mode === 'append' || selectedItem?.mode === 'range') ? (
         <div className="review-preview flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono">
           {previewError && (
-            <p className="text-xs text-red-200 px-3 py-2">{previewError}</p>
+            <p className="text-xs text-red-100 bg-red-950/40 px-3 py-2">{previewError}</p>
           )}
           <CodeMirror
             className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
@@ -395,7 +395,7 @@ export function ReviewPanel() {
       ) : (
         <div className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono flex flex-col gap-2">
           {previewError && (
-            <p className="text-xs text-red-200">{previewError}</p>
+            <p className="text-xs text-red-100 bg-red-950/40 px-3 py-2 rounded-md">{previewError}</p>
           )}
           <CodeMirror
             className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
@@ -417,7 +417,13 @@ export function ReviewPanel() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Review & Apply</p>
-          <h2 className="text-xl font-semibold mt-0.5">{selectedItem?.file || 'Select a file from the left'}</h2>
+          <h2 className="text-xl font-semibold mt-0.5">
+            {selectedItem?.file ? (
+              <span className="inline-code">{selectedItem.file}</span>
+            ) : (
+              'Select a file from the left'
+            )}
+          </h2>
         </div>
         <div className="flex items-center gap-2">
           {allApplied && (
@@ -456,15 +462,6 @@ export function ReviewPanel() {
           </Button>
         </div>
       </div>
-
-      {selectedItem?.validationError && (
-        <div className="bg-red-50 border border-red-200 text-red-900 px-4 py-3 rounded-md text-sm">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            <strong>Validation Error:</strong> {selectedItem.validationError}
-          </div>
-        </div>
-      )}
 
       {selectedItem?.mode === 'range' && (
         <p className="text-xs text-muted-foreground bg-secondary px-2 py-1.5 rounded-lg border border-border self-start">
@@ -538,8 +535,8 @@ export function ReviewPanel() {
       )}
       {isOverlayActive && typeof document !== 'undefined'
         ? createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-            <div className="w-full max-w-5xl h-[calc(100vh-2rem)]">
+          <div className="fixed inset-0 z-[100] bg-black/60">
+            <div className="w-full h-full">
               {editorSurface}
             </div>
           </div>,

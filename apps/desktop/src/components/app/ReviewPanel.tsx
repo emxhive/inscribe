@@ -145,7 +145,7 @@ export function ReviewPanel() {
   const previewSections = useMemo(() => {
     if (!previewData) return null;
 
-    const contextLines = 10;
+    const contextLines = 20;
     const contentLines = previewData.content.split('\n');
     const lineStarts: number[] = [];
     let offset = 0;

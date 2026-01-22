@@ -42,10 +42,6 @@
 }
 
 @layer components {
-  .review-preview .cm-editor {
-    background-color: transparent;
-  }
-
   .review-preview .cm-scroller {
     font-family: inherit;
   }

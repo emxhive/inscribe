@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { EmptyState, FileListItem } from '../common';
-import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
 import { updateDirectiveInText } from '@/utils/intake';
 import { cn } from '@/lib/utils';
@@ -8,9 +7,28 @@ import { type DirectiveKey, type HeaderKey } from '@inscribe/shared';
 import type { ReviewItem } from '@/types';
 import { ReviewDirectivePopover } from './ReviewDirectivePopover';
 import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
+import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 
 export const MIN_SIDEBAR_WIDTH = 240;
 export const MAX_SIDEBAR_WIDTH = 420;
+
+const intakeStatusConfig = {
+  valid: {
+    icon: CheckCircle2,
+    className: 'text-emerald-600',
+    label: 'valid',
+  },
+  warning: {
+    icon: AlertTriangle,
+    className: 'text-amber-600',
+    label: 'warning',
+  },
+  error: {
+    icon: XCircle,
+    className: 'text-destructive',
+    label: 'error',
+  },
+} as const;
 
 type FileSidebarProps = {
   sidebarWidth: number;
@@ -110,6 +128,20 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     setDirectiveEditorItemId(item.id);
   };
 
+  const renderIntakeStatus = (status: keyof typeof intakeStatusConfig) => {
+    const statusConfig = intakeStatusConfig[status];
+    const Icon = statusConfig.icon;
+    return (
+      <span
+        className="inline-flex items-center text-xs font-medium capitalize"
+        title={statusConfig.label}
+        aria-label={statusConfig.label}
+      >
+        <Icon className={cn('h-3 w-3 flex-shrink-0', statusConfig.className)} aria-hidden />
+      </span>
+    );
+  };
+
   return (
     <aside
       ref={sidebarRef}
@@ -146,15 +178,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-foreground truncate">{block.label}</span>
-                    <Badge
-                      variant={block.status === 'error' ? 'destructive' : 'secondary'}
-                      className={cn(
-                        block.status === 'warning' && 'bg-amber-100 text-amber-900 border border-amber-200',
-                        block.status === 'valid' && 'bg-emerald-100 text-emerald-900 border border-emerald-200',
-                      )}
-                    >
-                      {block.status}
-                    </Badge>
+                    {renderIntakeStatus(block.status)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Lines {block.startLine + 1}–{block.endLine + 1}

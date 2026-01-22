@@ -37,7 +37,7 @@ export function FileListItem({
     >
       <div className="flex gap-2 items-center min-w-0">
         <StatusIcon status={status} error={validationError} />
-        <span className="font-mono text-sm text-foreground truncate" title={file}>{file}</span>
+        <span className="inline-code truncate max-w-full" title={file}>{file}</span>
       </div>
       <div className="flex gap-2 items-center mt-1.5 text-muted-foreground text-xs min-w-0">
         <span className="truncate">{lineCount} lines</span>

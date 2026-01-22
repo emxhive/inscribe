@@ -42,6 +42,10 @@
 }
 
 @layer components {
+  .inline-code {
+    @apply inline-block font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-foreground;
+  }
+
   .review-preview .cm-scroller {
     font-family: inherit;
   }

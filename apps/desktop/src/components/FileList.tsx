@@ -26,7 +26,7 @@ export default function FileList({ files, selectedFile, onSelect }: FileListProp
             onClick={() => onSelect(file.file)}
           >
             <span className="status">{file.status}</span>
-            <span className="filename">{file.file}</span>
+            <span className="filename inline-code">{file.file}</span>
             {file.error && <span className="error">{file.error}</span>}
           </li>
         ))}

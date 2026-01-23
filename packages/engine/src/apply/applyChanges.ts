@@ -7,7 +7,7 @@ import { ApplyPlan, ApplyResult, Operation, ValidationError } from '@inscribe/sh
 import { applyOperation } from './applyOperation';
 import { createBackup } from './backups';
 
-const VALID_OPERATION_TYPES = new Set(['create', 'replace', 'append', 'range']);
+const VALID_OPERATION_TYPES = new Set(['create', 'replace', 'append', 'range', 'delete']);
 
 function validateOperation(operation: Operation, index: number): string[] {
   const errors: string[] = [];

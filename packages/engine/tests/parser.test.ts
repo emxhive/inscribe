@@ -50,6 +50,45 @@ END_BEFORE: // end marker
     expect(result.blocks[0].directives.END_BEFORE).toBe('// end marker');
   });
 
+  it('should parse a valid delete block without fenced code', () => {
+    const content = `
+@inscribe BEGIN
+FILE: app/test.js
+MODE: delete
+
+@inscribe END
+    `.trim();
+
+    const result = parseBlocks(content);
+    
+    expect(result.errors).toEqual([]);
+    expect(result.blocks).toHaveLength(1);
+    expect(result.blocks[0].file).toBe('app/test.js');
+    expect(result.blocks[0].mode).toBe('delete');
+    expect(result.blocks[0].content).toBe('');
+  });
+
+  it('should parse delete block with empty fenced code block', () => {
+    const content = `
+@inscribe BEGIN
+FILE: app/test.js
+MODE: delete
+
+\`\`\`
+\`\`\`
+
+@inscribe END
+    `.trim();
+
+    const result = parseBlocks(content);
+    
+    expect(result.errors).toEqual([]);
+    expect(result.blocks).toHaveLength(1);
+    expect(result.blocks[0].file).toBe('app/test.js');
+    expect(result.blocks[0].mode).toBe('delete');
+    expect(result.blocks[0].content).toBe('');
+  });
+
   it('should fail on missing FILE header', () => {
     const content = `
 @inscribe BEGIN

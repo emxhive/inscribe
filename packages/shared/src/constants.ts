@@ -105,5 +105,5 @@ export const INSCRIBE_BEGIN = `${INSCRIBE_PREFIX} ${KEYWORD_BEGIN}`;
 export const INSCRIBE_END = `${INSCRIBE_PREFIX} ${KEYWORD_END}`;
 
 // Valid modes
-export const VALID_MODES = ['create', 'replace', 'append', 'range'] as const;
+export const VALID_MODES = ['create', 'replace', 'append', 'range', 'delete'] as const;
 export const DEFAULT_MODE = 'replace';

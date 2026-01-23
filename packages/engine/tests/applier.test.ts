@@ -286,11 +286,144 @@ omega
     expect(result.errors?.[0]).toContain('No operations');
   });
 
+  it('should delete an existing file', () => {
+    const filePath = path.join(tempDir, 'app', 'to-delete.js');
+    fs.writeFileSync(filePath, 'content to delete');
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'delete',
+          file: 'app/to-delete.js',
+          content: '',
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    expect(fs.existsSync(filePath)).toBe(false);
+  });
+
+  it('should delete file and clean up empty parent directories', () => {
+    const nestedDir = path.join(tempDir, 'app', 'nested', 'deep');
+    fs.mkdirSync(nestedDir, { recursive: true });
+    const filePath = path.join(nestedDir, 'file.js');
+    fs.writeFileSync(filePath, 'content');
+    
+    // Create another file in app to prevent it from being deleted
+    fs.writeFileSync(path.join(tempDir, 'app', 'other.js'), 'other content');
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'delete',
+          file: 'app/nested/deep/file.js',
+          content: '',
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    expect(fs.existsSync(filePath)).toBe(false);
+    // Empty parent directories should be cleaned up
+    expect(fs.existsSync(nestedDir)).toBe(false);
+    expect(fs.existsSync(path.join(tempDir, 'app', 'nested'))).toBe(false);
+    // But app directory should still exist because it has other.js
+    expect(fs.existsSync(path.join(tempDir, 'app'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, 'app', 'other.js'))).toBe(true);
+  });
+
+  it('should not remove non-empty parent directories when deleting', () => {
+    const nestedDir = path.join(tempDir, 'app', 'nested');
+    fs.mkdirSync(nestedDir, { recursive: true });
+    const file1Path = path.join(nestedDir, 'file1.js');
+    const file2Path = path.join(nestedDir, 'file2.js');
+    fs.writeFileSync(file1Path, 'content1');
+    fs.writeFileSync(file2Path, 'content2');
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'delete',
+          file: 'app/nested/file1.js',
+          content: '',
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    expect(fs.existsSync(file1Path)).toBe(false);
+    expect(fs.existsSync(file2Path)).toBe(true);
+    expect(fs.existsSync(nestedDir)).toBe(true);
+  });
+
+  it('should create backup of deleted file for undo', () => {
+    const filePath = path.join(tempDir, 'app', 'to-delete.js');
+    const originalContent = 'original content';
+    fs.writeFileSync(filePath, originalContent);
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'delete',
+          file: 'app/to-delete.js',
+          content: '',
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    expect(result.backupPath).toBeDefined();
+
+    // Check backup exists and contains original content
+    const backupFilePath = path.join(result.backupPath!, 'app', 'to-delete.js');
+    expect(fs.existsSync(backupFilePath)).toBe(true);
+    expect(fs.readFileSync(backupFilePath, 'utf-8')).toBe(originalContent);
+
+    // Verify file was deleted
+    expect(fs.existsSync(filePath)).toBe(false);
+  });
+
+  it('should undo delete operation by restoring file', () => {
+    const filePath = path.join(tempDir, 'app', 'to-delete.js');
+    const originalContent = 'original content';
+    fs.writeFileSync(filePath, originalContent);
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'delete',
+          file: 'app/to-delete.js',
+          content: '',
+        },
+      ],
+    };
+
+    // Apply delete
+    const applyResult = applyChanges(plan, tempDir);
+    expect(applyResult.success).toBe(true);
+    expect(fs.existsSync(filePath)).toBe(false);
+
+    // Undo delete - should restore the file
+    const undoResult = undoLastApply(tempDir);
+    expect(undoResult.success).toBe(true);
+    expect(fs.existsSync(filePath)).toBe(true);
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe(originalContent);
+  });
+
   it('should fail when operation type is unknown', () => {
     const plan: ApplyPlan = {
       operations: [
         {
-          type: 'delete' as any,
+          type: 'invalid' as any,
           file: 'app/unknown.js',
           content: 'content',
         },

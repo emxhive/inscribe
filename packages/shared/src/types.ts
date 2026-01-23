@@ -2,13 +2,13 @@
  * Shared types for Inscribe
  */
 
-export type Mode = 'create' | 'replace' | 'append' | 'range';
+export type Mode = 'create' | 'replace' | 'append' | 'range' | 'delete';
 
 /**
  * Check if a string is a valid mode
  */
 export function isValidMode(mode: string): mode is Mode {
-  return (mode === 'create' || mode === 'replace' || mode === 'append' || mode === 'range');
+  return (mode === 'create' || mode === 'replace' || mode === 'append' || mode === 'range' || mode === 'delete');
 }
 
 export interface ParsedBlock {

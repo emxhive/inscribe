@@ -28,7 +28,21 @@ export function parseSingleBlock(lines: string[], blockIndex: number): BlockPars
 
   const { file, mode, directives, contentStartIndex, warnings } = directiveResult;
 
-  // Extract fenced code block content
+  // For delete mode, fenced code block is optional (no content needed)
+  if (mode === 'delete') {
+    return {
+      block: {
+        file,
+        mode,
+        directives,
+        content: '', // Empty content for delete operations
+        blockIndex,
+      },
+      warnings,
+    };
+  }
+
+  // For all other modes, extract fenced code block content
   const fencedResult = extractFencedBlock(lines, contentStartIndex);
   
   if (fencedResult.error) {

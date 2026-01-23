@@ -32,8 +32,8 @@ Required fields that specify the target file and operation mode. Headers are alw
   - **Must not use `@inscribe` prefix**
 
 - **MODE:** Specifies the operation type
-  - Format: `MODE: <create|replace|append|range>`
-  - Must be exactly one of the four supported modes
+  - Format: `MODE: <create|replace|append|range|delete>`
+  - Must be exactly one of the five supported modes
   - **Must not use `@inscribe` prefix**
 
 ### Directives
@@ -168,6 +168,34 @@ Replaces content between two anchor points in an existing file. Anchors match su
 - SCOPE_START and SCOPE_END can narrow the search area
 - SCOPE_START must match exactly once; SCOPE_END can match multiple times and the first occurrence after SCOPE_START is used
 
+### delete
+Deletes an existing file from the repository.
+
+**Requirements:**
+- File MUST exist
+- Path must be under repository root and not ignored
+- No fenced code block is required (content is ignored if provided)
+
+**Behavior:**
+- Removes the specified file from disk
+- Cleans up empty parent directories (up to repository root)
+- Creates a backup before deletion (supports undo)
+
+**Failure conditions:**
+- File does not exist
+- Path is in an ignored directory
+- Path escapes the repository root
+
+**Example:**
+
+````
+@inscribe BEGIN
+FILE: src/deprecated/old-component.js
+MODE: delete
+
+@inscribe END
+````
+
 ## When to Use Each Mode
 
 Choosing the right mode depends on your specific use case:
@@ -178,6 +206,7 @@ Choosing the right mode depends on your specific use case:
 | **replace** | Completely rewriting existing files | Major refactoring, regenerating auto-generated files, replacing obsolete implementations |
 | **append** | Adding content to the end of a file | Adding new test cases, appending log entries, adding exports to an index file |
 | **range** | Surgical edits within a file | Updating a specific function, modifying a configuration section, changing one method in a class |
+| **delete** | Removing obsolete files | Deleting deprecated code, removing temporary files, cleaning up unused components |
 
 **General Guidelines:**
 
@@ -185,6 +214,7 @@ Choosing the right mode depends on your specific use case:
 - Use **replace** when you need to change most or all of the file's content
 - Use **append** when adding new content that logically goes at the end (remember to include leading newlines if needed)
 - Use **range** for precise, localized changes where you want to preserve surrounding context
+- Use **delete** when removing files that are no longer needed (supports undo via backup)
 
 ## Repository Structure
 

@@ -29,6 +29,32 @@ export function applyOperation(operation: Operation, repoRoot: string): void {
       applyRangeReplace(filePath, operation);
       break;
 
+    case 'delete':
+      // Delete the file
+      fs.unlinkSync(filePath);
+      
+      // Clean up empty parent directories (up to repoRoot)
+      // Walk up the directory tree and remove empty directories
+      let currentDir = path.dirname(filePath);
+      const normalizedRepoRoot = path.resolve(repoRoot);
+      
+      while (path.resolve(currentDir) !== normalizedRepoRoot) {
+        try {
+          const entries = fs.readdirSync(currentDir);
+          if (entries.length === 0) {
+            fs.rmdirSync(currentDir);
+            currentDir = path.dirname(currentDir);
+          } else {
+            // Stop if directory is not empty
+            break;
+          }
+        } catch {
+          // Stop if we can't read or remove directory
+          break;
+        }
+      }
+      break;
+
     default:
       throw new Error(`Unknown operation type: ${operation.type}`);
   }

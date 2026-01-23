@@ -87,6 +87,16 @@ function validateBlock(
       }
       break;
 
+    case 'delete':
+      if (!fileExists) {
+        errors.push({
+          blockIndex: block.blockIndex,
+          file: block.file,
+          message: 'File does not exist (MODE: delete requires existing file)',
+        });
+      }
+      break;
+
     case 'range':
       if (!fileExists) {
         errors.push({

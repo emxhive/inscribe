@@ -423,4 +423,94 @@ const x = 1;
     const errors = validateBlocks(blocks, tempDir);
     expect(errors).toEqual([]);
   });
+
+  it('should validate delete mode with existing file', () => {
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/existing.js',
+        mode: 'delete',
+        directives: {},
+        content: '',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors).toEqual([]);
+  });
+
+  it('should fail delete mode with non-existing file', () => {
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/missing.js',
+        mode: 'delete',
+        directives: {},
+        content: '',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('does not exist');
+  });
+
+  it('allows delete mode outside configured scope', () => {
+    setScopeState(tempDir, ['app']);
+    
+    // Create a file outside scope
+    fs.mkdirSync(path.join(tempDir, 'other'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'other', 'file.js'), 'content');
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'other/file.js',
+        mode: 'delete',
+        directives: {},
+        content: '',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors).toEqual([]);
+  });
+
+  it('should reject delete mode in ignored paths', () => {
+    fs.mkdirSync(path.join(tempDir, 'ignored'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'ignored', 'file.js'), 'content');
+    fs.writeFileSync(path.join(tempDir, '.inscribeignore'), 'ignored/');
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'ignored/file.js',
+        mode: 'delete',
+        directives: {},
+        content: '',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('ignored');
+  });
+
+  it('should reject delete mode outside repo root', () => {
+    setScopeState(tempDir, ['app']);
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: '../outside/file.js',
+        mode: 'delete',
+        directives: {},
+        content: '',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('outside repository root');
+  });
 });

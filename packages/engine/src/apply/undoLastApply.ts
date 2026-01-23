@@ -43,6 +43,8 @@ export function undoLastApply(repoRoot: string): UndoResult {
       const targetFilePath = path.join(repoRoot, file);
       
       if (fs.existsSync(backupFilePath)) {
+        // Ensure parent directory exists
+        fs.mkdirSync(path.dirname(targetFilePath), { recursive: true });
         fs.copyFileSync(backupFilePath, targetFilePath);
       }
     }

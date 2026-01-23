@@ -49,16 +49,16 @@ export function parseSingleBlock(lines: string[], blockIndex: number): BlockPars
     return { error: fencedResult.error };
   }
 
-  if (!fencedResult.content) {
-    return { error: 'No content extracted from fenced block' };
-  }
+  // if (!fencedResult.content) {
+  //   return { error: 'No content extracted from fenced block' };
+  // }
 
   return {
     block: {
       file,
       mode,
       directives,
-      content: fencedResult.content,
+      content: fencedResult.content ?? '',
       blockIndex,
     },
     warnings,

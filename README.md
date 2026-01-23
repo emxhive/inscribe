@@ -32,7 +32,7 @@ An Inscribe block is plain text wrapped around a normal fenced code block:
 ````
 @inscribe BEGIN
 FILE: relative/path/from/repo/root.ext
-MODE: create | replace | append | range
+MODE: create | replace | append | range | delete
 [additional directives depending on mode]
 
 ```language
@@ -44,12 +44,15 @@ MODE: create | replace | append | range
 
 **Important:** Only `@inscribe BEGIN` and `@inscribe END` use the `@inscribe` prefix. Headers (`FILE:`, `MODE:`) and directives (e.g., `START:`, `END:`) must be written **without** the `@inscribe` prefix.
 
+**Note:** For `MODE: delete`, the fenced code block is optional and not required, as delete operations do not need content.
+
 ### Supported Modes
 
 - **create** — file MUST NOT exist
 - **replace** — file MUST exist, entire content replaced
 - **append** — file MUST exist, content appended to end
 - **range** — file MUST exist, partial replace between anchors (or replace a single START-selected line when END is omitted)
+- **delete** — file MUST exist, file will be deleted (no code content required)
 
 ## LLM Usage
 

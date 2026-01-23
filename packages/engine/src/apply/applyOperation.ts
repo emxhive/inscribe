@@ -34,14 +34,18 @@ export function applyOperation(operation: Operation, repoRoot: string): void {
       fs.unlinkSync(filePath);
       
       // Clean up empty parent directories (up to repoRoot)
+      // Walk up the directory tree and remove empty directories
       let currentDir = path.dirname(filePath);
-      while (currentDir !== repoRoot && currentDir !== path.dirname(currentDir)) {
+      const normalizedRepoRoot = path.resolve(repoRoot);
+      
+      while (path.resolve(currentDir) !== normalizedRepoRoot) {
         try {
           const entries = fs.readdirSync(currentDir);
           if (entries.length === 0) {
             fs.rmdirSync(currentDir);
             currentDir = path.dirname(currentDir);
           } else {
+            // Stop if directory is not empty
             break;
           }
         } catch {

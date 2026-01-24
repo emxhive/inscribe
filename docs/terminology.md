@@ -162,23 +162,6 @@ Replaces content between two anchor points in an existing file. Anchors match su
 - The scan is language-agnostic and only skips obvious strings (`'`, `"`, `` ` ``) and comments (`//`, `/* */`), so complex grammars or nested templating may confuse it.
 - Brace-aware matching only applies to `END: }` (not `END_BEFORE` or `END_AFTER`).
 
-**Brace-aware example:**
-
-````
-@inscribe BEGIN
-FILE: src/example.js
-MODE: range
-START_AFTER: // start
-END: }
-
-```javascript
-  replacement
-}
-```
-
-@inscribe END
-````
-
 **Requirements:**
 - File MUST exist
 - If END is omitted, Inscribe replaces **exactly one line** (selected by the START directive semantics) and inserts the block content, which may span multiple lines

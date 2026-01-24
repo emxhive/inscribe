@@ -202,6 +202,115 @@ omega
 `);
   });
 
+  it('should resolve END: } to the enclosing brace for nested blocks', () => {
+    const filePath = path.join(tempDir, 'app', 'range-braces-nested.js');
+    fs.writeFileSync(
+      filePath,
+      `function demo() {
+  if (flag) {
+    // start
+    old line
+  }
+  after
+}
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-braces-nested.js',
+          content: '    replaced line\n  }\n',
+          directives: {
+            START_AFTER: '// start',
+            END: '}',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('replaced line');
+    expect(content).toContain('after');
+    expect(content).toContain('if (flag)');
+    expect(content).not.toContain('old line');
+  });
+
+  it('should ignore braces inside strings and comments for END: }', () => {
+    const filePath = path.join(tempDir, 'app', 'range-braces-strings.js');
+    fs.writeFileSync(
+      filePath,
+      `function demo() {
+  // start
+  const text = "}";
+  /* comment { */
+  const other = '{';
+}
+after
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-braces-strings.js',
+          content: '  updated\n}\n',
+          directives: {
+            START_AFTER: '// start',
+            END: '}',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('updated');
+    expect(content).toContain('after');
+    expect(content).toContain('function demo()');
+    expect(content).not.toContain('const text = "}";');
+  });
+
+  it('should preserve non-brace END anchors unchanged', () => {
+    const filePath = path.join(tempDir, 'app', 'range-non-brace-end.js');
+    fs.writeFileSync(
+      filePath,
+      `// start
+old content
+// end
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-non-brace-end.js',
+          content: 'new content',
+          directives: {
+            START_AFTER: '// start',
+            END_BEFORE: '// end',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('new content');
+    expect(content).toContain('// end');
+    expect(content).not.toContain('old content');
+  });
+
   it('should create backup before applying', () => {
     const filePath = path.join(tempDir, 'app', 'existing.js');
     fs.writeFileSync(filePath, 'original content');

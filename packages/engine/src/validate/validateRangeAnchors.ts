@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 
+import { findEnclosingBraceRange, formatBraceScanError } from '../util/braceScan';
 import { findAllOccurrences, MatchRange } from '../util/textSearch';
 import {ParsedBlock, ValidationError} from "@inscribe/shared";
 
@@ -154,29 +155,42 @@ export function validateRangeAnchors(
     if (!endAnchor) {
       return errors;
     }
-    const endMatches = findAllOccurrences(searchContent, endAnchor);
+    if (endDirective.key === 'END' && endAnchor === '}') {
+      const startMatch = startMatches[0];
+      const anchorIndex = Math.max(startMatch.end - 1, startMatch.start);
+      const braceResult = findEnclosingBraceRange(searchContent, anchorIndex);
+      if (braceResult.error) {
+        errors.push({
+          blockIndex: block.blockIndex,
+          file: block.file,
+          message: formatBraceScanError(braceResult.error),
+        });
+      }
+    } else {
+      const endMatches = findAllOccurrences(searchContent, endAnchor);
 
-    if (endMatches.length === 0) {
-      errors.push({
-        blockIndex: block.blockIndex,
-        file: block.file,
-        message: `${endDirective.key} anchor not found: "${endAnchor}"`,
-      });
-    }
+      if (endMatches.length === 0) {
+        errors.push({
+          blockIndex: block.blockIndex,
+          file: block.file,
+          message: `${endDirective.key} anchor not found: "${endAnchor}"`,
+        });
+      }
 
-    if (errors.length > 0) {
-      return errors;
-    }
+      if (errors.length > 0) {
+        return errors;
+      }
 
-    const startMatch = startMatches[0];
-    const endMatch = findFirstMatchAfter(endMatches, startMatch);
+      const startMatch = startMatches[0];
+      const endMatch = findFirstMatchAfter(endMatches, startMatch);
 
-    if (!endMatch) {
-      errors.push({
-        blockIndex: block.blockIndex,
-        file: block.file,
-        message: `${endDirective.key} anchor not found after ${startDirective.key}`,
-      });
+      if (!endMatch) {
+        errors.push({
+          blockIndex: block.blockIndex,
+          file: block.file,
+          message: `${endDirective.key} anchor not found after ${startDirective.key}`,
+        });
+      }
     }
   }
 

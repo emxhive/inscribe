@@ -51,7 +51,7 @@ Optional commands within an Inscribe block that provide additional instructions 
   - Can match anywhere within a line (beginning, middle, or end)
   - **Replacements always expand to full line boundaries** (no inline splicing)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
-  - START anchor must match exactly once in the target file (or within scope)
+  - START anchor must match exactly once in the target file
   - If no END directive is provided, START selects the **single line** to replace (the inserted code can be multi-line)
   - **START** begins replacement at the start of the line containing the anchor (the anchor line is replaced)
   - **START_BEFORE** begins replacement at the start of the line before the anchor (previous line + anchor line + rest)
@@ -87,7 +87,7 @@ Creates a new file with the provided content.
 
 **Requirements:**
 - File MUST NOT exist
-- Path must be under repository root (but not necessarily within scope)
+- Path must be under repository root
 - Parent directory will be created if needed
 
 **Failure conditions:**

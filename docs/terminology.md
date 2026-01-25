@@ -69,22 +69,6 @@ Optional commands within an Inscribe block that provide additional instructions 
   - **END_BEFORE** ends replacement at the start of the line containing the anchor (anchor line is excluded)
   - **END_AFTER** ends replacement at the end of the line after the anchor
 
-- **SCOPE_START:** (optional for range mode) Narrows the search area for anchors
-  - Format: `SCOPE_START: <exact substring>`
-  - **Must not use `@inscribe` prefix**
-  - Anchors are **literal substring matches** (not regex, not whole-line matches)
-  - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
-  - Must match exactly once in the target file
-  - **Must be provided together with SCOPE_END** (providing only one is invalid)
-  
-- **SCOPE_END:** (optional for range mode) Defines the end of the search area
-  - Format: `SCOPE_END: <exact substring>`
-  - **Must not use `@inscribe` prefix**
-  - Anchors are **literal substring matches** (not regex, not whole-line matches)
-  - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
-  - Can match multiple times; Inscribe uses the **first SCOPE_END after SCOPE_START**
-  - **Must be provided together with SCOPE_START** (providing only one is invalid)
-
 ### Prefix Usage Rules
 
 The `@inscribe` prefix is **only** used for block boundaries:
@@ -170,10 +154,6 @@ Replaces content between two anchor points in an existing file. Anchors match su
 - If END is provided, the selected END must be the first occurrence after START
 - Path must be under repository root and not ignored
 
-**Optional:**
-- SCOPE_START and SCOPE_END can narrow the search area
-- SCOPE_START must match exactly once; SCOPE_END can match multiple times and the first occurrence after SCOPE_START is used
-
 ### delete
 Deletes an existing file from the repository.
 
@@ -222,32 +202,6 @@ Choosing the right mode depends on your specific use case:
 - Use **range** for precise, localized changes where you want to preserve surrounding context
 - Use **delete** when removing files that are no longer needed (supports undo via backup)
 
-## Repository Structure
-
-### Repository Root
-The base directory of your repository where Inscribe operates. All file paths in blocks are relative to this root.
-
-### Scope Roots
-Configurable directories that help Inscribe focus indexing and suggestions. With the repo-wide modification policy, all modes can operate anywhere under the repository root (subject to ignore rules), so scope roots no longer restrict where changes may be applied.
-
-**Example scope configuration:**
-- `app/` - Application source code
-- `routes/` - Route definitions
-- `config/` - Configuration files
-- `tests/` - Test files
-
-### Ignored Paths
-Directories that Inscribe will never touch.
-
-**Ignored paths:**
-- `.git/` - Git repository
-- `node_modules/` - Dependencies
-- `vendor/` - Dependencies
-- `storage/` - Runtime storage
-- `bootstrap/cache/` - Cache
-- `public/build/` - Build output
-- `.inscribe/` - Inscribe metadata
-
 ## Validation
 
 ### Strict Validation Policy
@@ -263,35 +217,3 @@ Before every apply, Inscribe creates a backup at `.inscribe/backups/<timestamp>/
 
 ### Undo
 Restores files from the most recent backup (blind restore, no merge).
-
-## LLM Usage Note (Copy/Paste)
-
-The following note is intended for LLMs and users who want to prompt them. Copy it as-is when instructing an assistant:
-
-```txt
-INSCRIBE – LLM USAGE NOTE
-
-When a user asks you to use Inscribe:
-
-- Preserve your normal response behavior.
-  - Write explanations, comments, and notes as usual.
-  - Use fenced code blocks normally where helpful.
-
-- Only apply Inscribe tags to code blocks that are meant to be processed by Inscribe.
-  - Do not change or restrict other parts of the response.
-  - If you cannot find unique anchors, widen the replacement area so that the START and END anchors are unambiguous.
-
-For each code block intended for Inscribe:
-- Add `@inscribe BEGIN` on a plain text line immediately before the fenced code block.
-- Add Inscribe headers (FILE:, MODE:) immediately after the BEGIN line, **without** the `@inscribe` prefix.
-- Add any optional directives (START:, END:, etc.) **without** the `@inscribe` prefix.
-- Keep the code itself inside a normal Markdown fenced code block.
-- Add `@inscribe END` on a plain text line immediately after the fenced code block.
-
-Notes:
-- Inscribe tags must not be fenced.
-- Only `@inscribe BEGIN` and `@inscribe END` use the `@inscribe` prefix.
-- Headers (FILE:, MODE:) and directives (START:, END:, etc.) must NOT use the `@inscribe` prefix.
-- Do not wrap multiple code blocks or the entire response in a single Inscribe block.
-- All non-Inscribe content should remain unchanged.
-```

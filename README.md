@@ -58,7 +58,7 @@ MODE: create | replace | append | range | delete
 
 When working with AI assistants that generate code, you can instruct them to format their responses using Inscribe blocks. This allows you to safely review and apply only the tagged portions.
 
-See the [LLM Usage Note in the terminology documentation](docs/terminology.md#llm-usage-note-copypaste) for complete instructions to copy/paste when prompting an LLM.
+See the [LLM Usage Guide](docs/llm-guide.md) for complete instructions to copy/paste when prompting an LLM.
 
 ## Backups & Undo
 

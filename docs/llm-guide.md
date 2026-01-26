@@ -1,75 +1,58 @@
-# Inscribe – LLM Usage Guide
+# INSCRIBE LLM USAGE GUIDE
 
-This guide is written for AI assistants (LLMs) that want to format their code responses using Inscribe blocks. It contains everything you need to know to use Inscribe correctly and effectively.
+ABOUT THIS GUIDE:
+This guide is for AI assistants (LLMs) to learn how to format code responses using Inscribe blocks.
+Inscribe is a desktop application that applies only explicitly tagged code blocks to a user's codebase.
 
-## What is Inscribe?
+CORE PRINCIPLE:
+Preserve your normal response behavior. Write explanations and comments as usual. Use regular fenced code blocks where helpful. Only apply Inscribe tags to code blocks that should be processed by the Inscribe application.
 
-Inscribe is a desktop application that allows users to safely apply code changes from AI responses to their codebase. Instead of blindly applying all code suggestions, Inscribe only processes blocks that are explicitly tagged with `@inscribe` markers. This ensures safe, reviewable changes with validation and undo support.
+INSCRIBE BLOCK STRUCTURE:
 
-## Core Principle
+An Inscribe block has this structure (do NOT use four backticks - this is just showing you the structure):
 
-**Preserve your normal response behavior.** Write explanations, comments, and notes as usual. Use fenced code blocks normally where helpful. Only apply Inscribe tags to code blocks that are meant to be processed by the Inscribe application.
-
-## Block Structure
-
-An Inscribe block wraps a standard Markdown fenced code block with special markers and headers:
-
-````
 @inscribe BEGIN
 FILE: relative/path/from/repo/root.ext
-MODE: create | replace | append | range | delete
-[optional directives]
+MODE: create
+(optional directives can go here)
 
-```language
-<code content>
-```
+(then a normal three-backtick fenced code block)
+(with your code inside)
+(end the fenced code block with three backticks)
 
 @inscribe END
-````
 
-**Critical Rules:**
-- **Only** `@inscribe BEGIN` and `@inscribe END` use the `@inscribe` prefix
-- Headers (`FILE:`, `MODE:`) must **NOT** have the `@inscribe` prefix
-- Directives (`START:`, `END:`, etc.) must **NOT** have the `@inscribe` prefix
-- The Inscribe markers (`@inscribe BEGIN` and `@inscribe END`) must be **outside** the fenced code block
-- Each Inscribe block wraps exactly **one** fenced code block
+CRITICAL RULES FOR PREFIX USAGE:
+1. ONLY use the @inscribe prefix for BEGIN and END markers
+2. DO NOT use @inscribe prefix for FILE:
+3. DO NOT use @inscribe prefix for MODE:
+4. DO NOT use @inscribe prefix for any directives like START: or END:
+5. The @inscribe BEGIN and @inscribe END lines are OUTSIDE the fenced code block
+6. Each Inscribe block wraps exactly ONE fenced code block
 
-## Required Headers
+REQUIRED HEADERS:
 
-Every Inscribe block must include these two headers immediately after `@inscribe BEGIN`:
+Every Inscribe block MUST include these two headers immediately after @inscribe BEGIN:
 
-### FILE:
-Specifies the relative path from the repository root where the file will be created or modified.
-
-```
-FILE: src/components/Button.tsx
-```
-
+FILE: specifies the relative path from repository root
+- Format: FILE: relative/path/from/repo/root.ext
 - Path must be relative to repository root
-- Use forward slashes (`/`) even on Windows
-- Do **NOT** use the `@inscribe` prefix
+- Use forward slashes even on Windows
+- Do NOT use @inscribe prefix
 
-### MODE:
-Specifies the operation type. Must be one of: `create`, `replace`, `append`, `range`, or `delete`.
+MODE: specifies the operation type
+- Format: MODE: create (or replace, append, range, delete)
+- Must be exactly one of the five supported modes
+- Do NOT use @inscribe prefix
 
-```
-MODE: create
-```
+THE FIVE MODES:
 
-- Do **NOT** use the `@inscribe` prefix
-- Choose the appropriate mode based on the operation (see Modes section)
+MODE 1: create
+- Creates a new file that must not already exist
+- Use when adding entirely new files to the codebase
+- Example use cases: creating new components, tests, or configuration files
 
-## Modes
-
-### create
-Creates a new file that must not already exist.
-
-**Use when:**
-- Adding entirely new files to the codebase
-- Creating new components, tests, or configuration files
-
-**Example:**
-````
+Example:
 @inscribe BEGIN
 FILE: src/utils/helpers.ts
 MODE: create
@@ -81,17 +64,13 @@ export function formatDate(date: Date): string {
 ```
 
 @inscribe END
-````
 
-### replace
-Replaces the entire content of an existing file.
+MODE 2: replace
+- Replaces the entire content of an existing file
+- Use when completely rewriting an existing file
+- Use when major refactoring where most of the file changes
 
-**Use when:**
-- Completely rewriting an existing file
-- Major refactoring where most of the file changes
-
-**Example:**
-````
+Example:
 @inscribe BEGIN
 FILE: src/config.js
 MODE: replace
@@ -104,19 +83,14 @@ export const config = {
 ```
 
 @inscribe END
-````
 
-### append
-Appends content to the end of an existing file.
+MODE 3: append
+- Appends content to the end of an existing file
+- Use when adding new content that logically goes at the end
+- IMPORTANT: Inscribe does not automatically insert a newline before your content
+- If you need a newline before your content, include it explicitly by starting your code with a blank line
 
-**Use when:**
-- Adding new content that logically goes at the end
-- Adding exports, test cases, or log entries
-
-**Note:** Inscribe does not automatically insert a newline. If you need a newline before your content, include it explicitly (start your code with a blank line).
-
-**Example:**
-````
+Example:
 @inscribe BEGIN
 FILE: src/index.ts
 MODE: append
@@ -127,21 +101,17 @@ export { NewFeature } from './features/new-feature';
 ```
 
 @inscribe END
-````
 
-### range
-Replaces content between two anchor points in an existing file. This is the most precise mode for surgical edits.
+MODE 4: range
+- Replaces content between two anchor points in an existing file
+- This is the most precise mode for surgical edits
+- Use when updating a specific function or method
+- Use when modifying a configuration section
+- Use when making localized changes while preserving surrounding code
+- Requires at least one START directive
+- END directive is optional
 
-**Use when:**
-- Updating a specific function or method
-- Modifying a configuration section
-- Making localized changes while preserving surrounding code
-
-**Required:** At least one START directive (START, START_BEFORE, or START_AFTER)
-**Optional:** One END directive (END, END_BEFORE, or END_AFTER)
-
-**Example (with both START and END):**
-````
+Example with both START and END:
 @inscribe BEGIN
 FILE: src/api/users.ts
 MODE: range
@@ -155,10 +125,8 @@ export function getUser(id: string): Promise<User> {
 ```
 
 @inscribe END
-````
 
-**Example (START only - replaces one line):**
-````
+Example with START only (replaces one line):
 @inscribe BEGIN
 FILE: src/config.ts
 MODE: range
@@ -169,196 +137,109 @@ const API_VERSION = 'v2';
 ```
 
 @inscribe END
-````
 
-### delete
-Deletes an existing file from the repository.
+MODE 5: delete
+- Deletes an existing file from the repository
+- Use when removing deprecated or obsolete files
+- The fenced code block is optional for delete mode and can be omitted entirely
 
-**Use when:**
-- Removing deprecated or obsolete files
-
-**Note:** The fenced code block is optional for delete mode. You can omit it entirely.
-
-**Example:**
-````
+Example:
 @inscribe BEGIN
 FILE: src/deprecated/old-feature.ts
 MODE: delete
 
 @inscribe END
-````
 
-## Range Mode Directives
+RANGE MODE DIRECTIVES:
 
-When using `MODE: range`, you need at least one START directive. END is optional.
+When using MODE: range, you need at least one START directive. END is optional.
 
-### START Directives
+START DIRECTIVES (exactly ONE of these is required):
+- START: begins replacement at the start of the line containing the anchor (anchor line is replaced)
+- START_BEFORE: begins replacement at the start of the line before the anchor
+- START_AFTER: begins replacement at the start of the line after the anchor
 
-Exactly **one** of these must be provided:
+Format: START: exact substring to match
 
-- **START:** Begins replacement at the start of the line containing the anchor (anchor line is replaced)
-- **START_BEFORE:** Begins replacement at the start of the line before the anchor
-- **START_AFTER:** Begins replacement at the start of the line after the anchor
+END DIRECTIVES (optional - if omitted, only one line is replaced):
+- END: ends replacement at the end of the line containing the anchor (anchor line is replaced)
+- END_BEFORE: ends replacement at the start of the line containing the anchor (anchor line is excluded)
+- END_AFTER: ends replacement at the end of the line after the anchor
 
-**Format:**
-```
-START: <exact substring>
-```
+Format: END: exact substring to match
 
-### END Directives
-
-**Optional.** If omitted, only the single line selected by START is replaced. If provided, exactly **one** of these must be used:
-
-- **END:** Ends replacement at the end of the line containing the anchor (anchor line is replaced)
-- **END_BEFORE:** Ends replacement at the start of the line containing the anchor (anchor line is excluded)
-- **END_AFTER:** Ends replacement at the end of the line after the anchor
-
-**Format:**
-```
-END: <exact substring>
-```
-
-### Anchor Matching Rules
-
-- Anchors are **literal substring matches** (not regex, not whole-line matches)
+ANCHOR MATCHING RULES:
+- Anchors are literal substring matches (not regex, not whole-line matches)
 - Anchors can match anywhere within a line (beginning, middle, or end)
-- If no exact match is found, Inscribe retries with a **whitespace-insensitive** match
+- If no exact match is found, Inscribe retries with whitespace-insensitive matching
 - START must match exactly once in the file
-- END can match multiple times; Inscribe uses the **first occurrence after START**
-- **Replacements always expand to full line boundaries** (no inline splicing)
+- END can match multiple times - Inscribe uses the first occurrence after START
+- Replacements always expand to full line boundaries (no inline splicing)
 
-### Special END Handling
+SPECIAL END HANDLING:
+If END: } is specified (a single closing brace), Inscribe uses brace-aware matching to automatically find the structural closing brace for the block containing the START anchor.
 
-If `END: }` is specified (a single closing brace), Inscribe uses **brace-aware matching** to automatically find the structural closing brace for the block containing the START anchor.
+CHOOSING THE RIGHT MODE:
 
-## Choosing the Right Mode
+When file does not exist yet: use create
+When rewriting most or all of a file: use replace
+When adding content to the end: use append
+When updating one function or method or section: use range
+When removing a file: use delete
 
-| Situation | Recommended Mode |
-|-----------|-----------------|
-| File doesn't exist yet | `create` |
-| Rewriting most/all of a file | `replace` |
-| Adding content to the end | `append` |
-| Updating one function/method/section | `range` |
-| Removing a file | `delete` |
+General guidance:
+- Use range mode with precise anchors for surgical changes
+- Use replace when most of the file needs to change
+- If you cannot find unique anchors for range, widen the replacement area or use replace
 
-**General guidance:**
-- Use `range` mode with precise anchors for surgical changes
-- Use `replace` when most of the file needs to change
-- If you can't find unique anchors for `range`, widen the replacement area or use `replace`
+BEST PRACTICES:
 
-## Best Practices for LLMs
+1. USE PRECISE ANCHORS
+Choose unique substrings that clearly identify the location.
+Good example: START: export function calculateTotal(
+Bad example: START: function (too generic, might match multiple times)
 
-### 1. Use Precise Anchors
-Choose unique substrings that clearly identify the location:
+2. INCLUDE ENOUGH CONTEXT IN ANCHORS
+Make sure your anchors are unique within the file.
+Good example: START: class UserService {
+Bad example: START: { (matches many lines)
 
-✅ **Good:** `START: export function calculateTotal(`
-❌ **Bad:** `START: function` (too generic, might match multiple times)
+3. WIDEN RANGE IF ANCHORS ARE NOT UNIQUE
+If you cannot find unique anchors, expand the replacement area.
+Example: START: // User Service Section and END: // End User Service Section
 
-### 2. Include Enough Context in Anchors
-Make sure your anchors are unique within the file:
+4. ONE BLOCK PER CODE CHANGE
+Do not wrap multiple code blocks in a single Inscribe block.
+Each Inscribe block should wrap exactly one fenced code block.
 
-✅ **Good:** `START: class UserService {`
-❌ **Bad:** `START: {` (matches many lines)
+5. DO NOT INSCRIBE EVERYTHING
+Only tag code that should be applied to files.
+Examples, explanations, and illustrative code blocks should remain as normal Markdown fenced blocks.
 
-### 3. Widen Range if Anchors Aren't Unique
-If you can't find unique anchors, expand the replacement area:
+6. PRESERVE YOUR NATURAL STYLE
+Write explanations, descriptions, and comments as you normally would.
+Inscribe blocks are just for the code that needs to be applied.
 
-```
-START: // User Service Section
-END: // End User Service Section
-```
+COMMON MISTAKES TO AVOID:
 
-### 4. One Block Per Code Change
-Don't wrap multiple code blocks in a single Inscribe block:
+MISTAKE 1: Using @inscribe prefix on headers or directives
+WRONG: @inscribe FILE: src/file.ts
+WRONG: @inscribe MODE: create
+WRONG: @inscribe START: function foo
+CORRECT: FILE: src/file.ts
+CORRECT: MODE: create
+CORRECT: START: function foo
 
-❌ **Wrong:**
-````
-@inscribe BEGIN
-FILE: src/file1.ts
-MODE: create
+MISTAKE 2: Putting Inscribe markers inside fenced code blocks
+The @inscribe BEGIN and @inscribe END markers must be OUTSIDE the fenced code block.
+The fenced code block (three backticks) should only wrap the actual code content.
 
-```typescript
-// code 1
-```
+MISTAKE 3: Wrapping multiple code blocks in one Inscribe block
+Each Inscribe block should contain exactly one fenced code block.
 
-```typescript
-// code 2
-```
+COMPLETE EXAMPLES:
 
-@inscribe END
-````
-
-✅ **Correct:**
-````
-@inscribe BEGIN
-FILE: src/file1.ts
-MODE: create
-
-```typescript
-// code 1
-```
-
-@inscribe END
-
-@inscribe BEGIN
-FILE: src/file2.ts
-MODE: create
-
-```typescript
-// code 2
-```
-
-@inscribe END
-````
-
-### 5. Don't Inscribe Everything
-Only tag code that should be applied to files. Examples, explanations, and illustrative code blocks should remain as normal Markdown fenced blocks.
-
-### 6. Preserve Your Natural Style
-Write explanations, descriptions, and comments as you normally would. Inscribe blocks are just for the code that needs to be applied.
-
-## Common Mistakes to Avoid
-
-### ❌ Using @inscribe prefix on headers/directives
-```
-@inscribe FILE: src/file.ts     // WRONG
-@inscribe MODE: create           // WRONG
-@inscribe START: function foo    // WRONG
-```
-
-### ✅ Correct format
-```
-FILE: src/file.ts
-MODE: create
-START: function foo
-```
-
-### ❌ Fencing the Inscribe markers
-````
-```
-@inscribe BEGIN
-FILE: src/file.ts
-MODE: create
-```                              // WRONG - markers should be outside fences
-````
-
-### ✅ Correct format
-````
-@inscribe BEGIN                  // Outside the fence
-FILE: src/file.ts
-MODE: create
-
-```typescript                    // Only the code is fenced
-// code here
-```
-
-@inscribe END                    // Outside the fence
-````
-
-## Complete Examples
-
-### Example 1: Creating a New Component
-````
+EXAMPLE 1: Creating a new component
 @inscribe BEGIN
 FILE: src/components/Card.tsx
 MODE: create
@@ -382,10 +263,8 @@ export function Card({ title, children }: CardProps) {
 ```
 
 @inscribe END
-````
 
-### Example 2: Updating a Specific Function
-````
+EXAMPLE 2: Updating a specific function
 @inscribe BEGIN
 FILE: src/utils/validation.ts
 MODE: range
@@ -400,10 +279,8 @@ export function validateEmail(email: string): boolean {
 ```
 
 @inscribe END
-````
 
-### Example 3: Appending to a File
-````
+EXAMPLE 3: Appending to a file
 @inscribe BEGIN
 FILE: src/routes/index.ts
 MODE: append
@@ -415,10 +292,8 @@ export { settingsRouter } from './settings';
 ```
 
 @inscribe END
-````
 
-### Example 4: Replacing Single Line
-````
+EXAMPLE 4: Replacing a single line
 @inscribe BEGIN
 FILE: src/config.ts
 MODE: range
@@ -429,26 +304,22 @@ export const MAX_RETRIES = 5;
 ```
 
 @inscribe END
-````
 
-### Example 5: Deleting a File
-````
+EXAMPLE 5: Deleting a file
 @inscribe BEGIN
 FILE: src/deprecated/legacy-api.ts
 MODE: delete
 
 @inscribe END
-````
 
-## Summary
+SUMMARY:
 
-To use Inscribe effectively:
+To use Inscribe correctly:
+1. Preserve your normal response style - only tag code meant for Inscribe
+2. Use the correct mode for each operation (create, replace, append, range, delete)
+3. Never use @inscribe prefix on headers or directives (only on BEGIN and END)
+4. Choose precise, unique anchors for range mode
+5. One code block per Inscribe block - do not wrap multiple blocks together
+6. Keep Inscribe markers outside the fenced code block
 
-1. **Preserve your normal response style** - only tag code meant for Inscribe
-2. **Use the correct mode** for each operation (create/replace/append/range/delete)
-3. **Never use `@inscribe` prefix** on headers or directives (only on BEGIN/END)
-4. **Choose precise, unique anchors** for range mode
-5. **One code block per Inscribe block** - don't wrap multiple blocks together
-6. **Keep Inscribe markers outside** the fenced code block
-
-With these guidelines, any code-smart LLM can generate Inscribe-formatted responses that users can safely review and apply to their codebase.
+With these guidelines, any LLM can generate Inscribe-formatted responses that users can safely review and apply to their codebase.

@@ -186,7 +186,9 @@ export function useRepositoryActions() {
         indexStatus: result.indexStatus || { state: 'complete' },
         statusMessage: `Scope updated: ${indexedFileState.indexedFiles.length} files indexed`
       });
-      await revalidateParsedBlocks(state.repoRoot, state.parsedBlocks);
+      if (state.mode === 'review') {
+        await revalidateParsedBlocks(state.repoRoot, state.parsedBlocks);
+      }
     } catch (error) {
       console.error('Failed to update scope:', error);
       updateState({ 

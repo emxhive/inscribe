@@ -20,8 +20,6 @@ function AppShell() {
   const repositoryActions = useRepositoryActions();
   const [scopeModalOpen, setScopeModalOpen] = useState(false);
   const [ignoreModalOpen, setIgnoreModalOpen] = useState(false);
-  const [ignoredListModalOpen, setIgnoredListModalOpen] = useState(false);
-  const [suggestedListModalOpen, setSuggestedListModalOpen] = useState(false);
   const [indexedListModalOpen, setIndexedListModalOpen] = useState(false);
 
   const hasRepository = Boolean(state.repoRoot);
@@ -34,9 +32,7 @@ function AppShell() {
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       <AppHeader
         onOpenScopeModal={() => hasRepository && setScopeModalOpen(true)}
-        onOpenIgnoredList={() => setIgnoredListModalOpen(true)}
-        onOpenIgnoreEditor={() => hasRepository && setIgnoreModalOpen(true)}
-        onOpenSuggestedList={() => setSuggestedListModalOpen(true)}
+        onOpenIgnore={() => hasRepository && setIgnoreModalOpen(true)}
         onOpenIndexedList={() => setIndexedListModalOpen(true)}
       />
 
@@ -53,22 +49,6 @@ function AppShell() {
       <IgnoreEditorModal
         isOpen={ignoreModalOpen}
         onClose={() => setIgnoreModalOpen(false)}
-      />
-
-      <ListModal
-        isOpen={ignoredListModalOpen}
-        onClose={() => setIgnoredListModalOpen(false)}
-        title="Ignored Paths"
-        items={state.ignore.entries}
-        emptyMessage="No paths are explicitly ignored"
-      />
-
-      <ListModal
-        isOpen={suggestedListModalOpen}
-        onClose={() => setSuggestedListModalOpen(false)}
-        title="Suggested Excludes"
-        items={state.suggested}
-        emptyMessage="No suggested excludes"
       />
 
       <ListModal

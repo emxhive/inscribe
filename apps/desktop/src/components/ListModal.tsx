@@ -33,8 +33,10 @@ export function ListModal({
       ) : (
         <ul className="list-none p-0 m-0">
           {items.map((item, index) => (
-            <li key={index} className="p-3 border border-border rounded-md mb-2 bg-secondary">
-              {item}
+            <li key={index} className="mb-2">
+              <span className="inline-code border border-border/40 bg-muted/40 px-2 py-0.5 rounded-md">
+                {item}
+              </span>
             </li>
           ))}
         </ul>

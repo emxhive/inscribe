@@ -1,7 +1,7 @@
 export type BraceScanErrorType =
   | 'mismatched-closing-brace'
   | 'missing-closing-brace'
-  | 'start-outside-brace-scope';
+  | 'missing-opening-brace-in-range';
 
 export interface BraceScanError {
   type: BraceScanErrorType;
@@ -18,70 +18,169 @@ export interface BraceScanResult {
   error?: BraceScanError;
 }
 
-export function findEnclosingBraceRange(content: string, position: number): BraceScanResult {
-  if (position < 0 || position >= content.length) {
+export function resolveBraceSelectionStart(
+  anchorStart: number,
+  anchorEnd: number,
+  startDirectiveKey: string
+): number {
+  switch (startDirectiveKey) {
+    case 'START':
+      return anchorStart;
+    case 'START_AFTER':
+      return anchorEnd;
+    case 'START_BEFORE':
+      return Math.max(0, anchorStart - 1);
+    default:
+      return anchorStart;
+  }
+}
+
+interface BraceScanState {
+  inLineComment: boolean;
+  inBlockComment: boolean;
+  inSingleQuote: boolean;
+  inDoubleQuote: boolean;
+  inBacktick: boolean;
+}
+
+function createBraceScanState(): BraceScanState {
+  return {
+    inLineComment: false,
+    inBlockComment: false,
+    inSingleQuote: false,
+    inDoubleQuote: false,
+    inBacktick: false,
+  };
+}
+
+function advanceBraceScanState(
+  content: string,
+  index: number,
+  state: BraceScanState
+): { index: number; canScanBraces: boolean } {
+  const char = content[index];
+  const next = content[index + 1];
+
+  if (state.inLineComment) {
+    if (char === '\n') {
+      state.inLineComment = false;
+    }
+    return { index, canScanBraces: false };
+  }
+
+  if (state.inBlockComment) {
+    if (char === '*' && next === '/') {
+      state.inBlockComment = false;
+      return { index: index + 1, canScanBraces: false };
+    }
+    return { index, canScanBraces: false };
+  }
+
+  if (state.inSingleQuote) {
+    if (char === '\\') {
+      return { index: index + 1, canScanBraces: false };
+    }
+    if (char === '\'') {
+      state.inSingleQuote = false;
+    }
+    return { index, canScanBraces: false };
+  }
+
+  if (state.inDoubleQuote) {
+    if (char === '\\') {
+      return { index: index + 1, canScanBraces: false };
+    }
+    if (char === '"') {
+      state.inDoubleQuote = false;
+    }
+    return { index, canScanBraces: false };
+  }
+
+  if (state.inBacktick) {
+    if (char === '\\') {
+      return { index: index + 1, canScanBraces: false };
+    }
+    if (char === '`') {
+      state.inBacktick = false;
+    }
+    return { index, canScanBraces: false };
+  }
+
+  if (char === '/' && next === '/') {
+    state.inLineComment = true;
+    return { index: index + 1, canScanBraces: false };
+  }
+
+  if (char === '/' && next === '*') {
+    state.inBlockComment = true;
+    return { index: index + 1, canScanBraces: false };
+  }
+
+  if (char === '\'') {
+    state.inSingleQuote = true;
+    return { index, canScanBraces: false };
+  }
+
+  if (char === '"') {
+    state.inDoubleQuote = true;
+    return { index, canScanBraces: false };
+  }
+
+  if (char === '`') {
+    state.inBacktick = true;
+    return { index, canScanBraces: false };
+  }
+
+  return { index, canScanBraces: true };
+}
+
+export function findBraceRangeFromSelection(
+  content: string,
+  rangeStart: number,
+  rangeEnd: number = content.length
+): BraceScanResult {
+  // Scan forward from the START-selected range to find the first "{", then return
+  // the matching "}" while ignoring braces in comments and strings.
+  const normalizedEnd = Math.min(Math.max(0, rangeEnd), content.length);
+  const normalizedStart = Math.min(Math.max(0, rangeStart), normalizedEnd);
+
+  if (normalizedStart >= normalizedEnd) {
     return {
       error: {
-        type: 'start-outside-brace-scope',
-        index: position,
+        type: 'missing-opening-brace-in-range',
+        index: normalizedStart,
       },
     };
   }
 
+  const state = createBraceScanState();
+
+  for (let i = 0; i < normalizedStart; i++) {
+    const result = advanceBraceScanState(content, i, state);
+    i = result.index;
+  }
+
   const stack: number[] = [];
   let targetOpen: number | null = null;
-  let inLineComment = false;
-  let inBlockComment = false;
-  let inSingleQuote = false;
-  let inDoubleQuote = false;
-  let inBacktick = false;
 
-  for (let i = 0; i < content.length; i++) {
+  for (let i = normalizedStart; i < normalizedEnd; i++) {
+    const result = advanceBraceScanState(content, i, state);
+    i = result.index;
+    if (!result.canScanBraces) {
+      continue;
+    }
+
     const char = content[i];
-    const next = content[i + 1];
 
-    if (inLineComment) {
-      if (char === '\n') {
-        inLineComment = false;
-      }
-    } else if (inBlockComment) {
-      if (char === '*' && next === '/') {
-        inBlockComment = false;
-        i += 1;
-      }
-    } else if (inSingleQuote) {
-      if (char === '\\') {
-        i += 1;
-      } else if (char === '\'') {
-        inSingleQuote = false;
-      }
-    } else if (inDoubleQuote) {
-      if (char === '\\') {
-        i += 1;
-      } else if (char === '"') {
-        inDoubleQuote = false;
-      }
-    } else if (inBacktick) {
-      if (char === '\\') {
-        i += 1;
-      } else if (char === '`') {
-        inBacktick = false;
-      }
-    } else if (char === '/' && next === '/') {
-      inLineComment = true;
-      i += 1;
-    } else if (char === '/' && next === '*') {
-      inBlockComment = true;
-      i += 1;
-    } else if (char === '\'') {
-      inSingleQuote = true;
-    } else if (char === '"') {
-      inDoubleQuote = true;
-    } else if (char === '`') {
-      inBacktick = true;
-    } else if (char === '{') {
+    if (char === '{') {
       stack.push(i);
+      if (targetOpen === null) {
+        targetOpen = i;
+      }
     } else if (char === '}') {
+      if (targetOpen === null) {
+        continue;
+      }
       if (stack.length === 0) {
         return {
           error: {
@@ -91,7 +190,7 @@ export function findEnclosingBraceRange(content: string, position: number): Brac
         };
       }
       const openIndex = stack.pop()!;
-      if (openIndex === targetOpen) {
+      if (openIndex === targetOpen && stack.length === 0) {
         return {
           match: {
             openIndex,
@@ -100,33 +199,21 @@ export function findEnclosingBraceRange(content: string, position: number): Brac
         };
       }
     }
-
-    if (i === position && targetOpen === null) {
-      if (stack.length === 0) {
-        return {
-          error: {
-            type: 'start-outside-brace-scope',
-            index: i,
-          },
-        };
-      }
-      targetOpen = stack[stack.length - 1];
-    }
   }
 
-  if (targetOpen !== null) {
+  if (targetOpen === null) {
     return {
       error: {
-        type: 'missing-closing-brace',
-        index: targetOpen,
+        type: 'missing-opening-brace-in-range',
+        index: normalizedStart,
       },
     };
   }
 
   return {
     error: {
-      type: 'start-outside-brace-scope',
-      index: position,
+      type: 'missing-closing-brace',
+      index: targetOpen,
     },
   };
 }
@@ -136,9 +223,9 @@ export function formatBraceScanError(error: BraceScanError): string {
     case 'mismatched-closing-brace':
       return 'Mismatched closing brace found before matching opening brace while resolving END: "}".';
     case 'missing-closing-brace':
-      return 'Missing closing brace for block containing START anchor while resolving END: "}".';
-    case 'start-outside-brace-scope':
-      return 'START anchor is outside any brace scope while resolving END: "}".';
+      return 'Missing closing brace for the first "{" in the selected range while resolving END: "}".';
+    case 'missing-opening-brace-in-range':
+      return 'No opening brace found in the selected range while resolving END: "}".';
     default:
       return 'Unable to resolve brace range for END: "}".';
   }

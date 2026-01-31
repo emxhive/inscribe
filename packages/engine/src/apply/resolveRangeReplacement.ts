@@ -1,5 +1,9 @@
 import { Operation } from '@inscribe/shared';
-import { findEnclosingBraceRange, formatBraceScanError } from '../util/braceScan';
+import {
+  findBraceRangeFromSelection,
+  formatBraceScanError,
+  resolveBraceSelectionStart,
+} from '../util/braceScan';
 import { findAllOccurrences, MatchRange } from '../util/textSearch';
 
 export interface RangeReplaceResolution {
@@ -79,8 +83,12 @@ export function resolveRangeReplacement(
 
   if (endDirectives) {
     if (endDirectives.key === 'END' && endDirectives.value === '}') {
-      const anchorIndex = Math.max(startMatch.end - 1, startMatch.start);
-      const braceResult = findEnclosingBraceRange(searchContent, anchorIndex);
+      const braceScanStart = resolveBraceSelectionStart(
+        startMatch.start,
+        startMatch.end,
+        startDirectives.key
+      );
+      const braceResult = findBraceRangeFromSelection(searchContent, braceScanStart);
       if (braceResult.error) {
         throw new Error(formatBraceScanError(braceResult.error));
       }

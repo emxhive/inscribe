@@ -367,7 +367,7 @@ const x = 1;
     expect(errors[0].message).toContain('not found after');
   });
 
-  it('rejects END: } when START is outside a brace scope', () => {
+  it('rejects END: } when no opening brace exists in the selected range', () => {
     fs.writeFileSync(
       path.join(tempDir, 'app', 'range-brace-outside.js'),
       `// start
@@ -390,43 +390,14 @@ const x = 1;
 
     const errors = validateBlocks(blocks, tempDir);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].message).toContain('outside any brace scope');
-  });
-
-  it('rejects END: } when braces are mismatched', () => {
-    fs.writeFileSync(
-      path.join(tempDir, 'app', 'range-brace-mismatch.js'),
-      `}
-// start
-{
-  const x = 1;
-}
-`
-    );
-
-    const blocks: ParsedBlock[] = [
-      {
-        file: 'app/range-brace-mismatch.js',
-        mode: 'range',
-        directives: {
-          START_AFTER: '// start',
-          END: '}',
-        },
-        content: 'new content',
-        blockIndex: 0,
-      },
-    ];
-
-    const errors = validateBlocks(blocks, tempDir);
-    expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].message).toContain('Mismatched closing brace');
+    expect(errors[0].message).toContain('No opening brace found in the selected range');
   });
 
   it('rejects END: } when closing brace is missing', () => {
     fs.writeFileSync(
       path.join(tempDir, 'app', 'range-brace-missing.js'),
-      `function demo() {
-  // start
+      `// start
+function demo() {
   const x = 1;
 `
     );

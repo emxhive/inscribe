@@ -1,6 +1,10 @@
 import * as fs from 'fs';
 
-import { findEnclosingBraceRange, formatBraceScanError } from '../util/braceScan';
+import {
+  findBraceRangeFromSelection,
+  formatBraceScanError,
+  resolveBraceSelectionStart,
+} from '../util/braceScan';
 import { findAllOccurrences, MatchRange } from '../util/textSearch';
 import {ParsedBlock, ValidationError} from "@inscribe/shared";
 
@@ -157,8 +161,14 @@ export function validateRangeAnchors(
     }
     if (endDirective.key === 'END' && endAnchor === '}') {
       const startMatch = startMatches[0];
-      const anchorIndex = Math.max(startMatch.end - 1, startMatch.start);
-      const braceResult = findEnclosingBraceRange(searchContent, anchorIndex);
+      const braceScanStart = resolveBraceSelectionStart(
+        startMatch.start,
+        startMatch.end,
+        startDirective.key
+      );
+      // END: "}" resolves to the closing brace that matches the first "{" found
+      // after the START-selected range begins (per START/START_AFTER/START_BEFORE).
+      const braceResult = findBraceRangeFromSelection(searchContent, braceScanStart);
       if (braceResult.error) {
         errors.push({
           blockIndex: block.blockIndex,

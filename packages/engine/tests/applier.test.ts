@@ -202,13 +202,157 @@ omega
 `);
   });
 
-  it('should resolve END: } to the enclosing brace for nested blocks', () => {
+  it('should resolve END: } using START to select the first brace in the anchor line', () => {
+    const filePath = path.join(tempDir, 'app', 'range-braces-start.js');
+    fs.writeFileSync(
+      filePath,
+      `const before = {
+  old: true
+};
+const after = {
+  keep: true
+};
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-braces-start.js',
+          content: `const before = {\n  updated: true\n};\n`,
+          directives: {
+            START: 'const before = {',
+            END: '}',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('updated: true');
+    expect(content).toContain('const after');
+    expect(content).not.toContain('old: true');
+  });
+
+  it('should resolve END: } using START_AFTER to select the next brace after the anchor', () => {
+    const filePath = path.join(tempDir, 'app', 'range-braces-start-after.js');
+    fs.writeFileSync(
+      filePath,
+      `const before = {
+  keep: true
+};
+START_MARK
+const after = {
+  old: true
+};
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-braces-start-after.js',
+          content: `const after = {\n  updated: true\n};\n`,
+          directives: {
+            START_AFTER: 'START_MARK',
+            END: '}',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('updated: true');
+    expect(content).toContain('keep: true');
+    expect(content).not.toContain('old: true');
+  });
+
+  it('should resolve END: } using START_BEFORE to pick the brace just before the anchor', () => {
+    const filePath = path.join(tempDir, 'app', 'range-braces-start-before.js');
+    fs.writeFileSync(
+      filePath,
+      `function demo(){START_MARK
+  old = true;
+}
+const after = {
+  keep: true
+};
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-braces-start-before.js',
+          content: `function demo(){\n  updated = true;\n}\n`,
+          directives: {
+            START_BEFORE: 'START_MARK',
+            END: '}',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('updated = true');
+    expect(content).toContain('const after');
+    expect(content).not.toContain('old = true');
+  });
+
+  it('should resolve END: } when START is outside brace scope but followed by a block', () => {
+    const filePath = path.join(tempDir, 'app', 'range-braces-outside.js');
+    fs.writeFileSync(
+      filePath,
+      `// start
+const wrapper = {
+  old: true
+};
+const after = 3;
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-braces-outside.js',
+          content: `const wrapper = {\n  updated: true\n};\n`,
+          directives: {
+            START_AFTER: '// start',
+            END: '}',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('updated: true');
+    expect(content).toContain('const after = 3;');
+    expect(content).not.toContain('old: true');
+  });
+
+  it('should resolve END: } to the first brace after START, not the enclosing brace', () => {
     const filePath = path.join(tempDir, 'app', 'range-braces-nested.js');
     fs.writeFileSync(
       filePath,
-      `function demo() {
+      `function outer() {
+  // start
   if (flag) {
-    // start
     old line
   }
   after
@@ -221,7 +365,7 @@ omega
         {
           type: 'range',
           file: 'app/range-braces-nested.js',
-          content: '    replaced line\n  }\n',
+          content: `  if (flag) {\n    updated line\n  }\n`,
           directives: {
             START_AFTER: '// start',
             END: '}',
@@ -234,9 +378,9 @@ omega
 
     expect(result.success).toBe(true);
     const content = fs.readFileSync(filePath, 'utf-8');
-    expect(content).toContain('replaced line');
+    expect(content).toContain('updated line');
     expect(content).toContain('after');
-    expect(content).toContain('if (flag)');
+    expect(content).toContain('function outer()');
     expect(content).not.toContain('old line');
   });
 
@@ -248,7 +392,9 @@ omega
   // start
   const text = "}";
   /* comment { */
-  const other = '{';
+  const inner = {
+    old: true
+  };
 }
 after
 `
@@ -259,7 +405,7 @@ after
         {
           type: 'range',
           file: 'app/range-braces-strings.js',
-          content: '  updated\n}\n',
+          content: `  const inner = {\n    updated: true\n  };\n`,
           directives: {
             START_AFTER: '// start',
             END: '}',
@@ -272,10 +418,39 @@ after
 
     expect(result.success).toBe(true);
     const content = fs.readFileSync(filePath, 'utf-8');
-    expect(content).toContain('updated');
+    expect(content).toContain('updated: true');
     expect(content).toContain('after');
     expect(content).toContain('function demo()');
-    expect(content).not.toContain('const text = "}";');
+    expect(content).not.toContain('old: true');
+  });
+
+  it('should error when no opening brace exists in the selected range', () => {
+    const filePath = path.join(tempDir, 'app', 'range-braces-missing.js');
+    fs.writeFileSync(
+      filePath,
+      `// start
+const value = 1;
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-braces-missing.js',
+          content: 'const value = 2;\n',
+          directives: {
+            START_AFTER: '// start',
+            END: '}',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(false);
+    expect(result.errors?.[0]).toContain('No opening brace found in the selected range');
   });
 
   it('should preserve non-brace END anchors unchanged', () => {

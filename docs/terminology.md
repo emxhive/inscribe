@@ -65,6 +65,7 @@ Optional commands within an Inscribe block that provide additional instructions 
   - **Replacements always expand to full line boundaries** (no inline splicing)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
   - END anchor can appear multiple times; Inscribe uses the **first END after START**
+  - **END: "}"** resolves by scanning forward from the START-selected range (based on START / START_AFTER / START_BEFORE) to find the first `{`, then uses the matching `}` for that brace scope. Braces inside comments or strings are ignored. If no `{` exists in the selected range, validation fails.
   - **END** ends replacement at the end of the line containing the anchor (the anchor line is replaced)
   - **END_BEFORE** ends replacement at the start of the line containing the anchor (anchor line is excluded)
   - **END_AFTER** ends replacement at the end of the line after the anchor
@@ -138,7 +139,7 @@ $inscribe END
 ````
 
 ### range
-Replaces content between two anchor points in an existing file. Anchors match substrings, but replacements always operate on full lines. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive). If END is omitted, Inscribe replaces **exactly one line** (selected by the START directive semantics) and inserts the block content, which may span multiple lines.
+Replaces content between two anchor points in an existing file. Anchors match substrings, but replacements always operate on full lines. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive). If END is omitted, Inscribe replaces **exactly one line** (selected by the START directive semantics) and inserts the block content, which may span multiple lines. For END: "}", Inscribe finds the first `{` in the range starting at the START-selected position (START / START_AFTER / START_BEFORE) and uses its matching `}` as the END anchor.
 
 **Brace-aware END:** If `END` is set to a single closing brace (`}`), Inscribe automatically resolves the structural matching brace for the block that contains the START anchor, then applies the usual START/END inclusion rules. This lets you target brace-delimited blocks without adding explicit end markers.
 

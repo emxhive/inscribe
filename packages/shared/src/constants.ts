@@ -43,7 +43,7 @@ export const HEAVY_DIR_NAMES = [
 export const HEAVY_FILE_COUNT_THRESHOLD = 200;
 
 // Base prefix - single source of truth for the inscribe marker
-export const INSCRIBE_PREFIX = '@inscribe';
+export const INSCRIBE_PREFIX = '$inscribe';
 
 // Block boundary keywords (used with prefix)
 export const KEYWORD_BEGIN = 'BEGIN';

@@ -17,7 +17,7 @@ export default function PasteArea({ content, onChange, disabled }: PasteAreaProp
         placeholder="Paste entire AI response here. Inscribe blocks will be parsed automatically."
         rows={12}
       />
-      <p className="hint">Only @inscribe blocks are processed. Other text is ignored.</p>
+      <p className="hint">Only $inscribe blocks are processed. Other text is ignored.</p>
     </div>
   );
 }

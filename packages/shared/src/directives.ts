@@ -43,7 +43,7 @@ export interface ParsedDirectiveLine {
 
 /**
  * Parse a single header or directive line.
- * @inscribe prefix is NOT accepted for headers/directives - only BEGIN/END use the prefix.
+ * $inscribe prefix is NOT accepted for headers/directives - only BEGIN/END use the prefix.
  * Returns matched=false when the line does not correspond to a known field.
  */
 export function parseDirectiveLine(line: string): ParsedDirectiveLine {

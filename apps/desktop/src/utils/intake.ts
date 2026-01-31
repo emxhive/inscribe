@@ -111,7 +111,7 @@ export function parseIntakeStructure(
   lines.forEach((line, lineIndex) => {
     if (matchesMarker(line, INSCRIBE_BEGIN)) {
       if (current) {
-        current.errors.push('Missing @inscribe END');
+        current.errors.push('Missing $inscribe END');
         finalizeBlock(current, lineIndex - 1);
       }
 
@@ -180,7 +180,9 @@ export function parseIntakeStructure(
     const parsed = parseDirectiveLine(line);
     if (!parsed.matched) {
       if (parsed.usedPrefix) {
-      current.warnings.push('Invalid header or directive format (headers and directives should not use @inscribe prefix)');
+        current.warnings.push(
+          'Invalid header or directive format (headers and directives should not use $inscribe prefix)'
+        );
         lineMeta[lineIndex].type = 'unknown-directive';
         lineMeta[lineIndex].status = 'warning';
       }
@@ -207,7 +209,7 @@ export function parseIntakeStructure(
 
   const openBlock = current as IntakeBlock | null;
   if (openBlock) {
-    openBlock.errors.push('Missing @inscribe END');
+    openBlock.errors.push('Missing $inscribe END');
     finalizeBlock(openBlock, lines.length - 1);
   }
 

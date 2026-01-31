@@ -6,7 +6,7 @@ import { parseBlocks } from '../src';
 describe('Parser', () => {
   it('should parse a valid create block', () => {
     const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: create
 
@@ -14,7 +14,7 @@ MODE: create
 console.log('hello');
 \`\`\`
 
-@inscribe END
+$inscribe END
     `.trim();
 
     const result = parseBlocks(content);
@@ -28,7 +28,7 @@ console.log('hello');
 
   it('should parse a valid range block', () => {
     const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: range
 START_AFTER: // start marker
@@ -38,7 +38,7 @@ END_BEFORE: // end marker
 // new code
 \`\`\`
 
-@inscribe END
+$inscribe END
     `.trim();
 
     const result = parseBlocks(content);
@@ -52,11 +52,11 @@ END_BEFORE: // end marker
 
   it('should parse a valid delete block without fenced code', () => {
     const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: delete
 
-@inscribe END
+$inscribe END
     `.trim();
 
     const result = parseBlocks(content);
@@ -70,14 +70,14 @@ MODE: delete
 
   it('should parse delete block with empty fenced code block', () => {
     const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: delete
 
 \`\`\`
 \`\`\`
 
-@inscribe END
+$inscribe END
     `.trim();
 
     const result = parseBlocks(content);
@@ -91,14 +91,14 @@ MODE: delete
 
   it('should fail on missing FILE header', () => {
     const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 MODE: create
 
 \`\`\`
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
     `.trim();
 
     const result = parseBlocks(content);
@@ -109,14 +109,14 @@ content
 
   it('should fail on missing MODE header', () => {
     const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 
 \`\`\`
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
     `.trim();
 
     const result = parseBlocks(content);
@@ -128,7 +128,7 @@ content
 
   it('should fail on invalid MODE', () => {
     const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: invalid
 
@@ -136,7 +136,7 @@ MODE: invalid
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
     `.trim();
 
     const result = parseBlocks(content);
@@ -148,14 +148,14 @@ content
 
   it('should fail on unclosed fenced code block', () => {
     const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: create
 
 \`\`\`
 content
 
-@inscribe END
+$inscribe END
     `.trim();
 
     const result = parseBlocks(content);
@@ -166,7 +166,7 @@ content
 
   it('should parse multiple blocks', () => {
     const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test1.js
 MODE: create
 
@@ -174,9 +174,9 @@ MODE: create
 content1
 \`\`\`
 
-@inscribe END
+$inscribe END
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test2.js
 MODE: create
 
@@ -184,7 +184,7 @@ MODE: create
 content2
 \`\`\`
 
-@inscribe END
+$inscribe END
     `.trim();
 
     const result = parseBlocks(content);
@@ -199,7 +199,7 @@ content2
     const content = `
 Some random text here
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: create
 
@@ -207,7 +207,7 @@ MODE: create
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
 
 More random text
     `.trim();
@@ -325,7 +325,7 @@ FILE: app/wrong.js
 wrong content
 \`\`\`
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/correct.js
 MODE: replace
 
@@ -333,7 +333,7 @@ MODE: replace
 correct content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -382,7 +382,7 @@ content
 
     it('should parse directives with extra whitespace', () => {
       const content = `
-@inscribe   BEGIN
+$inscribe   BEGIN
 FILE:   app/test.js
 MODE:   create
 
@@ -390,7 +390,7 @@ MODE:   create
 content
 \`\`\`
 
-@inscribe  END
+$inscribe  END
       `.trim();
 
       const result = parseBlocks(content);
@@ -402,7 +402,7 @@ content
 
     it('should parse mixed case directive names', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FiLe: app/test.js
 mode: replace
 
@@ -410,7 +410,7 @@ mode: replace
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -422,20 +422,20 @@ content
 
     it('should reject prefixed headers and directives', () => {
       const content = `
-@inscribe BEGIN
-@inscribe FILE: app/test.js
+$inscribe BEGIN
+$inscribe FILE: app/test.js
 MODE: create
 
 \`\`\`
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
       
-      // Should fail because @inscribe FILE: is invalid
+      // Should fail because $inscribe FILE: is invalid
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors[0]).toContain('FILE');
     });
@@ -444,16 +444,16 @@ content
   describe('Graceful error handling', () => {
     it('should collect multiple errors and continue processing', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 MODE: create
 
 \`\`\`
 content1
 \`\`\`
 
-@inscribe END
+$inscribe END
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test2.js
 MODE: replace
 
@@ -461,7 +461,7 @@ MODE: replace
 content2
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -476,16 +476,16 @@ content2
 
     it('should warn on unknown directives but continue parsing', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: replace
-@inscribe UNKNOWN_DIRECTIVE: some value
+$inscribe UNKNOWN_DIRECTIVE: some value
 
 \`\`\`
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -497,7 +497,7 @@ content
 
     it('should handle invalid MODE gracefully with warning', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: invalid_mode
 
@@ -505,7 +505,7 @@ MODE: invalid_mode
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -516,9 +516,9 @@ content
 
     it('should handle END without BEGIN and continue', () => {
       const content = `
-@inscribe END
+$inscribe END
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: replace
 
@@ -526,7 +526,7 @@ MODE: replace
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -541,7 +541,7 @@ content
   describe('BEGIN inside BEGIN fallback', () => {
     it('should treat second BEGIN as implicit END and start of new block', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test1.js
 MODE: replace
 
@@ -549,7 +549,7 @@ MODE: replace
 content1
 \`\`\`
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test2.js
 MODE: replace
 
@@ -557,7 +557,7 @@ MODE: replace
 content2
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -575,7 +575,7 @@ content2
 
     it('should handle multiple nested BEGINs', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test1.js
 MODE: replace
 
@@ -583,7 +583,7 @@ MODE: replace
 content1
 \`\`\`
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test2.js
 MODE: replace
 
@@ -591,7 +591,7 @@ MODE: replace
 content2
 \`\`\`
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test3.js
 MODE: replace
 
@@ -599,7 +599,7 @@ MODE: replace
 content3
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -614,7 +614,7 @@ content3
   describe('Unclosed blocks at end', () => {
     it('should handle unclosed block at end of content and try to parse it', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: replace
 
@@ -636,7 +636,7 @@ content
 
     it('should report error if unclosed block has parsing errors', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 MODE: create
 
 \`\`\`
@@ -656,7 +656,7 @@ content
   describe('Header and Directive Format Validation', () => {
     it('should accept unprefixed FILE and MODE headers', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: create
 
@@ -664,7 +664,7 @@ MODE: create
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -677,7 +677,7 @@ content
 
     it('should accept unprefixed directives in range mode', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: range
 START: anchor1
@@ -687,7 +687,7 @@ END: anchor2
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -698,18 +698,18 @@ content
       expect(result.blocks[0].directives.END).toBe('anchor2');
     });
 
-    it('should reject @inscribe prefixed MODE header', () => {
+    it('should reject $inscribe prefixed MODE header', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: create
-@inscribe MODE: create
+$inscribe MODE: create
 
 \`\`\`
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -719,19 +719,19 @@ content
       expect(result.errors.some(e => e.includes('Invalid directive format'))).toBe(true);
     });
 
-    it('should reject @inscribe prefixed START directive', () => {
+    it('should reject $inscribe prefixed START directive', () => {
       const content = `
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: app/test.js
 MODE: range
-@inscribe START: anchor1
+$inscribe START: anchor1
 END: anchor2
 
 \`\`\`
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);
@@ -743,17 +743,17 @@ content
 
     it('should reject all prefixed directives and headers', () => {
       const content = `
-@inscribe BEGIN
-@inscribe FILE: app/test.js
-@inscribe MODE: range
-@inscribe START: anchor1
-@inscribe END: anchor2
+$inscribe BEGIN
+$inscribe FILE: app/test.js
+$inscribe MODE: range
+$inscribe START: anchor1
+$inscribe END: anchor2
 
 \`\`\`
 content
 \`\`\`
 
-@inscribe END
+$inscribe END
       `.trim();
 
       const result = parseBlocks(content);

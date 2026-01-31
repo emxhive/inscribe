@@ -42,7 +42,7 @@ indexRepository(DEBUG_REPO_ROOT);
 const AI_INPUT = `
 Here is a plan to update your code.
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: new_feature.ts
 MODE: create
 \`\`\`typescript
@@ -50,9 +50,9 @@ export function newFeature() {
   return "This is a new feature";
 }
 \`\`\`
-@inscribe END
+$inscribe END
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: existing_file.ts
 MODE: replace
 \`\`\`typescript
@@ -64,9 +64,9 @@ function goodbye() {
   console.log("Goodbye World");
 }
 \`\`\`
-@inscribe END
+$inscribe END
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: existing_file.ts
 MODE: append
 \`\`\`typescript
@@ -74,7 +74,7 @@ MODE: append
 // Appended comment
 console.log("End of file");
 \`\`\`
-@inscribe END
+$inscribe END
 `;
 
 async function runDebugPipeline() {

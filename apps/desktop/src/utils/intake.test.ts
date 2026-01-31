@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseIntakeStructure } from './intake';
 
-const wrapBlock = (body: string) => `@inscribe BEGIN\n${body}\n@inscribe END`;
+const wrapBlock = (body: string) => `$inscribe BEGIN\n${body}\n$inscribe END`;
 
 describe('parseIntakeStructure', () => {
   it('warns when create targets an indexed file', () => {

@@ -135,7 +135,7 @@ export function IntakePanel() {
       <textarea
         ref={textAreaRef}
         className="relative z-10 w-full h-full resize-none rounded-lg bg-transparent p-3 text-sm leading-relaxed font-mono text-foreground focus:outline-none"
-        placeholder="Paste the AI response here. Must contain @inscribe BEGIN / END blocks."
+        placeholder="Paste the AI response here. Must contain $inscribe BEGIN / END blocks."
         value={state.aiInput}
         onChange={(e) => updateState({ aiInput: e.target.value })}
         onKeyDown={handleKeyDown}

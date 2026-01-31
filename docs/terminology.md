@@ -5,11 +5,11 @@ This document provides detailed definitions and explanations of key terms and co
 ## Core Concepts
 
 ### Inscribe Block
-A specially marked section in pasted content that contains explicit instructions for file operations. Each block is delimited by `@inscribe BEGIN` and `@inscribe END` markers.
+A specially marked section in pasted content that contains explicit instructions for file operations. Each block is delimited by `$inscribe BEGIN` and `$inscribe END` markers.
 
 **Structure:**
 
- @inscribe BEGIN<br>
+ $inscribe BEGIN<br>
  FILE: <path><br>
  MODE: <mode><br>
 [additional directives]
@@ -18,35 +18,35 @@ A specially marked section in pasted content that contains explicit instructions
 <code content>
 ```
 
-@inscribe END
+$inscribe END
 
 
 ### Block Headers
-Required fields that specify the target file and operation mode. Headers are always required and must be specified **without** the `@inscribe` prefix.
+Required fields that specify the target file and operation mode. Headers are always required and must be specified **without** the `$inscribe` prefix.
 
 #### Required Headers
 
 - **FILE:** Specifies the relative path from repository root where the file will be created or modified
   - Format: `FILE: relative/path/from/repo/root.ext`
   - Path must be under repository root and not in an ignored directory
-  - **Must not use `@inscribe` prefix**
+  - **Must not use `$inscribe` prefix**
 
 - **MODE:** Specifies the operation type
   - Format: `MODE: <create|replace|append|range|delete>`
   - Must be exactly one of the five supported modes
-  - **Must not use `@inscribe` prefix**
+  - **Must not use `$inscribe` prefix**
 
 ### Directives
-Optional commands within an Inscribe block that provide additional instructions for processing the code content. Directives must be specified **without** the `@inscribe` prefix.
+Optional commands within an Inscribe block that provide additional instructions for processing the code content. Directives must be specified **without** the `$inscribe` prefix.
 
 **Important:** 
 - Each directive value must be single-line only. The parser processes directives line-by-line, so multiline directive values are not supported.
-- Directives do **not** use the `@inscribe` prefix. Only `BEGIN` and `END` markers use the prefix.
+- Directives do **not** use the `$inscribe` prefix. Only `BEGIN` and `END` markers use the prefix.
 - The `FILE:` and `MODE:` fields are headers, not directives.
 
 - **START / START_BEFORE / START_AFTER:** (exactly one required for range mode) The anchor that selects the starting line for range edits
   - Format: `START: <exact substring>` / `START_BEFORE: <exact substring>` / `START_AFTER: <exact substring>`
-  - **Must not use `@inscribe` prefix**
+  - **Must not use `$inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Can match anywhere within a line (beginning, middle, or end)
   - **Replacements always expand to full line boundaries** (no inline splicing)
@@ -59,7 +59,7 @@ Optional commands within an Inscribe block that provide additional instructions 
   
 - **END / END_BEFORE / END_AFTER:** (optional for range mode) The ending anchor for line-based replacement
   - Format: `END: <exact substring>` / `END_BEFORE: <exact substring>` / `END_AFTER: <exact substring>`
-  - **Must not use `@inscribe` prefix**
+  - **Must not use `$inscribe` prefix**
   - Anchors are **literal substring matches** (not regex, not whole-line matches)
   - Can match anywhere within a line (beginning, middle, or end)
   - **Replacements always expand to full line boundaries** (no inline splicing)
@@ -71,14 +71,14 @@ Optional commands within an Inscribe block that provide additional instructions 
 
 ### Prefix Usage Rules
 
-The `@inscribe` prefix is **only** used for block boundaries:
-- ✅ `@inscribe BEGIN` - correct
-- ✅ `@inscribe END` - correct
-- ❌ `@inscribe FILE: path/to/file.js` - **INVALID** (use `FILE: path/to/file.js`)
-- ❌ `@inscribe MODE: create` - **INVALID** (use `MODE: create`)
-- ❌ `@inscribe START: anchor` - **INVALID** (use `START: anchor`)
+The `$inscribe` prefix is **only** used for block boundaries:
+- ✅ `$inscribe BEGIN` - correct
+- ✅ `$inscribe END` - correct
+- ❌ `$inscribe FILE: path/to/file.js` - **INVALID** (use `FILE: path/to/file.js`)
+- ❌ `$inscribe MODE: create` - **INVALID** (use `MODE: create`)
+- ❌ `$inscribe START: anchor` - **INVALID** (use `START: anchor`)
 
-**All headers and directives must be written without the `@inscribe` prefix.** Lines with `@inscribe` prefix that are not `BEGIN` or `END` will be rejected as invalid.
+**All headers and directives must be written without the `$inscribe` prefix.** Lines with `$inscribe` prefix that are not `BEGIN` or `END` will be rejected as invalid.
 
 ## Modes
 
@@ -124,7 +124,7 @@ Appends content to the end of an existing file.
 **Example with leading newline:**
 
 ````
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/config.js
 MODE: append
 
@@ -134,7 +134,7 @@ MODE: append
 export const newFeature = true;
 ```
 
-@inscribe END
+$inscribe END
 ````
 
 ### range
@@ -175,11 +175,11 @@ Deletes an existing file from the repository.
 **Example:**
 
 ````
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/deprecated/old-component.js
 MODE: delete
 
-@inscribe END
+$inscribe END
 ````
 
 ## When to Use Each Mode

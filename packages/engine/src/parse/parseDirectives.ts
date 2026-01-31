@@ -58,7 +58,7 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
     const parsed = parseDirectiveLine(trimmed);
     if (!parsed.matched) {
       if (parsed.usedPrefix && parsed.raw.trim()) {
-        warnings.push(`Invalid directive format: ${parsed.raw.trim()} (headers and directives should not use @inscribe prefix)`);
+        warnings.push(`Invalid directive format: ${parsed.raw.trim()} (headers and directives should not use $inscribe prefix)`);
       }
       continue;
     }

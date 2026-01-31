@@ -13,7 +13,7 @@ Inscribe is a desktop app that turns AI output into safe, reviewable changes in 
 ## How It Works (In Short)
 
 1. You paste an AI response into Inscribe.
-2. Inscribe extracts **only** blocks wrapped with `@inscribe BEGIN` / `@inscribe END`.
+2. Inscribe extracts **only** blocks wrapped with `$inscribe BEGIN` / `$inscribe END`.
 3. It validates file paths and directives.
 4. You preview the diff.
 5. On apply, it writes the changes and creates a backup snapshot.
@@ -30,7 +30,7 @@ Inscribe is a desktop app that turns AI output into safe, reviewable changes in 
 An Inscribe block is plain text wrapped around a normal fenced code block:
 
 ````
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: relative/path/from/repo/root.ext
 MODE: create | replace | append | range | delete
 [additional directives depending on mode]
@@ -39,10 +39,10 @@ MODE: create | replace | append | range | delete
 <code block with content>
 ```
 
-@inscribe END
+$inscribe END
 ````
 
-**Important:** Only `@inscribe BEGIN` and `@inscribe END` use the `@inscribe` prefix. Headers (`FILE:`, `MODE:`) and directives (e.g., `START:`, `END:`) must be written **without** the `@inscribe` prefix.
+**Important:** Only `$inscribe BEGIN` and `$inscribe END` use the `$inscribe` prefix. Headers (`FILE:`, `MODE:`) and directives (e.g., `START:`, `END:`) must be written **without** the `$inscribe` prefix.
 
 **Note:** For `MODE: delete`, the fenced code block is optional and not required, as delete operations do not need content.
 

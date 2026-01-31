@@ -11,7 +11,7 @@ INSCRIBE BLOCK STRUCTURE:
 
 An Inscribe block has this structure (do NOT use four backticks - this is just showing you the structure):
 
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: relative/path/from/repo/root.ext
 MODE: create
 (optional directives can go here)
@@ -20,30 +20,30 @@ MODE: create
 (with your code inside)
 (end the fenced code block with three backticks)
 
-@inscribe END
+$inscribe END
 
 CRITICAL RULES FOR PREFIX USAGE:
-1. ONLY use the @inscribe prefix for BEGIN and END markers
-2. DO NOT use @inscribe prefix for FILE:
-3. DO NOT use @inscribe prefix for MODE:
-4. DO NOT use @inscribe prefix for any directives like START: or END:
-5. The @inscribe BEGIN and @inscribe END lines are OUTSIDE the fenced code block
+1. ONLY use the $inscribe prefix for BEGIN and END markers
+2. DO NOT use $inscribe prefix for FILE:
+3. DO NOT use $inscribe prefix for MODE:
+4. DO NOT use $inscribe prefix for any directives like START: or END:
+5. The $inscribe BEGIN and $inscribe END lines are OUTSIDE the fenced code block
 6. Each Inscribe block wraps exactly ONE fenced code block
 
 REQUIRED HEADERS:
 
-Every Inscribe block MUST include these two headers immediately after @inscribe BEGIN:
+Every Inscribe block MUST include these two headers immediately after $inscribe BEGIN:
 
 FILE: specifies the relative path from repository root
 - Format: FILE: relative/path/from/repo/root.ext
 - Path must be relative to repository root
 - Use forward slashes even on Windows
-- Do NOT use @inscribe prefix
+- Do NOT use $inscribe prefix
 
 MODE: specifies the operation type
 - Format: MODE: create (or replace, append, range, delete)
 - Must be exactly one of the five supported modes
-- Do NOT use @inscribe prefix
+- Do NOT use $inscribe prefix
 
 THE FIVE MODES:
 
@@ -53,7 +53,7 @@ MODE 1: create
 - Example use cases: creating new components, tests, or configuration files
 
 Example:
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/utils/helpers.ts
 MODE: create
 
@@ -63,7 +63,7 @@ export function formatDate(date: Date): string {
 }
 ```
 
-@inscribe END
+$inscribe END
 
 MODE 2: replace
 - Replaces the entire content of an existing file
@@ -71,7 +71,7 @@ MODE 2: replace
 - Use when major refactoring where most of the file changes
 
 Example:
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/config.js
 MODE: replace
 
@@ -82,7 +82,7 @@ export const config = {
 };
 ```
 
-@inscribe END
+$inscribe END
 
 MODE 3: append
 - Appends content to the end of an existing file
@@ -91,7 +91,7 @@ MODE 3: append
 - If you need a newline before your content, include it explicitly by starting your code with a blank line
 
 Example:
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/index.ts
 MODE: append
 
@@ -100,7 +100,7 @@ MODE: append
 export { NewFeature } from './features/new-feature';
 ```
 
-@inscribe END
+$inscribe END
 
 MODE 4: range
 - Replaces content between two anchor points in an existing file
@@ -112,7 +112,7 @@ MODE 4: range
 - END directive is optional
 
 Example with both START and END:
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/api/users.ts
 MODE: range
 START: export function getUser(
@@ -124,10 +124,10 @@ export function getUser(id: string): Promise<User> {
 }
 ```
 
-@inscribe END
+$inscribe END
 
 Example with START only (replaces one line):
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/config.ts
 MODE: range
 START: const API_VERSION =
@@ -136,7 +136,7 @@ START: const API_VERSION =
 const API_VERSION = 'v2';
 ```
 
-@inscribe END
+$inscribe END
 
 MODE 5: delete
 - Deletes an existing file from the repository
@@ -144,11 +144,11 @@ MODE 5: delete
 - The fenced code block is optional for delete mode and can be omitted entirely
 
 Example:
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/deprecated/old-feature.ts
 MODE: delete
 
-@inscribe END
+$inscribe END
 
 RANGE MODE DIRECTIVES:
 
@@ -222,16 +222,16 @@ Inscribe blocks are just for the code that needs to be applied.
 
 COMMON MISTAKES TO AVOID:
 
-MISTAKE 1: Using @inscribe prefix on headers or directives
-WRONG: @inscribe FILE: src/file.ts
-WRONG: @inscribe MODE: create
-WRONG: @inscribe START: function foo
+MISTAKE 1: Using $inscribe prefix on headers or directives
+WRONG: $inscribe FILE: src/file.ts
+WRONG: $inscribe MODE: create
+WRONG: $inscribe START: function foo
 CORRECT: FILE: src/file.ts
 CORRECT: MODE: create
 CORRECT: START: function foo
 
 MISTAKE 2: Putting Inscribe markers inside fenced code blocks
-The @inscribe BEGIN and @inscribe END markers must be OUTSIDE the fenced code block.
+The $inscribe BEGIN and $inscribe END markers must be OUTSIDE the fenced code block.
 The fenced code block (three backticks) should only wrap the actual code content.
 
 MISTAKE 3: Wrapping multiple code blocks in one Inscribe block
@@ -240,7 +240,7 @@ Each Inscribe block should contain exactly one fenced code block.
 COMPLETE EXAMPLES:
 
 EXAMPLE 1: Creating a new component
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/components/Card.tsx
 MODE: create
 
@@ -262,10 +262,10 @@ export function Card({ title, children }: CardProps) {
 }
 ```
 
-@inscribe END
+$inscribe END
 
 EXAMPLE 2: Updating a specific function
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/utils/validation.ts
 MODE: range
 START: export function validateEmail(
@@ -278,10 +278,10 @@ export function validateEmail(email: string): boolean {
 }
 ```
 
-@inscribe END
+$inscribe END
 
 EXAMPLE 3: Appending to a file
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/routes/index.ts
 MODE: append
 
@@ -291,10 +291,10 @@ export { profileRouter } from './profile';
 export { settingsRouter } from './settings';
 ```
 
-@inscribe END
+$inscribe END
 
 EXAMPLE 4: Replacing a single line
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/config.ts
 MODE: range
 START: export const MAX_RETRIES
@@ -303,21 +303,21 @@ START: export const MAX_RETRIES
 export const MAX_RETRIES = 5;
 ```
 
-@inscribe END
+$inscribe END
 
 EXAMPLE 5: Deleting a file
-@inscribe BEGIN
+$inscribe BEGIN
 FILE: src/deprecated/legacy-api.ts
 MODE: delete
 
-@inscribe END
+$inscribe END
 
 SUMMARY:
 
 To use Inscribe correctly:
 1. Preserve your normal response style - only tag code meant for Inscribe
 2. Use the correct mode for each operation (create, replace, append, range, delete)
-3. Never use @inscribe prefix on headers or directives (only on BEGIN and END)
+3. Never use $inscribe prefix on headers or directives (only on BEGIN and END)
 4. Choose precise, unique anchors for range mode
 5. One code block per Inscribe block - do not wrap multiple blocks together
 6. Keep Inscribe markers outside the fenced code block

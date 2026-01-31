@@ -65,7 +65,7 @@ export function IgnoreEditorModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Edit .inscribeignore"
+      title="Ignore"
       size="large"
       footer={
         <>

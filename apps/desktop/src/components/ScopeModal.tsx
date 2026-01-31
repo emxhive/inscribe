@@ -75,26 +75,30 @@ export function ScopeModal({
         <p className="text-center text-muted-foreground py-8 text-sm">No top-level folders found in repository</p>
       ) : (
         <ul className="list-none p-0 m-0">
-          {state.topLevelFolders.map((folder) => (
-            <li key={folder} className="p-3 border border-border rounded-md mb-2 bg-secondary">
-              <label
-                className={`flex items-center gap-3 text-sm ${
-                  ignoredTopLevelFolders.has(folder)
-                    ? 'cursor-not-allowed text-muted-foreground'
-                    : 'cursor-pointer'
-                }`}
-              >
+          {state.topLevelFolders.map((folder) => {
+            const inputId = `scope-folder-${folder.replace(/[^a-z0-9_-]+/gi, '-')}`;
+            const isIgnored = ignoredTopLevelFolders.has(folder);
+            return (
+              <li key={folder} className="flex items-start gap-2 mb-2">
                 <input
+                  id={inputId}
                   type="checkbox"
-                  className={`w-4 h-4 ${ignoredTopLevelFolders.has(folder) ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                  className={`mt-1 h-3.5 w-3.5 ${isIgnored ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                   checked={selectedFolders.has(folder)}
-                  disabled={ignoredTopLevelFolders.has(folder)}
+                  disabled={isIgnored}
                   onChange={() => handleToggle(folder)}
                 />
-                <span>{folder}</span>
-              </label>
-            </li>
-          ))}
+                <label
+                  htmlFor={inputId}
+                  className={`text-sm ${isIgnored ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'}`}
+                >
+                  <span className="inline-code border border-border/40 bg-muted/40 px-2 py-0.5 rounded-md">
+                    {folder}
+                  </span>
+                </label>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Modal>

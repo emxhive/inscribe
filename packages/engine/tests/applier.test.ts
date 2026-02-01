@@ -424,6 +424,42 @@ after
     expect(content).not.toContain('old: true');
   });
 
+  it('should ignore braces inside parameter lists for END: }', () => {
+    const filePath = path.join(tempDir, 'app', 'range-braces-params.js');
+    fs.writeFileSync(
+      filePath,
+      `export default function AppLayout({ children, breadcrumbs = [], headerActions }: AppLayoutProps) {
+  // start
+  const state = { old: true };
+}
+after
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-braces-params.js',
+          content: `  const state = { updated: true };\n`,
+          directives: {
+            START: 'function AppLayout',
+            END: '}',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('updated: true');
+    expect(content).toContain('after');
+    expect(content).toContain('export default function AppLayout');
+    expect(content).not.toContain('old: true');
+  });
+
   it('should error when no opening brace exists in the selected range', () => {
     const filePath = path.join(tempDir, 'app', 'range-braces-missing.js');
     fs.writeFileSync(

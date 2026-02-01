@@ -177,7 +177,7 @@ ANCHOR MATCHING RULES:
 - Replacements always expand to full line boundaries (no inline splicing)
 
 SPECIAL END HANDLING:
-If END: } is specified (a single closing brace), Inscribe scans forward from the START-selected range (based on START / START_AFTER / START_BEFORE) to find the first `{`, then uses the matching `}` for that brace scope. Braces inside comments or strings are ignored. If no `{` exists in the selected range, the operation is invalid.
+If END: } is specified (a single closing brace), Inscribe scans forward from the START-selected range (based on START / START_AFTER / START_BEFORE) to find the last `{`, then uses the matching `}` for that brace scope. Braces inside comments or strings are ignored. If no `{` exists in the selected range, the operation is invalid.
 
 CHOOSING THE RIGHT MODE:
 

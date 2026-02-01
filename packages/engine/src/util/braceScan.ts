@@ -139,7 +139,7 @@ export function findBraceRangeFromSelection(
   rangeStart: number,
   rangeEnd: number = content.length
 ): BraceScanResult {
-  // Scan forward from the START-selected range to find the last "{", then return
+  // Scan forward from the START-selected range to find the first "{", then return
   // the matching "}" while ignoring braces in comments and strings.
   const normalizedEnd = Math.min(Math.max(0, rangeEnd), content.length);
   const normalizedStart = Math.min(Math.max(0, rangeStart), normalizedEnd);
@@ -162,7 +162,6 @@ export function findBraceRangeFromSelection(
 
   const stack: number[] = [];
   let targetOpen: number | null = null;
-  let targetClose: number | null = null;
 
   for (let i = normalizedStart; i < normalizedEnd; i++) {
     const result = advanceBraceScanState(content, i, state);
@@ -175,8 +174,9 @@ export function findBraceRangeFromSelection(
 
     if (char === '{') {
       stack.push(i);
-      targetOpen = i;
-      targetClose = null;
+      if (targetOpen === null) {
+        targetOpen = i;
+      }
     } else if (char === '}') {
       if (targetOpen === null) {
         continue;
@@ -190,8 +190,13 @@ export function findBraceRangeFromSelection(
         };
       }
       const openIndex = stack.pop()!;
-      if (openIndex === targetOpen) {
-        targetClose = i;
+      if (openIndex === targetOpen && stack.length === 0) {
+        return {
+          match: {
+            openIndex,
+            closeIndex: i,
+          },
+        };
       }
     }
   }
@@ -201,15 +206,6 @@ export function findBraceRangeFromSelection(
       error: {
         type: 'missing-opening-brace-in-range',
         index: normalizedStart,
-      },
-    };
-  }
-
-  if (targetClose !== null) {
-    return {
-      match: {
-        openIndex: targetOpen,
-        closeIndex: targetClose,
       },
     };
   }
@@ -227,7 +223,7 @@ export function formatBraceScanError(error: BraceScanError): string {
     case 'mismatched-closing-brace':
       return 'Mismatched closing brace found before matching opening brace while resolving END: "}".';
     case 'missing-closing-brace':
-      return 'Missing closing brace for the last "{" in the selected range while resolving END: "}".';
+      return 'Missing closing brace for the first "{" in the selected range while resolving END: "}".';
     case 'missing-opening-brace-in-range':
       return 'No opening brace found in the selected range while resolving END: "}".';
     default:

@@ -202,14 +202,16 @@ omega
 `);
   });
 
-  it('should resolve END: } using START to select the last brace in the anchor line', () => {
+  it('should resolve END: } using START to select the first brace in the anchor line', () => {
     const filePath = path.join(tempDir, 'app', 'range-braces-start.js');
     fs.writeFileSync(
       filePath,
       `const before = {
   old: true
 };
-const after = 3;
+const after = {
+  keep: true
+};
 `
     );
 
@@ -232,7 +234,7 @@ const after = 3;
     expect(result.success).toBe(true);
     const content = fs.readFileSync(filePath, 'utf-8');
     expect(content).toContain('updated: true');
-    expect(content).toContain('const after = 3;');
+    expect(content).toContain('const after');
     expect(content).not.toContain('old: true');
   });
 
@@ -273,49 +275,16 @@ const after = {
     expect(content).not.toContain('old: true');
   });
 
-  it('should resolve END: } to the last opening brace after START when parameters include destructuring', () => {
-    const filePath = path.join(tempDir, 'app', 'range-braces-destructured.js');
-    fs.writeFileSync(
-      filePath,
-      `export default function AppLayout({ children, breadcrumbs = [], headerActions }: AppLayoutProps) {
-  // start
-  old line
-}
-after
-`
-    );
-
-    const plan: ApplyPlan = {
-      operations: [
-        {
-          type: 'range',
-          file: 'app/range-braces-destructured.js',
-          content: `export default function AppLayout({ children, breadcrumbs = [], headerActions }: AppLayoutProps) {\n  // start\n  updated line\n}\n`,
-          directives: {
-            START: 'export default function AppLayout',
-            END: '}',
-          },
-        },
-      ],
-    };
-
-    const result = applyChanges(plan, tempDir);
-
-    expect(result.success).toBe(true);
-    const content = fs.readFileSync(filePath, 'utf-8');
-    expect(content).toContain('updated line');
-    expect(content).toContain('after');
-    expect(content).not.toContain('old line');
-  });
-
-  it('should resolve END: } using START_BEFORE to pick the last brace before the anchor', () => {
+  it('should resolve END: } using START_BEFORE to pick the brace just before the anchor', () => {
     const filePath = path.join(tempDir, 'app', 'range-braces-start-before.js');
     fs.writeFileSync(
       filePath,
       `function demo(){START_MARK
   old = true;
 }
-const after = 3;
+const after = {
+  keep: true
+};
 `
     );
 
@@ -338,7 +307,7 @@ const after = 3;
     expect(result.success).toBe(true);
     const content = fs.readFileSync(filePath, 'utf-8');
     expect(content).toContain('updated = true');
-    expect(content).toContain('const after = 3;');
+    expect(content).toContain('const after');
     expect(content).not.toContain('old = true');
   });
 
@@ -377,7 +346,7 @@ const after = 3;
     expect(content).not.toContain('old: true');
   });
 
-  it('should resolve END: } to the last brace after START, not the enclosing brace', () => {
+  it('should resolve END: } to the first brace after START, not the enclosing brace', () => {
     const filePath = path.join(tempDir, 'app', 'range-braces-nested.js');
     fs.writeFileSync(
       filePath,

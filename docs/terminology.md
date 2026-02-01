@@ -139,7 +139,7 @@ $inscribe END
 ````
 
 ### range
-Replaces content between two anchor points in an existing file. Anchors match substrings, but replacements always operate on full lines. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive). If END is omitted, Inscribe replaces **exactly one line** (selected by the START directive semantics) and inserts the block content, which may span multiple lines. For END: "}", Inscribe finds the last `{` in the range starting at the START-selected position (START / START_AFTER / START_BEFORE) and uses its matching `}` as the END anchor.
+Replaces content between two anchor points in an existing file. Anchors match substrings, but replacements always operate on full lines. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive). If END is omitted, Inscribe replaces **exactly one line** (selected by the START directive semantics) and inserts the block content, which may span multiple lines. For END: "}", Inscribe finds the first `{` in the range starting at the START-selected position (START / START_AFTER / START_BEFORE) and uses its matching `}` as the END anchor.
 
 **Brace-aware END:** If `END` is set to a single closing brace (`}`), Inscribe automatically resolves the structural matching brace for the block that contains the START anchor, then applies the usual START/END inclusion rules. This lets you target brace-delimited blocks without adding explicit end markers.
 

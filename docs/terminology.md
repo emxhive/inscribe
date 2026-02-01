@@ -65,7 +65,7 @@ Optional commands within an Inscribe block that provide additional instructions 
   - **Replacements always expand to full line boundaries** (no inline splicing)
   - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
   - END anchor can appear multiple times; Inscribe uses the **first END after START**
-  - **END: "}"** resolves by scanning forward from the START-selected range (based on START / START_AFTER / START_BEFORE) to find the first `{`, then uses the matching `}` for that brace scope. Braces inside comments or strings are ignored. If no `{` exists in the selected range, validation fails.
+  - **END: "}"** resolves by scanning forward from the START-selected range (based on START / START_AFTER / START_BEFORE) to find the first `{`, then uses the matching `}` for that brace scope. Braces inside comments, strings, or parenthesized sections (such as parameter destructuring) are ignored. If no `{` exists in the selected range, validation fails.
   - **END** ends replacement at the end of the line containing the anchor (the anchor line is replaced)
   - **END_BEFORE** ends replacement at the start of the line containing the anchor (anchor line is excluded)
   - **END_AFTER** ends replacement at the end of the line after the anchor
@@ -144,7 +144,7 @@ Replaces content between two anchor points in an existing file. Anchors match su
 **Brace-aware END:** If `END` is set to a single closing brace (`}`), Inscribe automatically resolves the structural matching brace for the block that contains the START anchor, then applies the usual START/END inclusion rules. This lets you target brace-delimited blocks without adding explicit end markers.
 
 **Brace-aware limitations:**
-- The scan is language-agnostic and only skips obvious strings (`'`, `"`, `` ` ``) and comments (`//`, `/* */`), so complex grammars or nested templating may confuse it.
+- The scan is language-agnostic and only skips obvious strings (`'`, `"`, `` ` ``), comments (`//`, `/* */`), and braces inside parenthesized sections (such as parameter destructuring), so complex grammars or nested templating may confuse it.
 - Brace-aware matching only applies to `END: }` (not `END_BEFORE` or `END_AFTER`).
 
 **Requirements:**

@@ -41,6 +41,7 @@ interface BraceScanState {
   inSingleQuote: boolean;
   inDoubleQuote: boolean;
   inBacktick: boolean;
+  parenDepth: number;
 }
 
 function createBraceScanState(): BraceScanState {
@@ -50,7 +51,12 @@ function createBraceScanState(): BraceScanState {
     inSingleQuote: false,
     inDoubleQuote: false,
     inBacktick: false,
+    parenDepth: 0,
   };
+}
+
+function canScanBraces(state: BraceScanState): boolean {
+  return state.parenDepth === 0;
 }
 
 function advanceBraceScanState(
@@ -131,7 +137,17 @@ function advanceBraceScanState(
     return { index, canScanBraces: false };
   }
 
-  return { index, canScanBraces: true };
+  if (char === '(') {
+    state.parenDepth += 1;
+    return { index, canScanBraces: false };
+  }
+
+  if (char === ')') {
+    state.parenDepth = Math.max(0, state.parenDepth - 1);
+    return { index, canScanBraces: false };
+  }
+
+  return { index, canScanBraces: canScanBraces(state) };
 }
 
 export function findBraceRangeFromSelection(
@@ -140,7 +156,8 @@ export function findBraceRangeFromSelection(
   rangeEnd: number = content.length
 ): BraceScanResult {
   // Scan forward from the START-selected range to find the first "{", then return
-  // the matching "}" while ignoring braces in comments and strings.
+  // the matching "}" while ignoring braces in comments, strings, and parenthesized
+  // sections (ex: function parameter destructuring).
   const normalizedEnd = Math.min(Math.max(0, rangeEnd), content.length);
   const normalizedStart = Math.min(Math.max(0, rangeStart), normalizedEnd);
 

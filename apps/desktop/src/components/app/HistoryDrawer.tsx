@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { X } from 'lucide-react';
+import { RotateCcw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { FileListItem } from '@/components/common/FileListItem';
 import { useAppStateContext, useHistoryActions } from '@/hooks';
 
 export function HistoryDrawer() {
@@ -33,8 +34,11 @@ export function HistoryDrawer() {
   return (
     <div
       className={[
-        'absolute inset-y-0 right-16 z-20 w-[360px] bg-card border-l border-border shadow-lg transition-transform duration-200',
-        state.isHistoryOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none',
+        'absolute inset-y-0 right-16 z-20 w-[360px] bg-card border-l border-border shadow-lg transform-gpu will-change-transform',
+        'transition-[transform,opacity] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+        state.isHistoryOpen
+          ? 'translate-x-0 opacity-100'
+          : 'translate-x-[calc(100%+4rem)] opacity-0 pointer-events-none',
       ].join(' ')}
       aria-hidden={!state.isHistoryOpen}
     >
@@ -58,9 +62,7 @@ export function HistoryDrawer() {
 
       <div className="h-full overflow-y-auto pb-6">
         {groupedHistory.length === 0 && (
-          <div className="px-4 py-6 text-sm text-muted-foreground">
-            No applied blocks to restore yet.
-          </div>
+          <div className="px-4 py-6 text-sm text-muted-foreground">No applied blocks to restore yet.</div>
         )}
 
         {groupedHistory.map((group) => (
@@ -72,6 +74,7 @@ export function HistoryDrawer() {
                   {group.items.length} block{group.items.length === 1 ? '' : 's'}
                 </p>
               </div>
+
               {group.items.length > 1 && (
                 <Button
                   variant="outline"
@@ -80,41 +83,43 @@ export function HistoryDrawer() {
                   onClick={() => restoreGroup(group.applyId)}
                   disabled={state.isRestoringInProgress}
                 >
-                  Restore All
+                  Restore all
                 </Button>
               )}
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {group.items.map((item) => (
-                <div key={item.id} className="rounded-lg border border-border bg-background/40 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">{item.file}</p>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="secondary" className="uppercase text-[10px]">
-                          {item.mode}
-                        </Badge>
-                        {item.restoreStatus && item.restoreStatus !== 'idle' && item.restoreStatus !== 'restoring' && (
-                          <span>{item.restoreStatus.replace('-', ' ')}</span>
-                        )}
-                      </div>
-                      {item.restoreMessage && (
-                        <p className="mt-2 text-xs text-muted-foreground">{item.restoreMessage}</p>
-                      )}
-                    </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      type="button"
-                      onClick={() => restoreItem(item)}
-                      disabled={state.isRestoringInProgress || item.restoreStatus === 'restoring'}
-                    >
-                      {item.restoreStatus === 'restoring' ? 'Restoring...' : 'Restore'}
-                    </Button>
-                  </div>
+                <div key={item.id} className="relative">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    className="absolute right-2 top-2 h-7 w-7 z-10"
+                    onClick={() => restoreItem(item)}
+                    disabled={state.isRestoringInProgress}
+                    aria-label={`Restore ${item.file}`}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+
+                  <FileListItem
+                    file={item.file}
+                    lineCount={1}
+                    language="-"
+                    mode={item.restoreOperation?.mode ?? 'range'}
+                    status="applied"
+                    isActive={false}
+                    onSelect={() => {}}
+                  />
                 </div>
               ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-[11px]">
+                {group.applyId}
+              </Badge>
             </div>
           </div>
         ))}

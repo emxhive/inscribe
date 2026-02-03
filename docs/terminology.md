@@ -166,7 +166,6 @@ Deletes an existing file from the repository.
 **Behavior:**
 - Removes the specified file from disk
 - Cleans up empty parent directories (up to repository root)
-- Creates a backup before deletion (supports undo)
 
 **Failure conditions:**
 - File does not exist
@@ -201,7 +200,7 @@ Choosing the right mode depends on your specific use case:
 - Use **replace** when you need to change most or all of the file's content
 - Use **append** when adding new content that logically goes at the end (remember to include leading newlines if needed)
 - Use **range** for precise, localized changes where you want to preserve surrounding context
-- Use **delete** when removing files that are no longer needed (supports undo via backup)
+- Use **delete** when removing files that are no longer needed
 
 ## Validation
 
@@ -211,10 +210,6 @@ Inscribe validates ALL blocks before applying ANY changes. If even one block fai
 ### Fail-Fast Behavior
 When validation fails, all errors are reported and no files are modified.
 
-## Backup and Undo
+## History and Smart Restore
 
-### Backup
-Before every apply, Inscribe creates a backup at `.inscribe/backups/<timestamp>/`
-
-### Undo
-Restores files from the most recent backup (blind restore, no merge).
+Every successful apply generates per-block history entries. Restores replay these entries through the same validation + apply pipeline as any other change, and they will fail when anchors or expected content no longer match.

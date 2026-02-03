@@ -1,6 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Operation } from '@inscribe/shared';
+import {
+  Operation,
+  RESTORE_DIRECTIVE_EXPECT_APPEND_AT_END,
+  RESTORE_DIRECTIVE_EXPECT_CONTENT,
+  RESTORE_DIRECTIVE_REMOVE_APPEND,
+} from '@inscribe/shared';
 
 import { applyRangeReplace } from './rangeReplace';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
@@ -10,6 +15,7 @@ export function applyOperation(operation: Operation, repoRoot: string): void {
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
   const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
   const filePath = resolvedPath;
+  const directives = operation.directives ?? {};
 
   switch (operation.type) {
     case 'create':
@@ -18,11 +24,23 @@ export function applyOperation(operation: Operation, repoRoot: string): void {
       break;
 
     case 'replace':
+      assertExpectedContent(filePath, directives[RESTORE_DIRECTIVE_EXPECT_CONTENT]);
       fs.writeFileSync(filePath, operation.content);
       break;
 
     case 'append':
-      fs.appendFileSync(filePath, operation.content);
+      if (directives[RESTORE_DIRECTIVE_REMOVE_APPEND] === 'true') {
+        const expectedAppend =
+          directives[RESTORE_DIRECTIVE_EXPECT_APPEND_AT_END] ?? operation.content;
+        const content = fs.readFileSync(filePath, 'utf-8');
+        if (!content.endsWith(expectedAppend)) {
+          throw new Error('Unsafe to restore: appended content not found at file end.');
+        }
+        const updated = content.slice(0, content.length - expectedAppend.length);
+        fs.writeFileSync(filePath, updated);
+      } else {
+        fs.appendFileSync(filePath, operation.content);
+      }
       break;
 
     case 'range':
@@ -30,6 +48,7 @@ export function applyOperation(operation: Operation, repoRoot: string): void {
       break;
 
     case 'delete':
+      assertExpectedContent(filePath, directives[RESTORE_DIRECTIVE_EXPECT_CONTENT]);
       // Delete the file
       fs.unlinkSync(filePath);
       
@@ -57,5 +76,18 @@ export function applyOperation(operation: Operation, repoRoot: string): void {
 
     default:
       throw new Error(`Unknown operation type: ${operation.type}`);
+  }
+}
+
+function assertExpectedContent(filePath: string, expected?: string) {
+  if (expected === undefined) {
+    return;
+  }
+  if (!fs.existsSync(filePath)) {
+    throw new Error('Unsafe to restore: file is missing.');
+  }
+  const current = fs.readFileSync(filePath, 'utf-8');
+  if (current !== expected) {
+    throw new Error('Unsafe to restore: file content has changed since apply.');
   }
 }

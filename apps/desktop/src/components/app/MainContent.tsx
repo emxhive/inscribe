@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { FileSidebar, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from './FileSidebar';
 import { IntakePanel } from './IntakePanel';
 import { ReviewPanel } from './ReviewPanel';
+import { HistoryDrawer } from './HistoryDrawer';
 import { useAppStateContext } from '@/hooks';
 import { History, Settings, Info } from 'lucide-react';
 
@@ -32,7 +33,7 @@ export function MainContent() {
 
   return (
     <div
-      className="flex-1 grid min-h-0 overflow-hidden"
+      className="flex-1 grid min-h-0 overflow-hidden relative"
       style={{ gridTemplateColumns: `${sidebarWidth}px 1fr 64px` }}
     >
       <FileSidebar sidebarWidth={sidebarWidth} onResize={handleSidebarResize} />
@@ -49,11 +50,13 @@ export function MainContent() {
         {!state.isRestoringRepo && state.mode === 'review' && <ReviewPanel />}
       </main>
 
+      <HistoryDrawer />
+
       <aside className="flex flex-col items-center gap-2.5 p-3 bg-card border-l border-border">
         <button
           className="h-9 w-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
           aria-label="View history"
-          onClick={() => updateState({ statusMessage: 'History (placeholder)' })}
+          onClick={() => updateState({ isHistoryOpen: !state.isHistoryOpen })}
         >
           <History className="h-4 w-4" />
         </button>

@@ -5,3 +5,4 @@ export { useParsingActions } from './useParsingActions';
 export { useReviewActions } from './useReviewActions';
 export { useApplyActions } from './useApplyActions';
 export { useIntakeBlocks } from './useIntakeBlocks';
+export { useHistoryActions } from './useHistoryActions';

@@ -20,8 +20,8 @@
 - `buildApplyPlan` (src/plan/buildApplyPlan.ts)
 
 ## 4. Application
-**Goal:** Execute the plan, modifying files with backup support.
+**Goal:** Execute the plan, modifying files and generating restore history.
 - `applyChanges` (src/apply/applyChanges.ts)
-  - `createBackup` (src/apply/backups.ts)
+  - `buildRestoreEntry` (src/apply/restoreHistory.ts)
   - `applyOperation` (src/apply/applyOperation.ts)
     - `applyRangeReplace` (src/apply/rangeReplace.ts)

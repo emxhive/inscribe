@@ -126,7 +126,7 @@ async function runDebugPipeline() {
 
     if (applyResult.success) {
       console.log('Application successful!');
-      console.log('Backup created at:', applyResult.backupPath);
+      console.log(`Generated ${applyResult.historyEntries?.length ?? 0} restore history entries.`);
       
       // Verify changes
       console.log('\n--- Verification ---');
@@ -138,6 +138,7 @@ async function runDebugPipeline() {
 
     } else {
       console.error('Application failed:', applyResult.errors);
+      console.log(`Applied ${applyResult.historyEntries?.length ?? 0} operations before failure.`);
     }
 
   } catch (error) {

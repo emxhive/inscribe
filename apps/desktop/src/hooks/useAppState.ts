@@ -27,11 +27,14 @@ export const initialState: AppState = {
   pipelineStatus: 'idle',
   isParsingInProgress: false,
   isApplyingInProgress: false,
+  isRestoringInProgress: false,
   isRestoringRepo: true,
   overlayEditor: null,
+  isHistoryOpen: false,
 
   lastAppliedPlan: null,
   canRedo: false,
+  historyItems: [],
 };
 
 export function useAppState() {

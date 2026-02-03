@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { applyChanges, undoLastApply } from '../src';
+import { applyChanges } from '../src';
 import { ApplyPlan } from '@inscribe/shared';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -31,8 +31,6 @@ describe('Applier', () => {
     const result = applyChanges(plan, tempDir);
     
     expect(result.success).toBe(true);
-    expect(result.backupPath).toBeDefined();
-    
     const filePath = path.join(tempDir, 'app', 'new.js');
     expect(fs.existsSync(filePath)).toBe(true);
     expect(fs.readFileSync(filePath, 'utf-8')).toBe('console.log("new");');
@@ -522,7 +520,7 @@ old content
     expect(content).not.toContain('old content');
   });
 
-  it('should create backup before applying', () => {
+  it('should generate restore history entries', () => {
     const filePath = path.join(tempDir, 'app', 'existing.js');
     fs.writeFileSync(filePath, 'original content');
 
@@ -539,37 +537,8 @@ old content
     const result = applyChanges(plan, tempDir);
     
     expect(result.success).toBe(true);
-    expect(result.backupPath).toBeDefined();
-    
-    // Check backup exists
-    const backupFilePath = path.join(result.backupPath!, 'app', 'existing.js');
-    expect(fs.existsSync(backupFilePath)).toBe(true);
-    expect(fs.readFileSync(backupFilePath, 'utf-8')).toBe('original content');
-  });
-
-  it('should undo last apply', () => {
-    const filePath = path.join(tempDir, 'app', 'existing.js');
-    fs.writeFileSync(filePath, 'original content');
-
-    const plan: ApplyPlan = {
-      operations: [
-        {
-          type: 'replace',
-          file: 'app/existing.js',
-          content: 'new content',
-        },
-      ],
-    };
-
-    // Apply changes
-    const applyResult = applyChanges(plan, tempDir);
-    expect(applyResult.success).toBe(true);
-    expect(fs.readFileSync(filePath, 'utf-8')).toBe('new content');
-
-    // Undo
-    const undoResult = undoLastApply(tempDir);
-    expect(undoResult.success).toBe(true);
-    expect(fs.readFileSync(filePath, 'utf-8')).toBe('original content');
+    expect(result.historyEntries?.length).toBe(1);
+    expect(result.historyEntries?.[0].restoreOperation.type).toBe('replace');
   });
 
   it('should handle multiple operations atomically', () => {
@@ -683,61 +652,6 @@ old content
     expect(fs.existsSync(nestedDir)).toBe(true);
   });
 
-  it('should create backup of deleted file for undo', () => {
-    const filePath = path.join(tempDir, 'app', 'to-delete.js');
-    const originalContent = 'original content';
-    fs.writeFileSync(filePath, originalContent);
-
-    const plan: ApplyPlan = {
-      operations: [
-        {
-          type: 'delete',
-          file: 'app/to-delete.js',
-          content: '',
-        },
-      ],
-    };
-
-    const result = applyChanges(plan, tempDir);
-
-    expect(result.success).toBe(true);
-    expect(result.backupPath).toBeDefined();
-
-    // Check backup exists and contains original content
-    const backupFilePath = path.join(result.backupPath!, 'app', 'to-delete.js');
-    expect(fs.existsSync(backupFilePath)).toBe(true);
-    expect(fs.readFileSync(backupFilePath, 'utf-8')).toBe(originalContent);
-
-    // Verify file was deleted
-    expect(fs.existsSync(filePath)).toBe(false);
-  });
-
-  it('should undo delete operation by restoring file', () => {
-    const filePath = path.join(tempDir, 'app', 'to-delete.js');
-    const originalContent = 'original content';
-    fs.writeFileSync(filePath, originalContent);
-
-    const plan: ApplyPlan = {
-      operations: [
-        {
-          type: 'delete',
-          file: 'app/to-delete.js',
-          content: '',
-        },
-      ],
-    };
-
-    // Apply delete
-    const applyResult = applyChanges(plan, tempDir);
-    expect(applyResult.success).toBe(true);
-    expect(fs.existsSync(filePath)).toBe(false);
-
-    // Undo delete - should restore the file
-    const undoResult = undoLastApply(tempDir);
-    expect(undoResult.success).toBe(true);
-    expect(fs.existsSync(filePath)).toBe(true);
-    expect(fs.readFileSync(filePath, 'utf-8')).toBe(originalContent);
-  });
 
   it('should fail when operation type is unknown', () => {
     const plan: ApplyPlan = {

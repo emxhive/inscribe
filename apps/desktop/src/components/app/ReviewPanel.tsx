@@ -478,16 +478,6 @@ export function ReviewPanel() {
           variant="outline"
           size="sm"
           type="button"
-          onClick={applyActions.handleUndo}
-          title="Undo last apply (single-step)"
-          disabled={isApplyingInProgress}
-        >
-          Undo last apply
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
           onClick={applyActions.handleRedo}
           disabled={!state.canRedo || isApplyingInProgress}
         >

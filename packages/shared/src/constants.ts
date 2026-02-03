@@ -15,7 +15,6 @@ export const INDEXED_ROOTS = [
 export const INSCRIBE_DIR = '.inscribe';
 export const INSCRIBE_IGNORE_FILE = '.inscribeignore';
 export const SCOPE_STORE_FILE = 'scope.json';
-export const BACKUP_DIR = `${INSCRIBE_DIR}/backups`;
 
 export const IGNORED_PATHS = [
   '.git/',
@@ -26,6 +25,10 @@ export const IGNORED_PATHS = [
   'public/build/',
   `${INSCRIBE_DIR}/`,
 ] as const;
+
+export const RESTORE_DIRECTIVE_EXPECT_CONTENT = 'EXPECT_CONTENT';
+export const RESTORE_DIRECTIVE_EXPECT_APPEND_AT_END = 'EXPECT_APPEND_AT_END';
+export const RESTORE_DIRECTIVE_REMOVE_APPEND = 'RESTORE_REMOVE';
 
 // Suggested exclude heuristics
 export const HEAVY_DIR_NAMES = [

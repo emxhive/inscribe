@@ -88,6 +88,8 @@ export function useRepositoryActions() {
       isRestoringInProgress: false,
       lastAppliedPlan: null,
       canRedo: false,
+      lastApplyId: null,
+      canUndoApply: false,
       historyItems: [],
       isHistoryOpen: false,
       statusMessage,

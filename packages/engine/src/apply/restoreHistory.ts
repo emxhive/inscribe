@@ -71,12 +71,18 @@ function buildRestoreOperation(operation: Operation, existingContent: string): O
     }
     case 'range': {
       const resolved = resolveRangeReplacement(existingContent, operation);
+      const restoreDirectives = buildRangeRestoreDirectives(
+        operation.directives ?? {},
+        resolved.prefix,
+        resolved.suffix,
+        resolved.insert
+      );
       return {
         type: 'range',
         file: operation.file,
         content: resolved.removed,
         directives: {
-          ...(operation.directives ?? {}),
+          ...restoreDirectives,
           [RESTORE_DIRECTIVE_EXPECT_CONTENT]: resolved.insert,
         },
         blockIndex: operation.blockIndex,
@@ -93,4 +99,84 @@ function buildRestoreOperation(operation: Operation, existingContent: string): O
     default:
       throw new Error(`Unknown operation type: ${operation.type}`);
   }
+}
+
+function buildRangeRestoreDirectives(
+  directives: Record<string, string>,
+  prefix: string,
+  suffix: string,
+  inserted: string
+): Record<string, string> {
+  const scopedDirectives: Record<string, string> = {};
+  if (directives.SCOPE_START && directives.SCOPE_END) {
+    scopedDirectives.SCOPE_START = directives.SCOPE_START;
+    scopedDirectives.SCOPE_END = directives.SCOPE_END;
+  }
+
+  const boundaryStart = getLastAnchorLine(prefix);
+  const boundaryEnd = getFirstAnchorLine(suffix);
+  const insertFirst = getFirstAnchorLine(inserted);
+  const insertLast = getLastAnchorLine(inserted);
+
+  if (boundaryStart && boundaryEnd) {
+    return {
+      ...scopedDirectives,
+      START_AFTER: boundaryStart,
+      END_BEFORE: boundaryEnd,
+    };
+  }
+
+  if (boundaryStart && insertLast) {
+    return {
+      ...scopedDirectives,
+      START_AFTER: boundaryStart,
+      END: insertLast,
+    };
+  }
+
+  if (boundaryEnd && insertFirst) {
+    return {
+      ...scopedDirectives,
+      START: insertFirst,
+      END_BEFORE: boundaryEnd,
+    };
+  }
+
+  if (insertFirst && insertLast && insertFirst !== insertLast) {
+    return {
+      ...scopedDirectives,
+      START: insertFirst,
+      END: insertLast,
+    };
+  }
+
+  if (insertFirst) {
+    return {
+      ...scopedDirectives,
+      START: insertFirst,
+    };
+  }
+
+  return { ...scopedDirectives, ...directives };
+}
+
+function getFirstAnchorLine(text: string): string | null {
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (line.trim().length > 0) {
+      return line;
+    }
+  }
+  return null;
+}
+
+function getLastAnchorLine(text: string): string | null {
+  const lines = text.split('\n');
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    if (line.trim().length > 0) {
+      return line;
+    }
+  }
+  return null;
 }

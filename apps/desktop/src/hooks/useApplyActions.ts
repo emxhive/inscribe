@@ -3,12 +3,14 @@ import { buildApplyPlanFromItems, getLanguageFromFilename } from '@/utils';
 import type { HistoryItem, ReviewItem } from '@/types';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
+import { useHistoryActions } from './useHistoryActions';
 
 /**
  * Hook for apply/redo operations
  */
 export function useApplyActions() {
   const { state, updateState, setLastAppliedPlan, clearRedo } = useAppStateContext();
+  const { restoreGroup } = useHistoryActions();
   const decorateHistoryEntries = (entries: HistoryEntry[]): HistoryItem[] =>
     entries.map((entry) => {
       const file = entry.restoreOperation?.file ?? entry.file;
@@ -59,7 +61,9 @@ export function useApplyActions() {
       updateState({
         isApplyingInProgress: true,
         pipelineStatus: 'applying',
-        statusMessage: 'Applying selected file...'
+        statusMessage: 'Applying selected file...',
+        canUndoApply: false,
+        lastApplyId: null,
       });
 
       const plan = buildApplyPlanFromItems([selectedItem]);
@@ -76,10 +80,14 @@ export function useApplyActions() {
 
       if (result.success) {
         setLastAppliedPlan(plan);
+        const applyId = result.historyEntries?.[0]?.applyId ?? null;
         markItemsApplied([selectedItem.id]);
         updateState({
           pipelineStatus: 'apply-success',
-          statusMessage: `✓ Applied: ${selectedItem.file}.`
+          statusMessage: `✓ Applied: ${selectedItem.file}.`,
+          canUndoApply: Boolean(applyId),
+          lastApplyId: applyId,
+          canRedo: true,
         });
         await refreshRepo(state.repoRoot);
       } else {
@@ -124,7 +132,9 @@ export function useApplyActions() {
       updateState({
         isApplyingInProgress: true,
         pipelineStatus: 'applying',
-        statusMessage: `Applying ${pendingItems.length} file(s)...`
+        statusMessage: `Applying ${pendingItems.length} file(s)...`,
+        canUndoApply: false,
+        lastApplyId: null,
       });
 
       const plan = buildApplyPlanFromItems(pendingItems);
@@ -141,10 +151,14 @@ export function useApplyActions() {
 
       if (result.success) {
         setLastAppliedPlan(plan);
+        const applyId = result.historyEntries?.[0]?.applyId ?? null;
         markItemsApplied(pendingItems.map((item) => item.id));
         updateState({
           pipelineStatus: 'apply-success',
-          statusMessage: `✓ Applied all: ${pendingItems.length} file(s).`
+          statusMessage: `✓ Applied all: ${pendingItems.length} file(s).`,
+          canUndoApply: Boolean(applyId),
+          lastApplyId: applyId,
+          canRedo: true,
         });
         await refreshRepo(state.repoRoot);
       } else {
@@ -183,7 +197,9 @@ export function useApplyActions() {
       updateState({
         isApplyingInProgress: true,
         pipelineStatus: 'applying',
-        statusMessage: `Applying ${pendingItems.length} valid file(s)...`
+        statusMessage: `Applying ${pendingItems.length} valid file(s)...`,
+        canUndoApply: false,
+        lastApplyId: null,
       });
 
       const plan = buildApplyPlanFromItems(pendingItems);
@@ -200,6 +216,7 @@ export function useApplyActions() {
 
       if (result.success) {
         setLastAppliedPlan(plan);
+        const applyId = result.historyEntries?.[0]?.applyId ?? null;
         markItemsApplied(pendingItems.map((item) => item.id));
         const message = invalidCount > 0
           ? `✓ Applied ${pendingItems.length} valid file(s). ${invalidCount} file(s) with errors were skipped.`
@@ -207,7 +224,10 @@ export function useApplyActions() {
         
         updateState({
           pipelineStatus: 'apply-success',
-          statusMessage: message
+          statusMessage: message,
+          canUndoApply: Boolean(applyId),
+          lastApplyId: applyId,
+          canRedo: true,
         });
         await refreshRepo(state.repoRoot);
       } else {
@@ -234,7 +254,9 @@ export function useApplyActions() {
       updateState({
         isApplyingInProgress: true,
         pipelineStatus: 'applying',
-        statusMessage: 'Redoing last apply...'
+        statusMessage: 'Redoing last apply...',
+        canUndoApply: false,
+        lastApplyId: null,
       });
 
       const result = await window.inscribeAPI.applyChanges(state.lastAppliedPlan, state.repoRoot);
@@ -250,9 +272,12 @@ export function useApplyActions() {
 
       if (result.success) {
         clearRedo();
+        const applyId = result.historyEntries?.[0]?.applyId ?? null;
         updateState({
           pipelineStatus: 'apply-success',
-          statusMessage: '✓ Redo successful'
+          statusMessage: '✓ Redo successful',
+          canUndoApply: Boolean(applyId),
+          lastApplyId: applyId,
         });
         await refreshRepo(state.repoRoot);
       } else {
@@ -272,10 +297,23 @@ export function useApplyActions() {
     }
   };
 
+  const handleUndoApply = async () => {
+    if (!state.repoRoot || !state.canUndoApply || !state.lastApplyId) return;
+    if (state.isApplyingInProgress || state.isRestoringInProgress) return;
+
+    await restoreGroup(state.lastApplyId);
+    updateState((prev) => ({
+      canUndoApply: false,
+      lastApplyId: null,
+      canRedo: prev.lastAppliedPlan ? true : prev.canRedo,
+    }));
+  };
+
   return {
     handleApplySelected,
     handleApplyAll,
     handleApplyValidBlocks,
     handleRedo,
+    handleUndoApply,
   };
 }

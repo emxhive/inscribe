@@ -8,6 +8,7 @@ import type {
   ParseResult,
   ParsedBlock,
   ValidationError,
+  HistoryEntry,
 } from '@inscribe/shared';
 
 export interface RepoInitResult {
@@ -62,4 +63,6 @@ export interface InscribeAPI {
   validateAndBuildApplyPlan: (blocks: ParsedBlock[], repoRoot: string) => Promise<ApplyPlan>;
   applyChanges: (plan: ApplyPlan, repoRoot: string) => Promise<ApplyResult>;
   previewOperation: (operation: Operation, repoRoot: string) => Promise<OperationPreviewResult>;
+  getHistoryEntries: (repoRoot: string) => Promise<HistoryEntry[]>;
+  markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) => Promise<boolean>;
 }

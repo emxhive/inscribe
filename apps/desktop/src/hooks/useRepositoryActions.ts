@@ -1,6 +1,6 @@
 import { normalizePrefix, normalizeRelativePath } from '@inscribe/shared';
-import type { ParsedBlock } from '@inscribe/shared';
-import { buildReviewItems } from '@/utils';
+import type { HistoryEntry, ParsedBlock } from '@inscribe/shared';
+import { buildReviewItems, decorateHistoryEntries } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 import { initialState } from './useAppState';
 import type { AppState } from '@/types';
@@ -40,6 +40,12 @@ export async function initRepositoryState(
 ): Promise<RepoInitResult> {
   updateState({ statusMessage: 'Initializing repository...' });
   const result = await window.inscribeAPI.repoInit(repoRoot);
+  let historyEntries: HistoryEntry[] = [];
+  try {
+    historyEntries = await window.inscribeAPI.getHistoryEntries(repoRoot);
+  } catch (error) {
+    console.error('Failed to load history entries:', error);
+  }
   const indexedFileState = buildIndexedFileState(result.indexedFiles);
 
   updateState({
@@ -51,6 +57,7 @@ export async function initRepositoryState(
     indexedFileSet: indexedFileState.indexedFileSet,
     indexedCount: indexedFileState.indexedFiles.length,
     indexStatus: result.indexStatus || { state: 'complete' },
+    historyItems: decorateHistoryEntries(historyEntries),
     statusMessage: `Repository initialized: ${indexedFileState.indexedFiles.length} files indexed`
   });
 

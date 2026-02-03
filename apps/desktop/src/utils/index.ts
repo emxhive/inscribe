@@ -7,3 +7,4 @@ export { getLanguageFromFilename } from './language';
 export { normalizePath, getPathBasename } from './path';
 export { countLines, toSentenceCase } from './text';
 export { buildReviewItems, buildApplyPlanFromItems } from './review';
+export { decorateHistoryEntries } from './history';

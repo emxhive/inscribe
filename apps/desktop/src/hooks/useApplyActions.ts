@@ -4,7 +4,7 @@ import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
 
 /**
- * Hook for apply/undo/redo operations
+ * Hook for apply/redo operations
  */
 export function useApplyActions() {
   const { state, updateState, setLastAppliedPlan, clearRedo } = useAppStateContext();
@@ -49,12 +49,18 @@ export function useApplyActions() {
       const plan = buildApplyPlanFromItems([selectedItem]);
       const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
       
+      if (result.historyEntries?.length) {
+        updateState((prev) => ({
+          historyItems: [...result.historyEntries!, ...prev.historyItems],
+        }));
+      }
+
       if (result.success) {
         setLastAppliedPlan(plan);
         markItemsApplied([selectedItem.id]);
         updateState({
           pipelineStatus: 'apply-success',
-          statusMessage: `✓ Applied: ${selectedItem.file}. Undo restores only the most recent apply batch.`
+          statusMessage: `✓ Applied: ${selectedItem.file}.`
         });
         await refreshRepo(state.repoRoot);
       } else {
@@ -105,12 +111,18 @@ export function useApplyActions() {
       const plan = buildApplyPlanFromItems(pendingItems);
       const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
       
+      if (result.historyEntries?.length) {
+        updateState((prev) => ({
+          historyItems: [...result.historyEntries!, ...prev.historyItems],
+        }));
+      }
+
       if (result.success) {
         setLastAppliedPlan(plan);
         markItemsApplied(pendingItems.map((item) => item.id));
         updateState({
           pipelineStatus: 'apply-success',
-          statusMessage: `✓ Applied all: ${pendingItems.length} file(s). Undo restores only the most recent apply batch.`
+          statusMessage: `✓ Applied all: ${pendingItems.length} file(s).`
         });
         await refreshRepo(state.repoRoot);
       } else {
@@ -155,6 +167,12 @@ export function useApplyActions() {
       const plan = buildApplyPlanFromItems(pendingItems);
       const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
       
+      if (result.historyEntries?.length) {
+        updateState((prev) => ({
+          historyItems: [...result.historyEntries!, ...prev.historyItems],
+        }));
+      }
+
       if (result.success) {
         setLastAppliedPlan(plan);
         markItemsApplied(pendingItems.map((item) => item.id));
@@ -184,41 +202,6 @@ export function useApplyActions() {
     }
   };
 
-  const handleUndo = async () => {
-    if (!state.repoRoot) return;
-    
-    try {
-      updateState({
-        isApplyingInProgress: true,
-        pipelineStatus: 'applying',
-        statusMessage: 'Undoing last apply...'
-      });
-
-      const result = await window.inscribeAPI.undoLastApply(state.repoRoot);
-      
-      if (result.success) {
-        updateState({
-          pipelineStatus: 'apply-success',
-          statusMessage: `✓ Undo successful: ${result.message} (Undo restores only the most recent apply batch.)`
-        });
-        await refreshRepo(state.repoRoot);
-      } else {
-        updateState({
-          pipelineStatus: 'apply-failure',
-          statusMessage: `Undo failed: ${result.message}`
-        });
-      }
-    } catch (error) {
-      console.error('Failed to undo:', error);
-      updateState({
-        pipelineStatus: 'apply-failure',
-        statusMessage: `Failed to undo: ${error}`
-      });
-    } finally {
-      updateState({ isApplyingInProgress: false });
-    }
-  };
-
   const handleRedo = async () => {
     if (!state.repoRoot || !state.lastAppliedPlan) return;
     
@@ -230,7 +213,13 @@ export function useApplyActions() {
       });
 
       const result = await window.inscribeAPI.applyChanges(state.lastAppliedPlan, state.repoRoot);
-      
+
+      if (result.historyEntries?.length) {
+        updateState((prev) => ({
+          historyItems: [...result.historyEntries!, ...prev.historyItems],
+        }));
+      }
+
       if (result.success) {
         clearRedo();
         updateState({
@@ -259,7 +248,6 @@ export function useApplyActions() {
     handleApplySelected,
     handleApplyAll,
     handleApplyValidBlocks,
-    handleUndo,
     handleRedo,
   };
 }

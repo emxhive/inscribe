@@ -5,6 +5,7 @@ import type {
   Mode as OperationMode,
   ParsedBlock,
   ValidationError,
+  HistoryEntry,
 } from '@inscribe/shared';
 
 /**
@@ -38,6 +39,19 @@ export interface ReviewItem {
   directives: Record<string, string>;
 }
 
+export type RestoreStatus =
+  | 'idle'
+  | 'restoring'
+  | 'success'
+  | 'validation-failed'
+  | 'apply-failed'
+  | 'unsafe';
+
+export interface HistoryItem extends HistoryEntry {
+  restoreStatus?: RestoreStatus;
+  restoreMessage?: string;
+}
+
 export interface AppState {
   // Repository state
   repoRoot: string | null;
@@ -66,10 +80,15 @@ export interface AppState {
   pipelineStatus: PipelineStatus;
   isParsingInProgress: boolean;
   isApplyingInProgress: boolean;
+  isRestoringInProgress: boolean;
   isRestoringRepo: boolean;
   overlayEditor: OverlayEditor;
+  isHistoryOpen: boolean;
 
-  // Apply/Undo/Redo state
+  // Apply/Redo state
   lastAppliedPlan: ApplyPlan | null;
   canRedo: boolean;
+
+  // Restore history
+  historyItems: HistoryItem[];
 }

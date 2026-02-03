@@ -7,7 +7,7 @@ Inscribe is a desktop app that turns AI output into safe, reviewable changes in 
 - **Applies only explicitly tagged code blocks** — no guessing, no heuristics.
 - **Validates everything first** — if one block is wrong, nothing is applied.
 - **Previews every change** — you see exactly what will happen before it happens.
-- **Creates backups and supports undo** — changes are reversible.
+- **Tracks applied blocks with Smart Restore history** — safe, validated restores.
 - **Works with existing repos** — you point it at a repo and go.
 
 ## How It Works (In Short)
@@ -16,7 +16,7 @@ Inscribe is a desktop app that turns AI output into safe, reviewable changes in 
 2. Inscribe extracts **only** blocks wrapped with `$inscribe BEGIN` / `$inscribe END`.
 3. It validates file paths and directives.
 4. You preview the diff.
-5. On apply, it writes the changes and creates a backup snapshot.
+5. On apply, it writes the changes and records a restore entry for each applied block.
 
 ## Using the App
 
@@ -60,9 +60,9 @@ When working with AI assistants that generate code, you can instruct them to for
 
 See the [LLM Usage Guide](docs/llm-guide.md) for complete instructions to copy/paste when prompting an LLM.
 
-## Backups & Undo
+## History & Smart Restore
 
-When applying changes, Inscribe creates a snapshot at `.inscribe/backups/<timestamp>/` **inside your target repo**. Undo restores the most recent snapshot.
+Every successful apply generates restore entries that can be safely re-applied through the same validation and apply pipeline as normal changes. Restore actions are conservative: they only run when the target content still matches expected anchors or content constraints.
 
 ## Documentation
 

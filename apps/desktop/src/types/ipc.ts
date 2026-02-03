@@ -8,7 +8,6 @@ import type {
   ParseResult,
   ParsedBlock,
   ValidationError,
-  UndoResult,
 } from '@inscribe/shared';
 
 export interface RepoInitResult {
@@ -63,5 +62,4 @@ export interface InscribeAPI {
   validateAndBuildApplyPlan: (blocks: ParsedBlock[], repoRoot: string) => Promise<ApplyPlan>;
   applyChanges: (plan: ApplyPlan, repoRoot: string) => Promise<ApplyResult>;
   previewOperation: (operation: Operation, repoRoot: string) => Promise<OperationPreviewResult>;
-  undoLastApply: (repoRoot: string) => Promise<UndoResult>;
 }

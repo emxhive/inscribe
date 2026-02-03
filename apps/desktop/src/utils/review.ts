@@ -55,6 +55,7 @@ export function buildApplyPlanFromItems(items: ReviewItem[]): ApplyPlan {
       file: item.file,
       content: item.editedContent,
       directives: item.directives,
+      blockIndex: item.blockIndex,
     })),
   };
 }

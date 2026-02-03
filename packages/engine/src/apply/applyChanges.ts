@@ -1,11 +1,11 @@
 /**
  * Applier for Inscribe
- * Applies changes with backups and supports undo
+ * Applies changes and generates restore history entries
  */
 
-import { ApplyPlan, ApplyResult, Operation, ValidationError } from '@inscribe/shared';
+import { ApplyPlan, ApplyResult, HistoryEntry, Operation, ValidationError } from '@inscribe/shared';
 import { applyOperation } from './applyOperation';
-import { createBackup } from './backups';
+import { buildRestoreEntry } from './restoreHistory';
 
 const VALID_OPERATION_TYPES = new Set(['create', 'replace', 'append', 'range', 'delete']);
 
@@ -41,9 +41,10 @@ function validateOperation(operation: Operation, index: number): string[] {
 }
 
 /**
- * Apply changes with backup
+ * Apply changes and emit restore history entries
  */
 export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
+  const historyEntries: HistoryEntry[] = [];
   try {
     if (plan.errors && plan.errors.length > 0) {
       return {
@@ -69,21 +70,28 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
       };
     }
 
-    const { backupPath } = createBackup(plan, repoRoot);
-
     // Apply all operations
-    for (const operation of plan.operations) {
+    const appliedAt = new Date().toISOString();
+    const applyId = buildApplyId(appliedAt);
+    for (const [index, operation] of plan.operations.entries()) {
+      const restoreEntry = buildRestoreEntry(operation, repoRoot, applyId, appliedAt, index);
       applyOperation(operation, repoRoot);
+      historyEntries.push(restoreEntry);
     }
 
     return {
       success: true,
-      backupPath,
+      historyEntries,
     };
   } catch (error) {
     return {
       success: false,
       errors: [error instanceof Error ? error.message : 'Unknown error'],
+      historyEntries,
     };
   }
+}
+
+function buildApplyId(timestamp: string): string {
+  return `${timestamp}-${Math.random().toString(36).slice(2, 10)}`;
 }

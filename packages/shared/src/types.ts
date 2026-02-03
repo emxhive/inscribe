@@ -30,6 +30,7 @@ export interface Operation {
   file: string;
   content: string;
   directives?: Record<string, string>;
+  blockIndex?: number;
 }
 
 export interface OperationPreview {
@@ -49,13 +50,19 @@ export interface ApplyPlan {
 
 export interface ApplyResult {
   success: boolean;
-  backupPath?: string;
   errors?: string[];
+  historyEntries?: HistoryEntry[];
 }
 
-export interface UndoResult {
-  success: boolean;
-  message: string;
+export interface HistoryEntry {
+  id: string;
+  applyId: string;
+  file: string;
+  mode: Mode;
+  createdAt: string;
+  restoreOperation: Operation;
+  blockIndex?: number;
+  restoredAt?: string;
 }
 
 export interface ParseResult {

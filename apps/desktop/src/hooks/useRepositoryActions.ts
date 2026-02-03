@@ -85,8 +85,11 @@ export function useRepositoryActions() {
       pipelineStatus: 'idle',
       isParsingInProgress: false,
       isApplyingInProgress: false,
+      isRestoringInProgress: false,
       lastAppliedPlan: null,
       canRedo: false,
+      historyItems: [],
+      isHistoryOpen: false,
       statusMessage,
     });
   };

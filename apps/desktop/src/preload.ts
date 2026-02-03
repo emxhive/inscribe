@@ -5,7 +5,6 @@ import type {
   ParseResult,
   Operation,
   ParsedBlock,
-  UndoResult,
   ValidationError,
 } from '@inscribe/shared';
 import type {
@@ -61,8 +60,6 @@ const api = {
   previewOperation: (operation: Operation, repoRoot: string) =>
     ipcRenderer.invoke('preview-operation', operation, repoRoot),
 
-  undoLastApply: (repoRoot: string): Promise<UndoResult> =>
-    ipcRenderer.invoke('undo-last-apply', repoRoot),
 };
 
 contextBridge.exposeInMainWorld('inscribeAPI', api);

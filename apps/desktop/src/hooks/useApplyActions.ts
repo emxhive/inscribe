@@ -6,11 +6,11 @@ import {initRepositoryState} from './useRepositoryActions';
 import {useHistoryActions} from './useHistoryActions';
 
 /**
- * Hook for apply/redo operations
+ * Hook for apply/undo operations
  */
 export function useApplyActions() {
-    const {state, updateState, setLastAppliedPlan, clearRedo} = useAppStateContext();
-    const {restoreGroup} = useHistoryActions();
+    const {state, updateState, setLastAppliedPlan} = useAppStateContext();
+    const {restoreItem} = useHistoryActions();
     const decorateHistoryEntries = (entries: HistoryEntry[]): HistoryItem[] =>
         entries.map((entry) => {
             const file = entry.restoreOperation?.file ?? entry.file;
@@ -247,73 +247,75 @@ export function useApplyActions() {
         }
     };
 
-    const handleRedo = async () => {
-        if (!state.repoRoot || !state.lastAppliedPlan) return;
+    const handleUndoSelected = async () => {
+        if (!state.repoRoot || !state.selectedItemId) return;
+        if (state.isApplyingInProgress || state.isRestoringInProgress) return;
 
-        try {
-            updateState({
-                isApplyingInProgress: true,
-                pipelineStatus: 'applying',
-                statusMessage: 'Redoing last apply...',
-                canUndoApply: false,
-                lastApplyId: null,
-            });
+        const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId);
+        if (!selectedItem) return;
 
-            const result = await window.inscribeAPI.applyChanges(state.lastAppliedPlan, state.repoRoot);
+        const matchingHistoryItem = state.historyItems.find(
+            (item) =>
+                item.file === selectedItem.file &&
+                item.blockIndex === selectedItem.blockIndex &&
+                !item.restoredAt
+        );
 
-            if (result.historyEntries?.length) {
-                updateState((prev) => ({
-                    historyItems: [
-                        ...decorateHistoryEntries(result.historyEntries ?? []),
-                        ...prev.historyItems,
-                    ],
-                }));
-            }
+        if (!matchingHistoryItem) {
+            updateState({statusMessage: 'No applied changes found for this selection.'});
+            return;
+        }
 
-            if (result.success) {
-                clearRedo();
-                const applyId = result.historyEntries?.[0]?.applyId ?? null;
-                updateState({
-                    pipelineStatus: 'apply-success',
-                    statusMessage: '✓ Redo successful',
-                    canUndoApply: Boolean(applyId),
-                    lastApplyId: applyId,
-                });
-                await refreshRepo(state.repoRoot);
-            } else {
-                updateState({
-                    pipelineStatus: 'apply-failure',
-                    statusMessage: `Redo failed: ${result.errors?.join(', ') || 'Unknown error'}`
-                });
-            }
-        } catch (error) {
-            console.error('Failed to redo:', error);
-            updateState({
-                pipelineStatus: 'apply-failure',
-                statusMessage: `Failed to redo: ${error}`
-            });
-        } finally {
-            updateState({isApplyingInProgress: false});
+        const result = await restoreItem(matchingHistoryItem);
+        if (result?.status === 'success') {
+            updateState((prev) => ({
+                reviewItems: prev.reviewItems.map((item) =>
+                    item.id === selectedItem.id ? {...item, status: 'pending'} : item
+                ),
+            }));
         }
     };
 
-    const handleUndoApply = async () => {
+    const handleUndoAll = async () => {
         if (!state.repoRoot || !state.canUndoApply || !state.lastApplyId) return;
         if (state.isApplyingInProgress || state.isRestoringInProgress) return;
 
-        await restoreGroup(state.lastApplyId);
-        updateState((prev) => ({
+        const historyItems = state.historyItems.filter(
+            (item) => item.applyId === state.lastApplyId && !item.restoredAt
+        );
+        if (historyItems.length === 0) return;
+
+        const restoredKeys = new Set<string>();
+        for (const item of historyItems) {
+            const result = await restoreItem(item);
+            if (result?.status === 'success') {
+                restoredKeys.add(`${item.file}::${item.blockIndex ?? 'unknown'}`);
+            }
+        }
+
+        if (restoredKeys.size > 0) {
+            updateState((prev) => ({
+                reviewItems: prev.reviewItems.map((item) => {
+                    const key = `${item.file}::${item.blockIndex ?? 'unknown'}`;
+                    if (!restoredKeys.has(key)) {
+                        return item;
+                    }
+                    return {...item, status: 'pending'};
+                }),
+            }));
+        }
+
+        updateState({
             canUndoApply: false,
             lastApplyId: null,
-            canRedo: prev.lastAppliedPlan ? true : prev.canRedo,
-        }));
+        });
     };
 
     return {
         handleApplySelected,
         handleApplyAll,
         handleApplyValidBlocks,
-        handleRedo,
-        handleUndoApply,
+        handleUndoSelected,
+        handleUndoAll,
     };
 }

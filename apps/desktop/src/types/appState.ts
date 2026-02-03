@@ -94,6 +94,8 @@ export interface AppState {
   // Apply/Redo state
   lastAppliedPlan: ApplyPlan | null;
   canRedo: boolean;
+  lastApplyId: string | null;
+  canUndoApply: boolean;
 
   // Restore history
   historyItems: HistoryItem[];

@@ -478,19 +478,19 @@ export function ReviewPanel() {
           variant="outline"
           size="sm"
           type="button"
+          onClick={applyActions.handleUndoApply}
+          disabled={!state.canUndoApply || isApplyingInProgress || state.isRestoringInProgress}
+        >
+          Undo Apply
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
           onClick={applyActions.handleRedo}
           disabled={!state.canRedo || isApplyingInProgress}
         >
           Redo Apply
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm"
-          type="button" 
-          onClick={reviewActions.handleResetAll} 
-          disabled={isApplyingInProgress}
-        >
-          Reset All
         </Button>
         <div className="flex-1" />
         <Button

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type {ApplyPlan, IgnoreRules, IndexStatus, ParsedBlock, ValidationError} from '@inscribe/shared';
 import type { AppMode, AppState, ReviewItem, PipelineStatus } from '@/types';
+import { applyAppStateUpdates } from './appStateUtils';
 
 export const initialState: AppState = {
   repoRoot: null,
@@ -34,6 +35,8 @@ export const initialState: AppState = {
 
   lastAppliedPlan: null,
   canRedo: false,
+  lastApplyId: null,
+  canUndoApply: false,
   historyItems: [],
 };
 
@@ -44,7 +47,7 @@ export function useAppState() {
   const updateState = (updates: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {
     setState((prev) => {
       const changes = typeof updates === 'function' ? updates(prev) : updates;
-      return { ...prev, ...changes };
+      return applyAppStateUpdates(prev, changes);
     });
   };
 
@@ -72,7 +75,7 @@ export function useAppState() {
   };
 
   const clearRedo = () => {
-    setState((prev) => ({ ...prev, lastAppliedPlan: null, canRedo: false }));
+    setState((prev) => ({ ...prev, canRedo: false }));
   };
 
   return {

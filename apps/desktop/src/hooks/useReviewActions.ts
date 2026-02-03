@@ -1,5 +1,4 @@
 import { useAppStateContext } from './useAppStateContext';
-import type { ReviewItem } from '@/types';
 import { updateDirectivesAndRebuild } from '@/utils/reviewDirectives';
 
 type DirectiveUpdates = Partial<Record<string, string>>;
@@ -18,22 +17,6 @@ export function useReviewActions() {
       updateReviewItemContent(state.selectedItemId, value);
       updateState({ statusMessage: 'Modified (not applied)' });
     }
-  };
-
-  const handleResetAll = () => {
-    const resetItems: ReviewItem[] = state.reviewItems.map((item) => {
-      const status: ReviewItem['status'] =
-        item.status === 'invalid' ? 'invalid' : 'pending';
-      return {
-        ...item,
-        editedContent: item.originalContent,
-        status,
-      };
-    });
-    updateState({ 
-      reviewItems: resetItems,
-      statusMessage: 'Reset all to original content'
-    });
   };
 
   const handleUpdateDirectives = async (itemId: string, updates: DirectiveUpdates) => {
@@ -91,7 +74,6 @@ export function useReviewActions() {
   return {
     handleSelectItem,
     handleEditorChange,
-    handleResetAll,
     handleUpdateDirectives,
     selectedItem,
     editorValue,

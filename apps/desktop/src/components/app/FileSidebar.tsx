@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { EmptyState, FileListItem } from '../common';
+import { EmptyState, FileListEntry } from '../common';
 import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
 import { updateDirectiveInText } from '@/utils/intake';
 import { cn } from '@/lib/utils';
@@ -207,7 +207,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
         <>
           <ul className="flex flex-col gap-2.5 overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">
             {state.reviewItems.map((item) => (
-              <FileListItem
+              <FileListEntry
                 key={item.id}
                 file={item.file}
                 lineCount={item.lineCount}

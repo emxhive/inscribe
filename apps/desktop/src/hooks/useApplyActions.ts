@@ -1,5 +1,6 @@
-import { buildApplyPlanFromItems } from '@/utils';
-import type { ReviewItem } from '@/types';
+import type { HistoryEntry } from '@inscribe/shared';
+import { buildApplyPlanFromItems, getLanguageFromFilename } from '@/utils';
+import type { HistoryItem, ReviewItem } from '@/types';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
 
@@ -8,6 +9,21 @@ import { initRepositoryState } from './useRepositoryActions';
  */
 export function useApplyActions() {
   const { state, updateState, setLastAppliedPlan, clearRedo } = useAppStateContext();
+  const decorateHistoryEntries = (entries: HistoryEntry[]): HistoryItem[] =>
+    entries.map((entry) => {
+      const file = entry.restoreOperation?.file ?? entry.file;
+      const mode = entry.restoreOperation?.type ?? entry.mode;
+      const content = entry.restoreOperation?.content ?? '';
+      return {
+        ...entry,
+        restoreMeta: {
+          file,
+          lineCount: content ? content.split('\n').length : 0,
+          language: getLanguageFromFilename(file),
+          mode,
+        },
+      };
+    });
   const refreshRepo = async (repoRoot: string) => {
     await initRepositoryState(repoRoot, updateState);
   };
@@ -51,7 +67,10 @@ export function useApplyActions() {
       
       if (result.historyEntries?.length) {
         updateState((prev) => ({
-          historyItems: [...result.historyEntries!, ...prev.historyItems],
+          historyItems: [
+            ...decorateHistoryEntries(result.historyEntries),
+            ...prev.historyItems,
+          ],
         }));
       }
 
@@ -113,7 +132,10 @@ export function useApplyActions() {
       
       if (result.historyEntries?.length) {
         updateState((prev) => ({
-          historyItems: [...result.historyEntries!, ...prev.historyItems],
+          historyItems: [
+            ...decorateHistoryEntries(result.historyEntries),
+            ...prev.historyItems,
+          ],
         }));
       }
 
@@ -169,7 +191,10 @@ export function useApplyActions() {
       
       if (result.historyEntries?.length) {
         updateState((prev) => ({
-          historyItems: [...result.historyEntries!, ...prev.historyItems],
+          historyItems: [
+            ...decorateHistoryEntries(result.historyEntries),
+            ...prev.historyItems,
+          ],
         }));
       }
 
@@ -216,7 +241,10 @@ export function useApplyActions() {
 
       if (result.historyEntries?.length) {
         updateState((prev) => ({
-          historyItems: [...result.historyEntries!, ...prev.historyItems],
+          historyItems: [
+            ...decorateHistoryEntries(result.historyEntries),
+            ...prev.historyItems,
+          ],
         }));
       }
 

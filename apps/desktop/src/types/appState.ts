@@ -50,6 +50,12 @@ export type RestoreStatus =
 export interface HistoryItem extends HistoryEntry {
   restoreStatus?: RestoreStatus;
   restoreMessage?: string;
+  restoreMeta?: {
+    file: string;
+    lineCount: number;
+    language: string;
+    mode: OperationMode;
+  };
 }
 
 export interface AppState {

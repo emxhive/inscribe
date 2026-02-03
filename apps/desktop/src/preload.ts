@@ -60,6 +60,12 @@ const api = {
   previewOperation: (operation: Operation, repoRoot: string) =>
     ipcRenderer.invoke('preview-operation', operation, repoRoot),
 
+  getHistoryEntries: (repoRoot: string) =>
+    ipcRenderer.invoke('history-get', repoRoot),
+
+  markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) =>
+    ipcRenderer.invoke('history-mark-restored', repoRoot, entryId, restoredAt),
+
 };
 
 contextBridge.exposeInMainWorld('inscribeAPI', api);

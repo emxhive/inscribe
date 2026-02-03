@@ -1,6 +1,5 @@
-import type {HistoryEntry} from '@inscribe/shared';
-import {buildApplyPlanFromItems, getLanguageFromFilename} from '@/utils';
-import type {HistoryItem, ReviewItem} from '@/types';
+import {buildApplyPlanFromItems, decorateHistoryEntries} from '@/utils';
+import type {ReviewItem} from '@/types';
 import {useAppStateContext} from './useAppStateContext';
 import {initRepositoryState} from './useRepositoryActions';
 import {useHistoryActions} from './useHistoryActions';
@@ -10,7 +9,7 @@ import {useHistoryActions} from './useHistoryActions';
  */
 export function useApplyActions() {
     const {state, updateState, setLastAppliedPlan} = useAppStateContext();
-    const {restoreItem} = useHistoryActions();
+    const {restoreItem, restoreGroup} = useHistoryActions();
     const decorateHistoryEntries = (entries: HistoryEntry[]): HistoryItem[] =>
         entries.map((entry) => {
             const file = entry.restoreOperation?.file ?? entry.file;
@@ -26,6 +25,8 @@ export function useApplyActions() {
                 },
             };
         });
+//     const {state, updateState, setLastAppliedPlan, clearRedo} = useAppStateContext();
+   
     const refreshRepo = async (repoRoot: string) => {
         await initRepositoryState(repoRoot, updateState);
     };

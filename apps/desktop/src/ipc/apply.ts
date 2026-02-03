@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import {
   applyChanges,
   buildOperationPreview,
+  appendHistoryEntries,
 } from '@inscribe/engine';
 import type { ApplyPlan, Operation } from '@inscribe/shared';
 
@@ -11,7 +12,11 @@ import type { ApplyPlan, Operation } from '@inscribe/shared';
 export function registerApplyHandlers() {
   ipcMain.handle('apply-changes', async (_event, plan: ApplyPlan, repoRoot: string) => {
     try {
-      return applyChanges(plan, repoRoot);
+      const result = applyChanges(plan, repoRoot);
+      if (result.historyEntries?.length) {
+        appendHistoryEntries(repoRoot, result.historyEntries);
+      }
+      return result;
     } catch (error) {
       return {
         success: false,

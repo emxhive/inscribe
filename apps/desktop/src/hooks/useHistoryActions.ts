@@ -70,6 +70,7 @@ export function useHistoryActions() {
           restoredAt,
           restoreStatus: 'success',
         });
+        await window.inscribeAPI.markHistoryEntryRestored(state.repoRoot, item.id, restoredAt);
         updateState({
           statusMessage: `✓ Restored ${item.file}.`,
         });

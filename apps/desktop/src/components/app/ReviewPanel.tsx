@@ -53,6 +53,15 @@ export function ReviewPanel() {
     Boolean(selectedItem) && selectedItem?.status === 'pending' && !isApplyingInProgress;
   const canEditSelection = Boolean(selectedItem) && !selectedIsApplied;
   const isEditing = state.isEditing && canEditSelection;
+  const canUndoSelected =
+    Boolean(selectedItem) &&
+    selectedIsApplied &&
+    state.historyItems.some(
+      (item) =>
+        item.file === selectedItem?.file &&
+        item.blockIndex === selectedItem?.blockIndex &&
+        !item.restoredAt
+    );
   const [previewData, setPreviewData] = useState<OperationPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const isOverlayActive = state.overlayEditor === 'review';
@@ -478,8 +487,8 @@ export function ReviewPanel() {
           variant="outline"
           size="sm"
           type="button"
-          onClick={applyActions.handleUndoApply}
-          disabled={!state.canUndoApply || isApplyingInProgress || state.isRestoringInProgress}
+          onClick={applyActions.handleUndoSelected}
+          disabled={!canUndoSelected || isApplyingInProgress || state.isRestoringInProgress}
         >
           Undo Apply
         </Button>
@@ -487,10 +496,10 @@ export function ReviewPanel() {
           variant="outline"
           size="sm"
           type="button"
-          onClick={applyActions.handleRedo}
-          disabled={!state.canRedo || isApplyingInProgress}
+          onClick={applyActions.handleUndoAll}
+          disabled={!state.canUndoApply || isApplyingInProgress || state.isRestoringInProgress}
         >
-          Redo Apply
+          Undo All
         </Button>
         <div className="flex-1" />
         <Button

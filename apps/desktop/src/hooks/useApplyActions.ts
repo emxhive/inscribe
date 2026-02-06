@@ -10,21 +10,6 @@ import {useHistoryActions} from './useHistoryActions';
 export function useApplyActions() {
     const {state, updateState, setLastAppliedPlan} = useAppStateContext();
     const {restoreItem, restoreGroup} = useHistoryActions();
-    const decorateHistoryEntries = (entries: HistoryEntry[]): HistoryItem[] =>
-        entries.map((entry) => {
-            const file = entry.restoreOperation?.file ?? entry.file;
-            const mode = entry.restoreOperation?.type ?? entry.mode;
-            const content = entry.restoreOperation?.content ?? '';
-            return {
-                ...entry,
-                restoreMeta: {
-                    file,
-                    lineCount: content ? content.split('\n').length : 0,
-                    language: getLanguageFromFilename(file),
-                    mode,
-                },
-            };
-        });
 //     const {state, updateState, setLastAppliedPlan, clearRedo} = useAppStateContext();
    
     const refreshRepo = async (repoRoot: string) => {

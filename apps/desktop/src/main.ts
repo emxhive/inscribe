@@ -16,8 +16,9 @@ function createWindow() {
   });
 
   const isDev = !app.isPackaged;
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_RENDERER_URL;
   const startUrl = isDev
-    ? 'http://localhost:5173'
+    ? (devServerUrl ?? 'http://localhost:5173')
     : `file://${path.join(__dirname, 'renderer/index.html')}`;
 
   mainWindow.loadURL(startUrl);

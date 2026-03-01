@@ -28,12 +28,14 @@ function validateOperation(operation: Operation, index: number): string[] {
 
   if (operation.type === 'range') {
     const directives = operation.directives || {};
-    const startKeys = ['START', 'START_BEFORE', 'START_AFTER'];
-    const endKeys = ['END', 'END_BEFORE', 'END_AFTER'];
-    const startMatches = startKeys.filter(key => directives[key]);
-    const endMatches = endKeys.filter(key => directives[key]);
-    if (startMatches.length !== 1 || endMatches.length > 1) {
-      errors.push('Range operation requires exactly one of START, START_BEFORE, START_AFTER directives and at most one of END, END_BEFORE, END_AFTER directives');
+    if (directives.RESTORE_V2_SCHEMA !== '2') {
+      const startKeys = ['START', 'START_BEFORE', 'START_AFTER'];
+      const endKeys = ['END', 'END_BEFORE', 'END_AFTER'];
+      const startMatches = startKeys.filter(key => directives[key]);
+      const endMatches = endKeys.filter(key => directives[key]);
+      if (startMatches.length !== 1 || endMatches.length > 1) {
+        errors.push('Range operation requires exactly one of START, START_BEFORE, START_AFTER directives and at most one of END, END_BEFORE, END_AFTER directives');
+      }
     }
   }
 
@@ -74,8 +76,16 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
     const appliedAt = new Date().toISOString();
     const applyId = buildApplyId(appliedAt);
     for (const [index, operation] of plan.operations.entries()) {
-      const restoreEntry = buildRestoreEntry(operation, repoRoot, applyId, appliedAt, index);
-      applyOperation(operation, repoRoot);
+      const execution = applyOperation(operation, repoRoot);
+      const restoreEntry = buildRestoreEntry(
+        operation,
+        repoRoot,
+        applyId,
+        appliedAt,
+        index,
+        execution.beforeContent,
+        execution.afterContent
+      );
       historyEntries.push(restoreEntry);
     }
 

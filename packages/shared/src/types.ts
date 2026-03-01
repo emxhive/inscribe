@@ -54,6 +54,28 @@ export interface ApplyResult {
   historyEntries?: HistoryEntry[];
 }
 
+export interface RestoreWindow {
+  preContext: string;
+  postContext: string;
+}
+
+export interface RestorePayloadV2 {
+  schemaVersion: 2;
+  mode: Mode;
+  file: string;
+  oldContent: string;
+  newContent: string;
+  baseFileHash: string;
+  appliedFileHash: string;
+  oldContentHash: string;
+  newContentHash: string;
+  oldSpanStart: number;
+  oldSpanEnd: number;
+  newSpanStart: number;
+  newSpanEnd: number;
+  window: RestoreWindow;
+}
+
 export interface HistoryEntry {
   id: string;
   applyId: string;
@@ -61,6 +83,7 @@ export interface HistoryEntry {
   mode: Mode;
   createdAt: string;
   restoreOperation: Operation;
+  restorePayload?: RestorePayloadV2;
   blockIndex?: number;
   restoredAt?: string;
 }

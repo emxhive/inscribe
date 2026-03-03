@@ -19,7 +19,7 @@ const restoreFromHistory = (entries: HistoryEntry[], repoRoot: string, label = '
     const validationErrors = validateBlocks([restoreBlock], repoRoot);
     expect(validationErrors, `${label}: ${validationErrors.map((error) => error.message).join('; ')}`).toHaveLength(0);
     const result = applyChanges({ operations: [entry.restoreOperation] }, repoRoot);
-    expect(result.success).toBe(true);
+    expect(result.success, (result.errors ?? []).join('; ')).toBe(true);
   }
 };
 
@@ -282,6 +282,65 @@ describe('Smart Restore apply/undo/redo cycles', () => {
     runUndoRedoCycle(plan, tempDir, assertApplied, assertRestored);
   });
 
+
+  it('restores range changes with duplicate anchors using content identity', () => {
+    const filePath = path.join(tempDir, 'app', 'dup-anchor.txt');
+    fs.writeFileSync(
+      filePath,
+      [
+        'function one() {',
+        '  // start',
+        '  const value = 1;',
+        '  // end',
+        '}',
+        '',
+        'function two() {',
+        '  // start',
+        '  const value = 2;',
+        '  // end',
+        '}',
+        '',
+      ].join('\n')
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/dup-anchor.txt',
+          content: '  const value = 42;\n',
+          directives: {
+            START_AFTER: 'function two() {',
+            END_BEFORE: '  // end',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+    expect(result.success, (result.errors ?? []).join('; ')).toBe(true);
+
+    const applied = fs.readFileSync(filePath, 'utf-8');
+    expect(applied).toContain('const value = 42;');
+
+    const entry = result.historyEntries?.[0];
+    expect(entry).toBeTruthy();
+    if (!entry) return;
+
+    fs.writeFileSync(filePath, applied.replace('function two() {', 'function twoRenamed() {'));
+
+    const restoreBlock = buildRestoreBlock(entry);
+    const validationErrors = validateBlocks([restoreBlock], tempDir);
+    expect(validationErrors).toHaveLength(0);
+
+    const restoreResult = applyChanges({ operations: [entry.restoreOperation] }, tempDir);
+    expect(restoreResult.success).toBe(true);
+
+    const restored = fs.readFileSync(filePath, 'utf-8');
+    expect(restored).toContain('const value = 2;');
+    expect(restored).not.toContain('const value = 42;');
+  });
+
   it('refuses restore when content changed after apply', () => {
     const filePath = path.join(tempDir, 'app', 'replace.txt');
     fs.writeFileSync(filePath, 'old');
@@ -297,7 +356,7 @@ describe('Smart Restore apply/undo/redo cycles', () => {
     };
 
     const result = applyChanges(plan, tempDir);
-    expect(result.success).toBe(true);
+    expect(result.success, (result.errors ?? []).join('; ')).toBe(true);
     fs.writeFileSync(filePath, 'user edit');
 
     const entry = result.historyEntries?.[0];

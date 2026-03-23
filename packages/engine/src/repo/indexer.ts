@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getEffectiveIgnoreMatchers, matchIgnoredPath, type IgnoreMatcher } from './ignoreRules';
+import { INSCRIBE_IGNORE_FILE } from '@inscribe/shared';
 import { normalizeRelativePath } from './pathing';
 import { getOrCreateScope, setScopeState } from './scopeStore';
 import { setIndexStatusComplete, setIndexStatusError, setIndexStatusRunning } from './statusStore';
@@ -48,6 +49,9 @@ function collectRootFiles(repoRoot: string, files: string[], ignoreMatcher: Igno
       continue;
     }
     if (!entry.isFile()) {
+      continue;
+    }
+    if (entry.name === INSCRIBE_IGNORE_FILE) {
       continue;
     }
 

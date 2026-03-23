@@ -43,6 +43,75 @@ export interface OperationPreview {
   removed: string;
 }
 
+/**
+ * Half-open character offsets into a document string.
+ */
+export interface ComparisonRange {
+  start: number;
+  end: number;
+}
+
+export type ComparisonRegionKind = 'insert' | 'delete' | 'replace';
+
+/**
+ * Indicates how a zero-width deletion marker should attach to surviving content.
+ */
+export type ComparisonAnchorSide = 'before' | 'after' | 'empty';
+
+export interface ComparisonBoundary {
+  oldOffset: number;
+  newOffset: number;
+}
+
+/**
+ * Deterministic placement metadata for rendering deleted content that no longer
+ * exists in the new document.
+ */
+export interface ComparisonRenderAnchor {
+  oldOffset: number;
+  newOffset: number;
+  side: ComparisonAnchorSide;
+}
+
+/**
+ * Canonical, operation-aware change region used by review. The exact changed
+ * spans live in oldRange/newRange, while boundaries and renderAnchor preserve a
+ * deterministic placement model for zero-width insert/delete rendering.
+ */
+export interface OperationComparisonRegion {
+  id: string;
+  kind: ComparisonRegionKind;
+  oldRange: ComparisonRange;
+  newRange: ComparisonRange;
+  oldText: string;
+  newText: string;
+  boundaries: {
+    before: ComparisonBoundary;
+    after: ComparisonBoundary;
+  };
+  /**
+   * Future review overlays can compare only this region without re-diffing the
+   * entire document.
+   */
+  compare: {
+    oldRange: ComparisonRange;
+    newRange: ComparisonRange;
+  };
+  renderAnchor: ComparisonRenderAnchor;
+}
+
+/**
+ * Engine-owned source of truth for review. The engine decides old/new content
+ * and supplies exact, deterministic change regions that the UI can render.
+ */
+export interface OperationComparison {
+  type: Mode;
+  file: string;
+  oldContent: string;
+  newContent: string;
+  regions: OperationComparisonRegion[];
+}
+
 export interface ApplyPlan {
   operations: Operation[];
   errors?: ValidationError[];

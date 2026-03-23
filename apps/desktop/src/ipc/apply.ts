@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import {
   applyChanges,
-  buildOperationPreview,
+  buildOperationComparison,
   appendHistoryEntries,
 } from '@inscribe/engine';
 import type { ApplyPlan, Operation } from '@inscribe/shared';
@@ -25,9 +25,9 @@ export function registerApplyHandlers() {
     }
   });
 
-  ipcMain.handle('preview-operation', async (_event, operation: Operation, repoRoot: string) => {
+  ipcMain.handle('compare-operation', async (_event, operation: Operation, repoRoot: string) => {
     try {
-      return buildOperationPreview(operation, repoRoot);
+      return buildOperationComparison(operation, repoRoot);
     } catch (error) {
       return {
         error: error instanceof Error ? error.message : 'Unknown error',

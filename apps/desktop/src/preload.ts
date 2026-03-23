@@ -57,8 +57,8 @@ const api = {
   applyChanges: (plan: ApplyPlan, repoRoot: string): Promise<ApplyResult> =>
     ipcRenderer.invoke('apply-changes', plan, repoRoot),
 
-  previewOperation: (operation: Operation, repoRoot: string) =>
-    ipcRenderer.invoke('preview-operation', operation, repoRoot),
+  compareOperation: (operation: Operation, repoRoot: string) =>
+    ipcRenderer.invoke('compare-operation', operation, repoRoot),
 
   getHistoryEntries: (repoRoot: string) =>
     ipcRenderer.invoke('history-get', repoRoot),

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import CodeMirror from '@uiw/react-codemirror';
-import { Decoration, EditorView, GutterMarker, gutter, keymap } from '@codemirror/view';
+import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
 import { EditorState, RangeSetBuilder, StateField } from '@codemirror/state';
@@ -18,21 +18,25 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
-import { ArrowLeft, Eye, Maximize2, Pencil } from 'lucide-react';
-import type { OperationPreview, Operation } from '@inscribe/shared';
+import { buildReviewRenderModel, buildReviewRegionOverlay, type ReviewRenderableRegion } from '@/utils/reviewComparison';
+import { ArrowLeft, Eye, Maximize2, Pencil, X } from 'lucide-react';
+import type { OperationComparison, OperationComparisonRegion, Operation } from '@inscribe/shared';
 
-type PreviewLineMarker = 'insert' | 'remove' | null;
-
-class DiffGutterMarker extends GutterMarker {
-  constructor(private readonly marker: string, private readonly className: string) {
+class DeletedRegionWidget extends WidgetType {
+  constructor(
+    private readonly regionId: string,
+    private readonly summary: string,
+  ) {
     super();
   }
 
   toDOM() {
-    const element = document.createElement('span');
-    element.textContent = this.marker;
-    element.className = this.className;
-    return element;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cm-review-deleted-widget';
+    button.dataset.reviewRegionId = this.regionId;
+    button.textContent = this.summary;
+    return button;
   }
 }
 
@@ -62,8 +66,9 @@ export function ReviewPanel() {
         item.blockIndex === selectedItem?.blockIndex &&
         !item.restoredAt
     );
-  const [previewData, setPreviewData] = useState<OperationPreview | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [comparisonData, setComparisonData] = useState<OperationComparison | null>(null);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [activeRegionId, setActiveRegionId] = useState<string | null>(null);
   const isOverlayActive = state.overlayEditor === 'review';
 
   const languageExtension = useMemo(() => {
@@ -120,16 +125,12 @@ export function ReviewPanel() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadPreview = async () => {
-      if (!state.repoRoot || !selectedItem || isEditing) {
-        setPreviewData(null);
-        setPreviewError(null);
-        return;
-      }
+    const loadComparison = async () => {
+      setActiveRegionId(null);
 
-      if (selectedItem.mode !== 'append' && selectedItem.mode !== 'range') {
-        setPreviewData(null);
-        setPreviewError(null);
+      if (!state.repoRoot || !selectedItem || isEditing) {
+        setComparisonData(null);
+        setComparisonError(null);
         return;
       }
 
@@ -141,184 +142,157 @@ export function ReviewPanel() {
       };
 
       try {
-        const result = await window.inscribeAPI.previewOperation(operation, state.repoRoot);
+        const result = await window.inscribeAPI.compareOperation(operation, state.repoRoot);
         if (cancelled) return;
         if ('error' in result) {
-          setPreviewData(null);
-          setPreviewError(result.error);
+          setComparisonData(null);
+          setComparisonError(result.error);
           return;
         }
-        setPreviewData(result);
-        setPreviewError(null);
+        setComparisonData(result);
+        setComparisonError(null);
       } catch (error) {
         if (cancelled) return;
-        setPreviewData(null);
-        setPreviewError(error instanceof Error ? error.message : 'Failed to load preview');
+        setComparisonData(null);
+        setComparisonError(error instanceof Error ? error.message : 'Failed to load comparison');
       }
     };
 
-    void loadPreview();
+    void loadComparison();
 
     return () => {
       cancelled = true;
     };
-  }, [
-    editorValue,
-    isEditing,
-    selectedItem,
-    state.repoRoot,
-  ]);
+  }, [editorValue, isEditing, selectedItem, state.repoRoot]);
 
-  const previewSections = useMemo(() => {
-    if (!previewData) return null;
+  const renderModel = useMemo(
+    () => (comparisonData ? buildReviewRenderModel(comparisonData) : null),
+    [comparisonData],
+  );
 
-    const contextLines = 20;
-    const contentLines = previewData.content.split('\n');
-    const lineStarts: number[] = [];
-    let offset = 0;
-    for (const line of contentLines) {
-      lineStarts.push(offset);
-      offset += line.length + 1;
+  const selectedRegion = useMemo(() => {
+    if (!comparisonData || !activeRegionId) {
+      return null;
     }
+    return comparisonData.regions.find((region) => region.id === activeRegionId) ?? null;
+  }, [activeRegionId, comparisonData]);
 
-    const findLineIndex = (position: number) => {
-      for (let i = lineStarts.length - 1; i >= 0; i -= 1) {
-        if (lineStarts[i] <= position) {
-          return i;
-        }
-      }
-      return 0;
-    };
-
-    const safeEnd = Math.max(previewData.replaceEnd - 1, previewData.replaceStart);
-    const startLine = findLineIndex(previewData.replaceStart);
-    const endLine = findLineIndex(safeEnd);
-    const beforeStart = Math.max(0, startLine - contextLines);
-    const afterEnd = Math.min(contentLines.length - 1, endLine + contextLines);
-    const before = contentLines.slice(beforeStart, startLine).join('\n');
-    const after = contentLines.slice(endLine + 1, afterEnd + 1).join('\n');
-    const sections: Array<{ text: string; marker: PreviewLineMarker }> = [];
-    if (before) {
-      sections.push({ text: before, marker: null });
-    }
-    if (previewData.type === 'range' && previewData.removed) {
-      sections.push({ text: previewData.removed, marker: 'remove' });
-    }
-    if (previewData.insert) {
-      sections.push({ text: previewData.insert, marker: 'insert' });
-    }
-    if (after) {
-      sections.push({ text: after, marker: null });
-    }
-
-    let unifiedContent = sections.map((section) => section.text).filter(Boolean).join('\n');
-    const lineMeta: PreviewLineMarker[] = [];
-    sections.forEach((section) => {
-      if (!section.text) {
-        return;
-      }
-      section.text.split('\n').forEach(() => {
-        lineMeta.push(section.marker);
-      });
-    });
-
-    const selectedExtension = selectedItem?.file?.split('.').pop()?.toLowerCase();
-    const shouldPrependPhpTag =
-      (selectedExtension === 'php' || selectedExtension === 'phtml') &&
-      !unifiedContent.startsWith('<?php');
-    if (shouldPrependPhpTag) {
-      unifiedContent = `<?php\n${unifiedContent}`;
-      lineMeta.unshift(null);
-    }
-
-    return {
-      before,
-      after,
-      removed: previewData.removed,
-      insert: previewData.insert,
-      mode: previewData.type,
-      unifiedContent,
-      lineMeta,
-    };
-  }, [previewData, selectedItem?.file]);
-
-  const previewExtensions = useMemo(() => {
-    if (!previewSections?.lineMeta?.length) {
+  const comparisonExtensions = useMemo(() => {
+    if (!renderModel) {
       return [];
     }
 
-    const insertMarker = new DiffGutterMarker(
-      '+',
-      'cm-review-preview-gutter-marker cm-review-preview-gutter-insert',
-    );
-    const removeMarker = new DiffGutterMarker(
-      '-',
-      'cm-review-preview-gutter-marker cm-review-preview-gutter-remove',
-    );
-    const lineMeta = previewSections.lineMeta;
-    const diffGutter = gutter({
-      class: 'cm-review-preview-gutter',
-      lineMarker(view, line) {
-        const index = view.state.doc.lineAt(line.from).number - 1;
-        const marker = lineMeta[index];
-        if (marker === 'insert') {
-          return insertMarker;
+    const regionsById = new Map(renderModel.regions.map((region) => [region.id, region]));
+    const findRegionAtPosition = (position: number) =>
+      renderModel.regions.find((region) => {
+        if (region.highlightEnd > region.highlightStart) {
+          return position >= region.highlightStart && position < region.highlightEnd;
         }
-        if (marker === 'remove') {
-          return removeMarker;
-        }
-        return null;
-      },
-    });
+        return position === region.anchorOffset;
+      }) ?? null;
 
-    const insertLineDecoration = Decoration.line({ attributes: { class: 'cm-review-preview-line-insert' } });
-    const removeLineDecoration = Decoration.line({ attributes: { class: 'cm-review-preview-line-remove' } });
-    const buildLineDecorations = (state: EditorState) => {
+    const buildDecorations = (editorState: EditorState) => {
       const builder = new RangeSetBuilder<Decoration>();
-      for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
-        const marker = lineMeta[lineNumber - 1];
-        if (!marker) {
-          continue;
+
+      renderModel.regions.forEach((region) => {
+        const isSelected = region.id === activeRegionId;
+        if (region.highlightEnd > region.highlightStart) {
+          builder.add(
+            region.highlightStart,
+            region.highlightEnd,
+            Decoration.mark({
+              attributes: {
+                class: isSelected ? 'cm-review-region cm-review-region-selected' : 'cm-review-region',
+                'data-review-region-id': region.id,
+              },
+            }),
+          );
         }
-        const line = state.doc.line(lineNumber);
-        builder.add(line.from, line.from, marker === 'insert' ? insertLineDecoration : removeLineDecoration);
-      }
+
+        if (region.kind === 'delete' && region.deletedSummary) {
+          builder.add(
+            region.anchorOffset,
+            region.anchorOffset,
+            Decoration.widget({
+              widget: new DeletedRegionWidget(region.id, region.deletedSummary),
+              side: region.anchorSide === 'after' ? 1 : -1,
+              block: false,
+            }),
+          );
+        }
+      });
+
       return builder.finish();
     };
-    const diffLineField = StateField.define({
-      create: buildLineDecorations,
+
+    const comparisonField = StateField.define({
+      create: buildDecorations,
       update(decorations, transaction) {
         if (transaction.docChanged) {
-          return buildLineDecorations(transaction.state);
+          return buildDecorations(transaction.state);
         }
         return decorations;
       },
       provide: (field) => EditorView.decorations.from(field),
     });
 
-    const diffTheme = EditorView.theme({
-      '.cm-review-preview-line-insert': {
-        backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    const comparisonTheme = EditorView.theme({
+      '.cm-review-region': {
+        backgroundColor: 'rgba(59, 130, 246, 0.16)',
+        borderRadius: '0.2rem',
+        cursor: 'pointer',
       },
-      '.cm-review-preview-line-remove': {
-        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+      '.cm-review-region-selected': {
+        backgroundColor: 'rgba(96, 165, 250, 0.3)',
+        outline: '1px solid rgba(96, 165, 250, 0.45)',
       },
-      '.cm-review-preview-gutter-marker': {
-        display: 'inline-block',
-        width: '1.25rem',
-        textAlign: 'center',
-        fontWeight: '600',
-      },
-      '.cm-review-preview-gutter-insert': {
-        color: 'rgb(34, 197, 94)',
-      },
-      '.cm-review-preview-gutter-remove': {
-        color: 'rgb(239, 68, 68)',
+      '.cm-review-deleted-widget': {
+        margin: '0 0.4rem',
+        padding: '0.125rem 0.5rem',
+        borderRadius: '9999px',
+        border: '1px dashed rgba(248, 113, 113, 0.55)',
+        backgroundColor: 'rgba(127, 29, 29, 0.25)',
+        color: 'rgb(254, 202, 202)',
+        fontSize: '0.75rem',
+        lineHeight: '1.2',
+        cursor: 'pointer',
       },
     });
 
-    return [diffTheme, diffGutter, diffLineField];
-  }, [previewSections]);
+    const interactionExtension = EditorView.domEventHandlers({
+      mousedown: (event, view) => {
+        const target = event.target as HTMLElement | null;
+        const regionElement = target?.closest('[data-review-region-id]') as HTMLElement | null;
+        const directRegionId = regionElement?.dataset.reviewRegionId;
+        if (directRegionId && regionsById.has(directRegionId)) {
+          setActiveRegionId(directRegionId);
+          return true;
+        }
+
+        const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (position === null) {
+          return false;
+        }
+
+        const region = findRegionAtPosition(position);
+        if (!region) {
+          return false;
+        }
+
+        setActiveRegionId(region.id);
+        return true;
+      },
+    });
+
+    return [comparisonTheme, comparisonField, interactionExtension];
+  }, [activeRegionId, renderModel]);
+
+  const displayContent = comparisonData?.newContent ?? editorValue;
+
+  const overlayModel = useMemo(
+    () => (selectedRegion ? buildReviewRegionOverlay(selectedRegion) : null),
+    [selectedRegion],
+  );
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -348,18 +322,19 @@ export function ReviewPanel() {
   }, [selectedItem, selectedIsApplied, state.isEditing, updateState]);
 
   useEffect(() => {
-    if (!isOverlayActive) {
-      return;
-    }
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
+      if (event.key === 'Escape' && activeRegionId) {
+        setActiveRegionId(null);
+        return;
+      }
+      if (!isOverlayActive || event.key !== 'Escape') {
         return;
       }
       updateState({ overlayEditor: null });
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOverlayActive, updateState]);
+  }, [activeRegionId, isOverlayActive, updateState]);
 
   useEffect(() => {
     if (!isOverlayActive) {
@@ -374,7 +349,17 @@ export function ReviewPanel() {
   }, [isOverlayActive]);
 
   const editorSurface = (
-    <div className="flex-1 w-full h-full border border-border rounded-lg p-3 bg-secondary flex">
+    <div className="flex-1 w-full h-full border border-border rounded-lg p-3 bg-secondary flex flex-col gap-2">
+      {!isEditing && (
+        <div className="flex items-center justify-between gap-3 px-1">
+          <p className="text-xs text-muted-foreground">
+            Result-first review. Click a highlighted region or deletion marker to inspect the local compare.
+          </p>
+          {comparisonData && (
+            <Badge variant="secondary">{comparisonData.regions.length} change region{comparisonData.regions.length === 1 ? '' : 's'}</Badge>
+          )}
+        </div>
+      )}
       {isEditing ? (
         <CodeMirror
           className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
@@ -385,36 +370,20 @@ export function ReviewPanel() {
           onChange={(value: string) => reviewActions.handleEditorChange(value)}
           basicSetup={{ lineNumbers: false, foldGutter: false }}
         />
-      ) : previewSections && (selectedItem?.mode === 'append' || selectedItem?.mode === 'range') ? (
-        <div className="review-preview flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono">
-          {previewError && (
-            <p className="text-xs text-red-100 bg-red-950/40 px-3 py-2">{previewError}</p>
+      ) : (
+        <div className="review-preview flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono flex flex-col gap-2">
+          {comparisonError && (
+            <p className="text-xs text-red-100 bg-red-950/40 px-3 py-2 rounded-md">{comparisonError}</p>
           )}
           <CodeMirror
             className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
-            value={previewSections.unifiedContent}
+            value={displayContent}
             height="100%"
             theme={oneDark}
-            extensions={[...editorExtensions, ...previewExtensions]}
+            extensions={[...editorExtensions, ...comparisonExtensions]}
             editable={false}
             readOnly
             basicSetup={{ lineNumbers: true, foldGutter: false }}
-          />
-        </div>
-      ) : (
-        <div className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono flex flex-col gap-2">
-          {previewError && (
-            <p className="text-xs text-red-100 bg-red-950/40 px-3 py-2 rounded-md">{previewError}</p>
-          )}
-          <CodeMirror
-            className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
-            value={editorValue}
-            height="100%"
-            theme={oneDark}
-            extensions={editorExtensions}
-            editable={false}
-            readOnly
-            basicSetup={{ lineNumbers: false, foldGutter: false }}
           />
         </div>
       )}
@@ -422,7 +391,7 @@ export function ReviewPanel() {
   );
 
   return (
-    <section className="flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
+    <section className="relative flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Review & Apply</p>
@@ -474,7 +443,7 @@ export function ReviewPanel() {
 
       {selectedItem?.mode === 'range' && (
         <p className="text-xs text-muted-foreground bg-secondary px-2 py-1.5 rounded-lg border border-border self-start">
-          Range anchors must match exactly and be unique; omit END to replace the START-selected line with your block.
+          Range anchors remain engine-resolved; this editor is only rendering the canonical comparison output.
         </p>
       )}
 
@@ -542,6 +511,63 @@ export function ReviewPanel() {
           document.body,
         )
         : null}
+      {selectedRegion && overlayModel && typeof document !== 'undefined'
+        ? createPortal(
+          <RegionOverlay
+            region={selectedRegion}
+            renderRegion={renderModel?.regions.find((region) => region.id === selectedRegion.id) ?? null}
+            overlayModel={overlayModel}
+            onClose={() => setActiveRegionId(null)}
+          />,
+          document.body,
+        )
+        : null}
     </section>
+  );
+}
+
+function RegionOverlay({
+  region,
+  renderRegion,
+  overlayModel,
+  onClose,
+}: {
+  region: OperationComparisonRegion;
+  renderRegion: ReviewRenderableRegion | null;
+  overlayModel: ReturnType<typeof buildReviewRegionOverlay>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-6" onClick={onClose}>
+      <div
+        className="w-full max-w-2xl rounded-xl border border-border bg-card shadow-2xl p-4 flex flex-col gap-4"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Local compare</p>
+            <h3 className="text-lg font-semibold">{overlayModel.title}</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Region <span className="inline-code">{region.id}</span>
+              {renderRegion?.deletedSummary ? ` • ${renderRegion.deletedSummary}` : ''}
+            </p>
+          </div>
+          <Button variant="outline" size="icon" type="button" onClick={onClose} aria-label="Close compare overlay">
+            <X />
+          </Button>
+        </div>
+
+        <div className="grid gap-3">
+          <div className="rounded-lg border border-border bg-secondary/40 p-3">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{overlayModel.oldLabel}</p>
+            <pre className="text-sm whitespace-pre-wrap break-words font-mono">{overlayModel.oldText}</pre>
+          </div>
+          <div className="rounded-lg border border-border bg-secondary/40 p-3">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{overlayModel.newLabel}</p>
+            <pre className="text-sm whitespace-pre-wrap break-words font-mono">{overlayModel.newText}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

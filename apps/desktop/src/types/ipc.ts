@@ -4,7 +4,7 @@ import type {
   IgnoreRules,
   IndexStatus,
   Operation,
-  OperationPreview,
+  OperationComparison,
   ParseResult,
   ParsedBlock,
   ValidationError,
@@ -45,7 +45,7 @@ export interface ReadIgnoreRawResult {
   exists: boolean;
 }
 
-export type OperationPreviewResult = OperationPreview | { error: string };
+export type OperationComparisonResult = OperationComparison | { error: string };
 
 export interface InscribeAPI {
   selectRepository: (defaultPath?: string) => Promise<string | null>;
@@ -62,7 +62,7 @@ export interface InscribeAPI {
   validateBlocks: (blocks: ParsedBlock[], repoRoot: string) => Promise<ValidationError[]>;
   validateAndBuildApplyPlan: (blocks: ParsedBlock[], repoRoot: string) => Promise<ApplyPlan>;
   applyChanges: (plan: ApplyPlan, repoRoot: string) => Promise<ApplyResult>;
-  previewOperation: (operation: Operation, repoRoot: string) => Promise<OperationPreviewResult>;
+  compareOperation: (operation: Operation, repoRoot: string) => Promise<OperationComparisonResult>;
   getHistoryEntries: (repoRoot: string) => Promise<HistoryEntry[]>;
   markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) => Promise<boolean>;
 }

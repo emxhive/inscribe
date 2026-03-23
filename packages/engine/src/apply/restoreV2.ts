@@ -3,6 +3,15 @@ import { Mode, RestorePayloadV2 } from '@inscribe/shared';
 
 const CONTEXT_WINDOW_CHARS = 240;
 
+export interface ChangedSegment {
+  beforeStart: number;
+  beforeEnd: number;
+  afterStart: number;
+  afterEnd: number;
+  beforeChanged: string;
+  afterChanged: string;
+}
+
 export interface RestoreResolution {
   canResolve: boolean;
   resolvedContent?: string;
@@ -53,7 +62,7 @@ export function buildRestorePayload(mode: Mode, file: string, before: string, af
   };
 }
 
-function deriveChangedSegment(before: string, after: string) {
+export function deriveChangedSegment(before: string, after: string): ChangedSegment {
   let prefix = 0;
   const minLength = Math.min(before.length, after.length);
   while (prefix < minLength && before[prefix] === after[prefix]) {

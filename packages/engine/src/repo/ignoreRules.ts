@@ -101,7 +101,10 @@ export function matchIgnoredPath(
   const normalizedDir = ensureTrailingSlash(normalizedPath);
   const prefixTarget = options?.isDirectory ? normalizedDir : normalizedPath;
 
-  const prefixMatch = ignoreMatcher.prefixes.find(prefix => prefixTarget.startsWith(prefix));
+  const prefixMatch = ignoreMatcher.prefixes.find((prefix) => {
+    const normalizedPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
+    return prefixTarget === normalizedPrefix || prefixTarget.startsWith(prefix) || normalizedPath === normalizedPrefix;
+  });
   if (prefixMatch) {
     return prefixMatch;
   }

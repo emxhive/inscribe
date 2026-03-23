@@ -538,12 +538,12 @@ function RegionOverlay({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-4 sm:p-6" onClick={onClose}>
       <div
-        className="w-full max-w-2xl rounded-xl border border-border bg-card shadow-2xl p-4 flex flex-col gap-4"
+        className="w-full max-w-6xl max-h-[85vh] min-h-0 rounded-xl border border-border bg-card shadow-2xl p-4 flex flex-col gap-4 overflow-hidden"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 shrink-0">
           <div>
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Local compare</p>
             <h3 className="text-lg font-semibold">{overlayModel.title}</h3>
@@ -557,15 +557,20 @@ function RegionOverlay({
           </Button>
         </div>
 
-        <div className="grid gap-3">
-          <div className="rounded-lg border border-border bg-secondary/40 p-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{overlayModel.oldLabel}</p>
-            <pre className="text-sm whitespace-pre-wrap break-words font-mono">{overlayModel.oldText}</pre>
-          </div>
-          <div className="rounded-lg border border-border bg-secondary/40 p-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{overlayModel.newLabel}</p>
-            <pre className="text-sm whitespace-pre-wrap break-words font-mono">{overlayModel.newText}</pre>
-          </div>
+        <div className="grid flex-1 min-h-0 gap-3 md:grid-cols-2">
+          <section className="min-h-0 rounded-lg border border-border bg-secondary/40 p-3 flex flex-col">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 shrink-0">{overlayModel.oldLabel}</p>
+            <div className="min-h-0 flex-1 overflow-auto rounded-md">
+              <pre className="text-sm whitespace-pre-wrap break-words font-mono">{overlayModel.oldText}</pre>
+            </div>
+          </section>
+
+          <section className="min-h-0 rounded-lg border border-border bg-secondary/40 p-3 flex flex-col">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 shrink-0">{overlayModel.newLabel}</p>
+            <div className="min-h-0 flex-1 overflow-auto rounded-md">
+              <pre className="text-sm whitespace-pre-wrap break-words font-mono">{overlayModel.newText}</pre>
+            </div>
+          </section>
         </div>
       </div>
     </div>

@@ -11,6 +11,9 @@ import { applyRangeReplace } from './rangeReplace';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { getEffectiveIgnoreMatchers } from '../repository';
 import { restoreFromPayload } from './restoreV2';
+import { validateCandidateOrThrow } from './candidateValidation';
+import { resolveRangeReplacement } from './resolveRangeReplacement';
+import { resolveSymbolDeclarationRange } from './structuralResolvers';
 
 export interface OperationExecution {
   beforeContent: string;
@@ -27,6 +30,7 @@ export function applyOperation(operation: Operation, repoRoot: string): Operatio
   switch (operation.type) {
     case 'create': {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      validateCandidateOrThrow(operation.file, operation.type, operation.content);
       fs.writeFileSync(filePath, operation.content);
       return { beforeContent, afterContent: operation.content };
     }
@@ -34,9 +38,11 @@ export function applyOperation(operation: Operation, repoRoot: string): Operatio
     case 'replace': {
       const restored = tryApplyRestoreV2(beforeContent, directives);
       if (restored !== undefined) {
+        validateCandidateOrThrow(operation.file, operation.type, restored);
         fs.writeFileSync(filePath, restored);
         return { beforeContent, afterContent: restored };
       }
+      validateCandidateOrThrow(operation.file, operation.type, operation.content);
       fs.writeFileSync(filePath, operation.content);
       return { beforeContent, afterContent: operation.content };
     }
@@ -44,10 +50,12 @@ export function applyOperation(operation: Operation, repoRoot: string): Operatio
     case 'append': {
       const restored = tryApplyRestoreV2(beforeContent, directives);
       if (restored !== undefined) {
+        validateCandidateOrThrow(operation.file, operation.type, restored);
         fs.writeFileSync(filePath, restored);
         return { beforeContent, afterContent: restored };
       }
       const afterContent = `${beforeContent}${operation.content}`;
+      validateCandidateOrThrow(operation.file, operation.type, afterContent);
       fs.writeFileSync(filePath, afterContent);
       return { beforeContent, afterContent };
     }
@@ -55,11 +63,20 @@ export function applyOperation(operation: Operation, repoRoot: string): Operatio
     case 'range': {
       const restored = tryApplyRestoreV2(beforeContent, directives);
       if (restored !== undefined) {
+        validateCandidateOrThrow(operation.file, operation.type, restored);
         fs.writeFileSync(filePath, restored);
         return { beforeContent, afterContent: restored };
       }
-      applyRangeReplace(filePath, operation);
-      const afterContent = fs.readFileSync(filePath, 'utf-8');
+      const afterContent = applyRangeReplace(filePath, operation);
+      return { beforeContent, afterContent };
+    }
+    case 'replace_symbol': {
+      const name = directives.NAME;
+      if (!name) throw new Error('replace_symbol requires NAME directive');
+      const range = resolveSymbolDeclarationRange(beforeContent, name);
+      const afterContent = `${beforeContent.slice(0, range.start)}${operation.content}${beforeContent.slice(range.end)}`;
+      validateCandidateOrThrow(operation.file, operation.type, afterContent, { NAME: name });
+      fs.writeFileSync(filePath, afterContent);
       return { beforeContent, afterContent };
     }
 

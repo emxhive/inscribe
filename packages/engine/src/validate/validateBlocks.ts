@@ -82,6 +82,7 @@ function validateBlock(
     case 'append':
     case 'delete':
     case 'range':
+    case 'replace_symbol':
       if (!fileExists) {
         errors.push({
           blockIndex: block.blockIndex,

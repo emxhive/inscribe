@@ -11,6 +11,7 @@ import { deriveChangedSegment } from '../apply/restoreV2';
 import { resolveRangeReplacement } from '../apply/resolveRangeReplacement';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { getEffectiveIgnoreMatchers } from '../repository';
+import { diffLinesStable } from './lineDiff';
 
 interface BuildRegionInput {
   id: string;
@@ -161,7 +162,7 @@ function buildLineDiffHunks(
   options: { oldBase?: number; newBase?: number; replacementRegionId?: string } = {}
 ): OperationDiffHunk[] {
   const hunks: OperationDiffHunk[] = [];
-  const parts = diffByLines(oldText, newText);
+  const parts = diffLinesStable(oldText, newText);
   let oldCursor = 0;
   let newCursor = 0;
   let i = 0;
@@ -219,49 +220,6 @@ function buildLineDiffHunks(
   return hunks;
 }
 
-function splitLinesWithNewline(text: string): string[] {
-  if (!text) return [];
-  const lines = text.match(/[^\n]*\n|[^\n]+$/g);
-  return lines ?? [];
-}
-
-function diffByLines(oldText: string, newText: string): Array<{ value: string; added?: boolean; removed?: boolean }> {
-  const a = splitLinesWithNewline(oldText);
-  const b = splitLinesWithNewline(newText);
-  const dp: number[][] = Array.from({ length: a.length + 1 }, () => Array<number>(b.length + 1).fill(0));
-  for (let i = a.length - 1; i >= 0; i--) {
-    for (let j = b.length - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-  const parts: Array<{ value: string; added?: boolean; removed?: boolean }> = [];
-  let i = 0;
-  let j = 0;
-  const push = (piece: { value: string; added?: boolean; removed?: boolean }) => {
-    const last = parts[parts.length - 1];
-    if (last && last.added === piece.added && last.removed === piece.removed) {
-      last.value += piece.value;
-    } else {
-      parts.push({ ...piece });
-    }
-  };
-  while (i < a.length && j < b.length) {
-    if (a[i] === b[j]) {
-      push({ value: a[i] });
-      i++;
-      j++;
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      push({ value: a[i], removed: true });
-      i++;
-    } else {
-      push({ value: b[j], added: true });
-      j++;
-    }
-  }
-  while (i < a.length) push({ value: a[i++], removed: true });
-  while (j < b.length) push({ value: b[j++], added: true });
-  return parts;
-}
 
 export function createOperationComparisonRegion({
   id,

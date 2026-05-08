@@ -9,6 +9,7 @@ import type {
 } from '@inscribe/shared';
 import { deriveChangedSegment } from '../apply/restoreV2';
 import { resolveRangeReplacement } from '../apply/resolveRangeReplacement';
+import { resolveSymbolDeclarationRange } from '../apply/structuralResolvers';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { getEffectiveIgnoreMatchers } from '../repository';
 import { diffLinesStable } from './lineDiff';
@@ -94,6 +95,34 @@ export function buildOperationComparison(operation: Operation, repoRoot: string)
       const replacementRegions = buildTrimmedComparisonRegions(oldContent, newContent);
       const diffHunks = buildLineDiffHunks(oldContent, newContent);
       return finalizeOperationComparison({ operation, oldContent, newContent, replacementRegions, diffHunks });
+    }
+
+    case 'replace_symbol': {
+      const name = operation.directives?.NAME;
+      if (!name) {
+        throw new Error('replace_symbol requires NAME directive');
+      }
+      const range = resolveSymbolDeclarationRange(oldContent, name);
+      const newContent = `${oldContent.slice(0, range.start)}${operation.content}${oldContent.slice(range.end)}`;
+      const replacementRegion = createOperationComparisonRegion({
+        id: 'window-0',
+        oldContent,
+        newContent,
+        oldRange: { start: range.start, end: range.end },
+        newRange: { start: range.start, end: range.start + operation.content.length },
+      });
+      const diffHunks = buildLineDiffHunks(
+        oldContent.slice(range.start, range.end),
+        operation.content,
+        { oldBase: range.start, newBase: range.start, replacementRegionId: replacementRegion.id }
+      );
+      return finalizeOperationComparison({
+        operation,
+        oldContent,
+        newContent,
+        replacementRegions: [replacementRegion],
+        diffHunks,
+      });
     }
 
     default:

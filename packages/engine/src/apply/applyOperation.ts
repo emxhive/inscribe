@@ -77,6 +77,12 @@ export function applyOperation(operation: Operation, repoRoot: string): Operatio
       return { beforeContent, afterContent: resolved.afterContent };
     }
     case 'replace_symbol': {
+      const restored = tryApplyRestoreV2(beforeContent, directives);
+      if (restored !== undefined) {
+        validateCandidateOrThrow(operation.file, operation.type, restored);
+        fs.writeFileSync(filePath, restored);
+        return { beforeContent, afterContent: restored };
+      }
       const resolved = resolveOperationContent(operation, beforeContent);
       validateCandidateOrThrow(operation.file, operation.type, resolved.afterContent, { NAME: directives.NAME ?? '' });
       fs.writeFileSync(filePath, resolved.afterContent);

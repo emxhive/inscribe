@@ -51,6 +51,7 @@ function buildRestoreOperation(operation: Operation, payload: ReturnType<typeof 
     case 'replace':
     case 'append':
     case 'range':
+    case 'replace_symbol':
       return {
         type: operation.type,
         file: operation.file,

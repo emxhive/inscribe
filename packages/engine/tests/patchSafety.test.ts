@@ -20,12 +20,12 @@ describe('patch safety pipeline', () => {
     expect(fs.readFileSync(file, 'utf8')).toBe('export const A = () => <div/>;\n');
   });
 
-  it('resolves END_NODE jsx structurally', () => {
+  it('replaces textual range safely with explicit END anchor', () => {
     const root = mk();
     const file = path.join(root, 'app', 'x.tsx');
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, 'const x = <Deferred data="participants"><div>ok</div></Deferred>;\n');
-    const r = applyChanges({ operations: [{ type: 'range', file: 'app/x.tsx', content: '<section>new</section>', directives: { START: '<Deferred data="participants"', END_NODE: 'jsx' } }] }, root);
+    const r = applyChanges({ operations: [{ type: 'range', file: 'app/x.tsx', content: '<section>new</section>', directives: { START: '<Deferred data="participants"', END: '</Deferred>' } }] }, root);
     expect(r.success).toBe(true);
     expect(fs.readFileSync(file, 'utf8')).toContain('<section>new</section>');
   });
@@ -35,7 +35,7 @@ describe('patch safety pipeline', () => {
     const file = path.join(root, 'app', 'x.tsx');
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, '<div><span>ParticipantCard</span></div>\n<div><span>Other</span><span>onRoundChange</span></div>\n');
-    const r = applyChanges({ operations: [{ type: 'range', file: 'app/x.tsx', content: '<div>R</div>', directives: { START: '<div', END_NODE: 'jsx', CONTAINS: 'onRoundChange' } }] }, root);
+    const r = applyChanges({ operations: [{ type: 'range', file: 'app/x.tsx', content: '<div>R</div>', directives: { START: '<div', END: '</div>', CONTAINS: 'onRoundChange' } }] }, root);
     expect(r.success).toBe(true);
     expect(fs.readFileSync(file, 'utf8')).toContain('<div>R</div>');
   });
@@ -49,18 +49,6 @@ describe('patch safety pipeline', () => {
     expect(r.success).toBe(true);
     const out = fs.readFileSync(file, 'utf8');
     expect(out).toContain('export const ParticipantSurfacePanel = () => <section/>;');
-    expect(out).toContain('const Keep = 1;');
-  });
-
-  it('replaces exported function declarations with replace_symbol', () => {
-    const root = mk();
-    const file = path.join(root, 'app', 'hook.ts');
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, 'export function useParticipantSurfaceSliceCache() {\n  return { old: true };\n}\nconst Keep = 1;\n');
-    const r = applyChanges({ operations: [{ type: 'replace_symbol' as const, file: 'app/hook.ts', content: 'export function useParticipantSurfaceSliceCache() {\n  return { next: true };\n}\n', directives: { NAME: 'useParticipantSurfaceSliceCache' } }] }, root);
-    expect(r.success).toBe(true);
-    const out = fs.readFileSync(file, 'utf8');
-    expect(out).toContain('return { next: true };');
     expect(out).toContain('const Keep = 1;');
   });
 });

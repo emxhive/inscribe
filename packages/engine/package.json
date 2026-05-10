@@ -18,7 +18,7 @@
     "@babel/parser": "^7.28.5",
     "@inscribe/shared": "0.1.0",
     "picomatch": "^2.3.1",
-    "vite": "8.0.11"
+    "@babel/parser": "^7.28.5"
   },
   "devDependencies": {
     "@types/node": "^20.19.27",

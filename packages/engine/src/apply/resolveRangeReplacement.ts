@@ -24,7 +24,6 @@ export function resolveRangeReplacement(
   const startDirectives = getAnchorDirectives(directives, ['START', 'START_BEFORE', 'START_AFTER'], 'START');
   const endDirectives = getAnchorDirectives(directives, ['END', 'END_BEFORE', 'END_AFTER'], 'END');
   const { SCOPE_START, SCOPE_END } = directives;
-  const endNode = directives.END_NODE;
   const contains = (directives.CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
 
   if (!startDirectives) {
@@ -65,24 +64,20 @@ export function resolveRangeReplacement(
     searchOffset = scopeStartMatch.start;
   }
 
-  if (endNode) {
-    if (endNode !== 'jsx') {
-      throw new Error(`Unsupported END_NODE value: ${endNode}`);
-    }
-    if (endDirectives) {
-      throw new Error('END_NODE cannot be combined with END/END_BEFORE/END_AFTER');
-    }
-    const resolved = resolveJsxRangeFromStart(searchContent, startDirectives.value, contains);
-    const replaceStart = searchOffset + resolved.start;
-    const replaceEnd = searchOffset + resolved.end;
-    const suffix = content.substring(replaceEnd);
-    const insert = normalizeLineInsert(operation.content, suffix);
-    const prefix = content.substring(0, replaceStart);
-    const removed = content.substring(replaceStart, replaceEnd);
-    return { replaceStart, replaceEnd, insert, removed, prefix, suffix };
-  }
+  let startMatches = findAllOccurrences(searchContent, startDirectives.value);
 
-  const startMatches = findAllOccurrences(searchContent, startDirectives.value);
+  if (contains.length > 0) {
+    if (!endDirectives) {
+      throw new Error('CONTAINS requires END/END_BEFORE/END_AFTER to define a bounded candidate range');
+    }
+    const endMatches = findAllOccurrences(searchContent, endDirectives.value);
+    startMatches = startMatches.filter((startMatch) => {
+      const endMatch = findFirstMatchAfter(endMatches, startMatch);
+      if (!endMatch) return false;
+      const candidate = searchContent.slice(startMatch.start, endMatch.end);
+      return contains.every((value) => candidate.includes(value));
+    });
+  }
 
   if (startMatches.length === 0) {
     throw new Error(`${startDirectives.key} anchor not found: "${startDirectives.value}"`);

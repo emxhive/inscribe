@@ -233,6 +233,15 @@ export function ReviewPanel() {
           ));
         }
       });
+      renderModel.windows.forEach((window) => {
+        if (window.end > window.start) {
+          builder.add(
+            window.start,
+            window.end,
+            Decoration.mark({ attributes: { class: 'cm-review-window' } }),
+          );
+        }
+      });
 
       return Decoration.set(decorations, true);
     };

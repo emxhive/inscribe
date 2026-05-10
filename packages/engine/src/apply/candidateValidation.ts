@@ -1,23 +1,20 @@
-import { parse } from '@babel/parser';
-
-const PARSE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs']);
+import { resolveValidationAdapter } from '../language/registry';
 
 export function shouldParseValidate(filePath: string): boolean {
-  const dot = filePath.lastIndexOf('.');
-  if (dot === -1) return false;
-  return PARSE_EXTENSIONS.has(filePath.slice(dot));
+  return resolveValidationAdapter(filePath) !== null;
 }
 
 export function validateCandidateOrThrow(filePath: string, mode: string, candidate: string, metadata?: Record<string, string>): void {
   if (!shouldParseValidate(filePath)) return;
+  const adapter = resolveValidationAdapter(filePath);
+  if (!adapter || !adapter.validateCandidate) return;
   try {
-    parse(candidate, {
-      sourceType: 'unambiguous',
-      plugins: ['typescript', 'jsx'],
-      errorRecovery: false,
-    });
+    adapter.validateCandidate(filePath, candidate);
   } catch (error) {
     const err = error as Error & { loc?: { line: number; column: number } };
+    if (err.message.startsWith('INSCRIBE_PARSE_ERROR')) {
+      throw err;
+    }
     const line = err.loc?.line ?? -1;
     const column = (err.loc?.column ?? -1) + 1;
     const lines = candidate.split('\n');

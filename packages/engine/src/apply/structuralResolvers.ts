@@ -51,14 +51,14 @@ export function resolveSymbolDeclarationRange(content: string, name: string): { 
   }
 
   for (const stmt of ast.program.body as any[]) {
-    const maybeDecl = stmt.type === 'ExportNamedDeclaration' || stmt.type === 'ExportDefaultDeclaration' ? stmt.declaration : stmt;
-    if (maybeDecl?.type === 'FunctionDeclaration' && maybeDecl.id?.name === name) {
+    if (stmt.type === 'FunctionDeclaration' && stmt.id?.name === name) {
       matches.push({ start: stmt.start, end: stmt.end, description: `FunctionDeclaration at line ${stmt.loc.start.line}` });
     }
+    const maybeDecl = stmt.type === 'ExportNamedDeclaration' ? stmt.declaration : stmt;
     if (maybeDecl?.type === 'VariableDeclaration') {
       for (const decl of maybeDecl.declarations ?? []) {
         if (decl.id?.type === 'Identifier' && decl.id.name === name && fnLike(decl.init)) {
-          matches.push({ start: stmt.start, end: stmt.end, description: `VariableDeclaration at line ${stmt.loc.start.line}` });
+          matches.push({ start: maybeDecl.start, end: maybeDecl.end, description: `VariableDeclaration at line ${maybeDecl.loc.start.line}` });
         }
       }
     }

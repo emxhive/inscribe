@@ -1,6 +1,6 @@
 import { Operation } from '@inscribe/shared';
 import { resolveRangeReplacement } from '../apply/resolveRangeReplacement';
-import { resolveSymbolDeclarationRange } from '../apply/structuralResolvers';
+import { resolveStructuralAdapter } from '../language/registry';
 
 export interface OperationResolvedContent {
   afterContent: string;
@@ -66,7 +66,8 @@ export function resolveOperationContent(operation: Operation, beforeContent: str
     case 'replace_symbol': {
       const name = operation.directives?.NAME;
       if (!name) throw new Error('replace_symbol requires NAME directive');
-      const range = resolveSymbolDeclarationRange(beforeContent, name);
+      const adapter = resolveStructuralAdapter(operation.file);
+      const range = adapter.resolveSymbolDeclarationRange(beforeContent, name);
       const afterContent = `${beforeContent.slice(0, range.start)}${operation.content}${beforeContent.slice(range.end)}`;
       return {
         afterContent,

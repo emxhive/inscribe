@@ -30,7 +30,6 @@ const FIELD_KEY_MAP: Partial<Record<FieldKey, string | null>> = {
   END_AFTER: 'END_AFTER',
   SCOPE_START: 'SCOPE_START',
   SCOPE_END: 'SCOPE_END',
-  END_NODE: 'END_NODE',
   CONTAINS: 'CONTAINS',
   NAME: 'NAME',
 };

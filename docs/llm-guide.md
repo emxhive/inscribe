@@ -49,15 +49,7 @@ NAME: ParticipantSurfacePanel
 
 Why: avoids brittle start/end anchors for large declarations.
 
-### B) Replace JSX subtrees safely
-
-Prefer structural JSX boundary resolution:
-
-```text
-MODE: range
-START: <Deferred data="participants"
-END_NODE: jsx
-```
+### B) Disambiguate broad textual range anchors
 
 When `START` is broad/non-unique, add one or more `CONTAINS:` filters:
 
@@ -66,7 +58,6 @@ MODE: range
 START: <div
 CONTAINS: ParticipantCard
 CONTAINS: onRoundChange
-END_NODE: jsx
 ```
 
 `CONTAINS` uses simple string matching; all `CONTAINS` values must match.
@@ -86,14 +77,9 @@ END_NODE: jsx
 ### Scoped search (optional)
 - `SCOPE_START` and `SCOPE_END` must be provided together.
 
-### Structural JSX mode
-- `END_NODE: jsx` enables AST-aware end-boundary resolution.
-- Do not combine `END_NODE` with textual `END*` directives.
-
 ## Strict failure behavior to expect
 
 - Missing or ambiguous anchors -> operation fails.
-- Structural `END_NODE: jsx` not resolvable/ambiguous -> operation fails.
 - `replace_symbol` no match/multiple matches -> operation fails.
 - JS/TS-family candidate parse failure -> write blocked with parse diagnostic.
 
@@ -102,7 +88,7 @@ Design for safe retries: emit specific anchors/filters that are likely unique.
 ## Practical authoring guidelines
 
 1. Prefer `replace_symbol` for full declaration rewrites.
-2. Prefer `END_NODE: jsx` for JSX subtree edits.
+2. Use `CONTAINS` to disambiguate broad `START` anchors.
 3. Add `CONTAINS` when `START` is generic (e.g., `<div`).
 4. Avoid fragile textual end anchors in complex TSX (`</div>`, `}`, etc.) when structural mode fits.
 5. Keep one Inscribe block per apply target.
@@ -138,13 +124,13 @@ export const ParticipantSurfacePanel = () => {
 
 $inscribe END
 
-### Range + structural JSX boundary
+### Range with disambiguation
 
 $inscribe BEGIN
 FILE: resources/js/pages/tournaments/show.tsx
 MODE: range
 START: <Deferred data="participants"
-END_NODE: jsx
+CONTAINS: ParticipantGrid
 
 ```tsx
 <Deferred data="participants">

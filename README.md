@@ -10,7 +10,6 @@ It only applies explicitly tagged blocks and enforces strict validation before a
 - **Pre-write candidate validation for JS/TS-family files**: `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs` candidates are parsed in memory before write.
 - **Structural targeting support** for risky edits:
   - `MODE: replace_symbol` for full owning declaration replacement.
-  - `MODE: range` + `END_NODE: jsx` for AST-aware JSX boundary resolution.
 - **Canonical review model**: replacement windows and actual diff hunks are produced by the engine and rendered by UI.
 
 ## Basic Workflow
@@ -64,13 +63,10 @@ Optional end directives:
 Optional scoped search:
 - `SCOPE_START` + `SCOPE_END` (must be provided together)
 
-Structural JSX boundary mode:
-- `END_NODE: jsx`
-- Optional repeated `CONTAINS:` directives for disambiguation (ALL must match)
+Optional repeated `CONTAINS:` directives for disambiguation (ALL must match)
 
 Notes:
-- `END_NODE: jsx` is structural behavior and should not be combined with textual `END*` directives.
-- If `END_NODE` structural resolution fails or remains ambiguous, the operation fails safely.
+- `CONTAINS:` is a textual disambiguation directive that narrows broad `START` matches.
 
 ### `MODE: replace_symbol`
 

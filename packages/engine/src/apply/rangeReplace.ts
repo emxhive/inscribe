@@ -16,7 +16,6 @@ export function applyRangeReplace(filePath: string, operation: Operation): strin
   const newContent = prefix + insert + suffix;
   validateCandidateOrThrow(operation.file, operation.type, newContent, {
     START: operation.directives?.START ?? '',
-    END_NODE: operation.directives?.END_NODE ?? '',
     CONTAINS: operation.directives?.CONTAINS ?? '',
   });
 

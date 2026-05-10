@@ -18,7 +18,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
-import { buildReviewRenderModel, buildReviewRegionOverlay, type ReviewRenderableRegion } from '@/utils/reviewComparison';
+import { buildReviewRenderModel, type ReviewRenderableRegion } from '@/utils/reviewComparison';
 import { ArrowLeft, Eye, Maximize2, Pencil, X } from 'lucide-react';
 import type { OperationComparison, OperationComparisonRegion, Operation, OperationDiffHunk } from '@inscribe/shared';
 
@@ -69,6 +69,7 @@ export function ReviewPanel() {
   const [comparisonData, setComparisonData] = useState<OperationComparison | null>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [activeRegionId, setActiveRegionId] = useState<string | null>(null);
+  const [previewEditorView, setPreviewEditorView] = useState<EditorView | null>(null);
   const isOverlayActive = state.overlayEditor === 'review';
 
   const languageExtension = useMemo(() => {
@@ -233,16 +234,6 @@ export function ReviewPanel() {
           ));
         }
       });
-      renderModel.windows.forEach((window) => {
-        if (window.end > window.start) {
-          builder.add(
-            window.start,
-            window.end,
-            Decoration.mark({ attributes: { class: 'cm-review-window' } }),
-          );
-        }
-      });
-
       return Decoration.set(decorations, true);
     };
 
@@ -314,10 +305,17 @@ export function ReviewPanel() {
 
   const displayContent = comparisonData?.newContent ?? editorValue;
 
-  const overlayModel = useMemo(
-    () => (selectedRegion ? buildReviewRegionOverlay(selectedRegion) : null),
-    [selectedRegion],
-  );
+  useEffect(() => {
+    if (!previewEditorView || !renderModel || !activeRegionId) return;
+    const active = renderModel.regions.find((region) => region.id === activeRegionId);
+    if (!active) return;
+    const focusPos = active.highlightStart > 0 ? active.highlightStart : active.anchorOffset;
+    previewEditorView.dispatch({ selection: { anchor: focusPos } });
+    previewEditorView.focus();
+    previewEditorView.dispatch({
+      effects: EditorView.scrollIntoView(focusPos, { y: 'center' }),
+    });
+  }, [activeRegionId, previewEditorView, renderModel]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -348,8 +346,26 @@ export function ReviewPanel() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (!renderModel || renderModel.regions.length === 0 || isEditing) {
+        return;
+      }
       if (event.key === 'Escape' && activeRegionId) {
         setActiveRegionId(null);
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (key === 'n' || event.key === 'F7') {
+        const dir = event.shiftKey ? -1 : 1;
+        const current = renderModel.regions.findIndex((region) => region.id === activeRegionId);
+        const base = current === -1 ? (dir > 0 ? -1 : 0) : current;
+        const next = (base + dir + renderModel.regions.length) % renderModel.regions.length;
+        setActiveRegionId(renderModel.regions[next].id);
+        event.preventDefault();
         return;
       }
       if (!isOverlayActive || event.key !== 'Escape') {
@@ -359,7 +375,7 @@ export function ReviewPanel() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeRegionId, isOverlayActive, updateState]);
+  }, [activeRegionId, isEditing, isOverlayActive, renderModel, updateState]);
 
   useEffect(() => {
     if (!isOverlayActive) {
@@ -375,27 +391,14 @@ export function ReviewPanel() {
 
   const editorSurface = (
     <div className="flex-1 w-full h-full border border-border rounded-lg p-3 bg-secondary flex flex-col gap-2">
-      {!isEditing && (
-        <div className="flex items-center justify-between gap-3 px-1">
-          <p className="text-xs text-muted-foreground">
-            Result-first review. Click a highlighted region or deletion marker to inspect the local compare.
-          </p>
-          {comparisonData && (
-            <Badge variant="secondary">{renderModel?.regions.length ?? 0} diff hunk{(renderModel?.regions.length ?? 0) === 1 ? '' : 's'}</Badge>
+      {!isEditing && comparisonData && (
+        <div className="flex items-center justify-between gap-2 px-1">
+          <Badge variant="secondary">{renderModel?.regions.length ?? 0} hunks</Badge>
+          {renderModel && renderModel.regions.length > 0 && (
+            <Badge variant="secondary">
+              {hunkIndex >= 0 ? `Hunk ${hunkIndex + 1}/${renderModel.regions.length}` : `Press N / Shift+N`}
+            </Badge>
           )}
-        </div>
-      )}
-      {!isEditing && renderModel && renderModel.regions.length > 0 && (
-        <div className="flex items-center gap-2 px-1">
-          <Button variant="outline" size="sm" type="button" onClick={() => {
-            const next = hunkIndex <= 0 ? renderModel.regions.length - 1 : hunkIndex - 1;
-            setActiveRegionId(renderModel.regions[next].id);
-          }}>Previous diff</Button>
-          <Button variant="outline" size="sm" type="button" onClick={() => {
-            const next = hunkIndex >= renderModel.regions.length - 1 ? 0 : hunkIndex + 1;
-            setActiveRegionId(renderModel.regions[next].id);
-          }}>Next diff</Button>
-          <Badge variant="secondary">Hunk {Math.max(1, hunkIndex + 1)} of {renderModel.regions.length}</Badge>
         </div>
       )}
       {isEditing ? (
@@ -410,9 +413,6 @@ export function ReviewPanel() {
         />
       ) : (
         <div className="review-preview flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono flex flex-col gap-2">
-          {comparisonError && (
-            <p className="text-xs text-red-100 bg-red-950/40 px-3 py-2 rounded-md">{comparisonError}</p>
-          )}
           <CodeMirror
             className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
             value={displayContent}
@@ -422,6 +422,7 @@ export function ReviewPanel() {
             editable={false}
             readOnly
             basicSetup={{ lineNumbers: true, foldGutter: false }}
+            onCreateEditor={(view) => setPreviewEditorView(view)}
           />
         </div>
       )}
@@ -536,9 +537,14 @@ export function ReviewPanel() {
         </Button>
       </div>
 
-      {state.statusMessage && (
-        <Badge variant="secondary" className="w-fit">{state.statusMessage}</Badge>
-      )}
+      <div className="flex items-center gap-2 flex-wrap">
+        {state.statusMessage && (
+          <Badge variant="secondary" className="w-fit">{state.statusMessage}</Badge>
+        )}
+        {comparisonError && (
+          <Badge variant="destructive" className="w-fit">{comparisonError}</Badge>
+        )}
+      </div>
       {isOverlayActive && typeof document !== 'undefined'
         ? createPortal(
           <div className="fixed inset-0 z-[100] bg-black/60">
@@ -549,68 +555,6 @@ export function ReviewPanel() {
           document.body,
         )
         : null}
-      {selectedRegion && overlayModel && typeof document !== 'undefined'
-        ? createPortal(
-          <RegionOverlay
-            region={selectedRegion}
-            renderRegion={renderModel?.regions.find((region) => region.id === selectedRegion.id) ?? null}
-            overlayModel={overlayModel}
-            onClose={() => setActiveRegionId(null)}
-          />,
-          document.body,
-        )
-        : null}
     </section>
-  );
-}
-
-function RegionOverlay({
-  region,
-  renderRegion,
-  overlayModel,
-  onClose,
-}: {
-  region: OperationComparisonRegion | OperationDiffHunk;
-  renderRegion: ReviewRenderableRegion | null;
-  overlayModel: ReturnType<typeof buildReviewRegionOverlay>;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-4 sm:p-6" onClick={onClose}>
-      <div
-        className="w-full max-w-6xl max-h-[85vh] min-h-0 rounded-xl border border-border bg-card shadow-2xl p-4 flex flex-col gap-4 overflow-hidden"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3 shrink-0">
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Local compare</p>
-            <h3 className="text-lg font-semibold">{overlayModel.title}</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              Region <span className="inline-code">{region.id}</span>
-              {renderRegion?.deletedSummary ? ` • ${renderRegion.deletedSummary}` : ''}
-            </p>
-          </div>
-          <Button variant="outline" size="icon" type="button" onClick={onClose} aria-label="Close compare overlay">
-            <X />
-          </Button>
-        </div>
-
-        <div className="grid flex-1 min-h-0 gap-3 md:grid-cols-2">
-          <section className="min-h-0 rounded-lg border border-border bg-secondary/40 p-3 flex flex-col">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 shrink-0">{overlayModel.oldLabel}</p>
-            <div className="min-h-0 flex-1 overflow-auto rounded-md">
-              <pre className="text-sm whitespace-pre-wrap break-words font-mono">{overlayModel.oldText}</pre>
-            </div>
-          </section>
-
-          <section className="min-h-0 rounded-lg border border-border bg-secondary/40 p-3 flex flex-col">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 shrink-0">{overlayModel.newLabel}</p>
-            <div className="min-h-0 flex-1 overflow-auto rounded-md">
-              <pre className="text-sm whitespace-pre-wrap break-words font-mono">{overlayModel.newText}</pre>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
   );
 }

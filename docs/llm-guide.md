@@ -49,6 +49,8 @@ NAME: ParticipantSurfacePanel
 
 Why: avoids brittle start/end anchors for large declarations.
 
+For JS/TS-family files, `replace_symbol` targets the full owning declaration. This includes exported declarations such as `export function Component() { ... }`, `export const Component = () => ...`, and named default functions. If the existing symbol is exported, include the intended export form in the replacement content.
+
 ### B) Disambiguate broad textual range anchors
 
 When `START` is broad/non-unique, add one or more `CONTAINS:` filters:

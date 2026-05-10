@@ -72,7 +72,9 @@ Required:
 - `NAME: SymbolName`
 
 Behavior:
-- Resolves a full owning declaration for the symbol (function declaration, supported variable/function-like declarations, supported wrappers).
+- Resolves a full owning declaration for the symbol.
+- For JS/TS-family files, supported declarations include plain and exported function declarations, named default function declarations, function-like variable declarations, and supported wrappers such as `memo` and `forwardRef`.
+- When a symbol is declared inside an export statement, the replacement window is the full owning export declaration, so replacement content should include the intended `export` keyword.
 - Fails safely when zero or multiple matches are found.
 
 ## Parse Validation & Diagnostics

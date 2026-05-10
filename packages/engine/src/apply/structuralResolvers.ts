@@ -38,6 +38,11 @@ export function resolveJsxRangeFromStart(content: string, startAnchor: string, c
 export function resolveSymbolDeclarationRange(content: string, name: string): { start: number; end: number; description: string } {
   const ast = parseAst(content) as any;
   const matches: Array<{ start: number; end: number; description: string }> = [];
+
+  function rangeFor(owner: any, description: string): { start: number; end: number; description: string } {
+    return { start: owner.start, end: owner.end, description: `${description} at line ${owner.loc.start.line}` };
+  }
+
   function fnLike(node: any): boolean {
     if (!node) return false;
     if (node.type === 'ArrowFunctionExpression' || node.type === 'FunctionExpression') return true;
@@ -51,14 +56,21 @@ export function resolveSymbolDeclarationRange(content: string, name: string): { 
   }
 
   for (const stmt of ast.program.body as any[]) {
-    if (stmt.type === 'FunctionDeclaration' && stmt.id?.name === name) {
-      matches.push({ start: stmt.start, end: stmt.end, description: `FunctionDeclaration at line ${stmt.loc.start.line}` });
+    const declaration = stmt.type === 'ExportNamedDeclaration' || stmt.type === 'ExportDefaultDeclaration'
+      ? stmt.declaration
+      : stmt;
+    const owner = stmt.type === 'ExportNamedDeclaration' || stmt.type === 'ExportDefaultDeclaration'
+      ? stmt
+      : declaration;
+
+    if (declaration?.type === 'FunctionDeclaration' && declaration.id?.name === name) {
+      matches.push(rangeFor(owner, stmt.type === declaration.type ? 'FunctionDeclaration' : `${stmt.type} FunctionDeclaration`));
     }
-    const maybeDecl = stmt.type === 'ExportNamedDeclaration' ? stmt.declaration : stmt;
-    if (maybeDecl?.type === 'VariableDeclaration') {
-      for (const decl of maybeDecl.declarations ?? []) {
+
+    if (declaration?.type === 'VariableDeclaration') {
+      for (const decl of declaration.declarations ?? []) {
         if (decl.id?.type === 'Identifier' && decl.id.name === name && fnLike(decl.init)) {
-          matches.push({ start: maybeDecl.start, end: maybeDecl.end, description: `VariableDeclaration at line ${maybeDecl.loc.start.line}` });
+          matches.push(rangeFor(owner, stmt.type === declaration.type ? 'VariableDeclaration' : `${stmt.type} VariableDeclaration`));
         }
       }
     }

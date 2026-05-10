@@ -26,6 +26,98 @@ $inscribe END
     expect(result.blocks[0].content).toBe("console.log('hello');");
   });
 
+  it('should parse longer Markdown fences containing nested triple backticks', () => {
+    const content = [
+      '$inscribe BEGIN',
+      'FILE: docs/PRODEX.md',
+      'MODE: replace',
+      '',
+      '````md',
+      '# Prodex Guide',
+      '',
+      '```txt',
+      'prodex.json',
+      '```',
+      '',
+      '```json',
+      '{',
+      '  "shortcuts": {}',
+      '}',
+      '```',
+      '````',
+      '',
+      '$inscribe END',
+    ].join('\n');
+
+    const result = parseBlocks(content);
+
+    expect(result.errors).toEqual([]);
+    expect(result.blocks).toHaveLength(1);
+    expect(result.blocks[0].content).toBe([
+      '# Prodex Guide',
+      '',
+      '```txt',
+      'prodex.json',
+      '```',
+      '',
+      '```json',
+      '{',
+      '  "shortcuts": {}',
+      '}',
+      '```',
+    ].join('\n'));
+  });
+
+  it('should parse tilde fences containing backtick fences', () => {
+    const content = [
+      '$inscribe BEGIN',
+      'FILE: docs/example.md',
+      'MODE: replace',
+      '',
+      '~~~md',
+      '# Example',
+      '',
+      '```ts',
+      'const ok = true;',
+      '```',
+      '~~~',
+      '',
+      '$inscribe END',
+    ].join('\n');
+
+    const result = parseBlocks(content);
+
+    expect(result.errors).toEqual([]);
+    expect(result.blocks).toHaveLength(1);
+    expect(result.blocks[0].content).toBe([
+      '# Example',
+      '',
+      '```ts',
+      'const ok = true;',
+      '```',
+    ].join('\n'));
+  });
+
+  it('should reject explicit blocks with content after the payload fence', () => {
+    const content = [
+      '$inscribe BEGIN',
+      'FILE: docs/example.md',
+      'MODE: replace',
+      '',
+      '```md',
+      '# Example',
+      '```',
+      'This text is outside the payload fence.',
+      '',
+      '$inscribe END',
+    ].join('\n');
+
+    const result = parseBlocks(content);
+
+    expect(result.blocks).toHaveLength(0);
+    expect(result.errors.some(error => error.includes('Unexpected content after fenced code block'))).toBe(true);
+  });
+
   it('should parse a valid range block', () => {
     const content = `
 $inscribe BEGIN

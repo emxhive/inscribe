@@ -9,6 +9,7 @@ import {
   parseDirectiveLine,
   FieldKey,
 } from '@inscribe/shared';
+import { isFenceOpeningLine } from './parseFencedBlock';
 
 export interface DirectiveParseResult {
   file: string;
@@ -50,7 +51,7 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
     const trimmed = lines[i].trim();
 
     // Check for start of code fence
-    if (trimmed.startsWith('```')) {
+    if (isFenceOpeningLine(trimmed)) {
       contentStartIndex = i;
       break;
     }

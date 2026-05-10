@@ -330,6 +330,62 @@ describe('Operation comparison', () => {
     expect((comparison.diffHunks ?? []).length).toBeGreaterThan(0);
   });
 
+  it('replaces the full owning export for exported variable symbols', () => {
+    const filePath = path.join(tempDir, 'app', 'exported-variable.tsx');
+    fs.writeFileSync(
+      filePath,
+      'export const ParticipantSurfacePanel = () => <div>old</div>;\nconst keep = 1;\n'
+    );
+
+    const comparison = buildOperationComparison({
+      type: 'replace_symbol',
+      file: 'app/exported-variable.tsx',
+      directives: { NAME: 'ParticipantSurfacePanel' },
+      content: 'export const ParticipantSurfacePanel = () => <section>new</section>;\n',
+    }, tempDir);
+
+    expect(comparison.newContent).toBe('export const ParticipantSurfacePanel = () => <section>new</section>;\n\nconst keep = 1;\n');
+    expect(comparison.newContent).not.toContain('export export');
+    expect(comparison.replacementRegions?.[0].oldText).toBe('export const ParticipantSurfacePanel = () => <div>old</div>;');
+  });
+
+  it('supports replace_symbol for exported function declarations', () => {
+    const filePath = path.join(tempDir, 'app', 'exported-function.tsx');
+    fs.writeFileSync(
+      filePath,
+      'export function IdentitySettingsForm() {\n  return <div>old</div>;\n}\nconst keep = 1;\n'
+    );
+
+    const comparison = buildOperationComparison({
+      type: 'replace_symbol',
+      file: 'app/exported-function.tsx',
+      directives: { NAME: 'IdentitySettingsForm' },
+      content: 'export function IdentitySettingsForm() {\n  return <section>new</section>;\n}\n',
+    }, tempDir);
+
+    expect(comparison.newContent).toContain('return <section>new</section>;');
+    expect(comparison.newContent).toContain('const keep = 1;');
+    expect(comparison.replacementRegions?.[0].oldText).toContain('export function IdentitySettingsForm');
+  });
+
+  it('supports replace_symbol for named default function declarations', () => {
+    const filePath = path.join(tempDir, 'app', 'default-function.tsx');
+    fs.writeFileSync(
+      filePath,
+      'export default function IdentitySettingsForm() {\n  return <div>old</div>;\n}\nconst keep = 1;\n'
+    );
+
+    const comparison = buildOperationComparison({
+      type: 'replace_symbol',
+      file: 'app/default-function.tsx',
+      directives: { NAME: 'IdentitySettingsForm' },
+      content: 'export default function IdentitySettingsForm() {\n  return <section>new</section>;\n}\n',
+    }, tempDir);
+
+    expect(comparison.newContent).toContain('export default function IdentitySettingsForm');
+    expect(comparison.newContent).toContain('const keep = 1;');
+  });
+
   it('supports replace_symbol for php methods via adapter registry', () => {
     const filePath = path.join(tempDir, 'app', 'controller.php');
     fs.writeFileSync(

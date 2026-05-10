@@ -43,7 +43,9 @@ export function parseSingleBlock(lines: string[], blockIndex: number): BlockPars
   }
 
   // For all other modes, extract fenced code block content
-  const fencedResult = extractFencedBlock(lines, contentStartIndex);
+  const fencedResult = extractFencedBlock(lines, contentStartIndex, {
+    requireTrailingWhitespace: true,
+  });
   
   if (fencedResult.error) {
     return { error: fencedResult.error };

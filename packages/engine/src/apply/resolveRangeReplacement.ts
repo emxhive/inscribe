@@ -23,6 +23,7 @@ export function resolveRangeReplacement(
   const startDirectives = getAnchorDirectives(directives, ['START', 'START_BEFORE', 'START_AFTER'], 'START');
   const endDirectives = getAnchorDirectives(directives, ['END', 'END_BEFORE', 'END_AFTER'], 'END');
   const { SCOPE_START, SCOPE_END } = directives;
+  const contains = (directives.CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
 
   if (!startDirectives) {
     throw new Error('Range operation requires exactly one of START, START_BEFORE, START_AFTER directives');
@@ -62,7 +63,20 @@ export function resolveRangeReplacement(
     searchOffset = scopeStartMatch.start;
   }
 
-  const startMatches = findAllOccurrences(searchContent, startDirectives.value);
+  let startMatches = findAllOccurrences(searchContent, startDirectives.value);
+
+  if (contains.length > 0) {
+    if (!endDirectives) {
+      throw new Error('CONTAINS requires END/END_BEFORE/END_AFTER to define a bounded candidate range');
+    }
+    const endMatches = findAllOccurrences(searchContent, endDirectives.value);
+    startMatches = startMatches.filter((startMatch) => {
+      const endMatch = findFirstMatchAfter(endMatches, startMatch);
+      if (!endMatch) return false;
+      const candidate = searchContent.slice(startMatch.start, endMatch.end);
+      return contains.every((value) => candidate.includes(value));
+    });
+  }
 
   if (startMatches.length === 0) {
     throw new Error(`${startDirectives.key} anchor not found: "${startDirectives.value}"`);

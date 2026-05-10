@@ -5,11 +5,13 @@ import type {
   Operation,
   OperationComparison,
   OperationComparisonRegion,
+  OperationDiffHunk,
 } from '@inscribe/shared';
 import { deriveChangedSegment } from '../apply/restoreV2';
-import { resolveRangeReplacement } from '../apply/resolveRangeReplacement';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { getEffectiveIgnoreMatchers } from '../repository';
+import { diffLinesStable } from './lineDiff';
+import { resolveOperationContent } from '../operation/resolveOperationContent';
 
 interface BuildRegionInput {
   id: string;
@@ -23,7 +25,9 @@ interface FinalizeComparisonInput {
   operation: Operation;
   oldContent: string;
   newContent: string;
-  regions: OperationComparisonRegion[];
+  replacementRegions?: OperationComparisonRegion[];
+  diffHunks?: OperationDiffHunk[];
+  regions?: OperationComparisonRegion[];
 }
 
 export function buildOperationComparison(operation: Operation, repoRoot: string): OperationComparison {
@@ -32,70 +36,40 @@ export function buildOperationComparison(operation: Operation, repoRoot: string)
   const oldContent = fs.existsSync(resolvedPath) ? fs.readFileSync(resolvedPath, 'utf-8') : '';
 
   switch (operation.type) {
-    case 'create': {
-      const newContent = operation.content;
-      return finalizeOperationComparison({
-        operation,
-        oldContent,
-        newContent,
-        regions: buildTrimmedComparisonRegions(oldContent, newContent),
-      });
-    }
-
-    case 'replace': {
-      const newContent = operation.content;
-      return finalizeOperationComparison({
-        operation,
-        oldContent,
-        newContent,
-        regions: buildTrimmedComparisonRegions(oldContent, newContent),
-      });
-    }
-
-    case 'append': {
-      const newContent = `${oldContent}${operation.content}`;
-      return finalizeOperationComparison({
-        operation,
-        oldContent,
-        newContent,
-        regions: [
-          createOperationComparisonRegion({
-            id: 'region-0',
-            oldContent,
-            newContent,
-            oldRange: { start: oldContent.length, end: oldContent.length },
-            newRange: { start: oldContent.length, end: newContent.length },
-          }),
-        ],
-      });
-    }
-
-    case 'range': {
-      const { prefix, suffix, insert, replaceStart, replaceEnd } = resolveRangeReplacement(oldContent, operation);
-      const newContent = `${prefix}${insert}${suffix}`;
-      return finalizeOperationComparison({
-        operation,
-        oldContent,
-        newContent,
-        regions: [
-          createOperationComparisonRegion({
-            id: 'region-0',
-            oldContent,
-            newContent,
-            oldRange: { start: replaceStart, end: replaceEnd },
-            newRange: { start: prefix.length, end: prefix.length + insert.length },
-          }),
-        ],
-      });
-    }
-
+    case 'create':
+    case 'replace':
+    case 'append':
     case 'delete': {
-      const newContent = '';
+      const { afterContent: newContent } = resolveOperationContent(operation, oldContent);
+      const replacementRegions = buildTrimmedComparisonRegions(oldContent, newContent);
+      const diffHunks = buildLineDiffHunks(oldContent, newContent);
+      return finalizeOperationComparison({ operation, oldContent, newContent, replacementRegions, diffHunks });
+    }
+
+    case 'range':
+    case 'replace_symbol': {
+      const { afterContent: newContent, replacement } = resolveOperationContent(operation, oldContent);
+      if (!replacement) {
+        throw new Error(`Missing replacement metadata for operation type: ${operation.type}`);
+      }
+      const replacementRegion = createOperationComparisonRegion({
+        id: 'window-0',
+        oldContent,
+        newContent,
+        oldRange: { start: replacement.oldStart, end: replacement.oldEnd },
+        newRange: { start: replacement.newStart, end: replacement.newEnd },
+      });
+      const diffHunks = buildLineDiffHunks(
+        replacement.oldText,
+        replacement.newText,
+        { oldBase: replacement.oldStart, newBase: replacement.newStart, replacementRegionId: replacementRegion.id }
+      );
       return finalizeOperationComparison({
         operation,
         oldContent,
         newContent,
-        regions: buildTrimmedComparisonRegions(oldContent, newContent),
+        replacementRegions: [replacementRegion],
+        diffHunks,
       });
     }
 
@@ -108,22 +82,21 @@ export function finalizeOperationComparison({
   operation,
   oldContent,
   newContent,
+  replacementRegions,
+  diffHunks,
   regions,
 }: FinalizeComparisonInput): OperationComparison {
+  const windows = replacementRegions ?? regions ?? [];
+  const hunks = diffHunks ?? buildLineDiffHunks(oldContent, newContent);
   let previousOldEnd = 0;
   let previousNewEnd = 0;
 
-  for (const region of regions) {
+  for (const region of windows) {
     assertRangeWithinContent(region.oldRange, oldContent, 'old');
     assertRangeWithinContent(region.newRange, newContent, 'new');
 
-    if (region.oldRange.start < previousOldEnd) {
-      throw new Error('Comparison regions overlap in old content');
-    }
-
-    if (region.newRange.start < previousNewEnd) {
-      throw new Error('Comparison regions overlap in new content');
-    }
+    if (region.oldRange.start < previousOldEnd) throw new Error('Comparison regions overlap in old content');
+    if (region.newRange.start < previousNewEnd) throw new Error('Comparison regions overlap in new content');
 
     previousOldEnd = region.oldRange.end;
     previousNewEnd = region.newRange.end;
@@ -134,20 +107,19 @@ export function finalizeOperationComparison({
     file: operation.file,
     oldContent,
     newContent,
-    regions,
+    replacementRegions: windows,
+    diffHunks: hunks,
+    regions: windows,
   };
 }
 
 function buildTrimmedComparisonRegions(oldContent: string, newContent: string): OperationComparisonRegion[] {
   const segment = deriveChangedSegment(oldContent, newContent);
-
-  if (segment.beforeStart === segment.beforeEnd && segment.afterStart === segment.afterEnd) {
-    return [];
-  }
+  if (segment.beforeStart === segment.beforeEnd && segment.afterStart === segment.afterEnd) return [];
 
   return [
     createOperationComparisonRegion({
-      id: 'region-0',
+      id: 'window-0',
       oldContent,
       newContent,
       oldRange: { start: segment.beforeStart, end: segment.beforeEnd },
@@ -155,6 +127,76 @@ function buildTrimmedComparisonRegions(oldContent: string, newContent: string): 
     }),
   ];
 }
+
+function lineAtOffset(content: string, offset: number): number {
+  if (offset <= 0) return 1;
+  return content.slice(0, Math.min(offset, content.length)).split('\n').length;
+}
+
+function buildLineDiffHunks(
+  oldText: string,
+  newText: string,
+  options: { oldBase?: number; newBase?: number; replacementRegionId?: string } = {}
+): OperationDiffHunk[] {
+  const hunks: OperationDiffHunk[] = [];
+  const parts = diffLinesStable(oldText, newText);
+  let oldCursor = 0;
+  let newCursor = 0;
+  let i = 0;
+
+  while (i < parts.length) {
+    const part = parts[i];
+    if (!part.added && !part.removed) {
+      oldCursor += part.value.length;
+      newCursor += part.value.length;
+      i++;
+      continue;
+    }
+
+    const oldStart = oldCursor;
+    const newStart = newCursor;
+    let oldChunk = '';
+    let newChunk = '';
+
+    if (part.removed) {
+      oldChunk += part.value;
+      oldCursor += part.value.length;
+      if (parts[i + 1]?.added) {
+        newChunk += parts[i + 1].value;
+        newCursor += parts[i + 1].value.length;
+        i++;
+      }
+    } else if (part.added) {
+      newChunk += part.value;
+      newCursor += part.value.length;
+    }
+
+    const oldBase = options.oldBase ?? 0;
+    const newBase = options.newBase ?? 0;
+    const oldRange = { start: oldBase + oldStart, end: oldBase + oldStart + oldChunk.length };
+    const newRange = { start: newBase + newStart, end: newBase + newStart + newChunk.length };
+    const oldEndLine = oldRange.start === oldRange.end ? lineAtOffset(oldText, oldStart) : lineAtOffset(oldText, oldStart + oldChunk.length);
+    const newEndLine = newRange.start === newRange.end ? lineAtOffset(newText, newStart) : lineAtOffset(newText, newStart + newChunk.length);
+
+    hunks.push({
+      id: `hunk-${hunks.length}`,
+      kind: oldChunk.length === 0 ? 'insert' : newChunk.length === 0 ? 'delete' : 'replace',
+      oldRange,
+      newRange,
+      oldText: oldChunk,
+      newText: newChunk,
+      oldStartLine: lineAtOffset(oldText, oldStart),
+      oldEndLine,
+      newStartLine: lineAtOffset(newText, newStart),
+      newEndLine,
+      replacementRegionId: options.replacementRegionId,
+    });
+    i++;
+  }
+
+  return hunks;
+}
+
 
 export function createOperationComparisonRegion({
   id,
@@ -177,65 +219,27 @@ export function createOperationComparisonRegion({
     newRange,
     oldText,
     newText,
-    boundaries: {
-      before: {
-        oldOffset: oldRange.start,
-        newOffset: newRange.start,
-      },
-      after: {
-        oldOffset: oldRange.end,
-        newOffset: newRange.end,
-      },
-    },
-    compare: {
-      oldRange,
-      newRange,
-    },
-    renderAnchor: {
-      oldOffset: oldRange.start,
-      newOffset: newRange.start,
-      side: resolveAnchorSide(kind, newContent, newRange),
-    },
+    boundaries: { before: { oldOffset: oldRange.start, newOffset: newRange.start }, after: { oldOffset: oldRange.end, newOffset: newRange.end } },
+    compare: { oldRange, newRange },
+    renderAnchor: { oldOffset: oldRange.start, newOffset: newRange.start, side: resolveAnchorSide(kind, newContent, newRange) },
   };
 }
 
 function assertRangeWithinContent(range: ComparisonRange, content: string, label: 'old' | 'new'): void {
-  if (range.start < 0 || range.end < range.start || range.end > content.length) {
-    throw new Error(`Invalid ${label} comparison range: ${range.start}-${range.end}`);
-  }
+  if (range.start < 0 || range.end < range.start || range.end > content.length) throw new Error(`Invalid ${label} comparison range: ${range.start}-${range.end}`);
 }
 
 function resolveRegionKind(oldRange: ComparisonRange, newRange: ComparisonRange): OperationComparisonRegion['kind'] {
   const oldLength = oldRange.end - oldRange.start;
   const newLength = newRange.end - newRange.start;
-
-  if (oldLength === 0 && newLength > 0) {
-    return 'insert';
-  }
-
-  if (oldLength > 0 && newLength === 0) {
-    return 'delete';
-  }
-
+  if (oldLength === 0 && newLength > 0) return 'insert';
+  if (oldLength > 0 && newLength === 0) return 'delete';
   return 'replace';
 }
 
-function resolveAnchorSide(
-  kind: OperationComparisonRegion['kind'],
-  newContent: string,
-  newRange: ComparisonRange
-): ComparisonAnchorSide {
-  if (kind !== 'delete') {
-    return 'before';
-  }
-
-  if (newContent.length === 0) {
-    return 'empty';
-  }
-
-  if (newRange.start < newContent.length) {
-    return 'before';
-  }
-
+function resolveAnchorSide(kind: OperationComparisonRegion['kind'], newContent: string, newRange: ComparisonRange): ComparisonAnchorSide {
+  if (kind !== 'delete') return 'before';
+  if (newContent.length === 0) return 'empty';
+  if (newRange.start < newContent.length) return 'before';
   return 'after';
 }

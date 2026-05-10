@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
 import { buildReviewRenderModel, buildReviewRegionOverlay, type ReviewRenderableRegion } from '@/utils/reviewComparison';
 import { ArrowLeft, Eye, Maximize2, Pencil, X } from 'lucide-react';
-import type { OperationComparison, OperationComparisonRegion, Operation } from '@inscribe/shared';
+import type { OperationComparison, OperationComparisonRegion, Operation, OperationDiffHunk } from '@inscribe/shared';
 
 class DeletedRegionWidget extends WidgetType {
   constructor(
@@ -174,8 +174,14 @@ export function ReviewPanel() {
     if (!comparisonData || !activeRegionId) {
       return null;
     }
-    return comparisonData.regions.find((region) => region.id === activeRegionId) ?? null;
+    const pool = (comparisonData.diffHunks?.length ?? 0) > 0 ? comparisonData.diffHunks! : comparisonData.regions;
+    return pool.find((region) => region.id === activeRegionId) ?? null;
   }, [activeRegionId, comparisonData]);
+
+  const hunkIndex = useMemo(() => {
+    if (!renderModel || !activeRegionId) return -1;
+    return renderModel.regions.findIndex((region) => region.id === activeRegionId);
+  }, [activeRegionId, renderModel]);
 
   const comparisonExtensions = useMemo(() => {
     if (!renderModel) {
@@ -221,6 +227,15 @@ export function ReviewPanel() {
           );
         }
       });
+      renderModel.windows.forEach((window) => {
+        if (window.end > window.start) {
+          builder.add(
+            window.start,
+            window.end,
+            Decoration.mark({ attributes: { class: 'cm-review-window' } }),
+          );
+        }
+      });
 
       return builder.finish();
     };
@@ -241,6 +256,10 @@ export function ReviewPanel() {
         backgroundColor: 'rgba(59, 130, 246, 0.16)',
         borderRadius: '0.2rem',
         cursor: 'pointer',
+      },
+      '.cm-review-window': {
+        backgroundColor: 'rgba(148, 163, 184, 0.08)',
+        outline: '1px dashed rgba(148, 163, 184, 0.20)',
       },
       '.cm-review-region-selected': {
         backgroundColor: 'rgba(96, 165, 250, 0.3)',
@@ -356,8 +375,21 @@ export function ReviewPanel() {
             Result-first review. Click a highlighted region or deletion marker to inspect the local compare.
           </p>
           {comparisonData && (
-            <Badge variant="secondary">{comparisonData.regions.length} change region{comparisonData.regions.length === 1 ? '' : 's'}</Badge>
+            <Badge variant="secondary">{renderModel?.regions.length ?? 0} diff hunk{(renderModel?.regions.length ?? 0) === 1 ? '' : 's'}</Badge>
           )}
+        </div>
+      )}
+      {!isEditing && renderModel && renderModel.regions.length > 0 && (
+        <div className="flex items-center gap-2 px-1">
+          <Button variant="outline" size="sm" type="button" onClick={() => {
+            const next = hunkIndex <= 0 ? renderModel.regions.length - 1 : hunkIndex - 1;
+            setActiveRegionId(renderModel.regions[next].id);
+          }}>Previous diff</Button>
+          <Button variant="outline" size="sm" type="button" onClick={() => {
+            const next = hunkIndex >= renderModel.regions.length - 1 ? 0 : hunkIndex + 1;
+            setActiveRegionId(renderModel.regions[next].id);
+          }}>Next diff</Button>
+          <Badge variant="secondary">Hunk {Math.max(1, hunkIndex + 1)} of {renderModel.regions.length}</Badge>
         </div>
       )}
       {isEditing ? (
@@ -532,7 +564,7 @@ function RegionOverlay({
   overlayModel,
   onClose,
 }: {
-  region: OperationComparisonRegion;
+  region: OperationComparisonRegion | OperationDiffHunk;
   renderRegion: ReviewRenderableRegion | null;
   overlayModel: ReturnType<typeof buildReviewRegionOverlay>;
   onClose: () => void;

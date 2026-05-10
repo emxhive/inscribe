@@ -2,13 +2,13 @@
  * Shared types for Inscribe
  */
 
-export type Mode = 'create' | 'replace' | 'append' | 'range' | 'delete';
+export type Mode = 'create' | 'replace' | 'append' | 'range' | 'delete' | 'replace_symbol';
 
 /**
  * Check if a string is a valid mode
  */
 export function isValidMode(mode: string): mode is Mode {
-  return (mode === 'create' || mode === 'replace' || mode === 'append' || mode === 'range' || mode === 'delete');
+  return (mode === 'create' || mode === 'replace' || mode === 'append' || mode === 'range' || mode === 'delete' || mode === 'replace_symbol');
 }
 
 export interface ParsedBlock {
@@ -100,6 +100,20 @@ export interface OperationComparisonRegion {
   renderAnchor: ComparisonRenderAnchor;
 }
 
+export interface OperationDiffHunk {
+  id: string;
+  kind: ComparisonRegionKind;
+  oldRange: ComparisonRange;
+  newRange: ComparisonRange;
+  oldText: string;
+  newText: string;
+  oldStartLine: number;
+  oldEndLine: number;
+  newStartLine: number;
+  newEndLine: number;
+  replacementRegionId?: string;
+}
+
 /**
  * Engine-owned source of truth for review. The engine decides old/new content
  * and supplies exact, deterministic change regions that the UI can render.
@@ -109,6 +123,12 @@ export interface OperationComparison {
   file: string;
   oldContent: string;
   newContent: string;
+  replacementRegions?: OperationComparisonRegion[];
+  diffHunks?: OperationDiffHunk[];
+  /**
+   * Compatibility mirror of replacementRegions.
+   * @deprecated Use replacementRegions + diffHunks.
+   */
   regions: OperationComparisonRegion[];
 }
 

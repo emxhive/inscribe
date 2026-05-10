@@ -60,8 +60,6 @@ Required:
 Optional end directives:
 - `END` | `END_BEFORE` | `END_AFTER`
 
-Optional scoped search:
-- `SCOPE_START` + `SCOPE_END` (must be provided together)
 
 Optional repeated `CONTAINS:` directives for disambiguation (ALL must match)
 

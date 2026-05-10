@@ -5,6 +5,7 @@ import {
   resolveBraceSelectionStart,
 } from '../util/braceScan';
 import { findAllOccurrences, MatchRange } from '../util/textSearch';
+import { resolveJsxRangeFromStart } from './structuralResolvers';
 
 export interface RangeReplaceResolution {
   replaceStart: number;

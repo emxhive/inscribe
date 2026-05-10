@@ -4,7 +4,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
-import { EditorState, RangeSetBuilder, StateField } from '@codemirror/state';
+import { EditorState, type Range, StateField } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
@@ -198,33 +198,39 @@ export function ReviewPanel() {
       }) ?? null;
 
     const buildDecorations = (editorState: EditorState) => {
-      const builder = new RangeSetBuilder<Decoration>();
+      const decorations: Range<Decoration>[] = [];
 
       renderModel.regions.forEach((region) => {
         const isSelected = region.id === activeRegionId;
         if (region.highlightEnd > region.highlightStart) {
-          builder.add(
+          decorations.push(Decoration.mark({
+            attributes: {
+              class: isSelected ? 'cm-review-region cm-review-region-selected' : 'cm-review-region',
+              'data-review-region-id': region.id,
+            },
+          }).range(
             region.highlightStart,
             region.highlightEnd,
-            Decoration.mark({
-              attributes: {
-                class: isSelected ? 'cm-review-region cm-review-region-selected' : 'cm-review-region',
-                'data-review-region-id': region.id,
-              },
-            }),
-          );
+          ));
         }
 
         if (region.kind === 'delete' && region.deletedSummary) {
-          builder.add(
+          decorations.push(Decoration.widget({
+            widget: new DeletedRegionWidget(region.id, region.deletedSummary),
+            side: region.anchorSide === 'after' ? 1 : -1,
+            block: false,
+          }).range(
             region.anchorOffset,
             region.anchorOffset,
-            Decoration.widget({
-              widget: new DeletedRegionWidget(region.id, region.deletedSummary),
-              side: region.anchorSide === 'after' ? 1 : -1,
-              block: false,
-            }),
-          );
+          ));
+        }
+      });
+      renderModel.windows.forEach((window) => {
+        if (window.end > window.start) {
+          decorations.push(Decoration.mark({ attributes: { class: 'cm-review-window' } }).range(
+            window.start,
+            window.end,
+          ));
         }
       });
       renderModel.windows.forEach((window) => {
@@ -237,7 +243,7 @@ export function ReviewPanel() {
         }
       });
 
-      return builder.finish();
+      return Decoration.set(decorations, true);
     };
 
     const comparisonField = StateField.define({

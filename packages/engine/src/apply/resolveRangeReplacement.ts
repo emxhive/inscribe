@@ -1,11 +1,5 @@
 import { Operation } from '@inscribe/shared';
-import {
-  findBraceRangeFromSelection,
-  formatBraceScanError,
-  resolveBraceSelectionStart,
-} from '../util/braceScan';
 import { findAllOccurrences, MatchRange } from '../util/textSearch';
-import { resolveJsxRangeFromStart } from './structuralResolvers';
 
 export interface RangeReplaceResolution {
   replaceStart: number;
@@ -23,46 +17,17 @@ export function resolveRangeReplacement(
   const directives = operation.directives || {};
   const startDirectives = getAnchorDirectives(directives, ['START', 'START_BEFORE', 'START_AFTER'], 'START');
   const endDirectives = getAnchorDirectives(directives, ['END', 'END_BEFORE', 'END_AFTER'], 'END');
-  const { SCOPE_START, SCOPE_END } = directives;
   const contains = (directives.CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
+  if (directives.SCOPE_START || directives.SCOPE_END) {
+    throw new Error('SCOPE_START and SCOPE_END are no longer supported. Use START/END with optional CONTAINS instead.');
+  }
 
   if (!startDirectives) {
     throw new Error('Range operation requires exactly one of START, START_BEFORE, START_AFTER directives');
   }
 
-  if ((SCOPE_START && !SCOPE_END) || (!SCOPE_START && SCOPE_END)) {
-    throw new Error('Both SCOPE_START and SCOPE_END must be provided together');
-  }
-
-  let searchContent = content;
-  let searchOffset = 0;
-
-  if (SCOPE_START && SCOPE_END) {
-    const scopeStartMatches = findAllOccurrences(content, SCOPE_START);
-    const scopeEndMatches = findAllOccurrences(content, SCOPE_END);
-
-    if (scopeStartMatches.length === 0) {
-      throw new Error(`SCOPE_START anchor not found: "${SCOPE_START}"`);
-    }
-
-    if (scopeEndMatches.length === 0) {
-      throw new Error(`SCOPE_END anchor not found: "${SCOPE_END}"`);
-    }
-
-    if (scopeStartMatches.length > 1) {
-      throw new Error(`SCOPE_START anchor matches multiple times (${scopeStartMatches.length}), must match exactly once`);
-    }
-
-    const scopeStartMatch = scopeStartMatches[0];
-    const scopeEndMatch = findFirstMatchAfter(scopeEndMatches, scopeStartMatch);
-
-    if (!scopeEndMatch) {
-      throw new Error('SCOPE_END anchor not found after SCOPE_START');
-    }
-
-    searchContent = content.substring(scopeStartMatch.start, scopeEndMatch.end);
-    searchOffset = scopeStartMatch.start;
-  }
+  const searchContent = content;
+  const searchOffset = 0;
 
   let startMatches = findAllOccurrences(searchContent, startDirectives.value);
 
@@ -97,43 +62,24 @@ export function resolveRangeReplacement(
   let replaceEnd: number;
 
   if (endDirectives) {
-    if (endDirectives.key === 'END' && endDirectives.value === '}') {
-      const braceScanStart = resolveBraceSelectionStart(
-        startMatch.start,
-        startMatch.end,
-        startDirectives.key
-      );
-      const braceResult = findBraceRangeFromSelection(searchContent, braceScanStart);
-      if (braceResult.error) {
-        throw new Error(formatBraceScanError(braceResult.error));
-      }
-      const closeIndex = braceResult.match!.closeIndex;
-      const absoluteEndMatch = {
-        start: searchOffset + closeIndex,
-        end: searchOffset + closeIndex + 1,
-      };
-      replaceStart = resolveReplacementStart(content, absoluteStartMatch, startDirectives.key);
-      replaceEnd = resolveReplacementEnd(content, absoluteEndMatch, endDirectives.key);
-    } else {
-      const endMatches = findAllOccurrences(searchContent, endDirectives.value);
+    const endMatches = findAllOccurrences(searchContent, endDirectives.value);
 
-      if (endMatches.length === 0) {
-        throw new Error(`${endDirectives.key} anchor not found: "${endDirectives.value}"`);
-      }
-
-      const endMatch = findFirstMatchAfter(endMatches, startMatch);
-
-      if (!endMatch) {
-        throw new Error(`${endDirectives.key} anchor not found after ${startDirectives.key}`);
-      }
-
-      const absoluteEndMatch = {
-        start: searchOffset + endMatch.start,
-        end: searchOffset + endMatch.end,
-      };
-      replaceStart = resolveReplacementStart(content, absoluteStartMatch, startDirectives.key);
-      replaceEnd = resolveReplacementEnd(content, absoluteEndMatch, endDirectives.key);
+    if (endMatches.length === 0) {
+      throw new Error(`${endDirectives.key} anchor not found: "${endDirectives.value}"`);
     }
+
+    const endMatch = findFirstMatchAfter(endMatches, startMatch);
+
+    if (!endMatch) {
+      throw new Error(`${endDirectives.key} anchor not found after ${startDirectives.key}`);
+    }
+
+    const absoluteEndMatch = {
+      start: searchOffset + endMatch.start,
+      end: searchOffset + endMatch.end,
+    };
+    replaceStart = resolveReplacementStart(content, absoluteStartMatch, startDirectives.key);
+    replaceEnd = resolveReplacementEnd(content, absoluteEndMatch, endDirectives.key);
 
     if (replaceStart >= replaceEnd) {
       throw new Error('END anchor must come after START anchor');

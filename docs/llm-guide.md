@@ -74,9 +74,6 @@ CONTAINS: onRoundChange
 - `END_BEFORE`
 - `END_AFTER`
 
-### Scoped search (optional)
-- `SCOPE_START` and `SCOPE_END` must be provided together.
-
 ## Strict failure behavior to expect
 
 - Missing or ambiguous anchors -> operation fails.

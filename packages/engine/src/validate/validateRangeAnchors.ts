@@ -1,10 +1,5 @@
 import * as fs from 'fs';
 
-import {
-  findBraceRangeFromSelection,
-  formatBraceScanError,
-  resolveBraceSelectionStart,
-} from '../util/braceScan';
 import { findAllOccurrences, MatchRange } from '../util/textSearch';
 import {ParsedBlock, ValidationError} from "@inscribe/shared";
 
@@ -63,64 +58,15 @@ export function validateRangeAnchors(
   // Read file content
   const content = fs.readFileSync(filePath, 'utf-8');
 
-  // Check for SCOPE if provided
-  let searchContent = content;
-  const hasScopeStart = Boolean(directives.SCOPE_START);
-  const hasScopeEnd = Boolean(directives.SCOPE_END);
-  if (hasScopeStart !== hasScopeEnd) {
+  if (directives.SCOPE_START || directives.SCOPE_END) {
     errors.push({
       blockIndex: block.blockIndex,
       file: block.file,
-      message: 'SCOPE_START and SCOPE_END must be provided together',
+      message: 'SCOPE_START and SCOPE_END are no longer supported. Use START/END with optional CONTAINS instead.',
     });
     return errors;
   }
-
-  if (directives.SCOPE_START && directives.SCOPE_END) {
-    const scopeStartMatches = findAllOccurrences(content, directives.SCOPE_START);
-    const scopeEndMatches = findAllOccurrences(content, directives.SCOPE_END);
-
-    if (scopeStartMatches.length === 0) {
-      errors.push({
-        blockIndex: block.blockIndex,
-        file: block.file,
-        message: `SCOPE_START anchor not found: "${directives.SCOPE_START}"`,
-      });
-    }
-
-    if (scopeEndMatches.length === 0) {
-      errors.push({
-        blockIndex: block.blockIndex,
-        file: block.file,
-        message: `SCOPE_END anchor not found: "${directives.SCOPE_END}"`,
-      });
-    }
-
-    if (scopeStartMatches.length > 1) {
-      errors.push({
-        blockIndex: block.blockIndex,
-        file: block.file,
-        message: `SCOPE_START anchor matches multiple times (${scopeStartMatches.length}), must match exactly once`,
-      });
-    }
-
-    if (errors.length > 0) {
-      return errors;
-    }
-
-    const scopeStartMatch = scopeStartMatches[0];
-    const scopeEndMatch = findFirstMatchAfter(scopeEndMatches, scopeStartMatch);
-    if (!scopeEndMatch) {
-      errors.push({
-        blockIndex: block.blockIndex,
-        file: block.file,
-        message: 'SCOPE_END anchor not found after SCOPE_START',
-      });
-      return errors;
-    }
-
-    searchContent = content.substring(scopeStartMatch.start, scopeEndMatch.end);
-  }
+  const searchContent = content;
 
   // Validate START and END anchors
   const startDirective = startDirectives[0];
@@ -159,25 +105,7 @@ export function validateRangeAnchors(
     if (!endAnchor) {
       return errors;
     }
-    if (endDirective.key === 'END' && endAnchor === '}') {
-      const startMatch = startMatches[0];
-      const braceScanStart = resolveBraceSelectionStart(
-        startMatch.start,
-        startMatch.end,
-        startDirective.key
-      );
-      // END: "}" resolves to the closing brace that matches the first "{" found
-      // after the START-selected range begins (per START/START_AFTER/START_BEFORE).
-      const braceResult = findBraceRangeFromSelection(searchContent, braceScanStart);
-      if (braceResult.error) {
-        errors.push({
-          blockIndex: block.blockIndex,
-          file: block.file,
-          message: formatBraceScanError(braceResult.error),
-        });
-      }
-    } else {
-      const endMatches = findAllOccurrences(searchContent, endAnchor);
+    const endMatches = findAllOccurrences(searchContent, endAnchor);
 
       if (endMatches.length === 0) {
         errors.push({
@@ -191,16 +119,15 @@ export function validateRangeAnchors(
         return errors;
       }
 
-      const startMatch = startMatches[0];
-      const endMatch = findFirstMatchAfter(endMatches, startMatch);
+    const startMatch = startMatches[0];
+    const endMatch = findFirstMatchAfter(endMatches, startMatch);
 
-      if (!endMatch) {
-        errors.push({
-          blockIndex: block.blockIndex,
-          file: block.file,
-          message: `${endDirective.key} anchor not found after ${startDirective.key}`,
-        });
-      }
+    if (!endMatch) {
+      errors.push({
+        blockIndex: block.blockIndex,
+        file: block.file,
+        message: `${endDirective.key} anchor not found after ${startDirective.key}`,
+      });
     }
   }
 

@@ -329,4 +329,22 @@ describe('Operation comparison', () => {
     expect(comparison.newContent).toContain('const keep = 1;');
     expect((comparison.diffHunks ?? []).length).toBeGreaterThan(0);
   });
+
+  it('supports replace_symbol for php methods via adapter registry', () => {
+    const filePath = path.join(tempDir, 'app', 'controller.php');
+    fs.writeFileSync(
+      filePath,
+      `<?php\nclass RoundResultsController {\n  public function compute($a) {\n    return $a;\n  }\n\n  public function publish($b) {\n    return $b;\n  }\n}\n`
+    );
+
+    const comparison = buildOperationComparison({
+      type: 'replace_symbol',
+      file: 'app/controller.php',
+      directives: { NAME: 'compute' },
+      content: `public function compute($a) {\n    return ['ok' => true, 'value' => $a];\n  }\n`,
+    }, tempDir);
+
+    expect(comparison.newContent).toContain("'ok' => true");
+    expect(comparison.newContent).toContain('public function publish');
+  });
 });

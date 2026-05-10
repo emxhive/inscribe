@@ -8,4 +8,5 @@ export interface StructuralLanguageAdapter {
   id: string;
   supportsFile(filePath: string): boolean;
   resolveSymbolDeclarationRange(content: string, name: string): StructuralSymbolRange;
+  validateCandidate?(filePath: string, candidate: string): void;
 }

@@ -14,6 +14,31 @@ describe('reviewComparison utils', () => {
       file: 'app/example.ts',
       oldContent: 'alpha\nbeta\ngamma\n',
       newContent: 'alpha\nupdated\ngamma\n',
+      replacementRegions: [
+        {
+          id: 'region-0',
+          kind: 'replace',
+          oldRange: { start: 6, end: 11 },
+          newRange: { start: 6, end: 14 },
+          oldText: 'beta\n',
+          newText: 'updated\n',
+          boundaries: { before: { oldOffset: 6, newOffset: 6 }, after: { oldOffset: 11, newOffset: 14 } },
+          compare: { oldRange: { start: 6, end: 11 }, newRange: { start: 6, end: 14 } },
+          renderAnchor: { oldOffset: 6, newOffset: 6, side: 'before' },
+        },
+        {
+          id: 'region-1',
+          kind: 'delete',
+          oldRange: { start: 11, end: 17 },
+          newRange: { start: 14, end: 14 },
+          oldText: 'gone\n',
+          newText: '',
+          boundaries: { before: { oldOffset: 11, newOffset: 14 }, after: { oldOffset: 17, newOffset: 14 } },
+          compare: { oldRange: { start: 11, end: 17 }, newRange: { start: 14, end: 14 } },
+          renderAnchor: { oldOffset: 11, newOffset: 14, side: 'before' },
+        },
+      ],
+      diffHunks: [],
       regions: [
         {
           id: 'region-0',
@@ -85,6 +110,10 @@ describe('reviewComparison utils', () => {
           anchorSide: 'before',
           deletedSummary: 'Deleted: gone',
         },
+      ],
+      windows: [
+        { id: 'region-0', start: 6, end: 14 },
+        { id: 'region-1', start: 14, end: 14 },
       ],
     });
   });

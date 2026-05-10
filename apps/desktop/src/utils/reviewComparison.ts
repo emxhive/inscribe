@@ -1,4 +1,4 @@
-import type { ComparisonAnchorSide, OperationComparison, OperationComparisonRegion } from '@inscribe/shared';
+import type { ComparisonAnchorSide, OperationComparison, OperationComparisonRegion, OperationDiffHunk } from '@inscribe/shared';
 
 export interface ReviewRenderableRegion {
   id: string;
@@ -15,6 +15,7 @@ export interface ReviewRenderableRegion {
 export interface ReviewRenderModel {
   content: string;
   regions: ReviewRenderableRegion[];
+  windows: Array<{ id: string; start: number; end: number }>;
 }
 
 export interface ReviewRegionOverlayModel {
@@ -26,23 +27,29 @@ export interface ReviewRegionOverlayModel {
 }
 
 export function buildReviewRenderModel(comparison: OperationComparison): ReviewRenderModel {
+  const hunks = (comparison.diffHunks?.length ?? 0) > 0 ? comparison.diffHunks! : comparison.regions;
   return {
     content: comparison.newContent,
-    regions: comparison.regions.map((region) => ({
+    regions: hunks.map((region) => ({
       id: region.id,
       kind: region.kind,
       oldText: region.oldText,
       newText: region.newText,
       highlightStart: region.newRange.start,
       highlightEnd: region.newRange.end,
-      anchorOffset: region.renderAnchor.newOffset,
-      anchorSide: region.renderAnchor.side,
+      anchorOffset: 'renderAnchor' in region ? region.renderAnchor.newOffset : region.newRange.start,
+      anchorSide: 'renderAnchor' in region ? region.renderAnchor.side : 'before',
       deletedSummary: region.kind === 'delete' ? summarizeDeletedText(region.oldText) : null,
+    })),
+    windows: (comparison.replacementRegions ?? comparison.regions).map((region) => ({
+      id: region.id,
+      start: region.newRange.start,
+      end: region.newRange.end,
     })),
   };
 }
 
-export function buildReviewRegionOverlay(region: OperationComparisonRegion): ReviewRegionOverlayModel {
+export function buildReviewRegionOverlay(region: OperationComparisonRegion | OperationDiffHunk): ReviewRegionOverlayModel {
   return {
     title: getRegionTitle(region.kind),
     oldLabel: region.kind === 'insert' ? 'Insertion point' : 'Before',

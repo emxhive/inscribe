@@ -7,7 +7,7 @@ import { ApplyPlan, ApplyResult, HistoryEntry, Operation, ValidationError } from
 import { applyOperation } from './applyOperation';
 import { buildRestoreEntry } from './restoreHistory';
 
-const VALID_OPERATION_TYPES = new Set(['create', 'replace', 'append', 'range', 'delete']);
+const VALID_OPERATION_TYPES = new Set(['create', 'replace', 'append', 'range', 'delete', 'replace_symbol']);
 
 function validateOperation(operation: Operation, index: number): string[] {
   const errors: string[] = [];

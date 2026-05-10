@@ -1,69 +1,101 @@
 # Inscribe
 
-Inscribe is a desktop app that turns AI output into safe, reviewable changes in your codebase. Paste an AI response, and Inscribe will only apply the parts you explicitly tag. Everything else is ignored. If any tag or directive is invalid, nothing is changed.
+Inscribe is a desktop app that turns LLM output into safe, reviewable repository changes.
+It only applies explicitly tagged blocks and enforces strict validation before any write.
 
-## What Inscribe Does
+## Core Guarantees
 
-- **Applies only explicitly tagged code blocks** — no guessing, no heuristics.
-- **Validates everything first** — if one block is wrong, nothing is applied.
-- **Previews every change** — you see exactly what will happen before it happens.
-- **Tracks applied blocks with Smart Restore history** — safe, validated restores.
-- **Works with existing repos** — you point it at a repo and go.
+- **Explicit intent only**: only `$inscribe BEGIN` / `$inscribe END` blocks are considered.
+- **Fail-closed behavior**: invalid blocks fail safely; no partial apply for that block.
+- **Pre-write candidate validation for JS/TS-family files**: `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs` candidates are parsed in memory before write.
+- **Structural targeting support** for risky edits:
+  - `MODE: replace_symbol` for full owning declaration replacement.
+  - `MODE: range` + `END_NODE: jsx` for AST-aware JSX boundary resolution.
+- **Canonical review model**: replacement windows and actual diff hunks are produced by the engine and rendered by UI.
 
-## How It Works (In Short)
+## Basic Workflow
 
-1. You paste an AI response into Inscribe.
-2. Inscribe extracts **only** blocks wrapped with `$inscribe BEGIN` / `$inscribe END`.
-3. It validates file paths and directives.
-4. You preview the diff.
-5. On apply, it writes the changes and records a restore entry for each applied block.
-
-## Using the App
-
-1. Open Inscribe and select the repo you want to modify.
-2. Paste the full AI response into the input area.
-3. Review the parsed blocks and preview the changes.
-4. Apply the changes when everything looks correct.
+1. Select a repository.
+2. Paste full LLM response.
+3. Inscribe parses blocks and validates directives/paths.
+4. Review replacement windows + precise diff hunks.
+5. Apply selected/valid changes.
+6. Restore safely via history when needed.
 
 ## Inscribe Block Format
-
-An Inscribe block is plain text wrapped around a normal fenced code block:
 
 ````
 $inscribe BEGIN
 FILE: relative/path/from/repo/root.ext
-MODE: create | replace | append | range | delete
-[additional directives depending on mode]
+MODE: create | replace | append | range | delete | replace_symbol
+(optional directives)
 
 ```language
-<code block with content>
+<content>
 ```
 
 $inscribe END
 ````
 
-**Important:** Only `$inscribe BEGIN` and `$inscribe END` use the `$inscribe` prefix. Headers (`FILE:`, `MODE:`) and directives (e.g., `START:`, `END:`) must be written **without** the `$inscribe` prefix.
+Rules:
+- `$inscribe` prefix is valid only for `BEGIN` and `END` markers.
+- `FILE:`, `MODE:`, and directives must be unprefixed.
+- For `MODE: delete`, fenced content is optional.
 
-**Note:** For `MODE: delete`, the fenced code block is optional and not required, as delete operations do not need content.
+## Supported Modes
 
-### Supported Modes
+- **create**: create a new file (target must not exist)
+- **replace**: replace an existing file entirely
+- **append**: append to existing file end
+- **range**: replace a resolved subrange in an existing file
+- **delete**: remove an existing file
+- **replace_symbol**: replace a full owning declaration by symbol name (`NAME:` required)
 
-- **create** — file MUST NOT exist
-- **replace** — file MUST exist, entire content replaced
-- **append** — file MUST exist, content appended to end
-- **range** — file MUST exist, partial replace between anchors (or replace a single START-selected line when END is omitted)
-- **delete** — file MUST exist, file will be deleted (no code content required)
+## Directive Quick Reference
 
-## LLM Usage
+### `MODE: range`
 
-When working with AI assistants that generate code, you can instruct them to format their responses using Inscribe blocks. This allows you to safely review and apply only the tagged portions.
+Required:
+- Exactly one start directive: `START` | `START_BEFORE` | `START_AFTER`
 
-See the [LLM Usage Guide](docs/llm-guide.md) for complete instructions to copy/paste when prompting an LLM.
+Optional end directives:
+- `END` | `END_BEFORE` | `END_AFTER`
 
-## History & Smart Restore
+Optional scoped search:
+- `SCOPE_START` + `SCOPE_END` (must be provided together)
 
-Every successful apply generates restore entries that can be safely re-applied through the same validation and apply pipeline as normal changes. Restore actions are conservative: they only run when the target content still matches expected anchors or content constraints.
+Structural JSX boundary mode:
+- `END_NODE: jsx`
+- Optional repeated `CONTAINS:` directives for disambiguation (ALL must match)
+
+Notes:
+- `END_NODE: jsx` is structural behavior and should not be combined with textual `END*` directives.
+- If `END_NODE` structural resolution fails or remains ambiguous, the operation fails safely.
+
+### `MODE: replace_symbol`
+
+Required:
+- `NAME: SymbolName`
+
+Behavior:
+- Resolves a full owning declaration for the symbol (function declaration, supported variable/function-like declarations, supported wrappers).
+- Fails safely when zero or multiple matches are found.
+
+## Parse Validation & Diagnostics
+
+For JS/TS-family file candidates, Inscribe parses in-memory candidate content before disk write.
+On parse failure, write is blocked and a copyable `INSCRIBE_PARSE_ERROR` diagnostic is surfaced with context and file-not-modified note.
+
+## Review Model
+
+Review distinguishes two concepts:
+
+- **Replacement windows**: what the operation intends to replace.
+- **Diff hunks**: actual changed line hunks for user-facing review/navigation.
+
+UI highlights diff hunks primarily, with replacement windows as secondary context.
 
 ## Documentation
 
-See [`docs/terminology.md`](docs/terminology.md) for detailed terminology and directive reference.
+- [`docs/llm-guide.md`](docs/llm-guide.md): LLM authoring guide (recommended prompt contract)
+- [`docs/terminology.md`](docs/terminology.md): terminology and behavior references

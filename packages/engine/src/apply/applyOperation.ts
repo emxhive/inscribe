@@ -7,10 +7,11 @@ import {
   RestorePayloadV2,
 } from '@inscribe/shared';
 
-import { applyRangeReplace } from './rangeReplace';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { getEffectiveIgnoreMatchers } from '../repository';
 import { restoreFromPayload } from './restoreV2';
+import { validateCandidateOrThrow } from './candidateValidation';
+import { resolveOperationContent } from '../operation/resolveOperationContent';
 
 export interface OperationExecution {
   beforeContent: string;
@@ -27,40 +28,65 @@ export function applyOperation(operation: Operation, repoRoot: string): Operatio
   switch (operation.type) {
     case 'create': {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      fs.writeFileSync(filePath, operation.content);
-      return { beforeContent, afterContent: operation.content };
+      const resolved = resolveOperationContent(operation, beforeContent);
+      validateCandidateOrThrow(operation.file, operation.type, resolved.afterContent);
+      fs.writeFileSync(filePath, resolved.afterContent);
+      return { beforeContent, afterContent: resolved.afterContent };
     }
 
     case 'replace': {
       const restored = tryApplyRestoreV2(beforeContent, directives);
       if (restored !== undefined) {
+        validateCandidateOrThrow(operation.file, operation.type, restored);
         fs.writeFileSync(filePath, restored);
         return { beforeContent, afterContent: restored };
       }
-      fs.writeFileSync(filePath, operation.content);
-      return { beforeContent, afterContent: operation.content };
+      const resolved = resolveOperationContent(operation, beforeContent);
+      validateCandidateOrThrow(operation.file, operation.type, resolved.afterContent);
+      fs.writeFileSync(filePath, resolved.afterContent);
+      return { beforeContent, afterContent: resolved.afterContent };
     }
 
     case 'append': {
       const restored = tryApplyRestoreV2(beforeContent, directives);
       if (restored !== undefined) {
+        validateCandidateOrThrow(operation.file, operation.type, restored);
         fs.writeFileSync(filePath, restored);
         return { beforeContent, afterContent: restored };
       }
-      const afterContent = `${beforeContent}${operation.content}`;
-      fs.writeFileSync(filePath, afterContent);
-      return { beforeContent, afterContent };
+      const resolved = resolveOperationContent(operation, beforeContent);
+      validateCandidateOrThrow(operation.file, operation.type, resolved.afterContent);
+      fs.writeFileSync(filePath, resolved.afterContent);
+      return { beforeContent, afterContent: resolved.afterContent };
     }
 
     case 'range': {
       const restored = tryApplyRestoreV2(beforeContent, directives);
       if (restored !== undefined) {
+        validateCandidateOrThrow(operation.file, operation.type, restored);
         fs.writeFileSync(filePath, restored);
         return { beforeContent, afterContent: restored };
       }
-      applyRangeReplace(filePath, operation);
-      const afterContent = fs.readFileSync(filePath, 'utf-8');
-      return { beforeContent, afterContent };
+      const resolved = resolveOperationContent(operation, beforeContent);
+      validateCandidateOrThrow(operation.file, operation.type, resolved.afterContent, {
+        START: operation.directives?.START ?? '',
+        END_NODE: operation.directives?.END_NODE ?? '',
+        CONTAINS: operation.directives?.CONTAINS ?? '',
+      });
+      fs.writeFileSync(filePath, resolved.afterContent);
+      return { beforeContent, afterContent: resolved.afterContent };
+    }
+    case 'replace_symbol': {
+      const restored = tryApplyRestoreV2(beforeContent, directives);
+      if (restored !== undefined) {
+        validateCandidateOrThrow(operation.file, operation.type, restored);
+        fs.writeFileSync(filePath, restored);
+        return { beforeContent, afterContent: restored };
+      }
+      const resolved = resolveOperationContent(operation, beforeContent);
+      validateCandidateOrThrow(operation.file, operation.type, resolved.afterContent, { NAME: directives.NAME ?? '' });
+      fs.writeFileSync(filePath, resolved.afterContent);
+      return { beforeContent, afterContent: resolved.afterContent };
     }
 
     case 'delete': {

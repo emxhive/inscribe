@@ -309,4 +309,24 @@ describe('Operation comparison', () => {
     expect(comparison.regions.map((region) => region.kind)).toEqual(['insert', 'insert']);
     expect(comparison.regions.map((region) => region.newText)).toEqual(['---', '+++']);
   });
+
+  it('supports replace_symbol in preview/comparison pipeline', () => {
+    const filePath = path.join(tempDir, 'app', 'symbol.tsx');
+    fs.writeFileSync(
+      filePath,
+      'export const ParticipantSurfacePanel = () => {\n  return <div>old</div>;\n};\nconst keep = 1;\n'
+    );
+
+    const comparison = buildOperationComparison({
+      type: 'replace_symbol',
+      file: 'app/symbol.tsx',
+      directives: { NAME: 'ParticipantSurfacePanel' },
+      content: 'export const ParticipantSurfacePanel = () => <section>new</section>;\n',
+    }, tempDir);
+
+    expect(comparison.replacementRegions?.length).toBe(1);
+    expect(comparison.newContent).toContain('<section>new</section>');
+    expect(comparison.newContent).toContain('const keep = 1;');
+    expect((comparison.diffHunks ?? []).length).toBeGreaterThan(0);
+  });
 });

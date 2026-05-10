@@ -15,14 +15,16 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@babel/parser": "^7.28.5",
     "@inscribe/shared": "0.1.0",
-    "picomatch": "^2.3.1"
+    "picomatch": "^2.3.1",
+    "vite": "8.0.11"
   },
   "devDependencies": {
     "@types/node": "^20.19.27",
     "@types/picomatch": "^4.0.2",
-    "electron": "^39.2.7",
+    "electron": "39.8.10",
     "typescript": "^5.3.3",
-    "vitest": "^1.0.4"
+    "vitest": "^4.1.5"
   }
 }

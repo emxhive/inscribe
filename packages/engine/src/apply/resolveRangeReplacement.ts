@@ -5,6 +5,7 @@ import {
   resolveBraceSelectionStart,
 } from '../util/braceScan';
 import { findAllOccurrences, MatchRange } from '../util/textSearch';
+import { resolveJsxRangeFromStart } from './structuralResolvers';
 
 export interface RangeReplaceResolution {
   replaceStart: number;
@@ -23,6 +24,8 @@ export function resolveRangeReplacement(
   const startDirectives = getAnchorDirectives(directives, ['START', 'START_BEFORE', 'START_AFTER'], 'START');
   const endDirectives = getAnchorDirectives(directives, ['END', 'END_BEFORE', 'END_AFTER'], 'END');
   const { SCOPE_START, SCOPE_END } = directives;
+  const endNode = directives.END_NODE;
+  const contains = (directives.CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
 
   if (!startDirectives) {
     throw new Error('Range operation requires exactly one of START, START_BEFORE, START_AFTER directives');
@@ -60,6 +63,23 @@ export function resolveRangeReplacement(
 
     searchContent = content.substring(scopeStartMatch.start, scopeEndMatch.end);
     searchOffset = scopeStartMatch.start;
+  }
+
+  if (endNode) {
+    if (endNode !== 'jsx') {
+      throw new Error(`Unsupported END_NODE value: ${endNode}`);
+    }
+    if (endDirectives) {
+      throw new Error('END_NODE cannot be combined with END/END_BEFORE/END_AFTER');
+    }
+    const resolved = resolveJsxRangeFromStart(searchContent, startDirectives.value, contains);
+    const replaceStart = searchOffset + resolved.start;
+    const replaceEnd = searchOffset + resolved.end;
+    const suffix = content.substring(replaceEnd);
+    const insert = normalizeLineInsert(operation.content, suffix);
+    const prefix = content.substring(0, replaceStart);
+    const removed = content.substring(replaceStart, replaceEnd);
+    return { replaceStart, replaceEnd, insert, removed, prefix, suffix };
   }
 
   const startMatches = findAllOccurrences(searchContent, startDirectives.value);

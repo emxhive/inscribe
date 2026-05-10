@@ -65,6 +65,9 @@ export const KEYWORD_START_BEFORE = 'START_BEFORE';
 export const KEYWORD_START_AFTER = 'START_AFTER';
 export const KEYWORD_SCOPE_START = 'SCOPE_START';
 export const KEYWORD_SCOPE_END = 'SCOPE_END';
+export const KEYWORD_END_NODE = 'END_NODE';
+export const KEYWORD_CONTAINS = 'CONTAINS';
+export const KEYWORD_NAME = 'NAME';
 export const KEYWORD_END_BEFORE = 'END_BEFORE';
 export const KEYWORD_END_AFTER = 'END_AFTER';
 
@@ -81,6 +84,9 @@ export const DIRECTIVE_END_BEFORE = `${KEYWORD_END_BEFORE}:`;
 export const DIRECTIVE_END_AFTER = `${KEYWORD_END_AFTER}:`;
 export const DIRECTIVE_SCOPE_START = `${KEYWORD_SCOPE_START}:`;
 export const DIRECTIVE_SCOPE_END = `${KEYWORD_SCOPE_END}:`;
+export const DIRECTIVE_END_NODE = `${KEYWORD_END_NODE}:`;
+export const DIRECTIVE_CONTAINS = `${KEYWORD_CONTAINS}:`;
+export const DIRECTIVE_NAME = `${KEYWORD_NAME}:`;
 
 // Canonical header keys
 export const HEADER_KEYS = [
@@ -98,6 +104,9 @@ export const DIRECTIVE_KEYS = [
   KEYWORD_END_AFTER,
   KEYWORD_SCOPE_START,
   KEYWORD_SCOPE_END,
+  KEYWORD_END_NODE,
+  KEYWORD_CONTAINS,
+  KEYWORD_NAME,
 ] as const;
 
 // All block field keys (headers + directives combined)
@@ -111,5 +120,5 @@ export const INSCRIBE_BEGIN = `${INSCRIBE_PREFIX} ${KEYWORD_BEGIN}`;
 export const INSCRIBE_END = `${INSCRIBE_PREFIX} ${KEYWORD_END}`;
 
 // Valid modes
-export const VALID_MODES = ['create', 'replace', 'append', 'range', 'delete'] as const;
+export const VALID_MODES = ['create', 'replace', 'append', 'range', 'delete', 'replace_symbol'] as const;
 export const DEFAULT_MODE = 'replace';

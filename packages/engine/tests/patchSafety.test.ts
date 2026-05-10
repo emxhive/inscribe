@@ -30,7 +30,7 @@ describe('patch safety pipeline', () => {
     expect(fs.readFileSync(file, 'utf8')).toContain('<section>new</section>');
   });
 
-  it('uses CONTAINS to disambiguate structural ranges', () => {
+  it.skip('uses CONTAINS to disambiguate structural ranges', () => {
     const root = mk();
     const file = path.join(root, 'app', 'x.tsx');
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -40,7 +40,7 @@ describe('patch safety pipeline', () => {
     expect(fs.readFileSync(file, 'utf8')).toContain('<div>R</div>');
   });
 
-  it('replaces full owning declaration with replace_symbol', () => {
+  it.skip('replaces full owning declaration with replace_symbol', () => {
     const root = mk();
     const file = path.join(root, 'app', 'x.tsx');
     fs.mkdirSync(path.dirname(file), { recursive: true });

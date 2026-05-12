@@ -57,6 +57,7 @@ export function ReviewPanel() {
   const isEditing = activeReviewView === 'edit';
   const selectedItemId = selectedItem?.id ?? null;
   const collapsedHunkIds = selectedItemId ? state.collapsedHunkIdsByItem[selectedItemId] ?? [] : [];
+  const collapsedDiffGroupIds = selectedItemId ? state.collapsedDiffGroupIdsByItem[selectedItemId] ?? [] : [];
 
   const languageExtension = useMemo(() => {
     const fileName = selectedItem?.file;
@@ -419,6 +420,7 @@ export function ReviewPanel() {
             model={unifiedModel}
             selectedHunkId={state.selectedHunkId}
             collapsedHunkIds={collapsedHunkIds}
+            collapsedDiffGroupIds={collapsedDiffGroupIds}
             onSelectHunk={(hunkId) => updateState({ selectedHunkId: hunkId })}
             onToggleHunk={(hunkId) => {
               if (!selectedItemId) return;
@@ -436,6 +438,21 @@ export function ReviewPanel() {
                 };
               });
             }}
+            onToggleGroup={(groupId) => {
+              if (!selectedItemId) return;
+              updateState((prev) => {
+                const current = prev.collapsedDiffGroupIdsByItem[selectedItemId] ?? [];
+                const next = current.includes(groupId)
+                  ? current.filter((id) => id !== groupId)
+                  : [...current, groupId];
+                return {
+                  collapsedDiffGroupIdsByItem: {
+                    ...prev.collapsedDiffGroupIdsByItem,
+                    [selectedItemId]: next,
+                  },
+                };
+              });
+            }}
           />
         )}
       </div>
@@ -447,14 +464,18 @@ function UnifiedDiffView({
   model,
   selectedHunkId,
   collapsedHunkIds,
+  collapsedDiffGroupIds,
   onSelectHunk,
   onToggleHunk,
+  onToggleGroup,
 }: {
   model: ReturnType<typeof buildUnifiedDiffModel> | null;
   selectedHunkId: string | null;
   collapsedHunkIds: string[];
+  collapsedDiffGroupIds: string[];
   onSelectHunk: (hunkId: string) => void;
   onToggleHunk: (hunkId: string) => void;
+  onToggleGroup: (groupId: string) => void;
 }) {
   if (!model) {
     return (
@@ -478,6 +499,10 @@ function UnifiedDiffView({
         {model.hunks.map((hunk) => {
           const isCollapsed = collapsedHunkIds.includes(hunk.id);
           const isSelected = selectedHunkId === hunk.id;
+          const removedGroupId = `${hunk.id}:removed`;
+          const addedGroupId = `${hunk.id}:added`;
+          const isRemovedCollapsed = collapsedDiffGroupIds.includes(removedGroupId);
+          const isAddedCollapsed = collapsedDiffGroupIds.includes(addedGroupId);
           return (
             <div key={hunk.id}>
               <button
@@ -498,28 +523,103 @@ function UnifiedDiffView({
                   {hunk.removedCount} removed, {hunk.addedCount} added
                 </span>
               </button>
-              {!isCollapsed && hunk.rows.map((row) => (
-                <button
-                  type="button"
-                  key={row.id}
-                  onClick={() => onSelectHunk(row.hunkId)}
-                  className={cn(
-                    'grid w-full grid-cols-[4rem_4rem_2rem_minmax(0,1fr)] items-start text-left leading-5',
-                    row.kind === 'remove' && 'bg-red-950/35 text-red-100',
-                    row.kind === 'add' && 'bg-emerald-950/35 text-emerald-100',
-                    selectedHunkId === row.hunkId && 'outline outline-1 outline-inset outline-sky-500/50',
-                  )}
-                >
-                  <span className="px-2 text-right text-slate-500">{row.oldLine ?? ''}</span>
-                  <span className="px-2 text-right text-slate-500">{row.newLine ?? ''}</span>
-                  <span className="px-2 text-slate-400">{row.marker}</span>
-                  <span className="whitespace-pre px-2">{row.text || ' '}</span>
-                </button>
-              ))}
+              {!isCollapsed && (
+                <>
+                  <DiffLineGroup
+                    groupId={removedGroupId}
+                    label="removed"
+                    count={hunk.removedCount}
+                    rows={hunk.removedRows}
+                    isCollapsed={isRemovedCollapsed}
+                    selectedHunkId={selectedHunkId}
+                    onSelectHunk={onSelectHunk}
+                    onToggleGroup={onToggleGroup}
+                  />
+                  <DiffLineGroup
+                    groupId={addedGroupId}
+                    label="added"
+                    count={hunk.addedCount}
+                    rows={hunk.addedRows}
+                    isCollapsed={isAddedCollapsed}
+                    selectedHunkId={selectedHunkId}
+                    onSelectHunk={onSelectHunk}
+                    onToggleGroup={onToggleGroup}
+                  />
+                </>
+              )}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function DiffLineGroup({
+  groupId,
+  label,
+  count,
+  rows,
+  isCollapsed,
+  selectedHunkId,
+  onSelectHunk,
+  onToggleGroup,
+}: {
+  groupId: string;
+  label: 'removed' | 'added';
+  count: number;
+  rows: ReturnType<typeof buildUnifiedDiffModel>['hunks'][number]['rows'];
+  isCollapsed: boolean;
+  selectedHunkId: string | null;
+  onSelectHunk: (hunkId: string) => void;
+  onToggleGroup: (groupId: string) => void;
+}) {
+  if (count === 0) {
+    return null;
+  }
+
+  const canFold = count > 1;
+
+  return (
+    <div>
+      {canFold && (
+        <button
+          type="button"
+          onClick={() => onToggleGroup(groupId)}
+          className={cn(
+            'grid w-full grid-cols-[2rem_4rem_4rem_2rem_minmax(0,1fr)] items-center text-left leading-6',
+            label === 'removed' ? 'bg-red-950/45 text-red-100' : 'bg-emerald-950/45 text-emerald-100',
+          )}
+        >
+          <span className="flex items-center justify-center text-slate-400">
+            {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </span>
+          <span />
+          <span />
+          <span className="text-slate-400">{label === 'removed' ? '-' : '+'}</span>
+          <span className="px-2 text-[11px] text-slate-300">
+            {count} {label}
+          </span>
+        </button>
+      )}
+      {(!canFold || !isCollapsed) && rows.map((row) => (
+        <button
+          type="button"
+          key={row.id}
+          onClick={() => onSelectHunk(row.hunkId)}
+          className={cn(
+            'grid w-full grid-cols-[4rem_4rem_2rem_minmax(0,1fr)] items-start text-left leading-5',
+            row.kind === 'remove' && 'bg-red-950/35 text-red-100',
+            row.kind === 'add' && 'bg-emerald-950/35 text-emerald-100',
+            selectedHunkId === row.hunkId && 'outline outline-1 outline-inset outline-sky-500/50',
+          )}
+        >
+          <span className="px-2 text-right text-slate-500">{row.oldLine ?? ''}</span>
+          <span className="px-2 text-right text-slate-500">{row.newLine ?? ''}</span>
+          <span className="px-2 text-slate-400">{row.marker}</span>
+          <span className="whitespace-pre px-2">{row.text || ' '}</span>
+        </button>
+      ))}
     </div>
   );
 }

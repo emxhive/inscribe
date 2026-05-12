@@ -16,6 +16,7 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
     next.selectedHunkId = null;
     next.reviewComparisonError = null;
     next.collapsedHunkIdsByItem = {};
+    next.collapsedDiffGroupIdsByItem = {};
   }
 
   return next;

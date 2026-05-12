@@ -97,6 +97,7 @@ export interface AppState {
   hiddenRightPanelSections: RightPanelSectionId[];
   openRightPanelSections: RightPanelSectionId[];
   collapsedHunkIdsByItem: Record<string, string[]>;
+  collapsedDiffGroupIdsByItem: Record<string, string[]>;
 
   // Apply/Redo state
   lastAppliedPlan: ApplyPlan | null;

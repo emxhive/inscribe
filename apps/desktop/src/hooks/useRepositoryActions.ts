@@ -100,6 +100,7 @@ export function useRepositoryActions() {
       canUndoApply: false,
       historyItems: [],
       collapsedHunkIdsByItem: {},
+      collapsedDiffGroupIdsByItem: {},
       statusMessage,
     });
   };

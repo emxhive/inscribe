@@ -47,6 +47,8 @@ export interface UnifiedDiffHunkModel {
   newStartLine: number;
   removedCount: number;
   addedCount: number;
+  removedRows: UnifiedDiffRow[];
+  addedRows: UnifiedDiffRow[];
   rows: UnifiedDiffRow[];
 }
 
@@ -103,8 +105,7 @@ export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedD
     };
     rows.push(headerRow);
 
-    oldLines.forEach((line, index) => {
-      hunkRows.push({
+    const removedRows = oldLines.map((line, index): UnifiedDiffRow => ({
         id: `${hunk.id}-old-${index}`,
         hunkId: hunk.id,
         kind: 'remove',
@@ -112,11 +113,9 @@ export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedD
         newLine: null,
         marker: '-',
         text: line,
-      });
-    });
+    }));
 
-    newLines.forEach((line, index) => {
-      hunkRows.push({
+    const addedRows = newLines.map((line, index): UnifiedDiffRow => ({
         id: `${hunk.id}-new-${index}`,
         hunkId: hunk.id,
         kind: 'add',
@@ -124,9 +123,9 @@ export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedD
         newLine: hunk.newStartLine + index,
         marker: '+',
         text: line,
-      });
-    });
+    }));
 
+    hunkRows.push(...removedRows, ...addedRows);
     rows.push(...hunkRows);
     hunkModels.push({
       id: hunk.id,
@@ -137,6 +136,8 @@ export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedD
       newStartLine: hunk.newStartLine,
       removedCount: oldLines.length,
       addedCount: newLines.length,
+      removedRows,
+      addedRows,
       rows: hunkRows,
     });
   });

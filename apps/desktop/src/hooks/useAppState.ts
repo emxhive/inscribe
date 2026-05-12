@@ -38,6 +38,7 @@ export const initialState: AppState = {
   hiddenRightPanelSections: [],
   openRightPanelSections: ['selection', 'directives', 'diagnostics'],
   collapsedHunkIdsByItem: {},
+  collapsedDiffGroupIdsByItem: {},
 
   lastAppliedPlan: null,
   canRedo: false,

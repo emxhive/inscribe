@@ -190,6 +190,28 @@ describe('reviewComparison utils', () => {
           newStartLine: 2,
           removedCount: 1,
           addedCount: 1,
+          removedRows: [
+            {
+              id: 'hunk-0-old-0',
+              hunkId: 'hunk-0',
+              kind: 'remove',
+              oldLine: 2,
+              newLine: null,
+              marker: '-',
+              text: 'beta',
+            },
+          ],
+          addedRows: [
+            {
+              id: 'hunk-0-new-0',
+              hunkId: 'hunk-0',
+              kind: 'add',
+              oldLine: null,
+              newLine: 2,
+              marker: '+',
+              text: 'updated',
+            },
+          ],
           rows: [
             {
               id: 'hunk-0-old-0',
@@ -316,6 +338,8 @@ describe('reviewComparison utils', () => {
     expect(model.hunks).toHaveLength(1);
     expect(model.hunks[0].removedCount).toBe(2);
     expect(model.hunks[0].addedCount).toBe(2);
+    expect(model.hunks[0].removedRows).toHaveLength(2);
+    expect(model.hunks[0].addedRows).toHaveLength(2);
     expect(model.hunks[0].rows.map((row) => row.kind)).toEqual(['remove', 'remove', 'add', 'add']);
   });
 });

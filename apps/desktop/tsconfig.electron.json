@@ -5,6 +5,6 @@
     "rootDir": "./src",
     "module": "CommonJS"
   },
-  "include": ["src/main.ts", "src/preload.ts"],
+  "include": ["src/main.ts", "src/preload.ts", "src/windowManager.ts", "src/recentProjects.ts", "src/ipc/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

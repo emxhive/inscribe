@@ -28,6 +28,12 @@ function AppShell() {
     void repositoryActions.restoreLastRepo();
   }, []);
 
+  useEffect(() => {
+    return window.inscribeAPI.onOpenRepo((repoRoot) => {
+      void repositoryActions.initRepo(repoRoot);
+    });
+  }, [repositoryActions]);
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       <AppHeader

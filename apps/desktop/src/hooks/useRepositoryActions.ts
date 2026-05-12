@@ -137,9 +137,7 @@ export function useRepositoryActions() {
       const selectedPath = await window.inscribeAPI.selectRepository(state.repoRoot || undefined);
       if (!selectedPath) return;
 
-      resetRepositoryState(selectedPath, 'Initializing repository...');
-
-      await initRepositoryState(selectedPath, updateState);
+      await window.inscribeAPI.openRepository(selectedPath);
     } catch (error) {
       console.error('Failed to select repository:', error);
       updateState({ 
@@ -151,6 +149,7 @@ export function useRepositoryActions() {
 
   const initRepo = async (repoRoot: string): Promise<RepoInitResult | null> => {
     try {
+      resetRepositoryState(repoRoot, 'Initializing repository...');
       return await initRepositoryState(repoRoot, updateState);
     } catch (error) {
       console.error('Failed to initialize repository:', error);
@@ -163,19 +162,26 @@ export function useRepositoryActions() {
   };
 
   const restoreLastRepo = async () => {
-    updateState({ isRestoringRepo: true, statusMessage: 'Restoring last repository...' });
+    updateState({ isRestoringRepo: true, statusMessage: 'Restoring repository...' });
     try {
+      // First check if this window is already bound to a repo
+      const boundRepo = await window.inscribeAPI.getWindowRepo();
+      if (boundRepo) {
+        await initRepo(boundRepo);
+        return;
+      }
+
       const lastRepo = await window.inscribeAPI.getLastVisitedRepo();
       if (!lastRepo) {
         resetRepositoryState(null, 'Select a repository to start.');
         return;
       }
 
-      resetRepositoryState(lastRepo, 'Initializing repository...');
-      await initRepositoryState(lastRepo, updateState);
+      // Claim the last repo for this window if it's not already open elsewhere
+      await window.inscribeAPI.openRepository(lastRepo);
     } catch (error) {
-      console.error('Failed to restore last repository:', error);
-      resetRepositoryState(null, 'Unable to restore last repository. Select a repository to start.');
+      console.error('Failed to restore repository:', error);
+      resetRepositoryState(null, 'Unable to restore repository. Select a repository to start.');
       updateState({ indexStatus: { state: 'error', message: String(error) } });
     } finally {
       updateState({ isRestoringRepo: false });

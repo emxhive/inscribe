@@ -10,6 +10,7 @@ import { registerIgnoreHandlers } from './ignore';
 import { registerParsingHandlers } from './parsing';
 import { registerApplyHandlers } from './apply';
 import { registerHistoryHandlers } from './history';
+import { registerWindowHandlers } from './window';
 
 export { registerDialogHandlers } from './dialog';
 export { registerRepositoryHandlers } from './repository';
@@ -18,6 +19,7 @@ export { registerIgnoreHandlers } from './ignore';
 export { registerParsingHandlers } from './parsing';
 export { registerApplyHandlers } from './apply';
 export { registerHistoryHandlers } from './history';
+export { registerWindowHandlers } from './window';
 
 /**
  * Register all IPC handlers
@@ -30,4 +32,5 @@ export function registerAllHandlers() {
   registerParsingHandlers();
   registerApplyHandlers();
   registerHistoryHandlers();
+  registerWindowHandlers();
 }

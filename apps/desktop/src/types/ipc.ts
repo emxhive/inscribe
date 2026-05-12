@@ -51,6 +51,11 @@ export interface InscribeAPI {
   selectRepository: (defaultPath?: string) => Promise<string | null>;
   getLastVisitedRepo: () => Promise<string | null>;
   repoInit: (repoRoot: string) => Promise<RepoInitResult>;
+  openRepository: (repoRoot: string) => Promise<void>;
+  getRecentProjects: () => Promise<string[]>;
+  getWindowRepo: () => Promise<string | null>;
+  onOpenRepo: (callback: (repoRoot: string) => void) => () => void;
+  onRecentProjectsUpdated: (callback: (projects: string[]) => void) => () => void;
   getScope: (repoRoot: string) => Promise<string[]>;
   setScope: (repoRoot: string, scope: string[]) => Promise<ScopeUpdateResult>;
   readIgnore: (repoRoot: string) => Promise<IgnoreRules>;

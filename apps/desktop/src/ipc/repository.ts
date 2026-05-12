@@ -9,6 +9,7 @@ import {
   indexRepository,
   getIndexStatus,
 } from '@inscribe/engine';
+import { recentProjectsManager } from '../recentProjects';
 
 /**
  * Register repository-related IPC handlers
@@ -26,6 +27,9 @@ export function registerRepositoryHandlers() {
       setScopeState(repoRoot, scopeState.scope, { lastSuggested: suggested });
       const ignore = readIgnoreRules(repoRoot);
       const indexedFiles = indexRepository(repoRoot);
+
+      // Successfully initialized, add to recent projects
+      recentProjectsManager.addProject(repoRoot);
 
       return {
         topLevelFolders,

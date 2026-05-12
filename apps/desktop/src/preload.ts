@@ -24,6 +24,27 @@ const api = {
   repoInit: (repoRoot: string): Promise<RepoInitResult> =>
     ipcRenderer.invoke('repo-init', repoRoot),
 
+  openRepository: (repoRoot: string): Promise<void> =>
+    ipcRenderer.invoke('open-repository', repoRoot),
+
+  getRecentProjects: (): Promise<string[]> =>
+    ipcRenderer.invoke('get-recent-projects'),
+
+  getWindowRepo: (): Promise<string | null> =>
+    ipcRenderer.invoke('get-window-repo'),
+
+  onOpenRepo: (callback: (repoRoot: string) => void) => {
+    const subscription = (_event: any, repoRoot: string) => callback(repoRoot);
+    ipcRenderer.on('open-repo', subscription);
+    return () => ipcRenderer.removeListener('open-repo', subscription);
+  },
+
+  onRecentProjectsUpdated: (callback: (projects: string[]) => void) => {
+    const subscription = (_event: any, projects: string[]) => callback(projects);
+    ipcRenderer.on('recent-projects-updated', subscription);
+    return () => ipcRenderer.removeListener('recent-projects-updated', subscription);
+  },
+
   getScope: (repoRoot: string): Promise<string[]> =>
     ipcRenderer.invoke('get-scope', repoRoot),
 

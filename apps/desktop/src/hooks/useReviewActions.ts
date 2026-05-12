@@ -9,7 +9,7 @@ type DirectiveUpdates = Partial<Record<string, string>>;
 export function useReviewActions() {
   const { state, updateState, updateReviewItemContent } = useAppStateContext();
   const handleSelectItem = (id: string) => {
-    updateState({ selectedItemId: id, isEditing: false });
+    updateState({ selectedItemId: id, isEditing: false, selectedHunkId: null });
   };
 
   const handleEditorChange = (value: string) => {

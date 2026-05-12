@@ -26,7 +26,25 @@ export interface ReviewRegionOverlayModel {
   newText: string;
 }
 
-export function buildReviewRenderModel(comparison: OperationComparison): ReviewRenderModel {
+export type UnifiedDiffRowKind = 'hunk' | 'add' | 'remove';
+
+export interface UnifiedDiffRow {
+  id: string;
+  hunkId: string;
+  kind: UnifiedDiffRowKind;
+  oldLine: number | null;
+  newLine: number | null;
+  marker: '@@' | '+' | '-';
+  text: string;
+}
+
+export interface UnifiedDiffModel {
+  file: string;
+  rows: UnifiedDiffRow[];
+  hunks: OperationDiffHunk[];
+}
+
+export function buildResultReviewModel(comparison: OperationComparison): ReviewRenderModel {
   const hunks = (comparison.diffHunks?.length ?? 0) > 0 ? comparison.diffHunks! : comparison.regions;
   return {
     content: comparison.newContent,
@@ -47,6 +65,51 @@ export function buildReviewRenderModel(comparison: OperationComparison): ReviewR
       end: region.newRange.end,
     })),
   };
+}
+
+export const buildReviewRenderModel = buildResultReviewModel;
+
+export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedDiffModel {
+  const hunks = comparison.diffHunks ?? [];
+  const rows: UnifiedDiffRow[] = [];
+
+  hunks.forEach((hunk, hunkIndex) => {
+    rows.push({
+      id: `${hunk.id}-header`,
+      hunkId: hunk.id,
+      kind: 'hunk',
+      oldLine: null,
+      newLine: null,
+      marker: '@@',
+      text: buildHunkHeader(hunk, hunkIndex),
+    });
+
+    splitDiffLines(hunk.oldText).forEach((line, index) => {
+      rows.push({
+        id: `${hunk.id}-old-${index}`,
+        hunkId: hunk.id,
+        kind: 'remove',
+        oldLine: hunk.oldStartLine + index,
+        newLine: null,
+        marker: '-',
+        text: line,
+      });
+    });
+
+    splitDiffLines(hunk.newText).forEach((line, index) => {
+      rows.push({
+        id: `${hunk.id}-new-${index}`,
+        hunkId: hunk.id,
+        kind: 'add',
+        oldLine: null,
+        newLine: hunk.newStartLine + index,
+        marker: '+',
+        text: line,
+      });
+    });
+  });
+
+  return { file: comparison.file, rows, hunks };
 }
 
 export function buildReviewRegionOverlay(region: OperationComparisonRegion | OperationDiffHunk): ReviewRegionOverlayModel {
@@ -84,4 +147,23 @@ function getRegionTitle(kind: OperationComparisonRegion['kind']): string {
     default:
       return 'Replaced content';
   }
+}
+
+function buildHunkHeader(hunk: OperationDiffHunk, index: number): string {
+  const oldCount = splitDiffLines(hunk.oldText).length;
+  const newCount = splitDiffLines(hunk.newText).length;
+  return `Hunk ${index + 1} -${hunk.oldStartLine},${oldCount} +${hunk.newStartLine},${newCount}`;
+}
+
+function splitDiffLines(text: string): string[] {
+  if (!text) {
+    return [];
+  }
+
+  const normalized = text.endsWith('\n') ? text.slice(0, -1) : text;
+  if (!normalized) {
+    return [''];
+  }
+
+  return normalized.split('\n');
 }

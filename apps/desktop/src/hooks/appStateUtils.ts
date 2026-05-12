@@ -6,11 +6,15 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
   if (prev.mode === 'review' && next.mode !== 'review') {
     next.canUndoApply = false;
     next.lastApplyId = null;
+    next.selectedHunkId = null;
+    next.reviewView = 'unified';
   }
 
   if ('repoRoot' in updates && updates.repoRoot !== prev.repoRoot) {
     next.canUndoApply = false;
     next.lastApplyId = null;
+    next.selectedHunkId = null;
+    next.rightPanelView = 'inspector';
   }
 
   return next;

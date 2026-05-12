@@ -3,9 +3,7 @@ import { AppStateProvider, useAppStateContext, useRepositoryActions } from './ho
 import { ScopeModal } from './components/ScopeModal';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
-import { AppHeader } from './components/app/AppHeader';
-import { MainContent } from './components/app/MainContent';
-import { StatusBar } from './components/StatusBar';
+import { WorkspaceShell } from './components/app/WorkspaceShell';
 
 export default function App() {
   return (
@@ -35,16 +33,12 @@ function AppShell() {
   }, [repositoryActions]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
-      <AppHeader
+    <>
+      <WorkspaceShell
         onOpenScopeModal={() => hasRepository && setScopeModalOpen(true)}
         onOpenIgnore={() => hasRepository && setIgnoreModalOpen(true)}
         onOpenIndexedList={() => setIndexedListModalOpen(true)}
       />
-
-      <MainContent />
-
-      <StatusBar />
 
       {/* Modals */}
       <ScopeModal
@@ -64,6 +58,6 @@ function AppShell() {
         items={state.indexedFiles}
         emptyMessage="No indexed files"
       />
-    </div>
+    </>
   );
 }

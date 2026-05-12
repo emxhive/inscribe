@@ -43,7 +43,7 @@ export function HeaderDirectiveEditor({
 
   if (!block) {
     return (
-      <div className="border-t border-border pt-3 max-h-[50%]">
+    <div className="pt-3">
         <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
           Headers & Directives
         </p>
@@ -53,7 +53,7 @@ export function HeaderDirectiveEditor({
   }
 
   return (
-    <div className="border-t border-border pt-3 max-h-[50%] min-h-0 flex flex-col overflow-hidden">
+    <div className="pt-3 min-h-0 flex flex-col overflow-hidden">
       <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
         Headers & Directives
       </p>

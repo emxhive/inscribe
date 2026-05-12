@@ -14,7 +14,8 @@ import type {
  * - 'review': Mode where user reviews and applies parsed changes (corresponds to 'review' stage in UI)
  */
 export type AppMode = 'intake' | 'review';
-export type OverlayEditor = AppMode | null;
+export type ReviewView = 'result' | 'unified' | 'edit';
+export type RightPanelView = 'inspector' | 'history';
 
 export type PipelineStatus = 
   | 'idle'
@@ -88,8 +89,9 @@ export interface AppState {
   isApplyingInProgress: boolean;
   isRestoringInProgress: boolean;
   isRestoringRepo: boolean;
-  overlayEditor: OverlayEditor;
-  isHistoryOpen: boolean;
+  reviewView: ReviewView;
+  selectedHunkId: string | null;
+  rightPanelView: RightPanelView;
 
   // Apply/Redo state
   lastAppliedPlan: ApplyPlan | null;

@@ -3,6 +3,7 @@ import type { OperationComparison } from '@inscribe/shared';
 
 import {
   buildReviewRenderModel,
+  buildUnifiedDiffModel,
   buildReviewRegionOverlay,
   summarizeDeletedText,
 } from './reviewComparison';
@@ -150,5 +151,108 @@ describe('reviewComparison utils', () => {
 
   it('summarizes multiline deleted text for calm inline placeholders', () => {
     expect(summarizeDeletedText('first line\nsecond line\n')).toBe('Deleted 2 lines');
+  });
+
+  it('builds unified diff rows from engine-owned hunks', () => {
+    const comparison: OperationComparison = {
+      type: 'range',
+      file: 'app/example.ts',
+      oldContent: 'alpha\nbeta\ngamma\n',
+      newContent: 'alpha\nupdated\ngamma\n',
+      replacementRegions: [],
+      regions: [],
+      diffHunks: [
+        {
+          id: 'hunk-0',
+          kind: 'replace',
+          oldRange: { start: 6, end: 11 },
+          newRange: { start: 6, end: 14 },
+          oldText: 'beta\n',
+          newText: 'updated\n',
+          oldStartLine: 2,
+          oldEndLine: 2,
+          newStartLine: 2,
+          newEndLine: 2,
+          replacementRegionId: 'window-0',
+        },
+      ],
+    };
+
+    expect(buildUnifiedDiffModel(comparison)).toEqual({
+      file: 'app/example.ts',
+      hunks: comparison.diffHunks,
+      rows: [
+        {
+          id: 'hunk-0-header',
+          hunkId: 'hunk-0',
+          kind: 'hunk',
+          oldLine: null,
+          newLine: null,
+          marker: '@@',
+          text: 'Hunk 1 -2,1 +2,1',
+        },
+        {
+          id: 'hunk-0-old-0',
+          hunkId: 'hunk-0',
+          kind: 'remove',
+          oldLine: 2,
+          newLine: null,
+          marker: '-',
+          text: 'beta',
+        },
+        {
+          id: 'hunk-0-new-0',
+          hunkId: 'hunk-0',
+          kind: 'add',
+          oldLine: null,
+          newLine: 2,
+          marker: '+',
+          text: 'updated',
+        },
+      ],
+    });
+  });
+
+  it('handles insert and delete hunks without fake line rows', () => {
+    const comparison: OperationComparison = {
+      type: 'append',
+      file: 'app/example.ts',
+      oldContent: 'alpha\n',
+      newContent: 'alpha\nbeta\n',
+      replacementRegions: [],
+      regions: [],
+      diffHunks: [
+        {
+          id: 'hunk-0',
+          kind: 'insert',
+          oldRange: { start: 6, end: 6 },
+          newRange: { start: 6, end: 11 },
+          oldText: '',
+          newText: 'beta\n',
+          oldStartLine: 2,
+          oldEndLine: 2,
+          newStartLine: 2,
+          newEndLine: 2,
+        },
+        {
+          id: 'hunk-1',
+          kind: 'delete',
+          oldRange: { start: 0, end: 6 },
+          newRange: { start: 0, end: 0 },
+          oldText: 'alpha\n',
+          newText: '',
+          oldStartLine: 1,
+          oldEndLine: 1,
+          newStartLine: 1,
+          newEndLine: 1,
+        },
+      ],
+    };
+
+    const rows = buildUnifiedDiffModel(comparison).rows;
+
+    expect(rows.map((row) => row.kind)).toEqual(['hunk', 'add', 'hunk', 'remove']);
+    expect(rows[0].text).toBe('Hunk 1 -2,0 +2,1');
+    expect(rows[2].text).toBe('Hunk 2 -1,1 +1,0');
   });
 });

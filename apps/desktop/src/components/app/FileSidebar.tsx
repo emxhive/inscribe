@@ -1,12 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { EmptyState, FileListEntry } from '../common';
 import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
-import { updateDirectiveInText } from '@/utils/intake';
 import { cn } from '@/lib/utils';
-import { type DirectiveKey, type HeaderKey } from '@inscribe/shared';
 import type { ReviewItem } from '@/types';
 import { ReviewDirectivePopover } from './ReviewDirectivePopover';
-import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 
 export const MIN_SIDEBAR_WIDTH = 240;
@@ -39,7 +36,6 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   const { state, updateState } = useAppStateContext();
   const { handleSelectItem, handleUpdateDirectives } = useReviewActions();
   const { blocks } = useIntakeBlocks();
-  const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
   const [dragging, setDragging] = useState(false);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const directiveAnchorRef = useRef<HTMLElement | null>(null);
@@ -53,10 +49,11 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
       updateState({ selectedIntakeBlockId: null });
       return;
     }
-    if (blocks.length > 0 && !selectedBlock) {
+    const hasSelectedBlock = blocks.some((block) => block.id === state.selectedIntakeBlockId);
+    if (blocks.length > 0 && !hasSelectedBlock) {
       updateState({ selectedIntakeBlockId: blocks[0].id });
     }
-  }, [blocks, selectedBlock, state.mode, state.selectedIntakeBlockId, updateState]);
+  }, [blocks, state.mode, state.selectedIntakeBlockId, updateState]);
 
   useEffect(() => {
     if (!dragging) {
@@ -85,36 +82,6 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [dragging, onResize, sidebarWidth]);
-
-  const handleHeaderChange = (key: HeaderKey, value: string) => {
-    if (!selectedBlock) {
-      return;
-    }
-    updateState((prev) => ({
-      aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, value, { keepEmpty: true }),
-    }));
-  };
-
-  const handleDirectiveChange = (key: DirectiveKey, value: string) => {
-    if (!selectedBlock) {
-      return;
-    }
-    updateState((prev) => ({
-      aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, value),
-    }));
-  };
-
-  const handleAddDirective = (key: DirectiveKey) => {
-    if (!selectedBlock) {
-      return;
-    }
-    if (selectedBlock.directives[key]) {
-      return;
-    }
-    updateState((prev) => ({
-      aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, '', { allowEmptyInsert: true }),
-    }));
-  };
 
   const handleOpenDirectiveEditor = (
     item: ReviewItem,
@@ -145,35 +112,37 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   return (
     <aside
       ref={sidebarRef}
-      className="relative flex flex-col gap-3 p-4 bg-card border-r border-border min-h-0"
+      className="relative flex flex-col bg-card border-r border-border min-h-0"
       style={{ width: sidebarWidth }}
     >
-      <div className="flex flex-col gap-1">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-          {state.mode === 'intake' ? 'Parsed Code Blocks' : 'Code Changes'}
-        </p>
-        <h3 className="text-lg font-semibold">
-          {state.mode === 'intake' ? `${blocks.length} blocks` : `${state.reviewItems.length} files`}
-        </h3>
+      <div className="h-10 flex items-center justify-between border-b border-border px-3">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {state.mode === 'intake' ? 'Blocks' : 'Changes'}
+        </span>
+        <span className="text-xs font-semibold text-foreground">
+          {state.mode === 'intake' ? blocks.length : state.reviewItems.length}
+        </span>
       </div>
 
       {state.mode === 'intake' && blocks.length === 0 && (
-        <EmptyState message="Paste AI response to begin" />
+        <div className="p-3">
+          <EmptyState message="Paste AI response to begin" />
+        </div>
       )}
 
       {state.mode === 'intake' && blocks.length > 0 && (
-        <div className="flex flex-col gap-3 min-h-0 flex-1">
-          <ul className="flex-1 min-h-0 overflow-y-auto list-none p-0 m-0 space-y-2.5">
+        <div className="flex flex-col min-h-0 flex-1">
+          <ul className="flex-1 min-h-0 overflow-y-auto list-none p-0 m-0">
             {blocks.map((block) => (
               <li key={block.id}>
                 <button
                   type="button"
                   onClick={() => updateState({ selectedIntakeBlockId: block.id })}
                   className={cn(
-                    'w-full text-left rounded-lg border px-3 py-2.5 transition',
+                    'w-full text-left border-b border-border px-3 py-2 transition',
                     block.id === state.selectedIntakeBlockId
-                      ? 'border-primary/60 bg-primary/10 shadow-sm'
-                      : 'border-border bg-secondary/50 hover:bg-secondary/70',
+                      ? 'bg-primary/10'
+                      : 'hover:bg-secondary/70',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -193,19 +162,12 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
               </li>
             ))}
           </ul>
-
-          <HeaderDirectiveEditor
-            block={selectedBlock}
-            onHeaderChange={handleHeaderChange}
-            onDirectiveChange={handleDirectiveChange}
-            onAddDirective={handleAddDirective}
-          />
         </div>
       )}
 
       {state.mode === 'review' && (
         <>
-          <ul className="flex flex-col gap-2.5 overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">
+          <ul className="flex flex-col overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">
             {state.reviewItems.map((item) => (
               <FileListEntry
                 key={item.id}

@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import CodeMirror from '@uiw/react-codemirror';
 import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
@@ -15,12 +14,11 @@ import { css } from '@codemirror/lang-css';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useAppStateContext, useApplyActions, useReviewActions } from '@/hooks';
-import { buildReviewRenderModel, type ReviewRenderableRegion } from '@/utils/reviewComparison';
-import { ArrowLeft, Eye, Maximize2, Pencil, X } from 'lucide-react';
-import type { OperationComparison, OperationComparisonRegion, Operation, OperationDiffHunk } from '@inscribe/shared';
+import { useAppStateContext, useReviewActions } from '@/hooks';
+import { buildResultReviewModel, buildUnifiedDiffModel } from '@/utils/reviewComparison';
+import { cn } from '@/lib/utils';
+import type { Operation, OperationComparison } from '@inscribe/shared';
+import type { ReviewView } from '@/types';
 
 class DeletedRegionWidget extends WidgetType {
   constructor(
@@ -40,43 +38,27 @@ class DeletedRegionWidget extends WidgetType {
   }
 }
 
+const reviewViewOptions: Array<{ id: ReviewView; label: string }> = [
+  { id: 'result', label: 'Result' },
+  { id: 'unified', label: 'Unified Diff' },
+  { id: 'edit', label: 'Edit' },
+];
+
 export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
   const reviewActions = useReviewActions();
-  const applyActions = useApplyActions();
-
   const { selectedItem, editorValue } = reviewActions;
-  const hasInvalidItems = state.reviewItems.some((item) => item.status === 'invalid');
-  const hasAnyApplied = state.reviewItems.some((item) => item.status === 'applied');
-  const hasPending = state.reviewItems.some((item) => item.status === 'pending');
-  const allApplied =
-    state.reviewItems.length > 0 && state.reviewItems.every((item) => item.status === 'applied');
-  const selectedIsApplied = selectedItem?.status === 'applied';
-  const isApplyingInProgress = state.isApplyingInProgress;
-  const canApplySelected =
-    Boolean(selectedItem) && selectedItem?.status === 'pending' && !isApplyingInProgress;
-  const canEditSelection = Boolean(selectedItem) && !selectedIsApplied;
-  const isEditing = state.isEditing && canEditSelection;
-  const canUndoSelected =
-    Boolean(selectedItem) &&
-    selectedIsApplied &&
-    state.historyItems.some(
-      (item) =>
-        item.file === selectedItem?.file &&
-        item.blockIndex === selectedItem?.blockIndex &&
-        !item.restoredAt
-    );
   const [comparisonData, setComparisonData] = useState<OperationComparison | null>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
-  const [activeRegionId, setActiveRegionId] = useState<string | null>(null);
   const [previewEditorView, setPreviewEditorView] = useState<EditorView | null>(null);
-  const isOverlayActive = state.overlayEditor === 'review';
+  const selectedIsApplied = selectedItem?.status === 'applied';
+  const canEditSelection = Boolean(selectedItem) && !selectedIsApplied;
+  const activeReviewView = canEditSelection ? state.reviewView : state.reviewView === 'edit' ? 'unified' : state.reviewView;
+  const isEditing = activeReviewView === 'edit';
 
   const languageExtension = useMemo(() => {
     const fileName = selectedItem?.file;
-    if (!fileName) {
-      return null;
-    }
+    if (!fileName) return null;
     const extension = fileName.split('.').pop()?.toLowerCase() ?? 'txt';
     const shouldPreferPhp = editorValue.includes('<?php');
     switch (extension) {
@@ -117,9 +99,7 @@ export function ReviewPanel() {
 
   const editorExtensions = useMemo(() => {
     const baseExtensions = [indentUnit.of('\t'), keymap.of([indentWithTab])];
-    if (languageExtension) {
-      baseExtensions.push(languageExtension);
-    }
+    if (languageExtension) baseExtensions.push(languageExtension);
     return baseExtensions;
   }, [languageExtension]);
 
@@ -127,7 +107,7 @@ export function ReviewPanel() {
     let cancelled = false;
 
     const loadComparison = async () => {
-      setActiveRegionId(null);
+      updateState({ selectedHunkId: null });
 
       if (!state.repoRoot || !selectedItem || isEditing) {
         setComparisonData(null);
@@ -166,53 +146,46 @@ export function ReviewPanel() {
     };
   }, [editorValue, isEditing, selectedItem, state.repoRoot]);
 
-  const renderModel = useMemo(
-    () => (comparisonData ? buildReviewRenderModel(comparisonData) : null),
+  const resultModel = useMemo(
+    () => (comparisonData ? buildResultReviewModel(comparisonData) : null),
     [comparisonData],
   );
 
-  const selectedRegion = useMemo(() => {
-    if (!comparisonData || !activeRegionId) {
-      return null;
-    }
-    const pool = (comparisonData.diffHunks?.length ?? 0) > 0 ? comparisonData.diffHunks! : comparisonData.regions;
-    return pool.find((region) => region.id === activeRegionId) ?? null;
-  }, [activeRegionId, comparisonData]);
+  const unifiedModel = useMemo(
+    () => (comparisonData ? buildUnifiedDiffModel(comparisonData) : null),
+    [comparisonData],
+  );
 
-  const hunkIndex = useMemo(() => {
-    if (!renderModel || !activeRegionId) return -1;
-    return renderModel.regions.findIndex((region) => region.id === activeRegionId);
-  }, [activeRegionId, renderModel]);
+  useEffect(() => {
+    if (!state.selectedHunkId && unifiedModel?.hunks.length) {
+      updateState({ selectedHunkId: unifiedModel.hunks[0].id });
+    }
+  }, [state.selectedHunkId, unifiedModel, updateState]);
 
   const comparisonExtensions = useMemo(() => {
-    if (!renderModel) {
-      return [];
-    }
+    if (!resultModel) return [];
 
-    const regionsById = new Map(renderModel.regions.map((region) => [region.id, region]));
+    const regionsById = new Map(resultModel.regions.map((region) => [region.id, region]));
     const findRegionAtPosition = (position: number) =>
-      renderModel.regions.find((region) => {
+      resultModel.regions.find((region) => {
         if (region.highlightEnd > region.highlightStart) {
           return position >= region.highlightStart && position < region.highlightEnd;
         }
         return position === region.anchorOffset;
       }) ?? null;
 
-    const buildDecorations = (editorState: EditorState) => {
+    const buildDecorations = () => {
       const decorations: Range<Decoration>[] = [];
 
-      renderModel.regions.forEach((region) => {
-        const isSelected = region.id === activeRegionId;
+      resultModel.regions.forEach((region) => {
+        const isSelected = region.id === state.selectedHunkId;
         if (region.highlightEnd > region.highlightStart) {
           decorations.push(Decoration.mark({
             attributes: {
               class: isSelected ? 'cm-review-region cm-review-region-selected' : 'cm-review-region',
               'data-review-region-id': region.id,
             },
-          }).range(
-            region.highlightStart,
-            region.highlightEnd,
-          ));
+          }).range(region.highlightStart, region.highlightEnd));
         }
 
         if (region.kind === 'delete' && region.deletedSummary) {
@@ -220,29 +193,23 @@ export function ReviewPanel() {
             widget: new DeletedRegionWidget(region.id, region.deletedSummary),
             side: region.anchorSide === 'after' ? 1 : -1,
             block: false,
-          }).range(
-            region.anchorOffset,
-            region.anchorOffset,
-          ));
+          }).range(region.anchorOffset, region.anchorOffset));
         }
       });
-      renderModel.windows.forEach((window) => {
+
+      resultModel.windows.forEach((window) => {
         if (window.end > window.start) {
-          decorations.push(Decoration.mark({ attributes: { class: 'cm-review-window' } }).range(
-            window.start,
-            window.end,
-          ));
+          decorations.push(Decoration.mark({ attributes: { class: 'cm-review-window' } }).range(window.start, window.end));
         }
       });
+
       return Decoration.set(decorations, true);
     };
 
     const comparisonField = StateField.define({
       create: buildDecorations,
       update(decorations, transaction) {
-        if (transaction.docChanged) {
-          return buildDecorations(transaction.state);
-        }
+        if (transaction.docChanged) return buildDecorations();
         return decorations;
       },
       provide: (field) => EditorView.decorations.from(field),
@@ -281,280 +248,183 @@ export function ReviewPanel() {
         const regionElement = target?.closest('[data-review-region-id]') as HTMLElement | null;
         const directRegionId = regionElement?.dataset.reviewRegionId;
         if (directRegionId && regionsById.has(directRegionId)) {
-          setActiveRegionId(directRegionId);
+          updateState({ selectedHunkId: directRegionId });
           return true;
         }
 
         const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
-        if (position === null) {
-          return false;
-        }
-
+        if (position === null) return false;
         const region = findRegionAtPosition(position);
-        if (!region) {
-          return false;
-        }
-
-        setActiveRegionId(region.id);
+        if (!region) return false;
+        updateState({ selectedHunkId: region.id });
         return true;
       },
     });
 
     return [comparisonTheme, comparisonField, interactionExtension];
-  }, [activeRegionId, renderModel]);
-
-  const displayContent = comparisonData?.newContent ?? editorValue;
+  }, [resultModel, state.selectedHunkId, updateState]);
 
   useEffect(() => {
-    if (!previewEditorView || !renderModel || !activeRegionId) return;
-    const active = renderModel.regions.find((region) => region.id === activeRegionId);
+    if (!previewEditorView || !resultModel || !state.selectedHunkId || activeReviewView !== 'result') return;
+    const active = resultModel.regions.find((region) => region.id === state.selectedHunkId);
     if (!active) return;
     const focusPos = active.highlightStart > 0 ? active.highlightStart : active.anchorOffset;
     previewEditorView.dispatch({ selection: { anchor: focusPos } });
-    previewEditorView.focus();
     previewEditorView.dispatch({
       effects: EditorView.scrollIntoView(focusPos, { y: 'center' }),
     });
-  }, [activeRegionId, previewEditorView, renderModel]);
+  }, [activeReviewView, previewEditorView, resultModel, state.selectedHunkId]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!selectedItem || event.defaultPrevented) {
-        return;
-      }
-      if (event.metaKey || event.ctrlKey || event.altKey) {
-        return;
-      }
+      if (!unifiedModel?.hunks.length || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
-      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
-        return;
-      }
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
       const key = event.key.toLowerCase();
-      if (key === 'e' && !state.isEditing && !selectedIsApplied) {
-        updateState({ isEditing: true });
-        event.preventDefault();
-      }
-      if (key === 'p' && state.isEditing) {
-        updateState({ isEditing: false });
-        event.preventDefault();
-      }
+      if (key !== 'n' && event.key !== 'F7') return;
+
+      const direction = event.shiftKey ? -1 : 1;
+      const current = unifiedModel.hunks.findIndex((hunk) => hunk.id === state.selectedHunkId);
+      const base = current === -1 ? (direction > 0 ? -1 : 0) : current;
+      const next = (base + direction + unifiedModel.hunks.length) % unifiedModel.hunks.length;
+      updateState({ selectedHunkId: unifiedModel.hunks[next].id });
+      event.preventDefault();
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedItem, selectedIsApplied, state.isEditing, updateState]);
+  }, [state.selectedHunkId, unifiedModel, updateState]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!renderModel || renderModel.regions.length === 0 || isEditing) {
-        return;
-      }
-      if (event.key === 'Escape' && activeRegionId) {
-        setActiveRegionId(null);
-        return;
-      }
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
-        return;
-      }
-      const key = event.key.toLowerCase();
-      if (key === 'n' || event.key === 'F7') {
-        const dir = event.shiftKey ? -1 : 1;
-        const current = renderModel.regions.findIndex((region) => region.id === activeRegionId);
-        const base = current === -1 ? (dir > 0 ? -1 : 0) : current;
-        const next = (base + dir + renderModel.regions.length) % renderModel.regions.length;
-        setActiveRegionId(renderModel.regions[next].id);
-        event.preventDefault();
-        return;
-      }
-      if (!isOverlayActive || event.key !== 'Escape') {
-        return;
-      }
-      updateState({ overlayEditor: null });
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeRegionId, isEditing, isOverlayActive, renderModel, updateState]);
+  if (!selectedItem) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center text-sm text-muted-foreground">
+        Select a change from the left pane.
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    if (!isOverlayActive) {
-      return;
-    }
-    const { style } = document.body;
-    const previousOverflow = style.overflow;
-    style.overflow = 'hidden';
-    return () => {
-      style.overflow = previousOverflow;
-    };
-  }, [isOverlayActive]);
-
-  const editorSurface = (
-    <div className="flex-1 w-full h-full border border-border rounded-lg p-3 bg-secondary flex flex-col gap-2">
-      {!isEditing && comparisonData && (
-        <div className="flex items-center justify-between gap-2 px-1">
-          <Badge variant="secondary">{renderModel?.regions.length ?? 0} hunks</Badge>
-          {renderModel && renderModel.regions.length > 0 && (
-            <Badge variant="secondary">
-              {hunkIndex >= 0 ? `Hunk ${hunkIndex + 1}/${renderModel.regions.length}` : `Press N / Shift+N`}
-            </Badge>
-          )}
-        </div>
-      )}
-      {isEditing ? (
-        <CodeMirror
-          className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
-          value={editorValue}
-          height="100%"
-          theme={oneDark}
-          extensions={editorExtensions}
-          onChange={(value: string) => reviewActions.handleEditorChange(value)}
-          basicSetup={{ lineNumbers: false, foldGutter: false }}
-        />
-      ) : (
-        <div className="review-preview flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono flex flex-col gap-2">
-          <CodeMirror
-            className="flex-1 w-full h-full overflow-hidden rounded-lg text-sm font-mono"
-            value={displayContent}
-            height="100%"
-            theme={oneDark}
-            extensions={[...editorExtensions, ...comparisonExtensions]}
-            editable={false}
-            readOnly
-            basicSetup={{ lineNumbers: true, foldGutter: false }}
-            onCreateEditor={(view) => setPreviewEditorView(view)}
-          />
-        </div>
-      )}
-    </div>
-  );
+  const displayContent = comparisonData?.newContent ?? editorValue;
 
   return (
-    <section className="relative flex flex-col gap-3.5 h-full min-h-0 bg-card border border-border rounded-xl shadow-md p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Review & Apply</p>
-          <h2 className="text-xl font-semibold mt-0.5">
-            {selectedItem?.file ? (
-              <span className="inline-code">{selectedItem.file}</span>
-            ) : (
-              'Select a file from the left'
-            )}
-          </h2>
+    <section className="flex h-full min-h-0 flex-col bg-background">
+      <div className="h-10 flex items-center justify-between gap-3 border-b border-border bg-card px-3">
+        <div className="min-w-0 flex items-center gap-2">
+          <span className="inline-code max-w-[60vw] truncate" title={selectedItem.file}>
+            {selectedItem.file}
+          </span>
+          {comparisonError && (
+            <span className="truncate text-xs text-destructive" title={comparisonError}>{comparisonError}</span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          {allApplied && (
-            <Button
-              variant="outline"
-              size="icon"
+        <div className="flex items-center rounded-md border border-border bg-secondary/60 p-0.5">
+          {reviewViewOptions.map((option) => (
+            <button
+              key={option.id}
               type="button"
-              onClick={() => updateState({ mode: 'intake' })}
-              aria-label="Back to intake"
-              title="Back to intake"
+              disabled={option.id === 'edit' && !canEditSelection}
+              onClick={() => updateState({ reviewView: option.id, isEditing: option.id === 'edit' })}
+              className={cn(
+                'h-7 rounded px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                activeReviewView === option.id
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
             >
-              <ArrowLeft />
-            </Button>
-          )}
-          {canEditSelection && (
-            <Button
-              variant="outline"
-              size="icon"
-              type="button"
-              onClick={() => updateState({ isEditing: !state.isEditing })}
-              aria-label={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
-              title={state.isEditing ? 'Switch to preview mode (P)' : 'Switch to edit mode (E)'}
-            >
-              {state.isEditing ? <Eye /> : <Pencil />}
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="icon"
-            type="button"
-            onClick={() => updateState({ overlayEditor: 'review' })}
-            aria-label="Open review overlay editor"
-            title="Open review overlay editor"
-          >
-            <Maximize2 />
-          </Button>
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {selectedItem?.mode === 'range' && (
-        <p className="text-xs text-muted-foreground bg-secondary px-2 py-1.5 rounded-lg border border-border self-start">
-          Range anchors remain engine-resolved; this editor is only rendering the canonical comparison output.
-        </p>
-      )}
-
-      <div className="flex-1 min-h-[320px]">
-        {isOverlayActive ? <div className="w-full h-full" /> : editorSurface}
-      </div>
-
-      <div className="flex items-center gap-2.5 mt-1 flex-wrap">
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
-          onClick={applyActions.handleUndoSelected}
-          disabled={!canUndoSelected || isApplyingInProgress || state.isRestoringInProgress}
-        >
-          Undo Apply
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
-          onClick={applyActions.handleUndoAll}
-          disabled={!state.canUndoApply || isApplyingInProgress || state.isRestoringInProgress}
-        >
-          Undo All
-        </Button>
-        <div className="flex-1" />
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
-          onClick={applyActions.handleApplySelected}
-          disabled={!canApplySelected}
-        >
-          {isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
-          onClick={applyActions.handleApplyValidBlocks}
-          disabled={!hasPending || isApplyingInProgress}
-        >
-          {isApplyingInProgress ? 'Applying...' : 'Apply Valid Blocks'}
-        </Button>
-        <Button
-          type="button"
-          onClick={applyActions.handleApplyAll}
-          disabled={!hasPending || hasAnyApplied || hasInvalidItems || isApplyingInProgress}
-        >
-          {isApplyingInProgress ? 'Applying...' : 'Apply All Changes'}
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        {state.statusMessage && (
-          <Badge variant="secondary" className="w-fit">{state.statusMessage}</Badge>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {activeReviewView === 'edit' && (
+          <CodeMirror
+            className="h-full w-full overflow-hidden text-sm font-mono"
+            value={editorValue}
+            height="100%"
+            theme={oneDark}
+            extensions={editorExtensions}
+            onChange={(value: string) => reviewActions.handleEditorChange(value)}
+            basicSetup={{ lineNumbers: true, foldGutter: false }}
+          />
         )}
-        {comparisonError && (
-          <Badge variant="destructive" className="w-fit">{comparisonError}</Badge>
+
+        {activeReviewView === 'result' && (
+          <div className="review-preview h-full w-full overflow-hidden text-sm font-mono">
+            <CodeMirror
+              className="h-full w-full overflow-hidden text-sm font-mono"
+              value={displayContent}
+              height="100%"
+              theme={oneDark}
+              extensions={[...editorExtensions, ...comparisonExtensions]}
+              editable={false}
+              readOnly
+              basicSetup={{ lineNumbers: true, foldGutter: false }}
+              onCreateEditor={(view) => setPreviewEditorView(view)}
+            />
+          </div>
+        )}
+
+        {activeReviewView === 'unified' && (
+          <UnifiedDiffView
+            model={unifiedModel}
+            selectedHunkId={state.selectedHunkId}
+            onSelectHunk={(hunkId) => updateState({ selectedHunkId: hunkId })}
+          />
         )}
       </div>
-      {isOverlayActive && typeof document !== 'undefined'
-        ? createPortal(
-          <div className="fixed inset-0 z-[100] bg-black/60">
-            <div className="w-full h-full">
-              {editorSurface}
-            </div>
-          </div>,
-          document.body,
-        )
-        : null}
     </section>
+  );
+}
+
+function UnifiedDiffView({
+  model,
+  selectedHunkId,
+  onSelectHunk,
+}: {
+  model: ReturnType<typeof buildUnifiedDiffModel> | null;
+  selectedHunkId: string | null;
+  onSelectHunk: (hunkId: string) => void;
+}) {
+  if (!model) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        Loading comparison...
+      </div>
+    );
+  }
+
+  if (model.rows.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        No diff hunks for this change.
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-auto bg-[#111827] font-mono text-xs text-slate-200">
+      <div className="min-w-max py-2">
+        {model.rows.map((row) => (
+          <button
+            type="button"
+            key={row.id}
+            onClick={() => onSelectHunk(row.hunkId)}
+            className={cn(
+              'grid w-full grid-cols-[4rem_4rem_2rem_minmax(0,1fr)] items-start text-left leading-5',
+              row.kind === 'hunk' && 'bg-slate-800/90 text-sky-200',
+              row.kind === 'remove' && 'bg-red-950/35 text-red-100',
+              row.kind === 'add' && 'bg-emerald-950/35 text-emerald-100',
+              selectedHunkId === row.hunkId && row.kind !== 'hunk' && 'outline outline-1 outline-inset outline-sky-500/50',
+            )}
+          >
+            <span className="px-2 text-right text-slate-500">{row.oldLine ?? ''}</span>
+            <span className="px-2 text-right text-slate-500">{row.newLine ?? ''}</span>
+            <span className="px-2 text-slate-400">{row.marker}</span>
+            <span className="whitespace-pre px-2">{row.text || ' '}</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

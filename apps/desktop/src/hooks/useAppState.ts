@@ -30,8 +30,9 @@ export const initialState: AppState = {
   isApplyingInProgress: false,
   isRestoringInProgress: false,
   isRestoringRepo: true,
-  overlayEditor: null,
-  isHistoryOpen: false,
+  reviewView: 'unified',
+  selectedHunkId: null,
+  rightPanelView: 'inspector',
 
   lastAppliedPlan: null,
   canRedo: false,

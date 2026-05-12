@@ -98,7 +98,6 @@ export function useRepositoryActions() {
       lastApplyId: null,
       canUndoApply: false,
       historyItems: [],
-      isHistoryOpen: false,
       statusMessage,
     });
   };

@@ -34,13 +34,13 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans font-medium;
   }
 }
 
 @layer components {
   .inline-code {
-    @apply inline-block font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-foreground;
+    @apply inline-block font-mono text-xs font-medium bg-muted px-1.5 py-0.5 rounded text-foreground;
   }
 
   .review-preview .cm-scroller {

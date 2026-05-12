@@ -31,6 +31,7 @@ export function FileListEntry({
 }: FileListEntryProps) {
   const hasActions = Boolean(actions);
   const isInteractive = Boolean(onClick || onDoubleClick);
+  const fileName = file.split(/[\\/]/).filter(Boolean).pop() ?? file;
 
   return (
     <li
@@ -54,7 +55,7 @@ export function FileListEntry({
             <div className="flex gap-2 items-center min-w-0">
               <StatusIcon status={status} error={validationError} />
               <span className="inline-code truncate max-w-full" title={file}>
-                {file}
+                {fileName}
               </span>
             </div>
             {hasActions && actionPlacement === 'top' && (

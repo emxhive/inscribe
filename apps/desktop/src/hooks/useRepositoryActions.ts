@@ -88,6 +88,7 @@ export function useRepositoryActions() {
       reviewItems: [],
       selectedItemId: null,
       selectedIntakeBlockId: null,
+      reviewComparisonError: null,
       isEditing: false,
       pipelineStatus: 'idle',
       isParsingInProgress: false,
@@ -98,6 +99,7 @@ export function useRepositoryActions() {
       lastApplyId: null,
       canUndoApply: false,
       historyItems: [],
+      collapsedHunkIdsByItem: {},
       statusMessage,
     });
   };

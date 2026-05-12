@@ -14,7 +14,8 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
     next.canUndoApply = false;
     next.lastApplyId = null;
     next.selectedHunkId = null;
-    next.rightPanelView = 'inspector';
+    next.reviewComparisonError = null;
+    next.collapsedHunkIdsByItem = {};
   }
 
   return next;

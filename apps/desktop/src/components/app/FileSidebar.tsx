@@ -152,12 +152,6 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                   <p className="text-xs text-muted-foreground mt-1">
                     Lines {block.startLine + 1}–{block.endLine + 1}
                   </p>
-                  {block.warnings.length > 0 && (
-                    <p className="text-xs text-amber-700 mt-1">{block.warnings[0]}</p>
-                  )}
-                  {block.errors.length > 0 && (
-                    <p className="text-xs text-red-700 mt-1">{block.errors[0]}</p>
-                  )}
                 </button>
               </li>
             ))}
@@ -176,7 +170,6 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                 language={item.language}
                 mode={item.mode}
                 status={item.status}
-                validationError={item.validationError}
                 isSelected={state.selectedItemId === item.id}
                 onClick={() => handleSelectItem(item.id)}
                 onDoubleClick={(event) => handleOpenDirectiveEditor(item, event)}

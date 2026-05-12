@@ -1,14 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
+  ChevronDown,
   CheckCircle2,
   Clock,
+  Copy,
   Folder,
   History,
   Info,
   Loader2,
+  PanelLeft,
+  PanelRight,
   RotateCcw,
   Settings,
+  X,
 } from 'lucide-react';
 import { DIRECTIVE_KEYS, HEADER_KEYS, VALID_MODES, type DirectiveKey, type HeaderKey } from '@inscribe/shared';
 import { Button } from '@/components/ui/button';
@@ -22,6 +27,15 @@ import { IntakePanel } from './IntakePanel';
 import { ReviewPanel } from './ReviewPanel';
 import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
 import { cn } from '@/lib/utils';
+import type { AppState, RightPanelSectionId } from '@/types';
+import { buildDiagnosticGroups, type DiagnosticGroup } from '@/utils/diagnostics';
+
+const RIGHT_PANEL_WIDTH = 336;
+const PANEL_STORAGE_KEYS = {
+  leftCollapsed: 'inscribe:ui:leftCollapsed',
+  rightCollapsed: 'inscribe:ui:rightCollapsed',
+  leftWidth: 'inscribe:ui:leftPanelWidth',
+} as const;
 
 type WorkspaceShellProps = {
   onOpenScopeModal: () => void;
@@ -35,21 +49,46 @@ export function WorkspaceShell({
   onOpenIndexedList,
 }: WorkspaceShellProps) {
   const { state, updateState } = useAppStateContext();
+  const panelPersistenceReady = useRef(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === 'undefined') return 280;
-    const stored = window.localStorage.getItem('inscribe:intake:sidebarWidth');
+    const stored = window.localStorage.getItem(PANEL_STORAGE_KEYS.leftWidth);
     const parsed = stored ? Number(stored) : 280;
     if (!Number.isFinite(parsed)) return 280;
     return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, parsed));
   });
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const leftCollapsed = window.localStorage.getItem(PANEL_STORAGE_KEYS.leftCollapsed) === 'true';
+    const rightCollapsed = window.localStorage.getItem(PANEL_STORAGE_KEYS.rightCollapsed) === 'true';
+    updateState({
+      isLeftPanelCollapsed: leftCollapsed,
+      isRightPanelCollapsed: rightCollapsed,
+    });
+    panelPersistenceReady.current = true;
+  }, [updateState]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!panelPersistenceReady.current) return;
+    window.localStorage.setItem(PANEL_STORAGE_KEYS.leftCollapsed, String(state.isLeftPanelCollapsed));
+    window.localStorage.setItem(PANEL_STORAGE_KEYS.rightCollapsed, String(state.isRightPanelCollapsed));
+  }, [state.isLeftPanelCollapsed, state.isRightPanelCollapsed]);
+
   const handleSidebarResize = (width: number, options?: { persist?: boolean }) => {
     const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
     setSidebarWidth(clamped);
     if (options?.persist && typeof window !== 'undefined') {
-      window.localStorage.setItem('inscribe:intake:sidebarWidth', String(clamped));
+      window.localStorage.setItem(PANEL_STORAGE_KEYS.leftWidth, String(clamped));
     }
   };
+
+  const workspaceColumns = [
+    !state.isLeftPanelCollapsed ? `${sidebarWidth}px` : null,
+    'minmax(0,1fr)',
+    !state.isRightPanelCollapsed ? `${RIGHT_PANEL_WIDTH}px` : null,
+  ].filter(Boolean).join(' ');
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -60,9 +99,14 @@ export function WorkspaceShell({
       />
       <div
         className="grid min-h-0 flex-1 overflow-hidden"
-        style={{ gridTemplateColumns: `${sidebarWidth}px minmax(0,1fr) 336px` }}
+        style={{ gridTemplateColumns: workspaceColumns }}
       >
-        <FileSidebar sidebarWidth={sidebarWidth} onResize={handleSidebarResize} />
+        {!state.isLeftPanelCollapsed && (
+          <FileSidebar
+            sidebarWidth={sidebarWidth}
+            onResize={handleSidebarResize}
+          />
+        )}
         <main className="min-h-0 overflow-hidden">
           {state.isRestoringRepo && (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -72,7 +116,7 @@ export function WorkspaceShell({
           {!state.isRestoringRepo && state.mode === 'intake' && <IntakePanel />}
           {!state.isRestoringRepo && state.mode === 'review' && <ReviewPanel />}
         </main>
-        <RightPanel />
+        {!state.isRightPanelCollapsed && <RightPanel />}
       </div>
       <WorkspaceBottomBar />
     </div>
@@ -122,9 +166,15 @@ function WorkspaceTopBar({
 
   return (
     <header className="relative z-50 flex h-11 flex-shrink-0 items-center gap-2 border-b border-border bg-card px-3">
+      <ChromeButton
+        onClick={() => updateState({ isLeftPanelCollapsed: !state.isLeftPanelCollapsed })}
+        title={state.isLeftPanelCollapsed ? 'Show left panel' : 'Hide left panel'}
+        aria-label={state.isLeftPanelCollapsed ? 'Show left panel' : 'Hide left panel'}
+        active={!state.isLeftPanelCollapsed}
+      >
+        <PanelLeft className="h-3.5 w-3.5" />
+      </ChromeButton>
       <div className="flex min-w-0 items-center gap-2">
-        <span className="text-sm font-semibold">Inscribe</span>
-        <span className="h-4 w-px bg-border" />
         <span className="w-32 truncate text-xs font-semibold text-foreground" title={repoName || 'Repository'}>
           {repoName || 'Repository'}
         </span>
@@ -202,8 +252,13 @@ function WorkspaceTopBar({
         </ChromeButton>
         <ChromeButton onClick={onOpenIndexedList}>Indexed {state.indexedCount}</ChromeButton>
         <ChromeButton
-          active={state.rightPanelView === 'history'}
-          onClick={() => updateState({ rightPanelView: state.rightPanelView === 'history' ? 'inspector' : 'history' })}
+          onClick={() =>
+            updateState((prev) => ({
+              isRightPanelCollapsed: false,
+              hiddenRightPanelSections: prev.hiddenRightPanelSections.filter((section) => section !== 'history'),
+              openRightPanelSections: Array.from(new Set([...prev.openRightPanelSections, 'history'])),
+            }))
+          }
           title="History"
         >
           <History className="h-3.5 w-3.5" />
@@ -213,6 +268,14 @@ function WorkspaceTopBar({
         </ChromeButton>
         <ChromeButton onClick={() => updateState({ statusMessage: 'Info (placeholder)' })} title="Info">
           <Info className="h-3.5 w-3.5" />
+        </ChromeButton>
+        <ChromeButton
+          onClick={() => updateState({ isRightPanelCollapsed: !state.isRightPanelCollapsed })}
+          title={state.isRightPanelCollapsed ? 'Show right panel' : 'Hide right panel'}
+          aria-label={state.isRightPanelCollapsed ? 'Show right panel' : 'Hide right panel'}
+          active={!state.isRightPanelCollapsed}
+        >
+          <PanelRight className="h-3.5 w-3.5" />
         </ChromeButton>
       </div>
     </header>
@@ -338,28 +401,70 @@ function WorkspaceBottomBar() {
 }
 
 function RightPanel() {
-  const { state } = useAppStateContext();
-
-  return (
-    <aside className="flex min-h-0 flex-col border-l border-border bg-card">
-      <div className="h-10 flex-shrink-0 border-b border-border px-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {state.rightPanelView === 'history' ? 'History' : 'Inspector'}
-        </span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-        {state.rightPanelView === 'history' ? <HistoryInspector /> : <ContextInspector />}
-      </div>
-    </aside>
-  );
-}
-
-function ContextInspector() {
   const { state, updateState } = useAppStateContext();
   const { blocks } = useIntakeBlocks();
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
   const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId) ?? null;
   const reviewActions = useReviewActions();
+  const diagnostics = buildDiagnosticGroups(state, blocks);
+  const sections: RightPanelSectionId[] = ['selection', 'directives', 'diagnostics', 'history'];
+  const visibleSections = sections.filter((section) => !state.hiddenRightPanelSections.includes(section));
+  const isOpen = (section: RightPanelSectionId) => state.openRightPanelSections.includes(section);
+  const toggleSection = (section: RightPanelSectionId) => {
+    updateState((prev) => ({
+      openRightPanelSections: prev.openRightPanelSections.includes(section)
+        ? prev.openRightPanelSections.filter((item) => item !== section)
+        : [...prev.openRightPanelSections, section],
+    }));
+  };
+
+  const handleHideHistory = () => {
+    updateState((prev) => ({
+      hiddenRightPanelSections: Array.from(new Set([...prev.hiddenRightPanelSections, 'history'])),
+      openRightPanelSections: prev.openRightPanelSections.filter((section) => section !== 'history'),
+    }));
+  };
+
+  return (
+    <aside className="flex min-h-0 flex-col border-l border-border bg-card">
+      <div className="h-10 flex-shrink-0 border-b border-border px-3 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Panel</span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {visibleSections.map((section) => (
+          <RightAccordion
+            key={section}
+            id={section}
+            title={getSectionTitle(section)}
+            isOpen={isOpen(section)}
+            count={section === 'diagnostics' ? diagnostics.reduce((sum, group) => sum + group.messages.length, 0) : undefined}
+            onToggle={() => toggleSection(section)}
+            onRemove={section === 'history' ? handleHideHistory : undefined}
+          >
+            {section === 'selection' && <SelectionSection selectedItem={selectedItem} selectedBlock={selectedBlock} />}
+            {section === 'directives' && (
+              state.mode === 'intake' ? (
+                <IntakeDirectiveSection selectedBlock={selectedBlock} />
+              ) : selectedItem ? (
+                <ReviewDirectiveEditor
+                  item={selectedItem}
+                  onSave={(updates) => reviewActions.handleUpdateDirectives(selectedItem.id, updates)}
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground">Select a change to edit directives.</p>
+              )
+            )}
+            {section === 'diagnostics' && <DiagnosticsSection groups={diagnostics} />}
+            {section === 'history' && <HistoryInspector />}
+          </RightAccordion>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function IntakeDirectiveSection({ selectedBlock }: { selectedBlock: ReturnType<typeof useIntakeBlocks>['blocks'][number] | null }) {
+  const { state, updateState } = useAppStateContext();
 
   const handleHeaderChange = (key: HeaderKey, value: string) => {
     if (!selectedBlock) return;
@@ -382,52 +487,50 @@ function ContextInspector() {
     }));
   };
 
+  return (
+    <HeaderDirectiveEditor
+      block={selectedBlock}
+      onHeaderChange={handleHeaderChange}
+      onDirectiveChange={handleDirectiveChange}
+      onAddDirective={handleAddDirective}
+    />
+  );
+}
+
+function SelectionSection({
+  selectedItem,
+  selectedBlock,
+}: {
+  selectedItem: AppState['reviewItems'][number] | null;
+  selectedBlock: ReturnType<typeof useIntakeBlocks>['blocks'][number] | null;
+}) {
+  const { state } = useAppStateContext();
   if (state.mode === 'intake') {
+    if (!selectedBlock) {
+      return <p className="text-xs text-muted-foreground">Select a block to inspect.</p>;
+    }
     return (
-      <div className="space-y-4">
-        <HeaderDirectiveEditor
-          block={selectedBlock}
-          onHeaderChange={handleHeaderChange}
-          onDirectiveChange={handleDirectiveChange}
-          onAddDirective={handleAddDirective}
-        />
-        {state.parseErrors.length > 0 && (
-          <InspectorSection title="Parse Errors">
-            <ul className="space-y-1 text-xs text-destructive">
-              {state.parseErrors.map((error, index) => (
-                <li key={`${error}-${index}`}>{error}</li>
-              ))}
-            </ul>
-          </InspectorSection>
-        )}
-      </div>
+      <dl className="space-y-2 text-xs">
+        <InspectorRow label="Block" value={selectedBlock.label} mono />
+        <InspectorRow label="Status" value={selectedBlock.status} />
+        <InspectorRow label="Lines" value={`${selectedBlock.startLine + 1}-${selectedBlock.endLine + 1}`} />
+      </dl>
     );
   }
 
   if (!selectedItem) {
-    return <p className="py-3 text-xs text-muted-foreground">Select a change to inspect.</p>;
+    return <p className="text-xs text-muted-foreground">Select a change to inspect.</p>;
   }
 
   return (
-    <div className="space-y-4 py-3">
-      <InspectorSection title="Selection">
-        <dl className="space-y-2 text-xs">
-          <InspectorRow label="File" value={selectedItem.file} mono />
-          <InspectorRow label="Mode" value={selectedItem.mode} />
-          <InspectorRow label="Status" value={selectedItem.status} />
-          <InspectorRow label="Language" value={selectedItem.language} />
-          <InspectorRow label="Lines" value={String(selectedItem.lineCount)} />
-          {state.selectedHunkId && <InspectorRow label="Hunk" value={state.selectedHunkId} />}
-        </dl>
-        {selectedItem.validationError && (
-          <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
-            {selectedItem.validationError}
-          </p>
-        )}
-      </InspectorSection>
-
-      <ReviewDirectiveEditor item={selectedItem} onSave={(updates) => reviewActions.handleUpdateDirectives(selectedItem.id, updates)} />
-    </div>
+    <dl className="space-y-2 text-xs">
+      <InspectorRow label="File" value={selectedItem.file} mono />
+      <InspectorRow label="Mode" value={selectedItem.mode} />
+      <InspectorRow label="Status" value={selectedItem.status} />
+      <InspectorRow label="Language" value={selectedItem.language} />
+      <InspectorRow label="Lines" value={String(selectedItem.lineCount)} />
+      {state.selectedHunkId && <InspectorRow label="Hunk" value={state.selectedHunkId} />}
+    </dl>
   );
 }
 
@@ -456,14 +559,14 @@ function ReviewDirectiveEditor({
 
   if (item.status === 'applied') {
     return (
-      <InspectorSection title="Directives">
+      <div>
         <p className="text-xs text-muted-foreground">Applied changes cannot be edited.</p>
-      </InspectorSection>
+      </div>
     );
   }
 
   return (
-    <InspectorSection title="Headers & Directives">
+    <div>
       <div className="space-y-3">
         {HEADER_KEYS.map((key) => (
           <label key={key} className="block text-xs text-muted-foreground">
@@ -516,7 +619,7 @@ function ReviewDirectiveEditor({
           Save Directives
         </Button>
       </div>
-    </InspectorSection>
+    </div>
   );
 }
 
@@ -612,13 +715,116 @@ function HistoryInspector() {
   );
 }
 
-function InspectorSection({ title, children }: { title: string; children: React.ReactNode }) {
+function DiagnosticsSection({ groups }: { groups: DiagnosticGroup[] }) {
+  const { updateState } = useAppStateContext();
+  const handleCopy = async (group: DiagnosticGroup) => {
+    const text = group.messages.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      updateState({ statusMessage: `Copied ${group.title.toLowerCase()}.` });
+    } catch {
+      updateState({ statusMessage: 'Unable to copy diagnostics.' });
+    }
+  };
+
+  if (groups.length === 0) {
+    return <p className="text-xs text-muted-foreground">No diagnostics.</p>;
+  }
+
   return (
-    <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
-      {children}
+    <div className="space-y-2">
+      {groups.map((group) => (
+        <div key={group.id} className="rounded-md border border-border bg-secondary/40">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-foreground">{group.title}</p>
+              <p className={cn('text-[11px]', group.severity === 'error' ? 'text-destructive' : 'text-amber-700')}>
+                {group.messages.length} {group.messages.length === 1 ? 'message' : 'messages'}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              type="button"
+              className="h-7 w-7"
+              onClick={() => handleCopy(group)}
+              aria-label={`Copy ${group.title}`}
+              title={`Copy ${group.title}`}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <ul className="space-y-1 p-2 text-xs text-muted-foreground">
+            {group.messages.map((message, index) => (
+              <li key={`${group.id}-${index}`} className="break-words">{message}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RightAccordion({
+  title,
+  isOpen,
+  count,
+  onToggle,
+  onRemove,
+  children,
+}: {
+  id: RightPanelSectionId;
+  title: string;
+  isOpen: boolean;
+  count?: number;
+  onToggle: () => void;
+  onRemove?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-b border-border">
+      <div className="flex h-9 items-center gap-1 px-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+        >
+          <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !isOpen && '-rotate-90')} />
+          <span className="truncate">{title}</span>
+          {typeof count === 'number' && count > 0 && (
+            <span className="ml-auto rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] text-destructive">{count}</span>
+          )}
+        </button>
+        {onRemove && (
+          <button
+            type="button"
+            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+            onClick={onRemove}
+            aria-label={`Hide ${title}`}
+            title={`Hide ${title}`}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      {isOpen && <div className="px-3 pb-3 pt-1">{children}</div>}
     </section>
   );
+}
+
+function getSectionTitle(section: RightPanelSectionId): string {
+  switch (section) {
+    case 'selection':
+      return 'Selection';
+    case 'directives':
+      return 'Directives';
+    case 'diagnostics':
+      return 'Diagnostics';
+    case 'history':
+      return 'History';
+    default:
+      return section;
+  }
 }
 
 function InspectorRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {

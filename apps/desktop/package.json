@@ -25,7 +25,6 @@
         "@codemirror/lang-xml": "^6.1.0",
         "@codemirror/lang-yaml": "^6.1.0",
         "@codemirror/theme-one-dark": "^6.1.2",
-        "@fontsource/inter": "^5.2.8",
         "@fontsource/jetbrains-mono": "^5.2.8",
         "@inscribe/engine": "0.1.0",
         "@inscribe/shared": "0.1.0",

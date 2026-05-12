@@ -15,7 +15,7 @@ import type {
  */
 export type AppMode = 'intake' | 'review';
 export type ReviewView = 'result' | 'unified' | 'edit';
-export type RightPanelView = 'inspector' | 'history';
+export type RightPanelSectionId = 'selection' | 'directives' | 'diagnostics' | 'history';
 
 export type PipelineStatus = 
   | 'idle'
@@ -91,7 +91,12 @@ export interface AppState {
   isRestoringRepo: boolean;
   reviewView: ReviewView;
   selectedHunkId: string | null;
-  rightPanelView: RightPanelView;
+  reviewComparisonError: string | null;
+  isLeftPanelCollapsed: boolean;
+  isRightPanelCollapsed: boolean;
+  hiddenRightPanelSections: RightPanelSectionId[];
+  openRightPanelSections: RightPanelSectionId[];
+  collapsedHunkIdsByItem: Record<string, string[]>;
 
   // Apply/Redo state
   lastAppliedPlan: ApplyPlan | null;

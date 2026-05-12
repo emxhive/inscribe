@@ -180,7 +180,38 @@ describe('reviewComparison utils', () => {
 
     expect(buildUnifiedDiffModel(comparison)).toEqual({
       file: 'app/example.ts',
-      hunks: comparison.diffHunks,
+      hunks: [
+        {
+          id: 'hunk-0',
+          index: 0,
+          kind: 'replace',
+          header: 'Hunk 1 -2,1 +2,1',
+          oldStartLine: 2,
+          newStartLine: 2,
+          removedCount: 1,
+          addedCount: 1,
+          rows: [
+            {
+              id: 'hunk-0-old-0',
+              hunkId: 'hunk-0',
+              kind: 'remove',
+              oldLine: 2,
+              newLine: null,
+              marker: '-',
+              text: 'beta',
+            },
+            {
+              id: 'hunk-0-new-0',
+              hunkId: 'hunk-0',
+              kind: 'add',
+              oldLine: null,
+              newLine: 2,
+              marker: '+',
+              text: 'updated',
+            },
+          ],
+        },
+      ],
       rows: [
         {
           id: 'hunk-0-header',
@@ -254,5 +285,37 @@ describe('reviewComparison utils', () => {
     expect(rows.map((row) => row.kind)).toEqual(['hunk', 'add', 'hunk', 'remove']);
     expect(rows[0].text).toBe('Hunk 1 -2,0 +2,1');
     expect(rows[2].text).toBe('Hunk 2 -1,1 +1,0');
+  });
+
+  it('groups unified diff hunks for foldable rendering', () => {
+    const comparison: OperationComparison = {
+      type: 'replace',
+      file: 'app/example.ts',
+      oldContent: 'old one\nold two\n',
+      newContent: 'new one\nnew two\n',
+      replacementRegions: [],
+      regions: [],
+      diffHunks: [
+        {
+          id: 'hunk-0',
+          kind: 'replace',
+          oldRange: { start: 0, end: 16 },
+          newRange: { start: 0, end: 16 },
+          oldText: 'old one\nold two\n',
+          newText: 'new one\nnew two\n',
+          oldStartLine: 1,
+          oldEndLine: 2,
+          newStartLine: 1,
+          newEndLine: 2,
+        },
+      ],
+    };
+
+    const model = buildUnifiedDiffModel(comparison);
+
+    expect(model.hunks).toHaveLength(1);
+    expect(model.hunks[0].removedCount).toBe(2);
+    expect(model.hunks[0].addedCount).toBe(2);
+    expect(model.hunks[0].rows.map((row) => row.kind)).toEqual(['remove', 'remove', 'add', 'add']);
   });
 });

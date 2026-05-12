@@ -32,7 +32,12 @@ export const initialState: AppState = {
   isRestoringRepo: true,
   reviewView: 'unified',
   selectedHunkId: null,
-  rightPanelView: 'inspector',
+  reviewComparisonError: null,
+  isLeftPanelCollapsed: false,
+  isRightPanelCollapsed: false,
+  hiddenRightPanelSections: [],
+  openRightPanelSections: ['selection', 'directives', 'diagnostics'],
+  collapsedHunkIdsByItem: {},
 
   lastAppliedPlan: null,
   canRedo: false,

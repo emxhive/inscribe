@@ -38,10 +38,22 @@ export interface UnifiedDiffRow {
   text: string;
 }
 
+export interface UnifiedDiffHunkModel {
+  id: string;
+  index: number;
+  kind: OperationDiffHunk['kind'];
+  header: string;
+  oldStartLine: number;
+  newStartLine: number;
+  removedCount: number;
+  addedCount: number;
+  rows: UnifiedDiffRow[];
+}
+
 export interface UnifiedDiffModel {
   file: string;
   rows: UnifiedDiffRow[];
-  hunks: OperationDiffHunk[];
+  hunks: UnifiedDiffHunkModel[];
 }
 
 export function buildResultReviewModel(comparison: OperationComparison): ReviewRenderModel {
@@ -72,20 +84,27 @@ export const buildReviewRenderModel = buildResultReviewModel;
 export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedDiffModel {
   const hunks = comparison.diffHunks ?? [];
   const rows: UnifiedDiffRow[] = [];
+  const hunkModels: UnifiedDiffHunkModel[] = [];
 
   hunks.forEach((hunk, hunkIndex) => {
-    rows.push({
+    const hunkRows: UnifiedDiffRow[] = [];
+    const oldLines = splitDiffLines(hunk.oldText);
+    const newLines = splitDiffLines(hunk.newText);
+    const header = buildHunkHeader(hunk, hunkIndex, oldLines.length, newLines.length);
+
+    const headerRow: UnifiedDiffRow = {
       id: `${hunk.id}-header`,
       hunkId: hunk.id,
       kind: 'hunk',
       oldLine: null,
       newLine: null,
       marker: '@@',
-      text: buildHunkHeader(hunk, hunkIndex),
-    });
+      text: header,
+    };
+    rows.push(headerRow);
 
-    splitDiffLines(hunk.oldText).forEach((line, index) => {
-      rows.push({
+    oldLines.forEach((line, index) => {
+      hunkRows.push({
         id: `${hunk.id}-old-${index}`,
         hunkId: hunk.id,
         kind: 'remove',
@@ -96,8 +115,8 @@ export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedD
       });
     });
 
-    splitDiffLines(hunk.newText).forEach((line, index) => {
-      rows.push({
+    newLines.forEach((line, index) => {
+      hunkRows.push({
         id: `${hunk.id}-new-${index}`,
         hunkId: hunk.id,
         kind: 'add',
@@ -107,9 +126,22 @@ export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedD
         text: line,
       });
     });
+
+    rows.push(...hunkRows);
+    hunkModels.push({
+      id: hunk.id,
+      index: hunkIndex,
+      kind: hunk.kind,
+      header,
+      oldStartLine: hunk.oldStartLine,
+      newStartLine: hunk.newStartLine,
+      removedCount: oldLines.length,
+      addedCount: newLines.length,
+      rows: hunkRows,
+    });
   });
 
-  return { file: comparison.file, rows, hunks };
+  return { file: comparison.file, rows, hunks: hunkModels };
 }
 
 export function buildReviewRegionOverlay(region: OperationComparisonRegion | OperationDiffHunk): ReviewRegionOverlayModel {
@@ -149,9 +181,7 @@ function getRegionTitle(kind: OperationComparisonRegion['kind']): string {
   }
 }
 
-function buildHunkHeader(hunk: OperationDiffHunk, index: number): string {
-  const oldCount = splitDiffLines(hunk.oldText).length;
-  const newCount = splitDiffLines(hunk.newText).length;
+function buildHunkHeader(hunk: OperationDiffHunk, index: number, oldCount: number, newCount: number): string {
   return `Hunk ${index + 1} -${hunk.oldStartLine},${oldCount} +${hunk.newStartLine},${newCount}`;
 }
 

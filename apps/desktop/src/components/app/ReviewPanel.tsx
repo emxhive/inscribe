@@ -14,6 +14,7 @@ import { css } from '@codemirror/lang-css';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useAppStateContext, useReviewActions } from '@/hooks';
 import { buildResultReviewModel, buildUnifiedDiffModel } from '@/utils/reviewComparison';
 import { cn } from '@/lib/utils';
@@ -49,12 +50,13 @@ export function ReviewPanel() {
   const reviewActions = useReviewActions();
   const { selectedItem, editorValue } = reviewActions;
   const [comparisonData, setComparisonData] = useState<OperationComparison | null>(null);
-  const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [previewEditorView, setPreviewEditorView] = useState<EditorView | null>(null);
   const selectedIsApplied = selectedItem?.status === 'applied';
   const canEditSelection = Boolean(selectedItem) && !selectedIsApplied;
   const activeReviewView = canEditSelection ? state.reviewView : state.reviewView === 'edit' ? 'unified' : state.reviewView;
   const isEditing = activeReviewView === 'edit';
+  const selectedItemId = selectedItem?.id ?? null;
+  const collapsedHunkIds = selectedItemId ? state.collapsedHunkIdsByItem[selectedItemId] ?? [] : [];
 
   const languageExtension = useMemo(() => {
     const fileName = selectedItem?.file;
@@ -111,7 +113,7 @@ export function ReviewPanel() {
 
       if (!state.repoRoot || !selectedItem || isEditing) {
         setComparisonData(null);
-        setComparisonError(null);
+        updateState({ reviewComparisonError: null });
         return;
       }
 
@@ -127,15 +129,16 @@ export function ReviewPanel() {
         if (cancelled) return;
         if ('error' in result) {
           setComparisonData(null);
-          setComparisonError(result.error);
+          updateState({ reviewComparisonError: result.error });
           return;
         }
         setComparisonData(result);
-        setComparisonError(null);
+        updateState({ reviewComparisonError: null });
       } catch (error) {
         if (cancelled) return;
+        const message = error instanceof Error ? error.message : 'Failed to load comparison';
         setComparisonData(null);
-        setComparisonError(error instanceof Error ? error.message : 'Failed to load comparison');
+        updateState({ reviewComparisonError: message });
       }
     };
 
@@ -295,6 +298,23 @@ export function ReviewPanel() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [state.selectedHunkId, unifiedModel, updateState]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || activeReviewView !== 'unified' || !selectedItemId || !state.selectedHunkId) return;
+      if (!collapsedHunkIds.includes(state.selectedHunkId)) return;
+      updateState((prev) => ({
+        collapsedHunkIdsByItem: {
+          ...prev.collapsedHunkIdsByItem,
+          [selectedItemId]: collapsedHunkIds.filter((id) => id !== state.selectedHunkId),
+        },
+      }));
+      event.preventDefault();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeReviewView, collapsedHunkIds, selectedItemId, state.selectedHunkId, updateState]);
+
   if (!selectedItem) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center text-sm text-muted-foreground">
@@ -312,9 +332,6 @@ export function ReviewPanel() {
           <span className="inline-code max-w-[60vw] truncate" title={selectedItem.file}>
             {selectedItem.file}
           </span>
-          {comparisonError && (
-            <span className="truncate text-xs text-destructive" title={comparisonError}>{comparisonError}</span>
-          )}
         </div>
         <div className="flex items-center rounded-md border border-border bg-secondary/60 p-0.5">
           {reviewViewOptions.map((option) => (
@@ -334,6 +351,38 @@ export function ReviewPanel() {
             </button>
           ))}
         </div>
+        {activeReviewView === 'unified' && unifiedModel && unifiedModel.hunks.length > 0 && selectedItemId && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="h-7 rounded-md px-2 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
+              onClick={() =>
+                updateState((prev) => ({
+                  collapsedHunkIdsByItem: {
+                    ...prev.collapsedHunkIdsByItem,
+                    [selectedItemId]: unifiedModel.hunks.map((hunk) => hunk.id),
+                  },
+                }))
+              }
+            >
+              Collapse All
+            </button>
+            <button
+              type="button"
+              className="h-7 rounded-md px-2 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
+              onClick={() =>
+                updateState((prev) => ({
+                  collapsedHunkIdsByItem: {
+                    ...prev.collapsedHunkIdsByItem,
+                    [selectedItemId]: [],
+                  },
+                }))
+              }
+            >
+              Expand All
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -369,7 +418,24 @@ export function ReviewPanel() {
           <UnifiedDiffView
             model={unifiedModel}
             selectedHunkId={state.selectedHunkId}
+            collapsedHunkIds={collapsedHunkIds}
             onSelectHunk={(hunkId) => updateState({ selectedHunkId: hunkId })}
+            onToggleHunk={(hunkId) => {
+              if (!selectedItemId) return;
+              updateState((prev) => {
+                const current = prev.collapsedHunkIdsByItem[selectedItemId] ?? [];
+                const next = current.includes(hunkId)
+                  ? current.filter((id) => id !== hunkId)
+                  : [...current, hunkId];
+                return {
+                  selectedHunkId: hunkId,
+                  collapsedHunkIdsByItem: {
+                    ...prev.collapsedHunkIdsByItem,
+                    [selectedItemId]: next,
+                  },
+                };
+              });
+            }}
           />
         )}
       </div>
@@ -380,11 +446,15 @@ export function ReviewPanel() {
 function UnifiedDiffView({
   model,
   selectedHunkId,
+  collapsedHunkIds,
   onSelectHunk,
+  onToggleHunk,
 }: {
   model: ReturnType<typeof buildUnifiedDiffModel> | null;
   selectedHunkId: string | null;
+  collapsedHunkIds: string[];
   onSelectHunk: (hunkId: string) => void;
+  onToggleHunk: (hunkId: string) => void;
 }) {
   if (!model) {
     return (
@@ -394,7 +464,7 @@ function UnifiedDiffView({
     );
   }
 
-  if (model.rows.length === 0) {
+  if (model.hunks.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         No diff hunks for this change.
@@ -405,25 +475,50 @@ function UnifiedDiffView({
   return (
     <div className="h-full overflow-auto bg-[#111827] font-mono text-xs text-slate-200">
       <div className="min-w-max py-2">
-        {model.rows.map((row) => (
-          <button
-            type="button"
-            key={row.id}
-            onClick={() => onSelectHunk(row.hunkId)}
-            className={cn(
-              'grid w-full grid-cols-[4rem_4rem_2rem_minmax(0,1fr)] items-start text-left leading-5',
-              row.kind === 'hunk' && 'bg-slate-800/90 text-sky-200',
-              row.kind === 'remove' && 'bg-red-950/35 text-red-100',
-              row.kind === 'add' && 'bg-emerald-950/35 text-emerald-100',
-              selectedHunkId === row.hunkId && row.kind !== 'hunk' && 'outline outline-1 outline-inset outline-sky-500/50',
-            )}
-          >
-            <span className="px-2 text-right text-slate-500">{row.oldLine ?? ''}</span>
-            <span className="px-2 text-right text-slate-500">{row.newLine ?? ''}</span>
-            <span className="px-2 text-slate-400">{row.marker}</span>
-            <span className="whitespace-pre px-2">{row.text || ' '}</span>
-          </button>
-        ))}
+        {model.hunks.map((hunk) => {
+          const isCollapsed = collapsedHunkIds.includes(hunk.id);
+          const isSelected = selectedHunkId === hunk.id;
+          return (
+            <div key={hunk.id}>
+              <button
+                type="button"
+                onClick={() => onToggleHunk(hunk.id)}
+                className={cn(
+                  'grid w-full grid-cols-[2rem_4rem_4rem_minmax(12rem,1fr)_10rem] items-center bg-slate-800/90 text-left leading-7 text-sky-200 hover:bg-slate-700/90',
+                  isSelected && 'outline outline-1 outline-inset outline-sky-500/70',
+                )}
+              >
+                <span className="flex items-center justify-center text-slate-400">
+                  {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </span>
+                <span className="px-2 text-right text-slate-500">{hunk.oldStartLine}</span>
+                <span className="px-2 text-right text-slate-500">{hunk.newStartLine}</span>
+                <span className="truncate px-2">{hunk.header}</span>
+                <span className="px-2 text-right text-[11px] text-slate-400">
+                  {hunk.removedCount} removed, {hunk.addedCount} added
+                </span>
+              </button>
+              {!isCollapsed && hunk.rows.map((row) => (
+                <button
+                  type="button"
+                  key={row.id}
+                  onClick={() => onSelectHunk(row.hunkId)}
+                  className={cn(
+                    'grid w-full grid-cols-[4rem_4rem_2rem_minmax(0,1fr)] items-start text-left leading-5',
+                    row.kind === 'remove' && 'bg-red-950/35 text-red-100',
+                    row.kind === 'add' && 'bg-emerald-950/35 text-emerald-100',
+                    selectedHunkId === row.hunkId && 'outline outline-1 outline-inset outline-sky-500/50',
+                  )}
+                >
+                  <span className="px-2 text-right text-slate-500">{row.oldLine ?? ''}</span>
+                  <span className="px-2 text-right text-slate-500">{row.newLine ?? ''}</span>
+                  <span className="px-2 text-slate-400">{row.marker}</span>
+                  <span className="whitespace-pre px-2">{row.text || ' '}</span>
+                </button>
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

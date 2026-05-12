@@ -148,16 +148,6 @@ export function HeaderDirectiveEditor({
                 }}
               />
             </div>
-            {(block.warnings.length > 0 || block.errors.length > 0) && (
-              <div className="rounded-md border border-border bg-muted/50 p-2 text-[11px] text-muted-foreground">
-                {block.errors.length > 0 && (
-                  <p className="text-red-700">Error: {block.errors[0]}</p>
-                )}
-                {block.warnings.length > 0 && (
-                  <p className="text-amber-700">Warning: {block.warnings[0]}</p>
-                )}
-              </div>
-            )}
             <p className="text-[11px] text-muted-foreground">Changes update the raw text inline.</p>
           </div>
         </div>

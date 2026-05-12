@@ -70,14 +70,6 @@ export function FileListEntry({
             <span>•</span>
             <span className="truncate">{mode}</span>
           </div>
-          {validationError && (
-            <div
-              className="text-[11px] text-destructive mt-1 overflow-hidden text-ellipsis whitespace-nowrap"
-              title={validationError}
-            >
-              {validationError}
-            </div>
-          )}
         </div>
         {hasActions && actionPlacement === 'side' && (
           <div className="flex items-center gap-1 pt-0.5" aria-label="File actions">

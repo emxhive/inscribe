@@ -53,6 +53,7 @@ function findSuggestionForCommand(
 
 export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelProps) {
   const terminalElementRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -64,9 +65,11 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
   const [runs, setRuns] = useState<TerminalRun[]>([]);
   const [copiedRunId, setCopiedRunId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [terminalError, setTerminalError] = useState<string | null>(null);
   const activeSuggestion = suggestions[suggestionIndex] ?? null;
   const ghostSuggestion = commandInput.length === 0 ? activeSuggestion?.command ?? '' : '';
   const hasRepo = Boolean(repoRoot);
+  const terminalApiAvailable = typeof window.inscribeAPI.terminalCreate === 'function';
 
   const sortedRuns = useMemo(
     () => [...runs].sort((a, b) => b.startedAt - a.startedAt),
@@ -80,6 +83,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
   useEffect(() => {
     const container = terminalElementRef.current;
     if (!container || !repoRoot) return;
+    setTerminalError(null);
 
     const terminal = new Terminal({
       allowProposedApi: false,
@@ -122,6 +126,20 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
     resizeObserver.observe(container);
 
     let disposed = false;
+    if (!terminalApiAvailable) {
+      const message = 'Terminal IPC is unavailable. Restart Inscribe so the updated main process and preload are loaded.';
+      setTerminalError(message);
+      setShell('Terminal unavailable');
+      terminal.writeln(`Error: ${message}`);
+      return () => {
+        disposed = true;
+        resizeObserver.disconnect();
+        terminal.dispose();
+        terminalRef.current = null;
+        fitAddonRef.current = null;
+      };
+    }
+
     void window.inscribeAPI.terminalCreate({
       cwd: repoRoot,
       cols: terminal.cols || 80,
@@ -138,6 +156,13 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
       terminal.writeln(`Shell: ${info.shell}`);
       terminal.writeln(`CWD: ${info.cwd}`);
       fitAndResize();
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }).catch((error) => {
+      if (disposed) return;
+      const message = error instanceof Error ? error.message : String(error);
+      setTerminalError(message);
+      setShell('Terminal failed to start');
+      terminal.writeln(`Error: ${message}`);
     });
 
     return () => {
@@ -152,7 +177,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [repoRoot]);
+  }, [repoRoot, terminalApiAvailable]);
 
   useEffect(() => {
     const removeDataListener = window.inscribeAPI.onTerminalData((event: TerminalDataEvent) => {
@@ -195,7 +220,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
 
   const runCommand = async () => {
     const command = commandInput.trim();
-    if (!command || !sessionId || isRunning) return;
+    if (!command || !sessionId || isRunning || terminalError) return;
     const suggestion = findSuggestionForCommand(command, suggestions);
     if (suggestion?.risk === 'destructive') {
       const confirmed = window.confirm(`Run destructive command?\n\n${command}`);
@@ -216,7 +241,12 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
     ]);
     setIsRunning(true);
     setCommandInput('');
-    const accepted = await window.inscribeAPI.terminalRunCommand(sessionId, runId, command);
+    let accepted = false;
+    try {
+      accepted = await window.inscribeAPI.terminalRunCommand(sessionId, runId, command);
+    } catch (error) {
+      setTerminalError(error instanceof Error ? error.message : String(error));
+    }
     if (!accepted) {
       setIsRunning(false);
       setRuns((currentRuns) =>
@@ -271,7 +301,9 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
         <SquareTerminal className="h-4 w-4 text-sky-300" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-semibold text-slate-100">{cwd || 'Terminal'}</div>
-          <div className="truncate text-[10px] text-slate-400">{shell || 'Starting shell...'}</div>
+          <div className={cn('truncate text-[10px]', terminalError ? 'text-red-300' : 'text-slate-400')}>
+            {terminalError ?? (shell || 'Starting shell...')}
+          </div>
         </div>
         {suggestions.length > 0 && (
           <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
@@ -358,16 +390,17 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
                   </div>
                 )}
                 <input
+                  ref={inputRef}
                   value={commandInput}
-                  disabled={!hasRepo || !sessionId || isRunning}
+                  disabled={!hasRepo || !sessionId || isRunning || Boolean(terminalError)}
                   onChange={(event) => setCommandInput(event.target.value)}
                   onKeyDown={handleCommandKeyDown}
                   className="relative z-10 h-8 w-full bg-transparent font-mono text-xs text-slate-100 caret-sky-300 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:text-slate-500"
-                  placeholder={hasRepo ? '' : 'Select a repository first'}
+                  placeholder={terminalError ? 'Terminal unavailable' : hasRepo ? '' : 'Select a repository first'}
                   spellCheck={false}
                 />
               </div>
-              {activeSuggestion?.risk !== 'normal' && commandInput.length === 0 && (
+              {activeSuggestion && activeSuggestion.risk !== 'normal' && commandInput.length === 0 && (
                 <AlertTriangle
                   className={cn(
                     'h-4 w-4',
@@ -379,7 +412,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
                 size="icon"
                 type="button"
                 className="h-8 w-8"
-                disabled={!commandInput.trim() || !sessionId || isRunning}
+                disabled={!commandInput.trim() || !sessionId || isRunning || Boolean(terminalError)}
                 onClick={() => void runCommand()}
                 title="Run command"
                 aria-label="Run command"

@@ -29,6 +29,7 @@ interface TerminalSession {
 
 type PtyModule = typeof import('node-pty');
 type PtyProcess = ReturnType<PtyModule['spawn']>;
+type ShellConfig = { file: string; args: string[]; kind: TerminalShellKind };
 
 const sessions = new Map<string, TerminalSession>();
 const EXIT_PREFIX = '__INSCRIBE_EXIT:';
@@ -49,24 +50,49 @@ function getPtyModule(): PtyModule | null {
   return ptyModule;
 }
 
-function getShell(): { file: string; args: string[]; kind: TerminalShellKind } {
+function inferShellKind(file: string): TerminalShellKind {
+  const normalized = file.toLowerCase();
+  if (normalized.endsWith('cmd.exe') || normalized === 'cmd') return 'cmd';
+  if (normalized.includes('powershell') || normalized.endsWith('pwsh.exe') || normalized === 'pwsh') {
+    return 'powershell';
+  }
+  return 'posix';
+}
+
+function getShellCandidates(): ShellConfig[] {
   if (process.platform === 'win32') {
-    return {
-      file: process.env.INSCRIBE_TERMINAL_SHELL || 'powershell.exe',
-      args: ['-NoLogo', '-NoProfile'],
-      kind: 'powershell',
-    };
+    const configuredShell = process.env.INSCRIBE_TERMINAL_SHELL;
+    if (configuredShell) {
+      return [{
+        file: configuredShell,
+        args: inferShellKind(configuredShell) === 'powershell' ? ['-NoLogo', '-NoProfile'] : [],
+        kind: inferShellKind(configuredShell),
+      }];
+    }
+
+    return [
+      {
+        file: 'powershell.exe',
+        args: ['-NoLogo', '-NoProfile'],
+        kind: 'powershell',
+      },
+      {
+        file: 'cmd.exe',
+        args: [],
+        kind: 'cmd',
+      },
+    ];
   }
 
-  return {
+  return [{
     file: process.env.SHELL || '/bin/bash',
     args: [],
     kind: 'posix',
-  };
+  }];
 }
 
 function createPtyProcess(
-  shell: ReturnType<typeof getShell>,
+  shell: ShellConfig,
   options: TerminalCreateOptions,
   onData: (data: string) => void,
   onExit: () => void,
@@ -95,11 +121,11 @@ function createPtyProcess(
 }
 
 function createFallbackProcess(
-  shell: ReturnType<typeof getShell>,
+  shell: ShellConfig,
   options: TerminalCreateOptions,
   onData: (data: string) => void,
   onExit: () => void,
-): TerminalProcess {
+): Promise<TerminalProcess> {
   const child: ChildProcessWithoutNullStreams = spawn(shell.file, shell.args, {
     cwd: options.cwd,
     env: process.env,
@@ -107,15 +133,32 @@ function createFallbackProcess(
     windowsHide: true,
   });
 
-  child.stdout.on('data', (data: Buffer) => onData(data.toString()));
-  child.stderr.on('data', (data: Buffer) => onData(data.toString()));
-  child.on('exit', onExit);
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (processHandle: TerminalProcess) => {
+      if (settled) return;
+      settled = true;
+      resolve(processHandle);
+    };
 
-  return {
-    write: (data) => child.stdin.write(data),
-    resize: () => undefined,
-    kill: () => child.kill(),
-  };
+    child.once('spawn', () => {
+      child.stdout.on('data', (data: Buffer) => onData(data.toString()));
+      child.stderr.on('data', (data: Buffer) => onData(data.toString()));
+      child.on('exit', onExit);
+
+      settle({
+        write: (data) => child.stdin.write(data),
+        resize: () => undefined,
+        kill: () => child.kill(),
+      });
+    });
+
+    child.once('error', (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    });
+  });
 }
 
 function sendToOwner<T extends TerminalDataEvent | TerminalRunExitEvent>(
@@ -208,8 +251,8 @@ function disposeSession(sessionId: string) {
 }
 
 export function registerTerminalHandlers() {
-  ipcMain.handle('terminal-create', (event, options: TerminalCreateOptions): TerminalSessionInfo => {
-    const shell = getShell();
+  ipcMain.handle('terminal-create', async (event, options: TerminalCreateOptions): Promise<TerminalSessionInfo> => {
+    const shellCandidates = getShellCandidates();
     const id = randomUUID();
     const cwd = options.cwd || process.cwd();
     const webContents = event.sender;
@@ -224,12 +267,30 @@ export function registerTerminalHandlers() {
       }
       pendingData.push(data);
     };
-    let processHandle: TerminalProcess;
+    let processHandle: TerminalProcess | null = null;
+    let selectedShell: ShellConfig | null = null;
+    const startupErrors: string[] = [];
 
-    try {
-      processHandle = createPtyProcess(shell, { ...options, cwd }, onData, onExit);
-    } catch {
-      processHandle = createFallbackProcess(shell, { ...options, cwd }, onData, onExit);
+    for (const shell of shellCandidates) {
+      try {
+        processHandle = createPtyProcess(shell, { ...options, cwd }, onData, onExit);
+        selectedShell = shell;
+        break;
+      } catch (error) {
+        startupErrors.push(`${shell.file} PTY: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      try {
+        processHandle = await createFallbackProcess(shell, { ...options, cwd }, onData, onExit);
+        selectedShell = shell;
+        break;
+      } catch (error) {
+        startupErrors.push(`${shell.file} fallback: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (!processHandle || !selectedShell) {
+      throw new Error(`Unable to start terminal shell. ${startupErrors.join(' | ')}`);
     }
 
     session = {
@@ -237,8 +298,8 @@ export function registerTerminalHandlers() {
       owner: webContents,
       process: processHandle,
       cwd,
-      shell: shell.file,
-      shellKind: shell.kind,
+      shell: selectedShell.file,
+      shellKind: selectedShell.kind,
       activeRunId: null,
       lineBuffer: '',
     };
@@ -252,7 +313,7 @@ export function registerTerminalHandlers() {
     return {
       sessionId: id,
       cwd,
-      shell: shell.file,
+      shell: selectedShell.file,
     };
   });
 

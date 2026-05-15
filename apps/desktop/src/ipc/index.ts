@@ -11,6 +11,7 @@ import { registerParsingHandlers } from './parsing';
 import { registerApplyHandlers } from './apply';
 import { registerHistoryHandlers } from './history';
 import { registerWindowHandlers } from './window';
+import { registerTerminalHandlers } from './terminal';
 
 export { registerDialogHandlers } from './dialog';
 export { registerRepositoryHandlers } from './repository';
@@ -20,6 +21,7 @@ export { registerParsingHandlers } from './parsing';
 export { registerApplyHandlers } from './apply';
 export { registerHistoryHandlers } from './history';
 export { registerWindowHandlers } from './window';
+export { registerTerminalHandlers } from './terminal';
 
 /**
  * Register all IPC handlers
@@ -33,4 +35,5 @@ export function registerAllHandlers() {
   registerApplyHandlers();
   registerHistoryHandlers();
   registerWindowHandlers();
+  registerTerminalHandlers();
 }

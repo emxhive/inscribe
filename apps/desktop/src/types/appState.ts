@@ -6,6 +6,7 @@ import type {
   ParsedBlock,
   ValidationError,
   HistoryEntry,
+  CliCommandSuggestion,
 } from '@inscribe/shared';
 
 /**
@@ -98,6 +99,9 @@ export interface AppState {
   openRightPanelSections: RightPanelSectionId[];
   collapsedHunkIdsByItem: Record<string, string[]>;
   collapsedDiffGroupIdsByItem: Record<string, string[]>;
+  isTerminalOpen: boolean;
+  terminalCommandSuggestions: CliCommandSuggestion[];
+  terminalSuggestionSourceApplyId: string | null;
 
   // Apply/Redo state
   lastAppliedPlan: ApplyPlan | null;

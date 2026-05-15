@@ -87,6 +87,33 @@ const api = {
   markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) =>
     ipcRenderer.invoke('history-mark-restored', repoRoot, entryId, restoredAt),
 
+  terminalCreate: (options: import('./types').TerminalCreateOptions) =>
+    ipcRenderer.invoke('terminal-create', options),
+
+  terminalRunCommand: (sessionId: string, runId: string, command: string) =>
+    ipcRenderer.invoke('terminal-run-command', sessionId, runId, command),
+
+  terminalResize: (sessionId: string, cols: number, rows: number) =>
+    ipcRenderer.invoke('terminal-resize', sessionId, cols, rows),
+
+  terminalInterrupt: (sessionId: string) =>
+    ipcRenderer.invoke('terminal-interrupt', sessionId),
+
+  terminalDispose: (sessionId: string) =>
+    ipcRenderer.invoke('terminal-dispose', sessionId),
+
+  onTerminalData: (callback: (event: import('./types').TerminalDataEvent) => void) => {
+    const subscription = (_event: any, payload: import('./types').TerminalDataEvent) => callback(payload);
+    ipcRenderer.on('terminal:data', subscription);
+    return () => ipcRenderer.removeListener('terminal:data', subscription);
+  },
+
+  onTerminalRunExit: (callback: (event: import('./types').TerminalRunExitEvent) => void) => {
+    const subscription = (_event: any, payload: import('./types').TerminalRunExitEvent) => callback(payload);
+    ipcRenderer.on('terminal:run-exit', subscription);
+    return () => ipcRenderer.removeListener('terminal:run-exit', subscription);
+  },
+
 };
 
 contextBridge.exposeInMainWorld('inscribeAPI', api);

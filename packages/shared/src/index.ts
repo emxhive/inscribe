@@ -7,3 +7,4 @@ export * from './constants';
 export * from './parseUtils';
 export * from './directives';
 export * from './path';
+export * from './cliCommands';

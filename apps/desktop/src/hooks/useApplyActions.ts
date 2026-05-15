@@ -1,5 +1,6 @@
 import {buildApplyPlanFromItems, decorateHistoryEntries} from '@/utils';
 import type {ReviewItem} from '@/types';
+import { extractCliCommandSuggestions } from '@inscribe/shared';
 import {useAppStateContext} from './useAppStateContext';
 import {initRepositoryState} from './useRepositoryActions';
 import {useHistoryActions} from './useHistoryActions';
@@ -26,6 +27,17 @@ export function useApplyActions() {
                 reviewItems: nextReviewItems,
                 ...(selectedWasApplied ? {isEditing: false} : {}),
             };
+        });
+    };
+
+    const stageTerminalSuggestions = (applyId: string | null) => {
+        const suggestions = extractCliCommandSuggestions(state.aiInput);
+        if (suggestions.length === 0) {
+            return;
+        }
+        updateState({
+            terminalCommandSuggestions: suggestions,
+            terminalSuggestionSourceApplyId: applyId,
         });
     };
     const handleApplySelected = async () => {
@@ -75,6 +87,7 @@ export function useApplyActions() {
                     lastApplyId: applyId,
                     canRedo: true,
                 });
+                stageTerminalSuggestions(applyId);
                 await refreshRepo(state.repoRoot);
             } else {
                 updateState({
@@ -146,6 +159,7 @@ export function useApplyActions() {
                     lastApplyId: applyId,
                     canRedo: true,
                 });
+                stageTerminalSuggestions(applyId);
                 await refreshRepo(state.repoRoot);
             } else {
                 updateState({
@@ -215,6 +229,7 @@ export function useApplyActions() {
                     lastApplyId: applyId,
                     canRedo: true,
                 });
+                stageTerminalSuggestions(applyId);
                 await refreshRepo(state.repoRoot);
             } else {
                 updateState({

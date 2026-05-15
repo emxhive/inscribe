@@ -47,6 +47,31 @@ export interface ReadIgnoreRawResult {
 
 export type OperationComparisonResult = OperationComparison | { error: string };
 
+export interface TerminalCreateOptions {
+  cwd: string;
+  cols: number;
+  rows: number;
+}
+
+export interface TerminalSessionInfo {
+  sessionId: string;
+  cwd: string;
+  shell: string;
+}
+
+export interface TerminalDataEvent {
+  sessionId: string;
+  runId: string | null;
+  data: string;
+}
+
+export interface TerminalRunExitEvent {
+  sessionId: string;
+  runId: string;
+  exitCode: number | null;
+  cwd?: string;
+}
+
 export interface InscribeAPI {
   selectRepository: (defaultPath?: string) => Promise<string | null>;
   getLastVisitedRepo: () => Promise<string | null>;
@@ -70,4 +95,11 @@ export interface InscribeAPI {
   compareOperation: (operation: Operation, repoRoot: string) => Promise<OperationComparisonResult>;
   getHistoryEntries: (repoRoot: string) => Promise<HistoryEntry[]>;
   markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) => Promise<boolean>;
+  terminalCreate: (options: TerminalCreateOptions) => Promise<TerminalSessionInfo>;
+  terminalRunCommand: (sessionId: string, runId: string, command: string) => Promise<boolean>;
+  terminalResize: (sessionId: string, cols: number, rows: number) => Promise<boolean>;
+  terminalInterrupt: (sessionId: string) => Promise<boolean>;
+  terminalDispose: (sessionId: string) => Promise<boolean>;
+  onTerminalData: (callback: (event: TerminalDataEvent) => void) => () => void;
+  onTerminalRunExit: (callback: (event: TerminalRunExitEvent) => void) => () => void;
 }

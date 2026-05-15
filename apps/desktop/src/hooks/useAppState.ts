@@ -39,6 +39,9 @@ export const initialState: AppState = {
   openRightPanelSections: ['selection', 'directives', 'diagnostics'],
   collapsedHunkIdsByItem: {},
   collapsedDiffGroupIdsByItem: {},
+  isTerminalOpen: false,
+  terminalCommandSuggestions: [],
+  terminalSuggestionSourceApplyId: null,
 
   lastAppliedPlan: null,
   canRedo: false,

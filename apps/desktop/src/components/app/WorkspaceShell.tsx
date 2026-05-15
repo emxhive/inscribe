@@ -13,6 +13,7 @@ import {
   PanelRight,
   RotateCcw,
   Settings,
+  SquareTerminal,
   X,
 } from 'lucide-react';
 import { DIRECTIVE_KEYS, HEADER_KEYS, VALID_MODES, type DirectiveKey, type HeaderKey } from '@inscribe/shared';
@@ -26,6 +27,7 @@ import { FileSidebar, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from './FileSidebar
 import { IntakePanel } from './IntakePanel';
 import { ReviewPanel } from './ReviewPanel';
 import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
+import { TerminalPanel } from './TerminalPanel';
 import { cn } from '@/lib/utils';
 import type { AppState, RightPanelSectionId } from '@/types';
 import { buildDiagnosticGroups, type DiagnosticGroup } from '@/utils/diagnostics';
@@ -118,6 +120,13 @@ export function WorkspaceShell({
         </main>
         {!state.isRightPanelCollapsed && <RightPanel />}
       </div>
+      {state.isTerminalOpen && (
+        <TerminalPanel
+          repoRoot={state.repoRoot}
+          suggestions={state.terminalCommandSuggestions}
+          onClose={() => updateState({ isTerminalOpen: false })}
+        />
+      )}
       <WorkspaceBottomBar />
     </div>
   );
@@ -268,6 +277,14 @@ function WorkspaceTopBar({
         </ChromeButton>
         <ChromeButton onClick={() => updateState({ statusMessage: 'Info (placeholder)' })} title="Info">
           <Info className="h-3.5 w-3.5" />
+        </ChromeButton>
+        <ChromeButton
+          onClick={() => updateState({ isTerminalOpen: !state.isTerminalOpen })}
+          title={state.isTerminalOpen ? 'Hide terminal' : 'Show terminal'}
+          aria-label={state.isTerminalOpen ? 'Hide terminal' : 'Show terminal'}
+          active={state.isTerminalOpen}
+        >
+          <SquareTerminal className="h-3.5 w-3.5" />
         </ChromeButton>
         <ChromeButton
           onClick={() => updateState({ isRightPanelCollapsed: !state.isRightPanelCollapsed })}

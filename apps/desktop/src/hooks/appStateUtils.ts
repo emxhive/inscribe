@@ -17,6 +17,9 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
     next.reviewComparisonError = null;
     next.collapsedHunkIdsByItem = {};
     next.collapsedDiffGroupIdsByItem = {};
+    next.isTerminalOpen = false;
+    next.terminalCommandSuggestions = [];
+    next.terminalSuggestionSourceApplyId = null;
   }
 
   return next;

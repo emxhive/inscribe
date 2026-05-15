@@ -6,7 +6,7 @@ import { AlertTriangle, Check, Copy, Play, Square, SquareTerminal } from 'lucide
 import type { CliCommandSuggestion } from '@inscribe/shared';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { TerminalDataEvent, TerminalRunExitEvent } from '@/types';
+import type { TerminalDataEvent, TerminalRunExitEvent, TerminalShellPreference } from '@/types';
 
 type TerminalRunStatus = 'running' | 'success' | 'failed' | 'unknown';
 
@@ -26,9 +26,53 @@ interface TerminalPanelProps {
 }
 
 const ANSI_PATTERN = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+const CONTROL_PATTERN = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
+const TERMINAL_SHELL_STORAGE_KEY = 'inscribe:terminal:shellPreference';
+const TERMINAL_SHELL_OPTIONS: Array<{ value: TerminalShellPreference; label: string }> = [
+  { value: 'bash', label: 'Bash' },
+  { value: 'auto', label: 'Auto' },
+  { value: 'powershell', label: 'PowerShell' },
+  { value: 'cmd', label: 'cmd' },
+];
 
 function stripAnsi(text: string): string {
   return text.replace(ANSI_PATTERN, '');
+}
+
+function getInitialShellPreference(): TerminalShellPreference {
+  if (typeof window === 'undefined') return 'bash';
+  const stored = window.localStorage.getItem(TERMINAL_SHELL_STORAGE_KEY);
+  if (stored === 'auto' || stored === 'bash' || stored === 'powershell' || stored === 'cmd') {
+    return stored;
+  }
+  return 'bash';
+}
+
+function sanitizeTerminalOutputForClipboard(text: string, command: string): string {
+  const withoutAnsi = stripAnsi(text);
+  const lines = withoutAnsi
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => {
+      let cleaned = line;
+      while (/[^\b]\x08/.test(cleaned)) {
+        cleaned = cleaned.replace(/[^\b]\x08/g, '');
+      }
+      return cleaned.replace(CONTROL_PATTERN, '').trimEnd();
+    })
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (trimmed.includes('__INSCRIBE_EXIT:') || trimmed.includes('__INSCRIBE_CWD:')) return false;
+      if (trimmed.includes('$__inscribeExit') || trimmed.includes('__inscribe_exit')) return false;
+      if (trimmed.includes('INSCRIBE_EXIT=')) return false;
+      if (trimmed.includes('Cannot load PSReadline module.')) return false;
+      if (trimmed === command || trimmed.endsWith(command)) return false;
+      return !/^[\\|/-]+$/.test(trimmed);
+    });
+
+  return lines.join('\n').trimEnd();
 }
 
 function createRunId(): string {
@@ -39,7 +83,7 @@ function createRunId(): string {
 }
 
 function formatRunForClipboard(run: TerminalRun): string {
-  const output = stripAnsi(run.output).trimEnd();
+  const output = sanitizeTerminalOutputForClipboard(run.output, run.command);
   const exitLine = run.exitCode !== null && run.exitCode !== 0 ? `\n\n[exit code: ${run.exitCode}]` : '';
   return [`$ ${run.command}`, output].filter(Boolean).join('\n\n') + exitLine;
 }
@@ -66,6 +110,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
   const [copiedRunId, setCopiedRunId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [terminalError, setTerminalError] = useState<string | null>(null);
+  const [shellPreference, setShellPreference] = useState<TerminalShellPreference>(getInitialShellPreference);
   const activeSuggestion = suggestions[suggestionIndex] ?? null;
   const ghostSuggestion = commandInput.length === 0 ? activeSuggestion?.command ?? '' : '';
   const hasRepo = Boolean(repoRoot);
@@ -144,6 +189,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
       cwd: repoRoot,
       cols: terminal.cols || 80,
       rows: terminal.rows || 24,
+      shellPreference,
     }).then((info) => {
       if (disposed) {
         void window.inscribeAPI.terminalDispose(info.sessionId);
@@ -177,7 +223,12 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [repoRoot, terminalApiAvailable]);
+  }, [repoRoot, shellPreference, terminalApiAvailable]);
+
+  const handleShellPreferenceChange = (nextPreference: TerminalShellPreference) => {
+    setShellPreference(nextPreference);
+    window.localStorage.setItem(TERMINAL_SHELL_STORAGE_KEY, nextPreference);
+  };
 
   useEffect(() => {
     const removeDataListener = window.inscribeAPI.onTerminalData((event: TerminalDataEvent) => {
@@ -310,6 +361,18 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
             {suggestionIndex + 1}/{suggestions.length}
           </span>
         )}
+        <select
+          value={shellPreference}
+          disabled={isRunning}
+          onChange={(event) => handleShellPreferenceChange(event.target.value as TerminalShellPreference)}
+          className="h-7 rounded-md border border-slate-700 bg-slate-900 px-2 text-[11px] font-semibold text-slate-200 outline-none hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          title="Terminal shell"
+          aria-label="Terminal shell"
+        >
+          {TERMINAL_SHELL_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
         <Button
           variant="ghost"
           size="icon"

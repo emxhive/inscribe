@@ -1,11 +1,13 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
 import type {
   TerminalCreateOptions,
   TerminalDataEvent,
   TerminalRunExitEvent,
   TerminalSessionInfo,
+  TerminalShellPreference,
 } from '../types';
 
 type TerminalShellKind = 'powershell' | 'cmd' | 'posix';
@@ -29,7 +31,7 @@ interface TerminalSession {
 
 type PtyModule = typeof import('node-pty');
 type PtyProcess = ReturnType<PtyModule['spawn']>;
-type ShellConfig = { file: string; args: string[]; kind: TerminalShellKind };
+type ShellConfig = { file: string; args: string[]; kind: TerminalShellKind; preference: TerminalShellPreference };
 
 const sessions = new Map<string, TerminalSession>();
 const EXIT_PREFIX = '__INSCRIBE_EXIT:';
@@ -59,35 +61,74 @@ function inferShellKind(file: string): TerminalShellKind {
   return 'posix';
 }
 
-function getShellCandidates(): ShellConfig[] {
+function windowsBashCandidates(): ShellConfig[] {
+  const candidates = [
+    'C:\\Program Files\\Git\\bin\\bash.exe',
+    'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
+    'bash.exe',
+  ];
+
+  return candidates
+    .filter((file, index) => index === candidates.length - 1 || fs.existsSync(file))
+    .map((file) => ({
+      file,
+      args: ['--noprofile', '--norc', '-i'],
+      kind: 'posix' as const,
+      preference: 'bash' as const,
+    }));
+}
+
+function powershellCandidate(): ShellConfig {
+  return {
+    file: 'powershell.exe',
+    args: ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass'],
+    kind: 'powershell',
+    preference: 'powershell',
+  };
+}
+
+function cmdCandidate(): ShellConfig {
+  return {
+    file: 'cmd.exe',
+    args: [],
+    kind: 'cmd',
+    preference: 'cmd',
+  };
+}
+
+function getShellCandidates(shellPreference: TerminalShellPreference = 'auto'): ShellConfig[] {
   if (process.platform === 'win32') {
     const configuredShell = process.env.INSCRIBE_TERMINAL_SHELL;
     if (configuredShell) {
+      const kind = inferShellKind(configuredShell);
       return [{
         file: configuredShell,
-        args: inferShellKind(configuredShell) === 'powershell' ? ['-NoLogo', '-NoProfile'] : [],
-        kind: inferShellKind(configuredShell),
+        args: kind === 'powershell' ? ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass'] : [],
+        kind,
+        preference: shellPreference,
       }];
     }
 
-    return [
-      {
-        file: 'powershell.exe',
-        args: ['-NoLogo', '-NoProfile'],
-        kind: 'powershell',
-      },
-      {
-        file: 'cmd.exe',
-        args: [],
-        kind: 'cmd',
-      },
-    ];
+    if (shellPreference === 'bash') return [...windowsBashCandidates(), powershellCandidate(), cmdCandidate()];
+    if (shellPreference === 'powershell') return [powershellCandidate(), ...windowsBashCandidates(), cmdCandidate()];
+    if (shellPreference === 'cmd') return [cmdCandidate(), ...windowsBashCandidates(), powershellCandidate()];
+    return [...windowsBashCandidates(), powershellCandidate(), cmdCandidate()];
+  }
+
+  if (shellPreference === 'bash' || shellPreference === 'auto') {
+    return [{
+      file: process.env.SHELL || '/bin/bash',
+      args: [],
+      kind: 'posix',
+      preference: shellPreference,
+    }];
   }
 
   return [{
     file: process.env.SHELL || '/bin/bash',
     args: [],
     kind: 'posix',
+    preference: shellPreference,
   }];
 }
 
@@ -178,8 +219,14 @@ function handleCompleteLine(session: TerminalSession, rawLine: string) {
   const plainLine = stripAnsi(rawLine).trim();
   const exitPrefix = `${EXIT_PREFIX}${session.activeRunId ?? ''}:`;
   const cwdPrefix = `${CWD_PREFIX}${session.activeRunId ?? ''}:`;
+  const isInternalLine =
+    plainLine.includes(EXIT_PREFIX) ||
+    plainLine.includes(CWD_PREFIX) ||
+    plainLine.includes('$__inscribeExit') ||
+    plainLine.includes('__inscribe_exit') ||
+    plainLine.includes('INSCRIBE_EXIT=');
 
-  if (session.activeRunId && plainLine.includes(exitPrefix)) {
+  if (session.activeRunId && plainLine.startsWith(exitPrefix)) {
     const match = plainLine.match(new RegExp(`${EXIT_PREFIX}${session.activeRunId}:(-?\\d+)`));
     if (match) {
       sendToOwner(session, 'terminal:run-exit', {
@@ -193,13 +240,13 @@ function handleCompleteLine(session: TerminalSession, rawLine: string) {
     return;
   }
 
-  if (session.activeRunId && plainLine.includes(cwdPrefix)) {
-    const cwd = plainLine.slice(plainLine.indexOf(cwdPrefix) + cwdPrefix.length).trim();
+  if (session.activeRunId && plainLine.startsWith(cwdPrefix)) {
+    const cwd = plainLine.slice(cwdPrefix.length).trim();
     if (cwd) session.cwd = cwd;
     return;
   }
 
-  if (plainLine.includes(EXIT_PREFIX) || plainLine.includes(CWD_PREFIX)) {
+  if (isInternalLine) {
     return;
   }
 
@@ -252,7 +299,7 @@ function disposeSession(sessionId: string) {
 
 export function registerTerminalHandlers() {
   ipcMain.handle('terminal-create', async (event, options: TerminalCreateOptions): Promise<TerminalSessionInfo> => {
-    const shellCandidates = getShellCandidates();
+    const shellCandidates = getShellCandidates(options.shellPreference);
     const id = randomUUID();
     const cwd = options.cwd || process.cwd();
     const webContents = event.sender;
@@ -314,6 +361,7 @@ export function registerTerminalHandlers() {
       sessionId: id,
       cwd,
       shell: selectedShell.file,
+      shellPreference: selectedShell.preference,
     };
   });
 

@@ -51,13 +51,17 @@ export interface TerminalCreateOptions {
   cwd: string;
   cols: number;
   rows: number;
+  shellPreference?: TerminalShellPreference;
 }
 
 export interface TerminalSessionInfo {
   sessionId: string;
   cwd: string;
   shell: string;
+  shellPreference: TerminalShellPreference;
 }
+
+export type TerminalShellPreference = 'auto' | 'bash' | 'powershell' | 'cmd';
 
 export interface TerminalDataEvent {
   sessionId: string;

@@ -833,6 +833,50 @@ old content
     expect(result.errors?.[0]).toContain('START anchor matches multiple times');
   });
 
+  it('should apply range replace after CONTAINS disambiguates duplicate START anchors', () => {
+    const filePath = path.join(tempDir, 'app', 'range-contains.txt');
+    fs.writeFileSync(
+      filePath,
+      `return row(
+  title: 'transaction',
+);
+
+return row(
+  title: 'composition',
+  direction: neutral,
+);
+
+return row(
+  title: 'other',
+);
+`
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'range',
+          file: 'app/range-contains.txt',
+          content: '',
+          directives: {
+            START: 'return row(',
+            CONTAINS: 'direction: neutral',
+            END_AFTER: ');',
+          },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(true);
+    const updated = fs.readFileSync(filePath, 'utf-8');
+    expect(updated).toContain("title: 'transaction'");
+    expect(updated).toContain("title: 'other'");
+    expect(updated).not.toContain("title: 'composition'");
+    expect(updated).not.toContain('direction: neutral');
+  });
+
   it('should allow multiple END anchors', () => {
     const filePath = path.join(tempDir, 'app', 'range.txt');
     fs.writeFileSync(filePath, '// start\ncontent\n// end\n// end');

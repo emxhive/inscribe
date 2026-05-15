@@ -6,6 +6,7 @@
 import { ApplyPlan, ApplyResult, HistoryEntry, Operation, ValidationError } from '@inscribe/shared';
 import { applyOperation } from './applyOperation';
 import { buildRestoreEntry } from './restoreHistory';
+import { resolveRangeDirectiveShape } from '../range/resolveRange';
 
 const VALID_OPERATION_TYPES = new Set(['create', 'replace', 'append', 'range', 'delete', 'replace_symbol']);
 
@@ -29,12 +30,10 @@ function validateOperation(operation: Operation, index: number): string[] {
   if (operation.type === 'range') {
     const directives = operation.directives || {};
     if (directives.RESTORE_V2_SCHEMA !== '2') {
-      const startKeys = ['START', 'START_BEFORE', 'START_AFTER'];
-      const endKeys = ['END', 'END_BEFORE', 'END_AFTER'];
-      const startMatches = startKeys.filter(key => directives[key]);
-      const endMatches = endKeys.filter(key => directives[key]);
-      if (startMatches.length !== 1 || endMatches.length > 1) {
-        errors.push('Range operation requires exactly one of START, START_BEFORE, START_AFTER directives and at most one of END, END_BEFORE, END_AFTER directives');
+      try {
+        resolveRangeDirectiveShape(directives);
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : 'Invalid range directives');
       }
     }
   }

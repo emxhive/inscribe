@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 
-import { findAllOccurrences, MatchRange } from '../util/textSearch';
 import {ParsedBlock, ValidationError} from "@inscribe/shared";
+import { resolveRange } from '../range/resolveRange';
 
 
 /**
@@ -11,129 +11,17 @@ export function validateRangeAnchors(
   block: ParsedBlock,
   filePath: string
 ): ValidationError[] {
-  const errors: ValidationError[] = [];
-  const directives = block.directives ?? {};
-  const startKeys = ['START', 'START_BEFORE', 'START_AFTER'] as const;
-  const endKeys = ['END', 'END_BEFORE', 'END_AFTER'] as const;
-
-  const startDirectives = startKeys
-    .map(key => ({ key, value: directives[key] }))
-    .filter(entry => entry.value);
-  const endDirectives = endKeys
-    .map(key => ({ key, value: directives[key] }))
-    .filter(entry => entry.value);
-
-  if (startDirectives.length === 0) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: 'MODE: range requires exactly one of START, START_BEFORE, START_AFTER directives',
-    });
-  }
-
-  if (errors.length > 0) {
-    return errors;
-  }
-
-  if (startDirectives.length > 1) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: 'Multiple START directives provided; use only one of START, START_BEFORE, START_AFTER',
-    });
-  }
-
-  if (endDirectives.length > 1) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: 'Multiple END directives provided; use only one of END, END_BEFORE, END_AFTER',
-    });
-  }
-
-  if (errors.length > 0) {
-    return errors;
-  }
-
-  // Read file content
   const content = fs.readFileSync(filePath, 'utf-8');
-
-  if (directives.SCOPE_START || directives.SCOPE_END) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: 'SCOPE_START and SCOPE_END are no longer supported. Use START/END with optional CONTAINS instead.',
-    });
-    return errors;
-  }
-  const searchContent = content;
-
-  // Validate START and END anchors
-  const startDirective = startDirectives[0];
-  const startAnchor = startDirective.value;
-  
-  if (!startAnchor) {
-    // This should never happen due to earlier checks
-    return errors;
-  }
-
-  const startMatches = findAllOccurrences(searchContent, startAnchor);
-
-  if (startMatches.length === 0) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: `${startDirective.key} anchor not found: "${startAnchor}"`,
-    });
-  }
-
-  if (startMatches.length > 1) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: `${startDirective.key} anchor matches multiple times (${startMatches.length}), must match exactly once`,
-    });
-  }
-
-  if (errors.length > 0) {
-    return errors;
-  }
-
-  if (endDirectives.length === 1) {
-    const endDirective = endDirectives[0];
-    const endAnchor = endDirective.value;
-    if (!endAnchor) {
-      return errors;
-    }
-    const endMatches = findAllOccurrences(searchContent, endAnchor);
-
-      if (endMatches.length === 0) {
-        errors.push({
-          blockIndex: block.blockIndex,
-          file: block.file,
-          message: `${endDirective.key} anchor not found: "${endAnchor}"`,
-        });
-      }
-
-      if (errors.length > 0) {
-        return errors;
-      }
-
-    const startMatch = startMatches[0];
-    const endMatch = findFirstMatchAfter(endMatches, startMatch);
-
-    if (!endMatch) {
-      errors.push({
+  try {
+    resolveRange(content, block.directives ?? {});
+    return [];
+  } catch (error) {
+    return [
+      {
         blockIndex: block.blockIndex,
         file: block.file,
-        message: `${endDirective.key} anchor not found after ${startDirective.key}`,
-      });
-    }
+        message: error instanceof Error ? error.message : 'Invalid range anchors',
+      },
+    ];
   }
-
-  return errors;
-}
-
-function findFirstMatchAfter(matches: MatchRange[], startMatch: MatchRange): MatchRange | undefined {
-  return matches.find(match => match.start >= startMatch.end);
 }

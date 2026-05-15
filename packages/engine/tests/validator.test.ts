@@ -367,6 +367,74 @@ const x = 1;
     expect(errors[0].message).toContain('not found after');
   });
 
+  it('uses CONTAINS to disambiguate duplicate START anchors', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'app', 'range-contains.txt'),
+      `return row(
+  title: 'transaction',
+);
+
+return row(
+  title: 'composition',
+  direction: neutral,
+);
+
+return row(
+  title: 'other',
+);
+`
+    );
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/range-contains.txt',
+        mode: 'range',
+        directives: {
+          START: 'return row(',
+          CONTAINS: 'direction: neutral',
+          END_AFTER: ');',
+        },
+        content: '',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors).toEqual([]);
+  });
+
+  it('rejects duplicate START anchors that remain ambiguous after CONTAINS filters', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'app', 'range-contains-ambiguous.txt'),
+      `return row(
+  direction: neutral,
+);
+
+return row(
+  direction: neutral,
+);
+`
+    );
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/range-contains-ambiguous.txt',
+        mode: 'range',
+        directives: {
+          START: 'return row(',
+          CONTAINS: 'direction: neutral',
+          END_AFTER: ');',
+        },
+        content: '',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toContain('START anchor matches multiple times (2)');
+  });
+
   it.skip('rejects END: } when no opening brace exists in the selected range', () => {
     fs.writeFileSync(
       path.join(tempDir, 'app', 'range-brace-outside.txt'),

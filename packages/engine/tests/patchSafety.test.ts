@@ -30,11 +30,18 @@ describe('patch safety pipeline', () => {
     expect(fs.readFileSync(file, 'utf8')).toContain('<section>new</section>');
   });
 
-  it.skip('uses CONTAINS to disambiguate structural ranges', () => {
+  it('uses CONTAINS to disambiguate textual ranges before parse validation', () => {
     const root = mk();
     const file = path.join(root, 'app', 'x.tsx');
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, '<div><span>ParticipantCard</span></div>\n<div><span>Other</span><span>onRoundChange</span></div>\n');
+    fs.writeFileSync(
+      file,
+      `export const View = () => (<>
+  <div><span>ParticipantCard</span></div>
+  <div><span>Other</span><span>onRoundChange</span></div>
+</>);
+`
+    );
     const r = applyChanges({ operations: [{ type: 'range', file: 'app/x.tsx', content: '<div>R</div>', directives: { START: '<div', END: '</div>', CONTAINS: 'onRoundChange' } }] }, root);
     expect(r.success).toBe(true);
     expect(fs.readFileSync(file, 'utf8')).toContain('<div>R</div>');

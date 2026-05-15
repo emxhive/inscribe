@@ -1,5 +1,5 @@
 import { Operation } from '@inscribe/shared';
-import { findAllOccurrences, MatchRange } from '../util/textSearch';
+import { resolveRange } from '../range/resolveRange';
 
 export interface RangeReplaceResolution {
   replaceStart: number;
@@ -14,85 +14,7 @@ export function resolveRangeReplacement(
   content: string,
   operation: Operation
 ): RangeReplaceResolution {
-  const directives = operation.directives || {};
-  const startDirectives = getAnchorDirectives(directives, ['START', 'START_BEFORE', 'START_AFTER'], 'START');
-  const endDirectives = getAnchorDirectives(directives, ['END', 'END_BEFORE', 'END_AFTER'], 'END');
-  const contains = (directives.CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
-  if (directives.SCOPE_START || directives.SCOPE_END) {
-    throw new Error('SCOPE_START and SCOPE_END are no longer supported. Use START/END with optional CONTAINS instead.');
-  }
-
-  if (!startDirectives) {
-    throw new Error('Range operation requires exactly one of START, START_BEFORE, START_AFTER directives');
-  }
-
-  const searchContent = content;
-  const searchOffset = 0;
-
-  let startMatches = findAllOccurrences(searchContent, startDirectives.value);
-
-  if (contains.length > 0) {
-    if (!endDirectives) {
-      throw new Error('CONTAINS requires END/END_BEFORE/END_AFTER to define a bounded candidate range');
-    }
-    const endMatches = findAllOccurrences(searchContent, endDirectives.value);
-    startMatches = startMatches.filter((startMatch) => {
-      const endMatch = findFirstMatchAfter(endMatches, startMatch);
-      if (!endMatch) return false;
-      const candidate = searchContent.slice(startMatch.start, endMatch.end);
-      return contains.every((value) => candidate.includes(value));
-    });
-  }
-
-  if (startMatches.length === 0) {
-    throw new Error(`${startDirectives.key} anchor not found: "${startDirectives.value}"`);
-  }
-
-  if (startMatches.length > 1) {
-    throw new Error(`${startDirectives.key} anchor matches multiple times (${startMatches.length}), must match exactly once`);
-  }
-
-  const startMatch = startMatches[0];
-  const absoluteStartMatch = {
-    start: searchOffset + startMatch.start,
-    end: searchOffset + startMatch.end,
-  };
-
-  let replaceStart: number;
-  let replaceEnd: number;
-
-  if (endDirectives) {
-    const endMatches = findAllOccurrences(searchContent, endDirectives.value);
-
-    if (endMatches.length === 0) {
-      throw new Error(`${endDirectives.key} anchor not found: "${endDirectives.value}"`);
-    }
-
-    const endMatch = findFirstMatchAfter(endMatches, startMatch);
-
-    if (!endMatch) {
-      throw new Error(`${endDirectives.key} anchor not found after ${startDirectives.key}`);
-    }
-
-    const absoluteEndMatch = {
-      start: searchOffset + endMatch.start,
-      end: searchOffset + endMatch.end,
-    };
-    replaceStart = resolveReplacementStart(content, absoluteStartMatch, startDirectives.key);
-    replaceEnd = resolveReplacementEnd(content, absoluteEndMatch, endDirectives.key);
-
-    if (replaceStart >= replaceEnd) {
-      throw new Error('END anchor must come after START anchor');
-    }
-  } else {
-    const { lineStart, lineEnd } = resolveSingleLineReplacementRange(
-      content,
-      absoluteStartMatch,
-      startDirectives.key
-    );
-    replaceStart = lineStart;
-    replaceEnd = lineEnd;
-  }
+  const { replaceStart, replaceEnd } = resolveRange(content, operation.directives || {});
 
   const suffix = content.substring(replaceEnd);
   const insert = normalizeLineInsert(operation.content, suffix);
@@ -107,102 +29,6 @@ export function resolveRangeReplacement(
     prefix,
     suffix,
   };
-}
-
-function getAnchorDirectives(
-  directives: Record<string, string>,
-  keys: readonly string[],
-  label: string
-): { key: string; value: string } | null {
-  const matches = keys
-    .map(key => ({ key, value: directives[key] }))
-    .filter(entry => entry.value);
-  if (matches.length === 0) {
-    return null;
-  }
-  if (matches.length > 1) {
-    throw new Error(`Multiple ${label} directives provided; use only one of ${keys.join(', ')}`);
-  }
-  return matches[0];
-}
-
-function findFirstMatchAfter(matches: MatchRange[], startMatch: MatchRange): MatchRange | undefined {
-  return matches.find(match => match.start >= startMatch.end);
-}
-
-function resolveReplacementStart(content: string, match: MatchRange, directiveKey: string): number {
-  switch (directiveKey) {
-    case 'START':
-      return getLineStart(content, match.start);
-    case 'START_BEFORE':
-      return getPreviousLineStart(content, match.start);
-    case 'START_AFTER':
-      return getLineEnd(content, match.end);
-    default:
-      return getLineEnd(content, match.end);
-  }
-}
-
-function resolveReplacementEnd(content: string, match: MatchRange, directiveKey: string): number {
-  switch (directiveKey) {
-    case 'END':
-      return getLineEnd(content, match.end);
-    case 'END_BEFORE':
-      return getLineStart(content, match.start);
-    case 'END_AFTER':
-      return getNextLineEnd(content, match.end);
-    default:
-      return match.start;
-  }
-}
-
-function resolveSingleLineReplacementRange(
-  content: string,
-  match: MatchRange,
-  directiveKey: string
-): { lineStart: number; lineEnd: number } {
-  switch (directiveKey) {
-    case 'START_BEFORE': {
-      const lineStart = getPreviousLineStart(content, match.start);
-      return { lineStart, lineEnd: getLineEnd(content, lineStart) };
-    }
-    case 'START_AFTER': {
-      const lineStart = getLineEnd(content, match.end);
-      return { lineStart, lineEnd: getLineEnd(content, lineStart) };
-    }
-    case 'START':
-    default: {
-      const lineStart = getLineStart(content, match.start);
-      return { lineStart, lineEnd: getLineEnd(content, match.end) };
-    }
-  }
-}
-
-function getLineStart(content: string, index: number): number {
-  const newline = content.lastIndexOf('\n', index - 1);
-  return newline === -1 ? 0 : newline + 1;
-}
-
-function getPreviousLineStart(content: string, index: number): number {
-  const lineStart = getLineStart(content, index);
-  if (lineStart === 0) {
-    return 0;
-  }
-  const previousNewline = content.lastIndexOf('\n', lineStart - 2);
-  return previousNewline === -1 ? 0 : previousNewline + 1;
-}
-
-function getLineEnd(content: string, index: number): number {
-  const newline = content.indexOf('\n', index);
-  return newline === -1 ? content.length : newline + 1;
-}
-
-function getNextLineEnd(content: string, index: number): number {
-  const lineEnd = getLineEnd(content, index);
-  if (lineEnd >= content.length) {
-    return content.length;
-  }
-  return getLineEnd(content, lineEnd);
 }
 
 function normalizeLineInsert(insert: string, suffix: string): string {

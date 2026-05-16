@@ -564,6 +564,36 @@ old content
     expect(fs.existsSync(path.join(tempDir, 'app', 'file2.txt'))).toBe(true);
   });
 
+  it('should preflight all operations before writing any files', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'app', 'handler.ts'),
+      'export class BinanceCommandHandler {}\n'
+    );
+
+    const plan: ApplyPlan = {
+      operations: [
+        {
+          type: 'create',
+          file: 'app/created-before-failure.ts',
+          content: 'export const created = true;\n',
+        },
+        {
+          type: 'replace_symbol',
+          file: 'app/handler.ts',
+          content: 'export class MissingHandler {}\n',
+          directives: { NAME: 'MissingHandler' },
+        },
+      ],
+    };
+
+    const result = applyChanges(plan, tempDir);
+
+    expect(result.success).toBe(false);
+    expect(result.errors?.[0]).toContain('Structural symbol target not found');
+    expect(fs.existsSync(path.join(tempDir, 'app', 'created-before-failure.ts'))).toBe(false);
+    expect(fs.readFileSync(path.join(tempDir, 'app', 'handler.ts'), 'utf-8')).toBe('export class BinanceCommandHandler {}\n');
+  });
+
   it('should fail when operations are empty', () => {
     const plan: ApplyPlan = {
       operations: [],

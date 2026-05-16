@@ -3,12 +3,12 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { AlertTriangle, Check, Copy, Play, Square, SquareTerminal } from 'lucide-react';
-import type { CliCommandSuggestion } from '@inscribe/shared';
+import { classifyCommandRisk, type CliCommandSuggestion } from '@inscribe/shared';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { TerminalDataEvent, TerminalRunExitEvent, TerminalShellPreference } from '@/types';
+import type { TerminalDataEvent, TerminalRunExitEvent, TerminalSessionExitEvent, TerminalShellPreference } from '@/types';
 
-type TerminalRunStatus = 'running' | 'success' | 'failed' | 'unknown';
+type TerminalRunStatus = 'running' | 'success' | 'failed' | 'interrupted' | 'terminated' | 'unknown';
 
 interface TerminalRun {
   id: string;
@@ -88,19 +88,14 @@ function formatRunForClipboard(run: TerminalRun): string {
   return [`$ ${run.command}`, output].filter(Boolean).join('\n\n') + exitLine;
 }
 
-function findSuggestionForCommand(
-  command: string,
-  suggestions: CliCommandSuggestion[],
-): CliCommandSuggestion | null {
-  return suggestions.find((suggestion) => suggestion.command === command) ?? null;
-}
-
 export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelProps) {
   const terminalElementRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const isRunningRef = useRef(false);
+  const stopRequestedRef = useRef(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [shell, setShell] = useState<string>('');
   const [cwd, setCwd] = useState(repoRoot ?? '');
@@ -109,12 +104,18 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
   const [runs, setRuns] = useState<TerminalRun[]>([]);
   const [copiedRunId, setCopiedRunId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [stopRequested, setStopRequested] = useState(false);
+  const [restartNonce, setRestartNonce] = useState(0);
   const [terminalError, setTerminalError] = useState<string | null>(null);
   const [shellPreference, setShellPreference] = useState<TerminalShellPreference>(getInitialShellPreference);
   const activeSuggestion = suggestions[suggestionIndex] ?? null;
   const ghostSuggestion = commandInput.length === 0 ? activeSuggestion?.command ?? '' : '';
   const hasRepo = Boolean(repoRoot);
-  const terminalApiAvailable = typeof window.inscribeAPI.terminalCreate === 'function';
+  const terminalApiAvailable =
+    typeof window.inscribeAPI.terminalCreate === 'function' &&
+    typeof window.inscribeAPI.terminalWrite === 'function' &&
+    typeof window.inscribeAPI.terminalSignal === 'function' &&
+    typeof window.inscribeAPI.onTerminalSessionExit === 'function';
 
   const sortedRuns = useMemo(
     () => [...runs].sort((a, b) => b.startedAt - a.startedAt),
@@ -134,7 +135,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
       allowProposedApi: false,
       convertEol: true,
       cursorBlink: true,
-      disableStdin: true,
+      disableStdin: false,
       fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Consolas, monospace',
       fontSize: 12,
       lineHeight: 1.35,
@@ -152,6 +153,11 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
     terminal.writeln('Inscribe terminal');
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
+    const dataDisposable = terminal.onData((data) => {
+      const currentSessionId = sessionIdRef.current;
+      if (!currentSessionId || !isRunningRef.current) return;
+      void window.inscribeAPI.terminalWrite(currentSessionId, data);
+    });
 
     const fitAndResize = () => {
       try {
@@ -179,6 +185,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
       return () => {
         disposed = true;
         resizeObserver.disconnect();
+        dataDisposable.dispose();
         terminal.dispose();
         terminalRef.current = null;
         fitAddonRef.current = null;
@@ -219,11 +226,13 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
       }
       sessionIdRef.current = null;
       setSessionId(null);
+      isRunningRef.current = false;
+      dataDisposable.dispose();
       terminal.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [repoRoot, shellPreference, terminalApiAvailable]);
+  }, [repoRoot, restartNonce, shellPreference, terminalApiAvailable]);
 
   const handleShellPreferenceChange = (nextPreference: TerminalShellPreference) => {
     setShellPreference(nextPreference);
@@ -231,6 +240,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
   };
 
   useEffect(() => {
+    if (!terminalApiAvailable) return;
     const removeDataListener = window.inscribeAPI.onTerminalData((event: TerminalDataEvent) => {
       if (event.sessionId !== sessionIdRef.current) return;
       terminalRef.current?.write(event.data);
@@ -248,21 +258,45 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
         setCwd(event.cwd);
       }
       setIsRunning(false);
+      isRunningRef.current = false;
+      setStopRequested(false);
+      const wasStopRequested = stopRequestedRef.current;
+      stopRequestedRef.current = false;
+      requestAnimationFrame(() => inputRef.current?.focus());
       setRuns((currentRuns) =>
         currentRuns.map((run) => {
           if (run.id !== event.runId) return run;
-          const status: TerminalRunStatus =
-            event.exitCode === 0 ? 'success' : event.exitCode === null ? 'unknown' : 'failed';
+          let status: TerminalRunStatus = event.exitCode === 0 ? 'success' : event.exitCode === null ? 'unknown' : 'failed';
+          if (event.reason === 'terminated') status = 'terminated';
+          if (event.reason === 'interrupted') status = 'interrupted';
+          if (event.reason === 'session-exit' || event.reason === 'disposed') status = 'unknown';
+          if (wasStopRequested && status === 'failed') status = 'interrupted';
           return { ...run, exitCode: event.exitCode, status };
         }),
       );
     });
 
+    const removeSessionExitListener = window.inscribeAPI.onTerminalSessionExit((event: TerminalSessionExitEvent) => {
+      if (event.sessionId !== sessionIdRef.current) return;
+      sessionIdRef.current = null;
+      setSessionId(null);
+      setIsRunning(false);
+      isRunningRef.current = false;
+      setStopRequested(false);
+      stopRequestedRef.current = false;
+      terminalRef.current?.writeln('');
+      terminalRef.current?.writeln(`[terminal ${event.reason}]`);
+      if (event.reason === 'terminated') {
+        window.setTimeout(() => setRestartNonce((nonce) => nonce + 1), 250);
+      }
+    });
+
     return () => {
       removeDataListener();
       removeExitListener();
+      removeSessionExitListener();
     };
-  }, []);
+  }, [terminalApiAvailable]);
 
   const acceptSuggestion = () => {
     if (!activeSuggestion) return;
@@ -272,9 +306,9 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
   const runCommand = async () => {
     const command = commandInput.trim();
     if (!command || !sessionId || isRunning || terminalError) return;
-    const suggestion = findSuggestionForCommand(command, suggestions);
-    if (suggestion?.risk === 'destructive') {
-      const confirmed = window.confirm(`Run destructive command?\n\n${command}`);
+    const risk = classifyCommandRisk(command);
+    if (risk !== 'normal') {
+      const confirmed = window.confirm(`Run ${risk} command?\n\n${command}`);
       if (!confirmed) return;
     }
 
@@ -291,7 +325,11 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
       ...currentRuns,
     ]);
     setIsRunning(true);
+    isRunningRef.current = true;
+    setStopRequested(false);
+    stopRequestedRef.current = false;
     setCommandInput('');
+    terminalRef.current?.focus();
     let accepted = false;
     try {
       accepted = await window.inscribeAPI.terminalRunCommand(sessionId, runId, command);
@@ -300,6 +338,9 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
     }
     if (!accepted) {
       setIsRunning(false);
+      isRunningRef.current = false;
+      setStopRequested(false);
+      stopRequestedRef.current = false;
       setRuns((currentRuns) =>
         currentRuns.map((run) =>
           run.id === runId
@@ -343,7 +384,13 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
 
   const interrupt = async () => {
     if (!sessionId) return;
-    await window.inscribeAPI.terminalInterrupt(sessionId);
+    if (stopRequested) {
+      await window.inscribeAPI.terminalSignal(sessionId, 'terminate');
+      return;
+    }
+    await window.inscribeAPI.terminalSignal(sessionId, 'interrupt');
+    setStopRequested(true);
+    stopRequestedRef.current = true;
   };
 
   return (
@@ -380,8 +427,8 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
           className="h-7 w-7 text-slate-300 hover:bg-slate-800 hover:text-white"
           disabled={!isRunning}
           onClick={interrupt}
-          title="Stop command"
-          aria-label="Stop command"
+          title={stopRequested ? 'Terminate terminal session' : 'Stop command'}
+          aria-label={stopRequested ? 'Terminate terminal session' : 'Stop command'}
         >
           <Square className="h-3.5 w-3.5" />
         </Button>
@@ -416,6 +463,8 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
                         run.status === 'running' && 'bg-sky-400',
                         run.status === 'success' && 'bg-emerald-400',
                         run.status === 'failed' && 'bg-red-400',
+                        run.status === 'interrupted' && 'bg-amber-300',
+                        run.status === 'terminated' && 'bg-red-300',
                         run.status === 'unknown' && 'bg-slate-400',
                       )}
                     />
@@ -434,6 +483,9 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
                   </div>
                   {run.exitCode !== null && run.exitCode !== 0 && (
                     <div className="text-[10px] font-semibold text-red-300">exit {run.exitCode}</div>
+                  )}
+                  {run.status === 'terminated' && (
+                    <div className="text-[10px] font-semibold text-red-300">terminated</div>
                   )}
                 </div>
               ))}
@@ -459,7 +511,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
                   onChange={(event) => setCommandInput(event.target.value)}
                   onKeyDown={handleCommandKeyDown}
                   className="relative z-10 h-8 w-full bg-transparent font-mono text-xs text-slate-100 caret-sky-300 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:text-slate-500"
-                  placeholder={terminalError ? 'Terminal unavailable' : hasRepo ? '' : 'Select a repository first'}
+                  placeholder={terminalError ? 'Terminal unavailable' : isRunning ? 'Type replies in the terminal' : hasRepo ? '' : 'Select a repository first'}
                   spellCheck={false}
                 />
               </div>

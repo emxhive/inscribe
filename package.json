@@ -14,7 +14,7 @@
         "dev:desktop": "concurrently -k \"npm -w packages/shared run dev:build\" \"npm -w packages/engine run dev:build\" \"npm -w apps/desktop run dev\""
     },
     "devDependencies": {
-        "typescript": "^5.3.3",
-        "concurrently": "^8.2.2"
+        "concurrently": "^8.2.2",
+        "typescript": "^5.3.3"
     }
 }

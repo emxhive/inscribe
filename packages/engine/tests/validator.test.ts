@@ -83,6 +83,51 @@ const x = 1;
     expect(errors).toEqual([]);
   });
 
+  it('should validate replace_symbol against supported class declarations', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'app', 'handler.ts'),
+      'export class BinanceCommandHandler {}\n'
+    );
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/handler.ts',
+        mode: 'replace_symbol',
+        directives: { NAME: 'BinanceCommandHandler' },
+        content: 'export class BinanceCommandHandler {\n  handle() {}\n}\n',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors).toEqual([]);
+  });
+
+  it('should reject replace_symbol during validation when the symbol cannot resolve', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'app', 'handler.ts'),
+      'export class BinanceCommandHandler {}\n'
+    );
+
+    const blocks: ParsedBlock[] = [
+      {
+        file: 'app/handler.ts',
+        mode: 'replace_symbol',
+        directives: { NAME: 'MissingHandler' },
+        content: 'export class MissingHandler {}\n',
+        blockIndex: 0,
+      },
+    ];
+
+    const errors = validateBlocks(blocks, tempDir);
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toMatchObject({
+      blockIndex: 0,
+      file: 'app/handler.ts',
+    });
+    expect(errors[0].message).toContain('Structural symbol target not found');
+  });
+
   it('should fail replace mode with non-existing file', () => {
     const blocks: ParsedBlock[] = [
       {

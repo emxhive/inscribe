@@ -78,4 +78,23 @@ describe('patch safety pipeline', () => {
     expect(out).toContain('return <section/>;');
     expect(out).toContain('const Keep = 1;');
   });
+
+  it('replaces exported class declarations with replace_symbol', () => {
+    const root = mk();
+    const file = path.join(root, 'app', 'x.ts');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'export class BinanceCommandHandler {\n  handle() { return "old"; }\n}\nconst Keep = 1;\n');
+    const r = applyChanges({
+      operations: [{
+        type: 'replace_symbol' as const,
+        file: 'app/x.ts',
+        content: 'export class BinanceCommandHandler {\n  handle() { return "new"; }\n}\n',
+        directives: { NAME: 'BinanceCommandHandler' },
+      }],
+    }, root);
+    expect(r.success).toBe(true);
+    const out = fs.readFileSync(file, 'utf8');
+    expect(out).toContain('return "new";');
+    expect(out).toContain('const Keep = 1;');
+  });
 });

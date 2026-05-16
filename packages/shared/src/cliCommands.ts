@@ -77,7 +77,7 @@ function isShellLanguage(language: string): boolean {
   return SHELL_LANGUAGES.has(language.toLowerCase());
 }
 
-function classifyCommandRisk(command: string): CliCommandRisk {
+export function classifyCommandRisk(command: string): CliCommandRisk {
   if (DESTRUCTIVE_PATTERNS.some((pattern) => pattern.test(command))) {
     return 'destructive';
   }

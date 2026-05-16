@@ -6,6 +6,8 @@ import type {
   TerminalCreateOptions,
   TerminalDataEvent,
   TerminalRunExitEvent,
+  TerminalSessionExitEvent,
+  TerminalSignalKind,
   TerminalSessionInfo,
   TerminalShellPreference,
 } from '../types';
@@ -15,7 +17,7 @@ type TerminalShellKind = 'powershell' | 'cmd' | 'posix';
 interface TerminalProcess {
   write: (data: string) => void;
   resize: (cols: number, rows: number) => void;
-  kill: () => void;
+  kill: (signal?: NodeJS.Signals) => void;
 }
 
 interface TerminalSession {
@@ -27,6 +29,7 @@ interface TerminalSession {
   shellKind: TerminalShellKind;
   activeRunId: string | null;
   lineBuffer: string;
+  terminating: boolean;
 }
 
 type PtyModule = typeof import('node-pty');
@@ -136,7 +139,7 @@ function createPtyProcess(
   shell: ShellConfig,
   options: TerminalCreateOptions,
   onData: (data: string) => void,
-  onExit: () => void,
+  onExit: (exitCode: number | null) => void,
 ): TerminalProcess {
   const pty = getPtyModule();
   if (!pty) {
@@ -152,12 +155,12 @@ function createPtyProcess(
   });
 
   child.onData(onData);
-  child.onExit(onExit);
+  child.onExit((event) => onExit(event.exitCode ?? null));
 
   return {
     write: (data) => child.write(data),
     resize: (cols, rows) => child.resize(cols, rows),
-    kill: () => child.kill(),
+    kill: (signal) => child.kill(signal),
   };
 }
 
@@ -165,7 +168,7 @@ function createFallbackProcess(
   shell: ShellConfig,
   options: TerminalCreateOptions,
   onData: (data: string) => void,
-  onExit: () => void,
+  onExit: (exitCode: number | null) => void,
 ): Promise<TerminalProcess> {
   const child: ChildProcessWithoutNullStreams = spawn(shell.file, shell.args, {
     cwd: options.cwd,
@@ -185,12 +188,12 @@ function createFallbackProcess(
     child.once('spawn', () => {
       child.stdout.on('data', (data: Buffer) => onData(data.toString()));
       child.stderr.on('data', (data: Buffer) => onData(data.toString()));
-      child.on('exit', onExit);
+      child.on('exit', (code) => onExit(code));
 
       settle({
         write: (data) => child.stdin.write(data),
         resize: () => undefined,
-        kill: () => child.kill(),
+        kill: (signal) => child.kill(signal),
       });
     });
 
@@ -211,31 +214,65 @@ function sendToOwner<T extends TerminalDataEvent | TerminalRunExitEvent>(
   session.owner.send(channel, payload);
 }
 
+function sendSessionExit(session: TerminalSession, payload: TerminalSessionExitEvent) {
+  if (session.owner.isDestroyed()) return;
+  session.owner.send('terminal:session-exit', payload);
+}
+
 function stripAnsi(text: string): string {
   return text.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '');
+}
+
+function isInternalPlainLine(plainLine: string): boolean {
+  return (
+    plainLine.includes(EXIT_PREFIX) ||
+    plainLine.includes(CWD_PREFIX) ||
+    plainLine.includes('$__inscribeExit') ||
+    plainLine.includes('__inscribe_exit') ||
+    plainLine.includes('INSCRIBE_EXIT=')
+  );
+}
+
+function isPotentialInternalLine(rawText: string): boolean {
+  const plainText = stripAnsi(rawText).trimStart();
+  if (!plainText) return true;
+  const internalPrefixes = [
+    EXIT_PREFIX,
+    CWD_PREFIX,
+    '$__inscribeExit',
+    '__inscribe_exit',
+    'INSCRIBE_EXIT=',
+  ];
+  return (
+    internalPrefixes.some((prefix) => plainText.startsWith(prefix) || prefix.startsWith(plainText))
+  );
+}
+
+function sendRunExit(
+  session: TerminalSession,
+  exitCode: number | null,
+  reason: TerminalRunExitEvent['reason'] = 'exited',
+) {
+  if (!session.activeRunId) return;
+  sendToOwner(session, 'terminal:run-exit', {
+    sessionId: session.id,
+    runId: session.activeRunId,
+    exitCode,
+    cwd: session.cwd,
+    reason,
+  });
+  session.activeRunId = null;
 }
 
 function handleCompleteLine(session: TerminalSession, rawLine: string) {
   const plainLine = stripAnsi(rawLine).trim();
   const exitPrefix = `${EXIT_PREFIX}${session.activeRunId ?? ''}:`;
   const cwdPrefix = `${CWD_PREFIX}${session.activeRunId ?? ''}:`;
-  const isInternalLine =
-    plainLine.includes(EXIT_PREFIX) ||
-    plainLine.includes(CWD_PREFIX) ||
-    plainLine.includes('$__inscribeExit') ||
-    plainLine.includes('__inscribe_exit') ||
-    plainLine.includes('INSCRIBE_EXIT=');
 
   if (session.activeRunId && plainLine.startsWith(exitPrefix)) {
     const match = plainLine.match(new RegExp(`${EXIT_PREFIX}${session.activeRunId}:(-?\\d+)`));
     if (match) {
-      sendToOwner(session, 'terminal:run-exit', {
-        sessionId: session.id,
-        runId: session.activeRunId,
-        exitCode: Number(match[1]),
-        cwd: session.cwd,
-      });
-      session.activeRunId = null;
+      sendRunExit(session, Number(match[1]), 'exited');
     }
     return;
   }
@@ -246,7 +283,7 @@ function handleCompleteLine(session: TerminalSession, rawLine: string) {
     return;
   }
 
-  if (isInternalLine) {
+  if (isInternalPlainLine(plainLine)) {
     return;
   }
 
@@ -267,6 +304,15 @@ function handleProcessData(session: TerminalSession, data: string) {
     handleCompleteLine(session, line);
     newlineIndex = session.lineBuffer.indexOf('\n');
   }
+
+  if (session.lineBuffer && !isPotentialInternalLine(session.lineBuffer)) {
+    sendToOwner(session, 'terminal:data', {
+      sessionId: session.id,
+      runId: session.activeRunId,
+      data: session.lineBuffer,
+    });
+    session.lineBuffer = '';
+  }
 }
 
 function buildSentinelCommand(session: TerminalSession, runId: string): string {
@@ -285,10 +331,28 @@ function writeLine(session: TerminalSession, line: string) {
   session.process.write(`${line}${process.platform === 'win32' ? '\r' : '\n'}`);
 }
 
-function disposeSession(sessionId: string) {
+function handleProcessExit(sessionId: string, exitCode: number | null) {
+  const session = sessions.get(sessionId);
+  if (!session) return;
+  sessions.delete(sessionId);
+  sendRunExit(session, exitCode, session.terminating ? 'terminated' : 'session-exit');
+  sendSessionExit(session, {
+    sessionId: session.id,
+    exitCode,
+    reason: session.terminating ? 'terminated' : 'exited',
+  });
+}
+
+function disposeSession(sessionId: string, reason: TerminalSessionExitEvent['reason'] = 'disposed') {
   const session = sessions.get(sessionId);
   if (!session) return false;
   sessions.delete(sessionId);
+  sendRunExit(session, null, reason);
+  sendSessionExit(session, {
+    sessionId: session.id,
+    exitCode: null,
+    reason,
+  });
   try {
     session.process.kill();
   } catch {
@@ -303,7 +367,7 @@ export function registerTerminalHandlers() {
     const id = randomUUID();
     const cwd = options.cwd || process.cwd();
     const webContents = event.sender;
-    const onExit = () => disposeSession(id);
+    const onExit = (exitCode: number | null) => handleProcessExit(id, exitCode);
 
     let session: TerminalSession | null = null;
     const pendingData: string[] = [];
@@ -349,6 +413,7 @@ export function registerTerminalHandlers() {
       shellKind: selectedShell.kind,
       activeRunId: null,
       lineBuffer: '',
+      terminating: false,
     };
 
     sessions.set(id, session);
@@ -376,11 +441,42 @@ export function registerTerminalHandlers() {
     return true;
   });
 
+  ipcMain.handle('terminal-write', (_event, sessionId: string, data: string) => {
+    const session = sessions.get(sessionId);
+    if (!session) return false;
+    if (!session.activeRunId) return false;
+    session.process.write(data);
+    return true;
+  });
+
   ipcMain.handle('terminal-resize', (_event, sessionId: string, cols: number, rows: number) => {
     const session = sessions.get(sessionId);
     if (!session) return false;
     session.process.resize(cols, rows);
     return true;
+  });
+
+  ipcMain.handle('terminal-signal', (_event, sessionId: string, kind: TerminalSignalKind) => {
+    const session = sessions.get(sessionId);
+    if (!session) return false;
+    if (kind === 'interrupt') {
+      session.process.write('\x03');
+      return true;
+    }
+    if (kind === 'eof') {
+      session.process.write(session.shellKind === 'posix' ? '\x04' : '\x1a\r');
+      return true;
+    }
+    if (kind === 'terminate') {
+      session.terminating = true;
+      try {
+        session.process.kill('SIGTERM');
+      } catch {
+        disposeSession(sessionId, 'terminated');
+      }
+      return true;
+    }
+    return false;
   });
 
   ipcMain.handle('terminal-interrupt', (_event, sessionId: string) => {

@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import {
+  Operation,
   ParsedBlock,
   RESTORE_DIRECTIVE_V2_PAYLOAD,
   RESTORE_DIRECTIVE_V2_SCHEMA,
@@ -16,6 +17,7 @@ import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { normalizeRelativePath } from '../util/path';
 import { validateRangeAnchors } from './validateRangeAnchors';
 import { restoreFromPayload } from '../apply/restoreV2';
+import { PreflightError, preflightOperations } from '../apply/preflight';
 
 /**
  * Validate all blocks against repository rules
@@ -29,6 +31,10 @@ export function validateBlocks(
   for (const block of blocks) {
     const blockErrors = validateBlock(block, repoRoot);
     errors.push(...blockErrors);
+  }
+
+  if (errors.length === 0) {
+    errors.push(...validatePlanPreflight(blocks, repoRoot));
   }
 
   return errors;
@@ -96,6 +102,35 @@ function validateBlock(
   }
 
   return errors;
+}
+
+function validatePlanPreflight(blocks: ParsedBlock[], repoRoot: string): ValidationError[] {
+  const operations: Operation[] = blocks.map((block) => ({
+    type: block.mode,
+    file: block.file,
+    content: block.content,
+    directives: block.directives,
+    blockIndex: block.blockIndex,
+  }));
+
+  try {
+    preflightOperations(operations, repoRoot);
+    return [];
+  } catch (error) {
+    if (error instanceof PreflightError) {
+      return [{
+        blockIndex: error.operation.blockIndex ?? error.operationIndex,
+        file: error.operation.file,
+        message: error.message,
+      }];
+    }
+
+    return [{
+      blockIndex: -1,
+      file: '',
+      message: error instanceof Error ? error.message : 'Unknown validation error',
+    }];
+  }
 }
 
 function validateRestoreV2Block(block: ParsedBlock, resolvedPath: string, fileExists: boolean): ValidationError[] {

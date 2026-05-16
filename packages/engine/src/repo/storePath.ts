@@ -3,13 +3,19 @@ import * as os from 'os';
 import * as path from 'path';
 import { SCOPE_STORE_FILE, INSCRIBE_DIR } from '@inscribe/shared';
 
+type ElectronRuntime = {
+  app?: {
+    getPath(name: 'userData'): string;
+  };
+};
+
 export function getUserDataPath(): string {
   if (process.env.INSCRIBE_USER_DATA) {
     return process.env.INSCRIBE_USER_DATA;
   }
 
   try {
-    const electron = require('electron') as typeof import('electron');
+    const electron = require('electron') as ElectronRuntime;
     if (electron?.app?.getPath) {
       return electron.app.getPath('userData');
     }

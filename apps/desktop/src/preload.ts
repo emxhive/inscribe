@@ -93,8 +93,14 @@ const api = {
   terminalRunCommand: (sessionId: string, runId: string, command: string) =>
     ipcRenderer.invoke('terminal-run-command', sessionId, runId, command),
 
+  terminalWrite: (sessionId: string, data: string) =>
+    ipcRenderer.invoke('terminal-write', sessionId, data),
+
   terminalResize: (sessionId: string, cols: number, rows: number) =>
     ipcRenderer.invoke('terminal-resize', sessionId, cols, rows),
+
+  terminalSignal: (sessionId: string, kind: import('./types').TerminalSignalKind) =>
+    ipcRenderer.invoke('terminal-signal', sessionId, kind),
 
   terminalInterrupt: (sessionId: string) =>
     ipcRenderer.invoke('terminal-interrupt', sessionId),
@@ -112,6 +118,12 @@ const api = {
     const subscription = (_event: any, payload: import('./types').TerminalRunExitEvent) => callback(payload);
     ipcRenderer.on('terminal:run-exit', subscription);
     return () => ipcRenderer.removeListener('terminal:run-exit', subscription);
+  },
+
+  onTerminalSessionExit: (callback: (event: import('./types').TerminalSessionExitEvent) => void) => {
+    const subscription = (_event: any, payload: import('./types').TerminalSessionExitEvent) => callback(payload);
+    ipcRenderer.on('terminal:session-exit', subscription);
+    return () => ipcRenderer.removeListener('terminal:session-exit', subscription);
   },
 
 };

@@ -67,6 +67,10 @@ export function resolveSymbolDeclarationRange(content: string, name: string): { 
       matches.push(rangeFor(owner, stmt.type === declaration.type ? 'FunctionDeclaration' : `${stmt.type} FunctionDeclaration`));
     }
 
+    if (declaration?.type === 'ClassDeclaration' && declaration.id?.name === name) {
+      matches.push(rangeFor(owner, stmt.type === declaration.type ? 'ClassDeclaration' : `${stmt.type} ClassDeclaration`));
+    }
+
     if (declaration?.type === 'VariableDeclaration') {
       for (const decl of declaration.declarations ?? []) {
         if (decl.id?.type === 'Identifier' && decl.id.name === name && fnLike(decl.init)) {
@@ -76,7 +80,7 @@ export function resolveSymbolDeclarationRange(content: string, name: string): { 
     }
   }
   if (matches.length === 0) {
-    throw new Error(`Structural symbol target not found.\n\nMODE: replace_symbol\nNAME: ${name}\n\nNo matching function declaration, variable function declaration, exported declaration, or supported wrapper declaration was found.\nFile was not modified.`);
+    throw new Error(`Structural symbol target not found.\n\nMODE: replace_symbol\nNAME: ${name}\n\nNo matching function declaration, class declaration, variable function declaration, exported declaration, or supported wrapper declaration was found.\nFile was not modified.`);
   }
   if (matches.length > 1) {
     const list = matches.map((m, i) => `${i + 1}. ${m.description}`).join('\n');

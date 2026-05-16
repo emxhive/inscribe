@@ -69,12 +69,23 @@ export interface TerminalDataEvent {
   data: string;
 }
 
+export type TerminalRunExitReason = 'exited' | 'interrupted' | 'terminated' | 'session-exit' | 'disposed';
+
 export interface TerminalRunExitEvent {
   sessionId: string;
   runId: string;
   exitCode: number | null;
   cwd?: string;
+  reason?: TerminalRunExitReason;
 }
+
+export interface TerminalSessionExitEvent {
+  sessionId: string;
+  exitCode: number | null;
+  reason: 'exited' | 'terminated' | 'disposed';
+}
+
+export type TerminalSignalKind = 'interrupt' | 'eof' | 'terminate';
 
 export interface InscribeAPI {
   selectRepository: (defaultPath?: string) => Promise<string | null>;
@@ -101,9 +112,12 @@ export interface InscribeAPI {
   markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) => Promise<boolean>;
   terminalCreate: (options: TerminalCreateOptions) => Promise<TerminalSessionInfo>;
   terminalRunCommand: (sessionId: string, runId: string, command: string) => Promise<boolean>;
+  terminalWrite: (sessionId: string, data: string) => Promise<boolean>;
   terminalResize: (sessionId: string, cols: number, rows: number) => Promise<boolean>;
+  terminalSignal: (sessionId: string, kind: TerminalSignalKind) => Promise<boolean>;
   terminalInterrupt: (sessionId: string) => Promise<boolean>;
   terminalDispose: (sessionId: string) => Promise<boolean>;
   onTerminalData: (callback: (event: TerminalDataEvent) => void) => () => void;
   onTerminalRunExit: (callback: (event: TerminalRunExitEvent) => void) => () => void;
+  onTerminalSessionExit: (callback: (event: TerminalSessionExitEvent) => void) => () => void;
 }

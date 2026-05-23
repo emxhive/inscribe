@@ -2,6 +2,7 @@
  * Shared types for Inscribe
  */
 
+import { type DiagnosticCode } from './diagnostics';
 import { OperationMode } from './modes';
 
 export type Mode = OperationMode;
@@ -18,7 +19,7 @@ export interface ValidationError {
   blockIndex: number;
   file: string;
   message: string;
-  code?: string;
+  code?: DiagnosticCode;
 }
 
 export interface Operation {

@@ -1,16 +1,7 @@
-/**
- * Validator for Inscribe blocks
- * Validates blocks against indexed roots, ignored paths, file existence rules, and range anchors
- */
-
 import * as fs from 'fs';
 import {
-  Operation,
-  ParsedBlock,
-  RESTORE_DIRECTIVE_V2_PAYLOAD,
-  RESTORE_DIRECTIVE_V2_SCHEMA,
-  RestorePayloadV2,
-  ValidationError,
+  Operation, ParsedBlock, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2, ValidationError,
+  getOperationModeMetadata, getAllowedDirectives, getRequiredDirectives, modeAllowsDirective, modeAllowsEmptyContent, modeRequiresContent,
 } from '@inscribe/shared';
 import { getEffectiveIgnoreMatchers } from '../repository';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
@@ -19,171 +10,47 @@ import { validateRangeAnchors } from './validateRangeAnchors';
 import { restoreFromPayload } from '../apply/restoreV2';
 import { PreflightError, preflightOperations } from '../apply/preflight';
 
-/**
- * Validate all blocks against repository rules
- */
-export function validateBlocks(
-  blocks: ParsedBlock[],
-  repoRoot: string
-): ValidationError[] {
+export function validateBlocks(blocks: ParsedBlock[], repoRoot: string): ValidationError[] {
   const errors: ValidationError[] = [];
-
-  for (const block of blocks) {
-    const blockErrors = validateBlock(block, repoRoot);
-    errors.push(...blockErrors);
-  }
-
-  if (errors.length === 0) {
-    errors.push(...validatePlanPreflight(blocks, repoRoot));
-  }
-
+  for (const block of blocks) errors.push(...validateBlock(block, repoRoot));
+  if (errors.length === 0) errors.push(...validatePlanPreflight(blocks, repoRoot));
   return errors;
 }
 
-/**
- * Validate a single block
- */
-function validateBlock(
-  block: ParsedBlock,
-  repoRoot: string
-): ValidationError[] {
+function validateBlock(block: ParsedBlock, repoRoot: string): ValidationError[] {
   const errors: ValidationError[] = [];
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
-
   let resolvedPath: string;
-
   try {
     const resolved = resolveAndAssertWithinRepo(repoRoot, block.file, ignoreMatcher);
     resolvedPath = resolved.resolvedPath;
     normalizeRelativePath(resolved.relativePath);
   } catch (error) {
-    errors.push({
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: error instanceof Error ? error.message : 'Invalid file path',
-    });
-    return errors;
+    return [{ blockIndex: block.blockIndex, file: block.file, message: error instanceof Error ? error.message : 'Invalid file path' }];
   }
-
   const fileExists = fs.existsSync(resolvedPath);
   const directives = block.directives ?? {};
-  const isRestoreV2 = directives[RESTORE_DIRECTIVE_V2_SCHEMA] === '2';
+  if (directives[RESTORE_DIRECTIVE_V2_SCHEMA] === '2') return validateRestoreV2Block(block, resolvedPath, fileExists);
 
-  if (isRestoreV2) {
-    return validateRestoreV2Block(block, resolvedPath, fileExists);
-  }
+  const metadata = getOperationModeMetadata(block.mode);
+  if (metadata.fileExistence === 'must_exist' && !fileExists) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `File does not exist (MODE: ${block.mode} requires existing file)` });
+  if (metadata.fileExistence === 'must_not_exist' && fileExists) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `File already exists (MODE: ${block.mode} requires non-existing file)` });
 
-  switch (block.mode) {
-    case 'create':
-      if (fileExists) {
-        errors.push({
-          blockIndex: block.blockIndex,
-          file: block.file,
-          message: 'File already exists (MODE: create requires non-existing file)',
-        });
-      }
-      break;
+  if (modeRequiresContent(block.mode) && !modeAllowsEmptyContent(block.mode) && block.content.length === 0) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `${block.mode} does not allow empty content` });
 
-    case 'replace':
-    case 'append':
-    case 'delete':
-    case 'range':
-    case 'replace_symbol':
-      if (!fileExists) {
-        errors.push({
-          blockIndex: block.blockIndex,
-          file: block.file,
-          message: `File does not exist (MODE: ${block.mode} requires existing file)`,
-        });
-      } else if (block.mode === 'range') {
-        errors.push(...validateRangeAnchors(block, resolvedPath));
-      }
-      break;
+  const allowed = new Set(getAllowedDirectives(block.mode));
+  const required = getRequiredDirectives(block.mode);
+  for (const key of Object.keys(directives)) if (!modeAllowsDirective(block.mode, key) && !key.startsWith('RESTORE_')) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `Invalid directive ${key} for mode ${block.mode}` });
+  for (const key of required) if (!directives[key]) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `Missing required directive ${key} for mode ${block.mode}` });
+
+  if ((block.mode === 'replace_range' || block.mode === 'replace_between' || block.mode === 'replace_line') && fileExists) {
+    errors.push(...validateRangeAnchors(block, resolvedPath));
   }
 
   return errors;
 }
 
-function validatePlanPreflight(blocks: ParsedBlock[], repoRoot: string): ValidationError[] {
-  const operations: Operation[] = blocks.map((block) => ({
-    type: block.mode,
-    file: block.file,
-    content: block.content,
-    directives: block.directives,
-    blockIndex: block.blockIndex,
-  }));
+function validatePlanPreflight(blocks: ParsedBlock[], repoRoot: string): ValidationError[] { const operations: Operation[] = blocks.map((block) => ({ type: block.mode, file: block.file, content: block.content, directives: block.directives, blockIndex: block.blockIndex })); try { preflightOperations(operations, repoRoot); return []; } catch (error) { if (error instanceof PreflightError) return [{ blockIndex: error.operation.blockIndex ?? error.operationIndex, file: error.operation.file, message: error.message }]; return [{ blockIndex: -1, file: '', message: error instanceof Error ? error.message : 'Unknown validation error' }]; } }
 
-  try {
-    preflightOperations(operations, repoRoot);
-    return [];
-  } catch (error) {
-    if (error instanceof PreflightError) {
-      return [{
-        blockIndex: error.operation.blockIndex ?? error.operationIndex,
-        file: error.operation.file,
-        message: error.message,
-      }];
-    }
-
-    return [{
-      blockIndex: -1,
-      file: '',
-      message: error instanceof Error ? error.message : 'Unknown validation error',
-    }];
-  }
-}
-
-function validateRestoreV2Block(block: ParsedBlock, resolvedPath: string, fileExists: boolean): ValidationError[] {
-  const errors: ValidationError[] = [];
-  const payloadRaw = block.directives?.[RESTORE_DIRECTIVE_V2_PAYLOAD];
-
-  if (!payloadRaw) {
-    return [{
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: 'Unsafe to restore: missing restore payload.',
-    }];
-  }
-
-  let payload: RestorePayloadV2;
-  try {
-    payload = JSON.parse(payloadRaw) as RestorePayloadV2;
-  } catch {
-    return [{
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: 'Unsafe to restore: invalid restore payload.',
-    }];
-  }
-
-  if (payload.schemaVersion !== 2) {
-    return [{
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: 'Unsafe to restore: unsupported restore payload schema.',
-    }];
-  }
-
-  if (!fileExists) {
-    if (payload.mode === 'create' || payload.mode === 'delete') {
-      return [];
-    }
-    return [{
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: 'Unsafe to restore: file is missing.',
-    }];
-  }
-
-  const current = fs.readFileSync(resolvedPath, 'utf-8');
-  const resolution = restoreFromPayload(current, payload);
-  if (!resolution.canResolve) {
-    return [{
-      blockIndex: block.blockIndex,
-      file: block.file,
-      message: resolution.error ?? 'Unsafe to restore: unable to resolve restore target.',
-    }];
-  }
-
-  return errors;
-}
+function validateRestoreV2Block(block: ParsedBlock, resolvedPath: string, fileExists: boolean): ValidationError[] { const payloadRaw = block.directives?.[RESTORE_DIRECTIVE_V2_PAYLOAD]; if (!payloadRaw) return [{ blockIndex: block.blockIndex, file: block.file, message: 'Unsafe to restore: missing restore payload.' }]; let payload: RestorePayloadV2; try { payload = JSON.parse(payloadRaw) as RestorePayloadV2; } catch { return [{ blockIndex: block.blockIndex, file: block.file, message: 'Unsafe to restore: invalid restore payload.' }]; } if (payload.schemaVersion !== 2) return [{ blockIndex: block.blockIndex, file: block.file, message: 'Unsafe to restore: unsupported restore payload schema.' }]; if (!fileExists) { if (payload.mode === 'create_file' || payload.mode === 'delete_file') return []; return [{ blockIndex: block.blockIndex, file: block.file, message: 'Unsafe to restore: file is missing.' }]; }
+  const current = fs.readFileSync(resolvedPath, 'utf-8'); const resolution = restoreFromPayload(current, payload); if (!resolution.canResolve) return [{ blockIndex: block.blockIndex, file: block.file, message: resolution.error ?? 'Unsafe to restore: unable to resolve restore target.' }]; return []; }

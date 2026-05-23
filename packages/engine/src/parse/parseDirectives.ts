@@ -1,9 +1,5 @@
-/**
- * Functions for parsing Inscribe headers and directives
- */
-
 import {
-  VALID_MODES,
+  OPERATION_MODES,
   isValidMode,
   type Mode,
   parseDirectiveLine,
@@ -24,20 +20,11 @@ const FIELD_KEY_MAP: Partial<Record<FieldKey, string | null>> = {
   FILE: null,
   MODE: null,
   START: 'START',
-  START_BEFORE: 'START_BEFORE',
-  START_AFTER: 'START_AFTER',
   END: 'END',
-  END_BEFORE: 'END_BEFORE',
-  END_AFTER: 'END_AFTER',
   CONTAINS: 'CONTAINS',
   NAME: 'NAME',
 };
 
-/**
- * Parse headers and directives from block lines
- * @param lines - Array of lines containing headers/directives
- * @returns Parsed headers/directives with file, mode, and optional warnings
- */
 export function parseDirectives(lines: string[]): DirectiveParseResult {
   const directives: Record<string, string> = {};
   const warnings: string[] = [];
@@ -46,75 +33,29 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
   let modeError: string | null = null;
   let contentStartIndex = -1;
 
-  // Extract headers and directives
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-
-    // Check for start of code fence
-    if (isFenceOpeningLine(trimmed)) {
-      contentStartIndex = i;
-      break;
-    }
-
+    if (isFenceOpeningLine(trimmed)) { contentStartIndex = i; break; }
     const parsed = parseDirectiveLine(trimmed);
     if (!parsed.matched) {
-      if (parsed.usedPrefix && parsed.raw.trim()) {
-        warnings.push(`Invalid directive format: ${parsed.raw.trim()} (headers and directives should not use $inscribe prefix)`);
-      }
+      if (parsed.usedPrefix && parsed.raw.trim()) warnings.push(`Invalid directive format: ${parsed.raw.trim()} (headers and directives should not use $inscribe prefix)`);
       continue;
     }
-
     const fieldKey = FIELD_KEY_MAP[parsed.key!];
     const value = parsed.value ?? '';
-
-    if (parsed.key === 'FILE') {
-      file = value;
-    } else if (parsed.key === 'MODE') {
-      if (!value) {
-        modeError = 'Missing MODE header';
-      } else if (isValidMode(value)) {
-        mode = value;
-      } else {
-        modeError = `Invalid MODE header: ${value}`;
-      }
+    if (parsed.key === 'FILE') file = value;
+    else if (parsed.key === 'MODE') {
+      if (!value) modeError = 'Missing MODE header';
+      else if (isValidMode(value)) mode = value;
+      else modeError = `Invalid MODE header: ${value}`;
     } else if (fieldKey) {
-      if (fieldKey === 'CONTAINS' && directives[fieldKey]) {
-        directives[fieldKey] = `${directives[fieldKey]}\n${value}`;
-      } else {
-        directives[fieldKey] = value;
-      }
+      if (fieldKey === 'CONTAINS' && directives[fieldKey]) directives[fieldKey] = `${directives[fieldKey]}\n${value}`;
+      else directives[fieldKey] = value;
     }
   }
 
-  if (!file) {
-    return { 
-      file: '', 
-      mode: VALID_MODES[0], 
-      directives: {}, 
-      contentStartIndex: -1, 
-      error: 'Missing FILE header',
-    };
-  }
-
-  if (modeError) {
-    return {
-      file,
-      mode: VALID_MODES[0],
-      directives,
-      contentStartIndex,
-      error: modeError,
-    };
-  }
-
-  if (!mode) {
-    return {
-      file,
-      mode: VALID_MODES[0],
-      directives,
-      contentStartIndex,
-      error: 'Missing MODE header',
-    };
-  }
-
+  if (!file) return { file: '', mode: OPERATION_MODES[0], directives: {}, contentStartIndex: -1, error: 'Missing FILE header' };
+  if (modeError) return { file, mode: OPERATION_MODES[0], directives, contentStartIndex, error: modeError };
+  if (!mode) return { file, mode: OPERATION_MODES[0], directives, contentStartIndex, error: 'Missing MODE header' };
   return { file, mode, directives, contentStartIndex, warnings: warnings.length > 0 ? warnings : undefined };
 }

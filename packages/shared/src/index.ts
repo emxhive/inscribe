@@ -2,6 +2,7 @@
  * Shared package entry point
  */
 
+export * from './modes';
 export * from './types';
 export * from './constants';
 export * from './parseUtils';

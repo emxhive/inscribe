@@ -18,8 +18,8 @@ export interface OperationModeMetadata {
   fileExistence: 'must_exist' | 'must_not_exist';
   content: 'required' | 'forbidden';
   allowEmptyContent: boolean;
-  requiredDirectives: string[];
-  allowedDirectives: string[];
+  requiredDirectives: readonly string[];
+  allowedDirectives: readonly string[];
 }
 
 export const OPERATION_MODE_METADATA: Record<OperationMode, OperationModeMetadata> = {
@@ -34,11 +34,21 @@ export const OPERATION_MODE_METADATA: Record<OperationMode, OperationModeMetadat
   replace_symbol: { category: 'structural', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: ['NAME'], allowedDirectives: ['NAME'] },
 };
 
+
+
+const MODE_LOOKUP = new Set<string>(OPERATION_MODES);
+
+const MODE_METADATA_LOOKUP: ReadonlyMap<OperationMode, Readonly<OperationModeMetadata>> = new Map(
+  OPERATION_MODES.map((mode) => [mode, Object.freeze(OPERATION_MODE_METADATA[mode])]),
+);
+
 export function isValidMode(mode: string): mode is OperationMode {
-  return (OPERATION_MODES as readonly string[]).includes(mode);
+  return MODE_LOOKUP.has(mode);
 }
 
-export function getOperationModeMetadata(mode: OperationMode): OperationModeMetadata { return OPERATION_MODE_METADATA[mode]; }
+export function getOperationModeMetadata(mode: OperationMode): OperationModeMetadata {
+  return MODE_METADATA_LOOKUP.get(mode) ?? OPERATION_MODE_METADATA[mode];
+}
 export function modeRequiresContent(mode: OperationMode): boolean { return OPERATION_MODE_METADATA[mode].content === 'required'; }
 export function modeAllowsEmptyContent(mode: OperationMode): boolean { return OPERATION_MODE_METADATA[mode].allowEmptyContent; }
 export function modeAllowsDirective(mode: OperationMode, directive: string): boolean { return OPERATION_MODE_METADATA[mode].allowedDirectives.includes(directive); }

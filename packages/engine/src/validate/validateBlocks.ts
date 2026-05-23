@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import {
-  Operation, ParsedBlock, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2, ValidationError,
+  DIAGNOSTIC_CODES, Operation, ParsedBlock, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2, ValidationError,
   getOperationModeMetadata, getAllowedDirectives, getRequiredDirectives, modeAllowsDirective, modeAllowsEmptyContent, modeRequiresContent,
 } from '@inscribe/shared';
 import { getEffectiveIgnoreMatchers } from '../repository';
@@ -33,15 +33,15 @@ function validateBlock(block: ParsedBlock, repoRoot: string): ValidationError[] 
   if (directives[RESTORE_DIRECTIVE_V2_SCHEMA] === '2') return validateRestoreV2Block(block, resolvedPath, fileExists);
 
   const metadata = getOperationModeMetadata(block.mode);
-  if (metadata.fileExistence === 'must_exist' && !fileExists) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `File does not exist (MODE: ${block.mode} requires existing file)` });
-  if (metadata.fileExistence === 'must_not_exist' && fileExists) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `File already exists (MODE: ${block.mode} requires non-existing file)` });
+  if (metadata.fileExistence === 'must_exist' && !fileExists) errors.push({ blockIndex: block.blockIndex, file: block.file, code: DIAGNOSTIC_CODES.FILE_MUST_EXIST, message: `File does not exist (MODE: ${block.mode} requires existing file)` });
+  if (metadata.fileExistence === 'must_not_exist' && fileExists) errors.push({ blockIndex: block.blockIndex, file: block.file, code: DIAGNOSTIC_CODES.FILE_MUST_NOT_EXIST, message: `File already exists (MODE: ${block.mode} requires non-existing file)` });
 
-  if (modeRequiresContent(block.mode) && !modeAllowsEmptyContent(block.mode) && block.content.length === 0) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `${block.mode} does not allow empty content` });
+  if (modeRequiresContent(block.mode) && !modeAllowsEmptyContent(block.mode) && block.content.length === 0) errors.push({ blockIndex: block.blockIndex, file: block.file, code: DIAGNOSTIC_CODES.EMPTY_CONTENT_NOT_ALLOWED, message: `${block.mode} does not allow empty content` });
 
   const allowed = new Set(getAllowedDirectives(block.mode));
   const required = getRequiredDirectives(block.mode);
-  for (const key of Object.keys(directives)) if (!modeAllowsDirective(block.mode, key) && !key.startsWith('RESTORE_')) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `Invalid directive ${key} for mode ${block.mode}` });
-  for (const key of required) if (!directives[key]) errors.push({ blockIndex: block.blockIndex, file: block.file, message: `Missing required directive ${key} for mode ${block.mode}` });
+  for (const key of Object.keys(directives)) if (!modeAllowsDirective(block.mode, key) && !key.startsWith('RESTORE_')) errors.push({ blockIndex: block.blockIndex, file: block.file, code: DIAGNOSTIC_CODES.INVALID_DIRECTIVE, message: `Invalid directive ${key} for mode ${block.mode}` });
+  for (const key of required) if (!directives[key]) errors.push({ blockIndex: block.blockIndex, file: block.file, code: DIAGNOSTIC_CODES.MISSING_DIRECTIVE, message: `Missing required directive ${key} for mode ${block.mode}` });
 
   if ((block.mode === 'replace_range' || block.mode === 'replace_between' || block.mode === 'replace_line') && fileExists) {
     errors.push(...validateRangeAnchors(block, resolvedPath));

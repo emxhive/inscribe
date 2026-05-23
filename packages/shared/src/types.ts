@@ -18,6 +18,7 @@ export interface ValidationError {
   blockIndex: number;
   file: string;
   message: string;
+  code?: string;
 }
 
 export interface Operation {

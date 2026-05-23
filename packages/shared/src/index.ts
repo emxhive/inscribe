@@ -9,3 +9,5 @@ export * from './parseUtils';
 export * from './directives';
 export * from './path';
 export * from './cliCommands';
+
+export * from './diagnostics';

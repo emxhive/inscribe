@@ -7,7 +7,7 @@ import type {
   OperationComparisonRegion,
   OperationDiffHunk,
 } from '@inscribe/shared';
-import { deriveChangedSegment } from '../apply/restoreV2';
+import { deriveChangedSegment } from '../history/restoreV2';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { getEffectiveIgnoreMatchers } from '../repository';
 import { diffLinesStable } from './lineDiff';

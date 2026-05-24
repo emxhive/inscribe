@@ -4,27 +4,26 @@ import {
   RESTORE_DIRECTIVE_V2_PAYLOAD,
   RESTORE_DIRECTIVE_V2_SCHEMA,
 } from '@inscribe/shared';
-import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
-import { getEffectiveIgnoreMatchers } from '../repository';
 import { buildRestorePayload } from './restoreV2';
+import type { PreflightExecution } from '../preflight/preflight';
 
+/**
+ * Builds a history entry for a resolved execution.
+ * Consumes the execution result as the canonical truth of what happened.
+ */
 export function buildRestoreEntry(
-  operation: Operation,
+  execution: PreflightExecution,
   repoRoot: string,
   applyId: string,
   appliedAt: string,
-  entryIndex: number,
-  beforeContent: string,
-  afterContent: string
 ): HistoryEntry {
-  const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
-  resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
+  const { operation, beforeContent, afterContent, operationIndex } = execution;
 
   const restorePayload = buildRestorePayload(operation.type, operation.file, beforeContent, afterContent);
   const restoreOperation = buildRestoreOperation(operation, restorePayload);
 
   return {
-    id: `${applyId}:${entryIndex}`,
+    id: `${applyId}:${operationIndex}`,
     applyId,
     file: operation.file,
     mode: operation.type,

@@ -2,62 +2,63 @@
 > Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files. Index metadata is provided via the HTML comment markers in this section.
 
 # Index
-<!-- PRODEX_INDEX_RANGE: L8-L60 -->
-<!-- PRODEX_FILE_COUNT: 53 -->
+<!-- PRODEX_INDEX_RANGE: L8-L61 -->
+<!-- PRODEX_FILE_COUNT: 54 -->
 <!-- PRODEX_INDEX_LIST_START -->
-- [packages/engine/src/applier.ts](#1) L64-L73
-- [packages/engine/src/apply/applyChanges.ts](#2) L74-L232
-- [packages/engine/src/contract/validateBlocks.ts](#3) L233-L308
-- [packages/engine/src/history/restoreHistory.ts](#4) L309-L385
-- [packages/engine/src/history/restoreV2.ts](#5) L386-L582
-- [packages/engine/src/index.ts](#6) L583-L622
-- [packages/engine/src/language/jsTsAdapter.ts](#7) L623-L654
-- [packages/engine/src/language/phpAdapter.ts](#8) L655-L755
-- [packages/engine/src/language/registry.ts](#9) L756-L781
-- [packages/engine/src/language/types.ts](#10) L782-L802
-- [packages/engine/src/operation/resolveOperationExecution.ts](#11) L803-L895
-- [packages/engine/src/parse/parseBlocks.ts](#12) L896-L1024
-- [packages/engine/src/parse/parseDirectives.ts](#13) L1025-L1094
-- [packages/engine/src/parse/parseFallback.ts](#14) L1095-L1211
-- [packages/engine/src/parse/parseFencedBlock.ts](#15) L1212-L1332
-- [packages/engine/src/parse/parseSingleBlock.ts](#16) L1333-L1365
-- [packages/engine/src/parse/parseUtils.ts](#17) L1366-L1386
-- [packages/engine/src/parser.ts](#18) L1387-L1396
-- [packages/engine/src/paths/resolveAndAssertWithin.ts](#19) L1397-L1519
-- [packages/engine/src/plan/buildApplyPlan.ts](#20) L1520-L1551
-- [packages/engine/src/planner.ts](#21) L1552-L1561
-- [packages/engine/src/preflight/candidateValidation.ts](#22) L1562-L1618
-- [packages/engine/src/preflight/preflight.ts](#23) L1619-L1763
-- [packages/engine/src/preview/lineDiff.ts](#24) L1764-L1849
-- [packages/engine/src/preview/operationComparison.ts](#25) L1850-L2084
-- [packages/engine/src/preview/operationPreview.ts](#26) L2085-L2126
-- [packages/engine/src/repo/historyStore.ts](#27) L2127-L2229
-- [packages/engine/src/repo/ignoreRules.ts](#28) L2230-L2358
-- [packages/engine/src/repo/indexer.ts](#29) L2359-L2465
-- [packages/engine/src/repo/pathing.ts](#30) L2466-L2475
-- [packages/engine/src/repo/scopeStore.ts](#31) L2476-L2625
-- [packages/engine/src/repo/statusStore.ts](#32) L2626-L2662
-- [packages/engine/src/repo/storePath.ts](#33) L2663-L2704
-- [packages/engine/src/repo/suggest.ts](#34) L2705-L2771
-- [packages/engine/src/repo/topLevel.ts](#35) L2772-L2806
-- [packages/engine/src/repository.ts](#36) L2807-L2831
-- [packages/engine/src/target/blockTarget.ts](#37) L2832-L2861
-- [packages/engine/src/target/symbolTarget.ts](#38) L2862-L2878
-- [packages/engine/src/target/targetUtils.ts](#39) L2879-L2931
-- [packages/engine/src/target/textTargets.ts](#40) L2932-L3049
-- [packages/engine/src/util/braceScan.ts](#41) L3050-L3299
-- [packages/engine/src/util/path.ts](#42) L3300-L3309
-- [packages/engine/src/util/textSearch.ts](#43) L3310-L3406
-- [packages/engine/src/validator.ts](#44) L3407-L3416
-- [packages/shared/src/cliCommands.ts](#45) L3417-L3642
-- [packages/shared/src/constants.ts](#46) L3643-L3750
-- [packages/shared/src/diagnostics.ts](#47) L3751-L3777
-- [packages/shared/src/directives.ts](#48) L3778-L3835
-- [packages/shared/src/index.ts](#49) L3836-L3857
-- [packages/shared/src/modes.ts](#50) L3858-L3923
-- [packages/shared/src/parseUtils.ts](#51) L3924-L3992
-- [packages/shared/src/path.ts](#52) L3993-L4017
-- [packages/shared/src/types.ts](#53) L4018-L4228
+- [packages/engine/src/applier.ts](#1) L65-L74
+- [packages/engine/src/apply/applyChanges.ts](#2) L75-L230
+- [packages/engine/src/contract/validateBlocks.ts](#3) L231-L306
+- [packages/engine/src/history/restoreHistory.ts](#4) L307-L382
+- [packages/engine/src/history/restoreV2.ts](#5) L383-L579
+- [packages/engine/src/index.ts](#6) L580-L616
+- [packages/engine/src/language/jsTsAdapter.ts](#7) L617-L648
+- [packages/engine/src/language/jsTsStructuralResolvers.ts](#8) L649-L747
+- [packages/engine/src/language/phpAdapter.ts](#9) L748-L848
+- [packages/engine/src/language/registry.ts](#10) L849-L874
+- [packages/engine/src/language/types.ts](#11) L875-L895
+- [packages/engine/src/operation/resolveOperationExecution.ts](#12) L896-L988
+- [packages/engine/src/parse/parseBlocks.ts](#13) L989-L1117
+- [packages/engine/src/parse/parseDirectives.ts](#14) L1118-L1187
+- [packages/engine/src/parse/parseFallback.ts](#15) L1188-L1304
+- [packages/engine/src/parse/parseFencedBlock.ts](#16) L1305-L1425
+- [packages/engine/src/parse/parseSingleBlock.ts](#17) L1426-L1458
+- [packages/engine/src/parse/parseUtils.ts](#18) L1459-L1479
+- [packages/engine/src/parser.ts](#19) L1480-L1489
+- [packages/engine/src/paths/resolveAndAssertWithin.ts](#20) L1490-L1611
+- [packages/engine/src/plan/buildApplyPlan.ts](#21) L1612-L1643
+- [packages/engine/src/planner.ts](#22) L1644-L1653
+- [packages/engine/src/preflight/candidateValidation.ts](#23) L1654-L1710
+- [packages/engine/src/preflight/preflight.ts](#24) L1711-L1855
+- [packages/engine/src/preview/lineDiff.ts](#25) L1856-L1941
+- [packages/engine/src/preview/operationComparison.ts](#26) L1942-L2176
+- [packages/engine/src/preview/operationPreview.ts](#27) L2177-L2218
+- [packages/engine/src/repo/historyStore.ts](#28) L2219-L2321
+- [packages/engine/src/repo/ignoreRules.ts](#29) L2322-L2450
+- [packages/engine/src/repo/indexer.ts](#30) L2451-L2557
+- [packages/engine/src/repo/pathing.ts](#31) L2558-L2567
+- [packages/engine/src/repo/scopeStore.ts](#32) L2568-L2717
+- [packages/engine/src/repo/statusStore.ts](#33) L2718-L2754
+- [packages/engine/src/repo/storePath.ts](#34) L2755-L2796
+- [packages/engine/src/repo/suggest.ts](#35) L2797-L2863
+- [packages/engine/src/repo/topLevel.ts](#36) L2864-L2898
+- [packages/engine/src/repository.ts](#37) L2899-L2923
+- [packages/engine/src/target/blockTarget.ts](#38) L2924-L2953
+- [packages/engine/src/target/symbolTarget.ts](#39) L2954-L2970
+- [packages/engine/src/target/targetUtils.ts](#40) L2971-L3023
+- [packages/engine/src/target/textTargets.ts](#41) L3024-L3141
+- [packages/engine/src/util/braceScan.ts](#42) L3142-L3391
+- [packages/engine/src/util/path.ts](#43) L3392-L3401
+- [packages/engine/src/util/textSearch.ts](#44) L3402-L3498
+- [packages/engine/src/validator.ts](#45) L3499-L3508
+- [packages/shared/src/cliCommands.ts](#46) L3509-L3734
+- [packages/shared/src/constants.ts](#47) L3735-L3842
+- [packages/shared/src/diagnostics.ts](#48) L3843-L3869
+- [packages/shared/src/directives.ts](#49) L3870-L3927
+- [packages/shared/src/index.ts](#50) L3928-L3949
+- [packages/shared/src/modes.ts](#51) L3950-L4015
+- [packages/shared/src/parseUtils.ts](#52) L4016-L4084
+- [packages/shared/src/path.ts](#53) L4085-L4109
+- [packages/shared/src/types.ts](#54) L4110-L4320
 <!-- PRODEX_INDEX_LIST_END -->
 
 ---
@@ -148,13 +149,10 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
 
     for (const execution of executions) {
       const restoreEntry = buildRestoreEntry(
-        execution.operation,
+        execution,
         repoRoot,
         applyId,
         appliedAt,
-        execution.operationIndex,
-        execution.beforeContent,
-        execution.afterContent
       );
       historyEntries.push(restoreEntry);
     }
@@ -319,27 +317,26 @@ import {
   RESTORE_DIRECTIVE_V2_PAYLOAD,
   RESTORE_DIRECTIVE_V2_SCHEMA,
 } from '@inscribe/shared';
-import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
-import { getEffectiveIgnoreMatchers } from '../repository';
 import { buildRestorePayload } from './restoreV2';
+import type { PreflightExecution } from '../preflight/preflight';
 
+/**
+ * Builds a history entry for a resolved execution.
+ * Consumes the execution result as the canonical truth of what happened.
+ */
 export function buildRestoreEntry(
-  operation: Operation,
+  execution: PreflightExecution,
   repoRoot: string,
   applyId: string,
   appliedAt: string,
-  entryIndex: number,
-  beforeContent: string,
-  afterContent: string
 ): HistoryEntry {
-  const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
-  resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
+  const { operation, beforeContent, afterContent, operationIndex } = execution;
 
   const restorePayload = buildRestorePayload(operation.type, operation.file, beforeContent, afterContent);
   const restoreOperation = buildRestoreOperation(operation, restorePayload);
 
   return {
-    id: `${applyId}:${entryIndex}`,
+    id: `${applyId}:${operationIndex}`,
     applyId,
     file: operation.file,
     mode: operation.type,
@@ -613,9 +610,6 @@ export {
   markHistoryEntryRestored,
 } from './repo/historyStore';
 export {
-  buildRestoreEntry,
-} from './history/restoreHistory';
-export {
   restoreFromPayload,
 } from './history/restoreV2';
 ```
@@ -628,7 +622,7 @@ export {
 
 ```ts
 import { StructuralLanguageAdapter } from './types';
-import { resolveSymbolDeclarationRange } from '../apply/structuralResolvers';
+import { resolveSymbolDeclarationRange } from './jsTsStructuralResolvers';
 import { parse } from '@babel/parser';
 
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs']);
@@ -654,6 +648,105 @@ export const jsTsAdapter: StructuralLanguageAdapter = {
 
 ---
 #### 8
+
+
+` File: packages/engine/src/language/jsTsStructuralResolvers.ts`  [Back to top](#index)
+
+```ts
+import { parse } from '@babel/parser';
+
+function parseAst(content: string) {
+  return parse(content, { sourceType: 'unambiguous', plugins: ['typescript', 'jsx'] });
+}
+
+export function resolveJsxRangeFromStart(content: string, startAnchor: string, contains: string[]): { start: number; end: number } {
+  const ast = parseAst(content) as any;
+  const matches: Array<{ start: number; end: number }> = [];
+
+  function visit(node: any): void {
+    if (!node || typeof node !== 'object') return;
+    if ((node.type === 'JSXElement' || node.type === 'JSXFragment') && typeof node.start === 'number' && typeof node.end === 'number') {
+      const text = content.slice(node.start, node.end);
+      const openIdx = text.indexOf(startAnchor);
+      if (openIdx !== -1) {
+        const ok = contains.every(value => text.includes(value));
+        if (ok) matches.push({ start: node.start, end: node.end });
+      }
+    }
+    for (const key of Object.keys(node)) {
+      const child = node[key];
+      if (Array.isArray(child)) child.forEach(visit);
+      else visit(child);
+    }
+  }
+
+  visit(ast);
+  if (matches.length === 0) {
+    throw new Error('No JSX candidate matched START + CONTAINS.\nFile was not modified.');
+  }
+  if (matches.length > 1) {
+    throw new Error(`Structural range is ambiguous.\nMatched candidates after filtering: ${matches.length}\nFile was not modified.`);
+  }
+  return matches[0];
+}
+
+export function resolveSymbolDeclarationRange(content: string, name: string): { start: number; end: number; description: string } {
+  const ast = parseAst(content) as any;
+  const matches: Array<{ start: number; end: number; description: string }> = [];
+
+  function rangeFor(owner: any, description: string): { start: number; end: number; description: string } {
+    return { start: owner.start, end: owner.end, description: `${description} at line ${owner.loc.start.line}` };
+  }
+
+  function fnLike(node: any): boolean {
+    if (!node) return false;
+    if (node.type === 'ArrowFunctionExpression' || node.type === 'FunctionExpression') return true;
+    if (node.type === 'CallExpression') {
+      const callee = node.callee;
+      const direct = callee?.type === 'Identifier' && (callee.name === 'memo' || callee.name === 'forwardRef');
+      const reactMemo = callee?.type === 'MemberExpression' && callee.object?.type === 'Identifier' && callee.object.name === 'React' && callee.property?.type === 'Identifier' && callee.property.name === 'memo';
+      return (direct || reactMemo) && node.arguments?.some((arg: any) => arg.type === 'ArrowFunctionExpression' || arg.type === 'FunctionExpression');
+    }
+    return false;
+  }
+
+  for (const stmt of ast.program.body as any[]) {
+    const declaration = stmt.type === 'ExportNamedDeclaration' || stmt.type === 'ExportDefaultDeclaration'
+      ? stmt.declaration
+      : stmt;
+    const owner = stmt.type === 'ExportNamedDeclaration' || stmt.type === 'ExportDefaultDeclaration'
+      ? stmt
+      : declaration;
+
+    if (declaration?.type === 'FunctionDeclaration' && declaration.id?.name === name) {
+      matches.push(rangeFor(owner, stmt.type === declaration.type ? 'FunctionDeclaration' : `${stmt.type} FunctionDeclaration`));
+    }
+
+    if (declaration?.type === 'ClassDeclaration' && declaration.id?.name === name) {
+      matches.push(rangeFor(owner, stmt.type === declaration.type ? 'ClassDeclaration' : `${stmt.type} ClassDeclaration`));
+    }
+
+    if (declaration?.type === 'VariableDeclaration') {
+      for (const decl of declaration.declarations ?? []) {
+        if (decl.id?.type === 'Identifier' && decl.id.name === name && fnLike(decl.init)) {
+          matches.push(rangeFor(owner, stmt.type === declaration.type ? 'VariableDeclaration' : `${stmt.type} VariableDeclaration`));
+        }
+      }
+    }
+  }
+  if (matches.length === 0) {
+    throw new Error(`Structural symbol target not found.\n\nMODE: replace_symbol\nNAME: ${name}\n\nNo matching function declaration, class declaration, variable function declaration, exported declaration, or supported wrapper declaration was found.\nFile was not modified.`);
+  }
+  if (matches.length > 1) {
+    const list = matches.map((m, i) => `${i + 1}. ${m.description}`).join('\n');
+    throw new Error(`Structural symbol target is ambiguous.\n\nMODE: replace_symbol\nNAME: ${name}\n\nMatched ${matches.length} declarations:\n${list}\n\nFile was not modified.`);
+  }
+  return matches[0];
+}
+```
+
+---
+#### 9
 
 
 ` File: packages/engine/src/language/phpAdapter.ts`  [Back to top](#index)
@@ -754,7 +847,7 @@ export const phpAdapter: StructuralLanguageAdapter = {
 ```
 
 ---
-#### 9
+#### 10
 
 
 ` File: packages/engine/src/language/registry.ts`  [Back to top](#index)
@@ -780,7 +873,7 @@ export function resolveValidationAdapter(filePath: string): StructuralLanguageAd
 ```
 
 ---
-#### 10
+#### 11
 
 
 ` File: packages/engine/src/language/types.ts`  [Back to top](#index)
@@ -801,7 +894,7 @@ export interface StructuralLanguageAdapter {
 ```
 
 ---
-#### 11
+#### 12
 
 
 ` File: packages/engine/src/operation/resolveOperationExecution.ts`  [Back to top](#index)
@@ -894,7 +987,7 @@ function normalizeInsert(insert: string, suffix: string, beforeContent: string, 
 ```
 
 ---
-#### 12
+#### 13
 
 
 ` File: packages/engine/src/parse/parseBlocks.ts`  [Back to top](#index)
@@ -1023,7 +1116,7 @@ export function parseBlocks(content: string): ParseResult {
 ```
 
 ---
-#### 13
+#### 14
 
 
 ` File: packages/engine/src/parse/parseDirectives.ts`  [Back to top](#index)
@@ -1093,7 +1186,7 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
 ```
 
 ---
-#### 14
+#### 15
 
 
 ` File: packages/engine/src/parse/parseFallback.ts`  [Back to top](#index)
@@ -1210,7 +1303,7 @@ export function parseFallbackBlocks(content: string): ParseResult {
 ```
 
 ---
-#### 15
+#### 16
 
 
 ` File: packages/engine/src/parse/parseFencedBlock.ts`  [Back to top](#index)
@@ -1331,7 +1424,7 @@ export function findFencedBlockStart(lines: string[], startIndex: number): numbe
 ```
 
 ---
-#### 16
+#### 17
 
 
 ` File: packages/engine/src/parse/parseSingleBlock.ts`  [Back to top](#index)
@@ -1364,7 +1457,7 @@ export function parseSingleBlock(lines: string[], blockIndex: number): BlockPars
 ```
 
 ---
-#### 17
+#### 18
 
 
 ` File: packages/engine/src/parse/parseUtils.ts`  [Back to top](#index)
@@ -1385,7 +1478,7 @@ export function isFileHeader(line: string): boolean {
 ```
 
 ---
-#### 18
+#### 19
 
 
 ` File: packages/engine/src/parser.ts`  [Back to top](#index)
@@ -1395,7 +1488,7 @@ export { parseBlocks } from './parse/parseBlocks';
 ```
 
 ---
-#### 19
+#### 20
 
 
 ` File: packages/engine/src/paths/resolveAndAssertWithin.ts`  [Back to top](#index)
@@ -1420,7 +1513,7 @@ function isWithin(basePath: string, targetPath: string): boolean {
 
 /**
  * Resolve a path and assert it's within the repository root and not in ignored prefixes/globs.
- * This is used for CREATE mode, which allows creating files anywhere under repo root
+ * This is used for create_file mode, which allows creating files anywhere under repo root
  * that isn't explicitly ignored.
  */
 export function resolveAndAssertWithinRepo(
@@ -1456,8 +1549,7 @@ export function resolveAndAssertWithinRepo(
 
 /**
  * Resolve a path and assert it's within scope roots and not in ignored prefixes/globs.
- * This is used for REPLACE, APPEND, and RANGE modes which must operate
- * on files within the configured scope.
+ * This is used for modes that must operate on files within the configured scope.
  */
 export function resolveAndAssertWithinScope(
   repoRoot: string,
@@ -1518,7 +1610,7 @@ export function resolveAndAssertWithin(
 ```
 
 ---
-#### 20
+#### 21
 
 
 ` File: packages/engine/src/plan/buildApplyPlan.ts`  [Back to top](#index)
@@ -1550,7 +1642,7 @@ export function buildApplyPlan(blocks: ParsedBlock[]): ApplyPlan {
 ```
 
 ---
-#### 21
+#### 22
 
 
 ` File: packages/engine/src/planner.ts`  [Back to top](#index)
@@ -1560,7 +1652,7 @@ export { buildApplyPlan } from './plan/buildApplyPlan';
 ```
 
 ---
-#### 22
+#### 23
 
 
 ` File: packages/engine/src/preflight/candidateValidation.ts`  [Back to top](#index)
@@ -1617,7 +1709,7 @@ export function validateCandidateOrThrow(filePath: string, mode: string, candida
 ```
 
 ---
-#### 23
+#### 24
 
 
 ` File: packages/engine/src/preflight/preflight.ts`  [Back to top](#index)
@@ -1762,7 +1854,7 @@ function validationMetadata(operation: Operation): Record<string, string> {
 ```
 
 ---
-#### 24
+#### 25
 
 
 ` File: packages/engine/src/preview/lineDiff.ts`  [Back to top](#index)
@@ -1848,7 +1940,7 @@ function diffByLinesFallback(oldText: string, newText: string): LineDiffPart[] {
 ```
 
 ---
-#### 25
+#### 26
 
 
 ` File: packages/engine/src/preview/operationComparison.ts`  [Back to top](#index)
@@ -1863,7 +1955,7 @@ import type {
   OperationComparisonRegion,
   OperationDiffHunk,
 } from '@inscribe/shared';
-import { deriveChangedSegment } from '../apply/restoreV2';
+import { deriveChangedSegment } from '../history/restoreV2';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { getEffectiveIgnoreMatchers } from '../repository';
 import { diffLinesStable } from './lineDiff';
@@ -2083,7 +2175,7 @@ function resolveAnchorSide(kind: OperationComparisonRegion['kind'], newContent: 
 ```
 
 ---
-#### 26
+#### 27
 
 
 ` File: packages/engine/src/preview/operationPreview.ts`  [Back to top](#index)
@@ -2125,7 +2217,7 @@ export function buildOperationPreview(operation: Operation, repoRoot: string): O
 ```
 
 ---
-#### 27
+#### 28
 
 
 ` File: packages/engine/src/repo/historyStore.ts`  [Back to top](#index)
@@ -2228,7 +2320,7 @@ export function markHistoryEntryRestored(
 ```
 
 ---
-#### 28
+#### 29
 
 
 ` File: packages/engine/src/repo/ignoreRules.ts`  [Back to top](#index)
@@ -2357,7 +2449,7 @@ export function matchIgnoredPath(
 ```
 
 ---
-#### 29
+#### 30
 
 
 ` File: packages/engine/src/repo/indexer.ts`  [Back to top](#index)
@@ -2464,7 +2556,7 @@ function collectFiles(
 ```
 
 ---
-#### 30
+#### 31
 
 
 ` File: packages/engine/src/repo/pathing.ts`  [Back to top](#index)
@@ -2474,7 +2566,7 @@ export { ensureTrailingSlash, normalizePrefix, normalizeRelativePath } from '../
 ```
 
 ---
-#### 31
+#### 32
 
 
 ` File: packages/engine/src/repo/scopeStore.ts`  [Back to top](#index)
@@ -2624,7 +2716,7 @@ export function getLastVisitedRepo(): string | null {
 ```
 
 ---
-#### 32
+#### 33
 
 
 ` File: packages/engine/src/repo/statusStore.ts`  [Back to top](#index)
@@ -2661,7 +2753,7 @@ export function getIndexStatus(repoRoot: string): IndexStatus {
 ```
 
 ---
-#### 33
+#### 34
 
 
 ` File: packages/engine/src/repo/storePath.ts`  [Back to top](#index)
@@ -2703,7 +2795,7 @@ export function getStorePath(): string {
 ```
 
 ---
-#### 34
+#### 35
 
 
 ` File: packages/engine/src/repo/suggest.ts`  [Back to top](#index)
@@ -2770,7 +2862,7 @@ export function computeDefaultScope(repoRoot: string): { scope: string[]; sugges
 ```
 
 ---
-#### 35
+#### 36
 
 
 ` File: packages/engine/src/repo/topLevel.ts`  [Back to top](#index)
@@ -2805,7 +2897,7 @@ export function listTopLevelFolders(repoRoot: string): string[] {
 ```
 
 ---
-#### 36
+#### 37
 
 
 ` File: packages/engine/src/repository.ts`  [Back to top](#index)
@@ -2830,7 +2922,7 @@ export {
 ```
 
 ---
-#### 37
+#### 38
 
 
 ` File: packages/engine/src/target/blockTarget.ts`  [Back to top](#index)
@@ -2860,7 +2952,7 @@ export function resolveBlockTarget(content: string, directives: Record<string, s
 ```
 
 ---
-#### 38
+#### 39
 
 
 ` File: packages/engine/src/target/symbolTarget.ts`  [Back to top](#index)
@@ -2877,7 +2969,7 @@ export function resolveSymbolTarget(content: string, directives: Record<string, 
 ```
 
 ---
-#### 39
+#### 40
 
 
 ` File: packages/engine/src/target/targetUtils.ts`  [Back to top](#index)
@@ -2930,7 +3022,7 @@ export function formatNoCandidateMatched(): string {
 ```
 
 ---
-#### 40
+#### 41
 
 
 ` File: packages/engine/src/target/textTargets.ts`  [Back to top](#index)
@@ -3048,7 +3140,7 @@ export function resolveBetweenTarget(content: string, directives: Record<string,
 ```
 
 ---
-#### 41
+#### 42
 
 
 ` File: packages/engine/src/util/braceScan.ts`  [Back to top](#index)
@@ -3298,7 +3390,7 @@ export function formatBraceScanError(error: BraceScanError): string {
 ```
 
 ---
-#### 42
+#### 43
 
 
 ` File: packages/engine/src/util/path.ts`  [Back to top](#index)
@@ -3308,7 +3400,7 @@ export { ensureTrailingSlash, normalizePrefix, normalizeRelativePath } from '@in
 ```
 
 ---
-#### 43
+#### 44
 
 
 ` File: packages/engine/src/util/textSearch.ts`  [Back to top](#index)
@@ -3405,7 +3497,7 @@ export function findAllOccurrences(content: string, search: string): MatchRange[
 ```
 
 ---
-#### 44
+#### 45
 
 
 ` File: packages/engine/src/validator.ts`  [Back to top](#index)
@@ -3415,7 +3507,7 @@ export { validateBlocks } from './contract/validateBlocks';
 ```
 
 ---
-#### 45
+#### 46
 
 
 ` File: packages/shared/src/cliCommands.ts`  [Back to top](#index)
@@ -3641,7 +3733,7 @@ export function extractCliCommandSuggestions(text: string): CliCommandSuggestion
 ```
 
 ---
-#### 46
+#### 47
 
 
 ` File: packages/shared/src/constants.ts`  [Back to top](#index)
@@ -3749,7 +3841,7 @@ export const INSCRIBE_END = `${INSCRIBE_PREFIX} ${KEYWORD_END}`;
 ```
 
 ---
-#### 47
+#### 48
 
 
 ` File: packages/shared/src/diagnostics.ts`  [Back to top](#index)
@@ -3776,7 +3868,7 @@ export interface Diagnostic {
 ```
 
 ---
-#### 48
+#### 49
 
 
 ` File: packages/shared/src/directives.ts`  [Back to top](#index)
@@ -3834,7 +3926,7 @@ export function parseDirectiveLine(line: string): ParsedDirectiveLine {
 ```
 
 ---
-#### 49
+#### 50
 
 
 ` File: packages/shared/src/index.ts`  [Back to top](#index)
@@ -3856,7 +3948,7 @@ export * from './diagnostics';
 ```
 
 ---
-#### 50
+#### 51
 
 
 ` File: packages/shared/src/modes.ts`  [Back to top](#index)
@@ -3922,7 +4014,7 @@ export function getModesByCategory(category: ModeCategory): OperationMode[] { re
 ```
 
 ---
-#### 51
+#### 52
 
 
 ` File: packages/shared/src/parseUtils.ts`  [Back to top](#index)
@@ -3991,7 +4083,7 @@ export function extractMarkerValue(line: string, marker: string): string {
 ```
 
 ---
-#### 52
+#### 53
 
 
 ` File: packages/shared/src/path.ts`  [Back to top](#index)
@@ -4016,7 +4108,7 @@ export function normalizePrefix(input: string): string {
 ```
 
 ---
-#### 53
+#### 54
 
 
 ` File: packages/shared/src/types.ts`  [Back to top](#index)
@@ -4228,4 +4320,4 @@ export interface ScopeState {
 
 ---
 *Generated with [Prodex](https://github.com/emxhive/prodex) — Codebase decoded.*
-<!-- PRODEx v2.0.1 | 2026-05-24T09:17:11.415Z -->
+<!-- PRODEx v2.0.1 | 2026-05-24T11:00:28.829Z -->

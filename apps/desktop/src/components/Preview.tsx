@@ -17,6 +17,8 @@ export default function Preview({ file, block }: PreviewProps) {
     return <div className="preview">No preview available</div>;
   }
 
+  const isTextMode = ['replace_line', 'replace_range', 'replace_between', 'replace_block'].includes(block.mode);
+
   return (
     <div className="preview">
       <h4>
@@ -26,14 +28,18 @@ export default function Preview({ file, block }: PreviewProps) {
         <p>
           <strong>Mode:</strong> {block.mode}
         </p>
-        {block.mode === 'range' && (
+        {isTextMode && (
           <>
-            <p>
-              <strong>START:</strong> {block.directives.START || 'N/A'}
-            </p>
-            <p>
-              <strong>END (optional):</strong> {block.directives.END || 'None (single-line replace)'}
-            </p>
+            {block.directives.START && (
+              <p>
+                <strong>START:</strong> {block.directives.START}
+              </p>
+            )}
+            {block.directives.END && (
+              <p>
+                <strong>END:</strong> {block.directives.END}
+              </p>
+            )}
           </>
         )}
       </div>

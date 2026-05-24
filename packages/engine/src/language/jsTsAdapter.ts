@@ -1,5 +1,5 @@
 import { StructuralLanguageAdapter } from './types';
-import { resolveSymbolDeclarationRange } from '../apply/structuralResolvers';
+import { resolveSymbolDeclarationRange } from './jsTsStructuralResolvers';
 import { parse } from '@babel/parser';
 
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs']);

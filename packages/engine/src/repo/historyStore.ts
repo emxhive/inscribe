@@ -33,6 +33,34 @@ function writeHistoryEntries(repoRoot: string, entries: HistoryEntry[]): void {
   fs.renameSync(tempPath, storePath);
 }
 
+function markHistoryEntryRestoredInternal(
+  repoRoot: string,
+  entryId: string,
+  restoredAt: string
+): { didUpdate: boolean; entries: HistoryEntry[] } {
+  const existing = readHistoryEntries(repoRoot);
+  let didUpdate = false;
+  const updated = existing.map((entry) => {
+    if (entry.id !== entryId) {
+      return entry;
+    }
+    didUpdate = true;
+    return {
+      ...entry,
+      restoredAt,
+    };
+  });
+
+  if (didUpdate) {
+    writeHistoryEntries(repoRoot, updated);
+  }
+
+  return {
+    didUpdate,
+    entries: didUpdate ? updated : existing,
+  };
+}
+
 function mergeHistoryEntries(existing: HistoryEntry[], incoming: HistoryEntry[]): HistoryEntry[] {
   const merged: HistoryEntry[] = [];
   const seen = new Set<string>();
@@ -73,22 +101,13 @@ export function markHistoryEntryRestored(
   entryId: string,
   restoredAt: string
 ): boolean {
-  const existing = readHistoryEntries(repoRoot);
-  let didUpdate = false;
-  const updated = existing.map((entry) => {
-    if (entry.id !== entryId) {
-      return entry;
-    }
-    didUpdate = true;
-    return {
-      ...entry,
-      restoredAt,
-    };
-  });
+  return markHistoryEntryRestoredInternal(repoRoot, entryId, restoredAt).didUpdate;
+}
 
-  if (didUpdate) {
-    writeHistoryEntries(repoRoot, updated);
-  }
-
-  return didUpdate;
+export function markHistoryEntryRestoredAndGetEntries(
+  repoRoot: string,
+  entryId: string,
+  restoredAt: string
+): { didUpdate: boolean; entries: HistoryEntry[] } {
+  return markHistoryEntryRestoredInternal(repoRoot, entryId, restoredAt);
 }

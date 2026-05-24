@@ -1,10 +1,15 @@
 import { RestorePayloadV2 } from '@inscribe/shared';
 import { PreflightExecution } from '../preflight/preflight';
-import { restoreFromPayload } from './restoreV2';
+import { restoreFromPayload, restorePayloadLineEndings } from './restoreV2';
 
 export interface RestoreRequest {
   entryId: string;
   payload: RestorePayloadV2;
+}
+
+export interface RestoreFileState {
+  exists: boolean;
+  content: string;
 }
 
 /**
@@ -13,11 +18,12 @@ export interface RestoreRequest {
  */
 export function resolveRestoreExecution(
   request: RestoreRequest,
-  currentContent: string,
+  currentFile: RestoreFileState,
   resolvedPath: string,
   operationIndex: number
 ): PreflightExecution {
   const { payload } = request;
+  const currentContent = currentFile.content;
 
   // DELIBERATE RESTORE BEHAVIOR PER MODE:
 
@@ -26,8 +32,8 @@ export function resolveRestoreExecution(
      return {
       kind: 'file_delete',
       mode: 'delete_file',
-      operation: { type: 'delete_file', file: payload.file, content: '', blockIndex: -1 },
-      beforeExists: true,
+      operation: { type: payload.mode, file: payload.file, content: '', blockIndex: -1 },
+      beforeExists: currentFile.exists,
       afterExists: false,
       beforeContent: currentContent,
       afterContent: '',
@@ -38,14 +44,17 @@ export function resolveRestoreExecution(
 
   // 2. delete_file restore: recreate the file with oldContent
   if (payload.mode === 'delete_file') {
+    assertSafeDeleteFileRestore(currentFile, payload.oldContent);
+    const restoredContent = restorePayloadLineEndings(payload.oldContent, payload);
+
     return {
       kind: 'file_content',
       mode: 'create_file',
-      operation: { type: 'create_file', file: payload.file, content: payload.oldContent, blockIndex: -1 },
-      beforeExists: false,
+      operation: { type: payload.mode, file: payload.file, content: restoredContent, blockIndex: -1 },
+      beforeExists: currentFile.exists,
       afterExists: true,
-      beforeContent: '',
-      afterContent: payload.oldContent,
+      beforeContent: currentContent,
+      afterContent: restoredContent,
       operationIndex,
       resolvedPath,
     };
@@ -65,16 +74,28 @@ export function resolveRestoreExecution(
     kind: 'file_content',
     mode: 'replace_file', // internal mapped mode for any non-delete content restoration
     operation: {
-      type: 'replace_file',
+      type: payload.mode,
       file: payload.file,
       content: afterContent,
       blockIndex: -1,
     },
-    beforeExists: true,
+    beforeExists: currentFile.exists,
     afterExists: true,
     beforeContent: currentContent,
     afterContent,
     operationIndex,
     resolvedPath,
   };
+}
+
+function assertSafeDeleteFileRestore(currentFile: RestoreFileState, oldContent: string): void {
+  if (!currentFile.exists) {
+    return;
+  }
+
+  if (currentFile.content === oldContent || currentFile.content.length === 0) {
+    return;
+  }
+
+  throw new Error('Unsafe to restore delete_file: target file was recreated with unrelated content.');
 }

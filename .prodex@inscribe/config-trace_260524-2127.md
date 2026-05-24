@@ -332,4 +332,4 @@ export default defineConfig({
 
 ---
 *Generated with [Prodex](https://github.com/emxhive/prodex) — Codebase decoded.*
-<!-- PRODEx v2.0.1 | 2026-05-24T17:16:10.487Z -->
+<!-- PRODEx v2.0.1 | 2026-05-24T20:27:50.434Z -->

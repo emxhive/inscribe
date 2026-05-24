@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { Mode, RestorePayloadV2 } from '@inscribe/shared';
 
 const CONTEXT_WINDOW_CHARS = 240;
+type LineEnding = '\n' | '\r\n' | '\r';
 
 export interface ChangedSegment {
   beforeStart: number;
@@ -24,7 +25,7 @@ export function sha256(input: string): string {
 }
 
 export function normalizeForMatch(input: string): string {
-  return input.replace(/\r\n/g, '\n');
+  return input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
 export function buildRestorePayload(mode: Mode, file: string, before: string, after: string): RestorePayloadV2 {
@@ -45,6 +46,7 @@ export function buildRestorePayload(mode: Mode, file: string, before: string, af
     schemaVersion: 2,
     mode,
     file,
+    lineEnding: detectDominantLineEnding(before) ?? detectDominantLineEnding(after),
     oldContent: segment.beforeChanged,
     newContent: segment.afterChanged,
     baseFileHash: sha256(beforeNorm),
@@ -92,14 +94,17 @@ export function deriveChangedSegment(before: string, after: string): ChangedSegm
 
 export function restoreFromPayload(current: string, payload: RestorePayloadV2): RestoreResolution {
   const content = normalizeForMatch(current);
+  const lineEnding = payload.lineEnding ?? detectDominantLineEnding(current);
   if (sha256(content) === payload.appliedFileHash) {
     const exactSlice = content.slice(payload.newSpanStart, payload.newSpanEnd);
     if (exactSlice === payload.newContent) {
       return {
         canResolve: true,
         confidence: 'exact',
-        resolvedContent:
+        resolvedContent: restoreLineEndings(
           content.slice(0, payload.newSpanStart) + payload.oldContent + content.slice(payload.newSpanEnd),
+          lineEnding
+        ),
       };
     }
   }
@@ -117,7 +122,10 @@ export function restoreFromPayload(current: string, payload: RestorePayloadV2): 
     return {
       canResolve: true,
       confidence: 'context',
-      resolvedContent: content.slice(0, candidate.start) + payload.oldContent + content.slice(candidate.end),
+      resolvedContent: restoreLineEndings(
+        content.slice(0, candidate.start) + payload.oldContent + content.slice(candidate.end),
+        lineEnding
+      ),
     };
   }
 
@@ -142,9 +150,47 @@ export function restoreFromPayload(current: string, payload: RestorePayloadV2): 
   return {
     canResolve: true,
     confidence: 'context',
-    resolvedContent:
+    resolvedContent: restoreLineEndings(
       content.slice(0, best.candidate.start) + payload.oldContent + content.slice(best.candidate.end),
+      lineEnding
+    ),
   };
+}
+
+export function restorePayloadLineEndings(input: string, payload: RestorePayloadV2): string {
+  return restoreLineEndings(input, payload.lineEnding);
+}
+
+function detectDominantLineEnding(input: string): LineEnding | undefined {
+  let lf = 0;
+  let crlf = 0;
+  let cr = 0;
+
+  for (let index = 0; index < input.length; index += 1) {
+    if (input[index] === '\r') {
+      if (input[index + 1] === '\n') {
+        crlf += 1;
+        index += 1;
+      } else {
+        cr += 1;
+      }
+    } else if (input[index] === '\n') {
+      lf += 1;
+    }
+  }
+
+  if (crlf >= lf && crlf >= cr && crlf > 0) return '\r\n';
+  if (lf >= cr && lf > 0) return '\n';
+  if (cr > 0) return '\r';
+  return undefined;
+}
+
+function restoreLineEndings(input: string, lineEnding: LineEnding | undefined): string {
+  if (!lineEnding || lineEnding === '\n') {
+    return input;
+  }
+
+  return input.replace(/\n/g, lineEnding);
 }
 
 function findAll(content: string, needle: string): Array<{ start: number; end: number }> {

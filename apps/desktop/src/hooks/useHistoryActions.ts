@@ -1,5 +1,6 @@
 import type { ApplyResult } from '@inscribe/shared';
 import type { HistoryItem } from '@/types';
+import { decorateHistoryEntries } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
 
@@ -30,12 +31,17 @@ export function useHistoryActions() {
       const result: ApplyResult = await window.inscribeAPI.restoreEntry(request, state.repoRoot);
 
       if (result.success) {
-        const restoredAt = new Date().toISOString();
+        const updatedEntry = result.historyEntries?.find((entry) => entry.id === item.id);
+        const restoredAt = updatedEntry?.restoredAt ?? new Date().toISOString();
         updateHistoryItem(item.id, {
           restoredAt,
           restoreStatus: 'success',
         });
-        await window.inscribeAPI.markHistoryEntryRestored(state.repoRoot, item.id, restoredAt);
+        if (result.historyEntries) {
+          updateState({
+            historyItems: decorateHistoryEntries(result.historyEntries),
+          });
+        }
         updateState({
           statusMessage: `✓ Restored ${item.file}.`,
         });

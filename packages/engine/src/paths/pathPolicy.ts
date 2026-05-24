@@ -29,3 +29,19 @@ export function enforcePathPolicy(
 
   return resolveAndAssertWithinScope(repoRoot, userPath, scopeRoots, ignoreMatcher);
 }
+
+/**
+ * Enforces restore path policy from the original payload mode.
+ *
+ * Restore execution may write the inverse file state, but path/scope/ignore
+ * policy must follow the operation that originally produced the history entry.
+ */
+export function enforceRestorePathPolicy(
+  repoRoot: string,
+  userPath: string,
+  originalMode: OperationMode,
+  scopeRoots: string[],
+  ignoreMatcher: IgnoreMatcher
+): PathPolicyResult {
+  return enforcePathPolicy(repoRoot, userPath, originalMode, scopeRoots, ignoreMatcher);
+}

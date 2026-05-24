@@ -7,10 +7,10 @@ import { resolveOperationExecution, OperationExecutionResult } from '../operatio
 import { enforcePathPolicy } from '../paths/pathPolicy';
 import { getScopeState } from '../repo/scopeStore';
 
-export interface PreflightExecution extends OperationExecutionResult {
+export type PreflightExecution = OperationExecutionResult & {
   operationIndex: number;
   resolvedPath: string;
-}
+};
 
 interface VirtualFileState {
   exists: boolean;

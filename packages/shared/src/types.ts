@@ -149,6 +149,7 @@ export interface RestorePayloadV2 {
   schemaVersion: 2;
   mode: Mode;
   file: string;
+  lineEnding?: '\n' | '\r\n' | '\r';
   oldContent: string;
   newContent: string;
   baseFileHash: string;

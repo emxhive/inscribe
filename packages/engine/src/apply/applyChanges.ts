@@ -3,11 +3,10 @@
  * Applies already-resolved preflight executions.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { ApplyPlan, ApplyResult, HistoryEntry, Operation, ValidationError, isValidMode } from '@inscribe/shared';
+import { ApplyPlan, ApplyResult, HistoryEntry, Operation, ValidationError } from '@inscribe/shared';
 import { buildRestoreEntry } from '../history/restoreHistory';
-import { cleanupEmptyDirs, PreflightExecution, preflightOperations } from '../preflight/preflight';
+import { preflightOperations } from '../preflight/preflight';
+import { writeExecutions } from './writeExecutions';
 
 function validateOperation(operation: Operation, index: number): string[] {
   const errors: string[] = [];
@@ -16,9 +15,11 @@ function validateOperation(operation: Operation, index: number): string[] {
     return [`Operation ${index} is invalid`];
   }
 
-  // Restore operations use internal transport and might skip normal mode validation
-  // but they should still have a file and a type.
-  if (operation.file.trim().length === 0) {
+  if (typeof operation.type !== 'string' || operation.type.trim().length === 0) {
+    errors.push(`Operation ${index} requires a non-empty type`);
+  }
+
+  if (typeof operation.file !== 'string' || operation.file.trim().length === 0) {
     errors.push(`Operation ${index} requires a non-empty file path`);
   }
 
@@ -91,55 +92,3 @@ function buildApplyId(timestamp: string): string {
   return `${timestamp}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function writeExecutions(executions: PreflightExecution[], repoRoot: string): void {
-  const written: PreflightExecution[] = [];
-
-  try {
-    for (const execution of executions) {
-      writeExecution(execution, repoRoot);
-      written.push(execution);
-    }
-  } catch (error) {
-    const rollbackErrors = rollbackExecutions(written, repoRoot);
-    if (rollbackErrors.length > 0) {
-      const message = error instanceof Error ? error.message : 'Unknown write error';
-      throw new Error(`${message}\nRollback errors:\n${rollbackErrors.join('\n')}`);
-    }
-
-    throw error;
-  }
-}
-
-function writeExecution(execution: PreflightExecution, repoRoot: string): void {
-  if (execution.afterExists) {
-    fs.mkdirSync(path.dirname(execution.resolvedPath), { recursive: true });
-    fs.writeFileSync(execution.resolvedPath, execution.afterContent);
-    return;
-  }
-
-  if (fs.existsSync(execution.resolvedPath)) {
-    fs.unlinkSync(execution.resolvedPath);
-    cleanupEmptyDirs(execution.resolvedPath, repoRoot);
-  }
-}
-
-function rollbackExecutions(executions: PreflightExecution[], repoRoot: string): string[] {
-  const errors: string[] = [];
-
-  for (const execution of [...executions].reverse()) {
-    try {
-      if (execution.beforeExists) {
-        fs.mkdirSync(path.dirname(execution.resolvedPath), { recursive: true });
-        fs.writeFileSync(execution.resolvedPath, execution.beforeContent);
-      } else if (fs.existsSync(execution.resolvedPath)) {
-        fs.unlinkSync(execution.resolvedPath);
-        cleanupEmptyDirs(execution.resolvedPath, repoRoot);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown rollback error';
-      errors.push(`${execution.operation.file}: ${message}`);
-    }
-  }
-
-  return errors;
-}

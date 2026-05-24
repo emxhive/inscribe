@@ -12,6 +12,9 @@ export {
   getLastVisitedRepo,
 } from './repo/scopeStore';
 export {
+  readIgnoreRules,
+  writeIgnoreFile,
+  getEffectiveIgnorePrefixes,
   getEffectiveIgnoreMatchers,
 } from './repo/ignoreRules';
 export { listTopLevelFolders } from './repo/topLevel';
@@ -30,3 +33,4 @@ export {
   resolveRestoreExecution,
   type RestoreRequest,
 } from './history/restoreExecution';
+export { restoreEntry } from './history/restoreEntry';

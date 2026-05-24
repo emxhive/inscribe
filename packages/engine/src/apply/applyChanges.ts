@@ -1,15 +1,13 @@
 /**
  * Applier for Inscribe
- * Applies changes and generates restore history entries
+ * Applies already-resolved preflight executions.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ApplyPlan, ApplyResult, HistoryEntry, Operation, ValidationError } from '@inscribe/shared';
-import { buildRestoreEntry } from './restoreHistory';
-import { cleanupEmptyDirs, PreflightExecution, preflightOperations } from './preflight';
-
-import { isValidMode } from '@inscribe/shared';
+import { ApplyPlan, ApplyResult, HistoryEntry, Operation, ValidationError, isValidMode } from '@inscribe/shared';
+import { buildRestoreEntry } from '../history/restoreHistory';
+import { cleanupEmptyDirs, PreflightExecution, preflightOperations } from '../preflight/preflight';
 
 function validateOperation(operation: Operation, index: number): string[] {
   const errors: string[] = [];
@@ -26,12 +24,12 @@ function validateOperation(operation: Operation, index: number): string[] {
     errors.push(`Operation ${index} requires a non-empty file path`);
   }
 
-
   return errors;
 }
 
 /**
- * Apply changes and emit restore history entries
+ * Apply changes and emit restore history entries.
+ * Consumes a plan, runs preflight to resolve executions, then persists results.
  */
 export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
   const historyEntries: HistoryEntry[] = [];
@@ -60,6 +58,7 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
       };
     }
 
+    // Preflight resolves all operations into deterministic execution results.
     const executions = preflightOperations(plan.operations, repoRoot);
 
     // Apply all operations only after the full plan has resolved and validated.

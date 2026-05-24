@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Operation, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2 } from '@inscribe/shared';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
-import { getEffectiveIgnoreMatchers } from '../repository';
-import { restoreFromPayload } from './restoreV2';
+import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
+import { restoreFromPayload } from '../history/restoreV2';
 import { validateCandidateOrThrow } from './candidateValidation';
 import { resolveOperationExecution, OperationExecutionResult } from '../operation/resolveOperationExecution';
 
@@ -28,6 +28,10 @@ export class PreflightError extends Error {
   }
 }
 
+/**
+ * Simulates a sequence of operations against the repository state.
+ * Manages virtual file state and handles disk reading of initial state.
+ */
 export function preflightOperations(operations: Operation[], repoRoot: string): PreflightExecution[] {
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
   const virtualFiles = new Map<string, VirtualFileState>();

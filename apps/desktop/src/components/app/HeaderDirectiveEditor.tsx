@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
   DIRECTIVE_KEYS,
   HEADER_KEYS,
-  VALID_MODES,
+  OPERATION_MODES,
   type DirectiveKey,
   type HeaderKey,
 } from '@inscribe/shared';
@@ -83,7 +83,7 @@ export function HeaderDirectiveEditor({
                     value={block.directives.MODE?.value ?? ''}
                     onChange={(event) => onHeaderChange('MODE', event.target.value)}
                     placeholder="MODE:"
-                    options={VALID_MODES.map((mode) => ({ value: mode, label: mode }))}
+                    options={OPERATION_MODES.map((mode) => ({ value: mode, label: mode }))}
                   />
                 ) : (
                   <input

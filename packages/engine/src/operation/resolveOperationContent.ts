@@ -16,7 +16,7 @@ export interface OperationResolvedContent {
 
 export function resolveOperationContent(operation: Operation, beforeContent: string): OperationResolvedContent {
   switch (operation.type) {
-    case 'create': {
+    case 'create_file': {
       return {
         afterContent: operation.content,
         replacement: {
@@ -29,12 +29,12 @@ export function resolveOperationContent(operation: Operation, beforeContent: str
         },
       };
     }
-    case 'replace': {
+    case 'replace_file': {
       return {
         afterContent: operation.content,
       };
     }
-    case 'append': {
+    case 'append_file': {
       const afterContent = `${beforeContent}${operation.content}`;
       return {
         afterContent,
@@ -48,7 +48,10 @@ export function resolveOperationContent(operation: Operation, beforeContent: str
         },
       };
     }
-    case 'range': {
+    case 'replace_line':
+    case 'replace_range':
+    case 'replace_between':
+    case 'replace_block': {
       const { prefix, suffix, insert, replaceStart, replaceEnd, removed } = resolveRangeReplacement(beforeContent, operation);
       const afterContent = `${prefix}${insert}${suffix}`;
       return {
@@ -81,7 +84,7 @@ export function resolveOperationContent(operation: Operation, beforeContent: str
         },
       };
     }
-    case 'delete': {
+    case 'delete_file': {
       return {
         afterContent: '',
       };

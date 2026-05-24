@@ -1,31 +1,77 @@
 import { findAllOccurrences, MatchRange } from '../util/textSearch';
+import { findBraceRangeFromSelection, formatBraceScanError } from '../util/braceScan';
 
-export interface ResolvedRangeDirectiveShape { startDirective: { key: 'START'; value: string }; endDirective: { key: 'END'; value: string } | null; contains: string[]; }
-export interface ResolvedRange { startDirective: { key: 'START'; value: string }; endDirective: { key: 'END'; value: string } | null; startMatch: MatchRange; endMatch: MatchRange | null; replaceStart: number; replaceEnd: number; }
+export const VIRTUAL_START = '::START_OF_FILE';
+export const VIRTUAL_END = '::END_OF_FILE';
+
+export interface ResolvedRangeDirectiveShape { startDirective: { key: 'START'; value: string }; endDirective: { key: 'END'; value: string }; contains: string[]; }
+export interface ResolvedRange { replaceStart: number; replaceEnd: number; }
 
 export function resolveRangeDirectiveShape(directives: Record<string, string> = {}): ResolvedRangeDirectiveShape {
-  const start = directives.START?.trim(); const end = directives.END?.trim(); const contains = (directives.CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
+  const start = directives.START?.trim(); const end = directives.END?.trim();
   if (!start) throw new Error('Missing required START directive');
-  return { startDirective: { key: 'START', value: start }, endDirective: end ? { key: 'END', value: end } : null, contains };
+  if (!end) throw new Error('Missing required END directive');
+  const contains = (directives.CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
+  return { startDirective: { key: 'START', value: start }, endDirective: { key: 'END', value: end }, contains };
 }
 
-export function resolveRange(content: string, directives: Record<string, string> = {}): ResolvedRange {
+function lineStart(content: string, idx: number): number { const n = content.lastIndexOf('\n', Math.max(0, idx - 1)); return n === -1 ? 0 : n + 1; }
+function lineEnd(content: string, idx: number): number { const n = content.indexOf('\n', idx); return n === -1 ? content.length : n + 1; }
+
+function filterCandidates(content: string, candidates: { start: number; end: number }[], contains: string[]): { start: number; end: number }[] {
+  if (contains.length === 0) return candidates;
+  return candidates.filter((c) => { const text = content.slice(c.start, c.end); return contains.every((v) => text.includes(v)); });
+}
+
+export function resolveReplaceLine(content: string, directives: Record<string, string> = {}): ResolvedRange {
+  const start = directives.START?.trim();
+  if (!start || start === VIRTUAL_START || start === VIRTUAL_END) throw new Error('replace_line requires non-virtual START directive');
+  const matches = findAllOccurrences(content, start);
+  if (matches.length !== 1) throw new Error(matches.length === 0 ? `START anchor not found: "${start}"` : `START anchor is ambiguous (${matches.length} matches)`);
+  return { replaceStart: lineStart(content, matches[0].start), replaceEnd: lineEnd(content, matches[0].end) };
+}
+
+export function resolveReplaceRange(content: string, directives: Record<string, string> = {}): ResolvedRange {
   const { startDirective, endDirective, contains } = resolveRangeDirectiveShape(directives);
-  const startMatches = findAllOccurrences(content, startDirective.value);
-  if (startMatches.length !== 1) throw new Error(startMatches.length === 0 ? `START anchor not found: "${startDirective.value}"` : `START anchor is ambiguous (${startMatches.length} matches)`);
-  const startMatch = startMatches[0];
-  if (!endDirective) {
-    const lineStart = getLineStart(content, startMatch.start);
-    const lineEnd = getLineEnd(content, startMatch.end);
-    return { startDirective, endDirective: null, startMatch, endMatch: null, replaceStart: lineStart, replaceEnd: lineEnd };
+  if (startDirective.value === VIRTUAL_START && endDirective.value === VIRTUAL_END) throw new Error('replace_range cannot target full file via virtual anchors; use replace_file');
+  const starts = startDirective.value === VIRTUAL_START ? [{ start: 0, end: 0 }] : findAllOccurrences(content, startDirective.value);
+  const ends = endDirective.value === VIRTUAL_END ? [{ start: content.length, end: content.length }] : findAllOccurrences(content, endDirective.value);
+  const candidates: { start: number; end: number }[] = [];
+  for (const s of starts) {
+    for (const e of ends) {
+      if (e.start < s.end) continue;
+      candidates.push({ start: lineStart(content, s.start), end: lineEnd(content, e.end) });
+    }
   }
-  const endMatches = findAllOccurrences(content, endDirective.value).filter(m => m.start >= startMatch.end);
-  if (endMatches.length !== 1) throw new Error(endMatches.length === 0 ? `END anchor not found after START: "${endDirective.value}"` : `END anchor is ambiguous (${endMatches.length} matches after START)`);
-  const endMatch = endMatches[0];
-  const bounded = content.slice(startMatch.start, endMatch.end);
-  if (contains.length > 0 && !contains.every(v => bounded.includes(v))) throw new Error('No range candidate matched START + END + CONTAINS');
-  return { startDirective, endDirective, startMatch, endMatch, replaceStart: getLineStart(content, startMatch.start), replaceEnd: getLineEnd(content, endMatch.end) };
+  const filtered = filterCandidates(content, candidates, contains);
+  if (filtered.length !== 1) throw new Error(filtered.length === 0 ? 'No range candidate matched START + END + CONTAINS' : `Range is ambiguous (${filtered.length} matches)`);
+  return { replaceStart: filtered[0].start, replaceEnd: filtered[0].end };
 }
 
-function getLineStart(content: string, index: number): number { const newline = content.lastIndexOf('\n', index - 1); return newline === -1 ? 0 : newline + 1; }
-function getLineEnd(content: string, index: number): number { const newline = content.indexOf('\n', index); return newline === -1 ? content.length : newline + 1; }
+export function resolveReplaceBetween(content: string, directives: Record<string, string> = {}): ResolvedRange {
+  const { startDirective, endDirective, contains } = resolveRangeDirectiveShape(directives);
+  if (startDirective.value === VIRTUAL_START && endDirective.value === VIRTUAL_END) throw new Error('replace_between cannot target full file via virtual anchors; use replace_file');
+  const starts = startDirective.value === VIRTUAL_START ? [{ start: 0, end: 0 }] : findAllOccurrences(content, startDirective.value);
+  const ends = endDirective.value === VIRTUAL_END ? [{ start: content.length, end: content.length }] : findAllOccurrences(content, endDirective.value);
+  const candidates: { start: number; end: number }[] = [];
+  for (const s of starts) for (const e of ends) {
+    if (e.start < s.end) continue;
+    const start = startDirective.value === VIRTUAL_START ? 0 : lineEnd(content, s.end);
+    const end = endDirective.value === VIRTUAL_END ? content.length : lineStart(content, e.start);
+    if (end <= start) continue;
+    candidates.push({ start, end });
+  }
+  const filtered = filterCandidates(content, candidates, contains);
+  if (filtered.length !== 1) throw new Error(filtered.length === 0 ? 'No range candidate matched START + END + CONTAINS' : `Range is ambiguous (${filtered.length} matches)`);
+  return { replaceStart: filtered[0].start, replaceEnd: filtered[0].end };
+}
+
+export function resolveReplaceBlock(content: string, directives: Record<string, string> = {}): ResolvedRange {
+  const start = directives.START?.trim();
+  if (!start || start === VIRTUAL_START || start === VIRTUAL_END) throw new Error('replace_block requires non-virtual START directive');
+  const matches = findAllOccurrences(content, start);
+  if (matches.length !== 1) throw new Error(matches.length === 0 ? `START anchor not found: "${start}"` : `START anchor is ambiguous (${matches.length} matches)`);
+  const brace = findBraceRangeFromSelection(content, matches[0].start);
+  if (!brace.match) throw new Error(formatBraceScanError(brace.error!));
+  return { replaceStart: brace.match.openIndex, replaceEnd: brace.match.closeIndex + 1 };
+}

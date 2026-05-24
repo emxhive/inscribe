@@ -16,7 +16,7 @@ import {
   SquareTerminal,
   X,
 } from 'lucide-react';
-import { DIRECTIVE_KEYS, HEADER_KEYS, VALID_MODES, type DirectiveKey, type HeaderKey } from '@inscribe/shared';
+import { DIRECTIVE_KEYS, HEADER_KEYS, OPERATION_MODES, type DirectiveKey, type HeaderKey } from '@inscribe/shared';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { FileListEntry } from '@/components/common/FileListEntry';
@@ -593,7 +593,7 @@ function ReviewDirectiveEditor({
                 className="mt-1 font-mono"
                 value={draft.MODE ?? ''}
                 placeholder="MODE:"
-                options={VALID_MODES.map((mode) => ({ value: mode, label: mode }))}
+                options={OPERATION_MODES.map((mode) => ({ value: mode, label: mode }))}
                 onChange={(event) => setDraft((prev) => ({ ...prev, MODE: event.target.value }))}
               />
             ) : (

@@ -10,7 +10,11 @@ export function parseSingleBlock(lines: string[], blockIndex: number): BlockPars
   const { file, mode, directives, contentStartIndex, warnings } = directiveResult;
 
   if (!modeRequiresContent(mode)) {
-    if (contentStartIndex >= 0) return { error: `${mode} does not allow fenced content` };
+    if (contentStartIndex >= 0) {
+      const fencedResult = extractFencedBlock(lines, contentStartIndex, { requireTrailingWhitespace: true });
+      if (fencedResult.error) return { error: fencedResult.error };
+      if ((fencedResult.content ?? '').trim().length > 0) return { error: `${mode} forbids non-whitespace fenced content` };
+    }
     return { block: { file, mode, directives, content: '', blockIndex }, warnings };
   }
 

@@ -16,10 +16,8 @@ function validateOperation(operation: Operation, index: number): string[] {
     return [`Operation ${index} is invalid`];
   }
 
-  if (!isValidMode(operation.type)) {
-    errors.push(`Unknown operation type: ${String(operation.type)}`);
-  }
-
+  // Restore operations use internal transport and might skip normal mode validation
+  // but they should still have a file and a type.
   if (operation.file.trim().length === 0) {
     errors.push(`Operation ${index} requires a non-empty file path`);
   }

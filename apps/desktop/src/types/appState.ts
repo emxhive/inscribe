@@ -7,6 +7,7 @@ import type {
   ValidationError,
   HistoryEntry,
   CliCommandSuggestion,
+  ParseWarning,
 } from '@inscribe/shared';
 
 /**
@@ -76,6 +77,7 @@ export interface AppState {
   mode: AppMode;
   aiInput: string;
   parseErrors: string[];
+  parseWarnings: ParseWarning[];
   parsedBlocks: ParsedBlock[];
   validationErrors: ValidationError[];
   reviewItems: ReviewItem[];

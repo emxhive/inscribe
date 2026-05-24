@@ -28,13 +28,16 @@ export function buildRestoreEntry(
     file: operation.file,
     mode: operation.type,
     createdAt: appliedAt,
-    restoreOperation,
+    restoreOperation, // Kept for backward compatibility transport for now
     restorePayload,
     blockIndex: operation.blockIndex,
   };
 }
 
 function buildRestoreOperation(operation: Operation, payload: ReturnType<typeof buildRestorePayload>): Operation {
+  // Use a special internal 'restore' type or just keep using the payload transport
+  // Inscribe policy says RESTORE_* should not be public.
+  // We keep it as Operation for internal transport until applyChanges is updated.
   switch (operation.type) {
     case 'create_file':
       return baseRestore('delete_file', operation, payload, '');

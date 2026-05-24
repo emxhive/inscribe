@@ -96,18 +96,3 @@ export function resolveAndAssertWithinScope(
     relativePath,
   };
 }
-
-/**
- * Legacy function - delegates to resolveAndAssertWithinScope
- * @deprecated Use resolveAndAssertWithinScope or resolveAndAssertWithinRepo instead
- */
-export function resolveAndAssertWithin(
-  repoRoot: string,
-  userPath: string,
-  allowedRoots?: string[]
-): ResolvedPathInfo {
-  return resolveAndAssertWithinScope(repoRoot, userPath, allowedRoots || [], {
-    prefixes: [],
-    globs: [],
-  });
-}

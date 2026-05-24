@@ -168,15 +168,24 @@ export interface HistoryEntry {
   file: string;
   mode: Mode;
   createdAt: string;
+  /**
+   * @deprecated Use internal restore path based on restorePayload
+   */
   restoreOperation: Operation;
   restorePayload?: RestorePayloadV2;
   blockIndex?: number;
   restoredAt?: string;
 }
 
+export interface ParseWarning {
+  blockIndex?: number;
+  message: string;
+}
+
 export interface ParseResult {
   blocks: ParsedBlock[];
   errors: string[];
+  warnings: ParseWarning[];
 }
 
 export type IndexState = 'idle' | 'running' | 'complete' | 'error';

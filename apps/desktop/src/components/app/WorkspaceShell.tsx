@@ -644,6 +644,8 @@ function HistoryInspector() {
   const { state } = useAppStateContext();
   const { restoreItem, restoreGroup } = useHistoryActions();
   const activeItems = state.historyItems.filter((item) => !item.restoredAt);
+  const restoredItems = state.historyItems.filter((item) => !!item.restoredAt);
+
   const groupedHistory = useMemo(() => {
     const groups = new Map<string, typeof activeItems>();
     activeItems.forEach((item) => {
@@ -655,7 +657,7 @@ function HistoryInspector() {
       applyId,
       items,
       createdAt: items[0]?.createdAt,
-    }));
+    })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [activeItems]);
 
   const formatTimestamp = (timestamp?: string) => {
@@ -665,18 +667,18 @@ function HistoryInspector() {
     return date.toLocaleString();
   };
 
-  if (groupedHistory.length === 0) {
-    return <p className="py-3 text-xs text-muted-foreground">No applied blocks to restore yet.</p>;
-  }
-
   return (
     <div className="space-y-4 py-3">
+      {groupedHistory.length === 0 && restoredItems.length === 0 && (
+        <p className="py-3 text-xs text-muted-foreground">No applied blocks to restore yet.</p>
+      )}
+
       {groupedHistory.map((group) => (
         <div key={group.applyId} className="border-b border-border pb-4">
           <div className="mb-2 flex items-start justify-between gap-2">
             <div>
-              <p className="text-xs text-muted-foreground">Applied {formatTimestamp(group.createdAt)}</p>
-              <p className="text-sm font-semibold">{group.items.length} block{group.items.length === 1 ? '' : 's'}</p>
+              <p className="text-[10px] text-muted-foreground">Applied {formatTimestamp(group.createdAt)}</p>
+              <p className="text-xs font-semibold">{group.items.length} block{group.items.length === 1 ? '' : 's'}</p>
             </div>
             {group.items.length > 1 && (
               <Button
@@ -685,28 +687,28 @@ function HistoryInspector() {
                 type="button"
                 onClick={() => restoreGroup(group.applyId)}
                 disabled={state.isRestoringInProgress}
-                className="gap-1"
+                className="h-7 gap-1 px-2 text-[10px]"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Restore
+                <RotateCcw className="h-3 w-3" />
+                Restore All
               </Button>
             )}
           </div>
           <div className="space-y-1">
             {group.items.map((item) => {
-              const restoreMeta = item.restoreMeta ?? {
-                file: item.restoreOperation?.file ?? item.file,
-                lineCount: item.restoreOperation?.content ? item.restoreOperation.content.split('\n').length : 0,
-                language: getLanguageFromFilename(item.restoreOperation?.file ?? item.file),
-                mode: item.restoreOperation?.type ?? item.mode ?? 'unknown',
+              const meta = item.restoreMeta ?? {
+                file: item.file,
+                lineCount: item.restorePayload?.newContent.split('\n').length ?? 0,
+                language: getLanguageFromFilename(item.file),
+                mode: item.mode,
               };
               return (
                 <FileListEntry
                   key={item.id}
-                  file={restoreMeta.file}
-                  lineCount={restoreMeta.lineCount}
-                  language={restoreMeta.language}
-                  mode={restoreMeta.mode}
+                  file={meta.file}
+                  lineCount={meta.lineCount}
+                  language={meta.language}
+                  mode={meta.mode}
                   status="applied"
                   actions={
                     <Button
@@ -716,7 +718,7 @@ function HistoryInspector() {
                       className="h-6 w-6"
                       onClick={() => restoreItem(item)}
                       disabled={state.isRestoringInProgress}
-                      aria-label={`Restore ${restoreMeta.file}`}
+                      aria-label={`Restore ${meta.file}`}
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                     </Button>
@@ -728,6 +730,38 @@ function HistoryInspector() {
           </div>
         </div>
       ))}
+
+      {restoredItems.length > 0 && (
+        <div className="mt-6">
+          <div className="mb-2 border-b border-border pb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Restored</span>
+          </div>
+          <div className="space-y-1 opacity-60 grayscale-[0.5]">
+            {restoredItems.sort((a, b) => (b.restoredAt || '').localeCompare(a.restoredAt || '')).map((item) => {
+              const meta = item.restoreMeta ?? {
+                file: item.file,
+                lineCount: item.restorePayload?.newContent.split('\n').length ?? 0,
+                language: getLanguageFromFilename(item.file),
+                mode: item.mode,
+              };
+              return (
+                <div key={item.id} className="relative">
+                   <FileListEntry
+                    file={meta.file}
+                    lineCount={meta.lineCount}
+                    language={meta.language}
+                    mode={meta.mode}
+                    status="applied"
+                  />
+                  <div className="mt-0.5 px-2 text-[9px] text-muted-foreground">
+                    Restored {formatTimestamp(item.restoredAt)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

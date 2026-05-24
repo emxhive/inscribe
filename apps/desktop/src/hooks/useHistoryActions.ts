@@ -40,8 +40,7 @@ export function useHistoryActions() {
     try {
       const restoreBlock = buildRestoreBlock(item);
       const validationErrors = await window.inscribeAPI.validateBlocks(
-        [restoreBlock],
-        state.repoRoot
+        [restoreBlock]
       );
 
       if (validationErrors.length > 0) {

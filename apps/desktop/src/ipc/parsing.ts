@@ -17,13 +17,14 @@ export function registerParsingHandlers() {
       return {
         blocks: [],
         errors: [error instanceof Error ? error.message : 'Unknown error'],
+        warnings: [],
       };
     }
   });
 
-  ipcMain.handle('validate-blocks', async (_event, blocks: ParsedBlock[], repoRoot: string) => {
+  ipcMain.handle('validate-blocks', async (_event, blocks: ParsedBlock[]) => {
     try {
-      return validateBlocks(blocks, repoRoot);
+      return validateBlocks(blocks);
     } catch (error) {
       return [
         {
@@ -35,10 +36,10 @@ export function registerParsingHandlers() {
     }
   });
 
-  ipcMain.handle('validate-and-build-apply-plan', async (_event, blocks: ParsedBlock[], repoRoot: string) => {
+  ipcMain.handle('validate-and-build-apply-plan', async (_event, blocks: ParsedBlock[]) => {
     try {
       // Validate first
-      const validationErrors: ValidationError[] = validateBlocks(blocks, repoRoot);
+      const validationErrors: ValidationError[] = validateBlocks(blocks);
       if (validationErrors.length > 0) {
         const plan: ApplyPlan = { operations: [], errors: validationErrors };
         return plan;

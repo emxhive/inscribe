@@ -69,11 +69,11 @@ const api = {
   parseBlocks: (content: string): Promise<ParseResult> =>
     ipcRenderer.invoke('parse-blocks', content),
 
-  validateBlocks: (blocks: ParsedBlock[], repoRoot: string): Promise<ValidationError[]> =>
-    ipcRenderer.invoke('validate-blocks', blocks, repoRoot),
+  validateBlocks: (blocks: ParsedBlock[]): Promise<ValidationError[]> =>
+    ipcRenderer.invoke('validate-blocks', blocks),
 
-  validateAndBuildApplyPlan: (blocks: ParsedBlock[], repoRoot: string): Promise<ApplyPlan> =>
-    ipcRenderer.invoke('validate-and-build-apply-plan', blocks, repoRoot),
+  validateAndBuildApplyPlan: (blocks: ParsedBlock[]): Promise<ApplyPlan> =>
+    ipcRenderer.invoke('validate-and-build-apply-plan', blocks),
 
   applyChanges: (plan: ApplyPlan, repoRoot: string): Promise<ApplyResult> =>
     ipcRenderer.invoke('apply-changes', plan, repoRoot),

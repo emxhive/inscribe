@@ -84,8 +84,7 @@ export async function updateDirectivesAndRebuild({
   }
 
   const validationErrors = await window.inscribeAPI.validateBlocks(
-    parseResult.blocks || [],
-    repoRoot || '',
+    parseResult.blocks || []
   );
   const nextItems = buildReviewItems(parseResult.blocks || [], validationErrors || []);
 

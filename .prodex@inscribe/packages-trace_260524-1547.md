@@ -2,63 +2,64 @@
 > Note for LLMs: `Lx-Ly` ranges refer to lines in this Prodex trace file, not the original source files. Index metadata is provided via the HTML comment markers in this section.
 
 # Index
-<!-- PRODEX_INDEX_RANGE: L8-L61 -->
-<!-- PRODEX_FILE_COUNT: 54 -->
+<!-- PRODEX_INDEX_RANGE: L8-L62 -->
+<!-- PRODEX_FILE_COUNT: 55 -->
 <!-- PRODEX_INDEX_LIST_START -->
-- [packages/engine/src/applier.ts](#1) L65-L74
-- [packages/engine/src/apply/applyChanges.ts](#2) L75-L230
-- [packages/engine/src/contract/validateBlocks.ts](#3) L231-L306
-- [packages/engine/src/history/restoreHistory.ts](#4) L307-L382
-- [packages/engine/src/history/restoreV2.ts](#5) L383-L579
-- [packages/engine/src/index.ts](#6) L580-L616
-- [packages/engine/src/language/jsTsAdapter.ts](#7) L617-L648
-- [packages/engine/src/language/jsTsStructuralResolvers.ts](#8) L649-L747
-- [packages/engine/src/language/phpAdapter.ts](#9) L748-L848
-- [packages/engine/src/language/registry.ts](#10) L849-L874
-- [packages/engine/src/language/types.ts](#11) L875-L895
-- [packages/engine/src/operation/resolveOperationExecution.ts](#12) L896-L988
-- [packages/engine/src/parse/parseBlocks.ts](#13) L989-L1117
-- [packages/engine/src/parse/parseDirectives.ts](#14) L1118-L1187
-- [packages/engine/src/parse/parseFallback.ts](#15) L1188-L1304
-- [packages/engine/src/parse/parseFencedBlock.ts](#16) L1305-L1425
-- [packages/engine/src/parse/parseSingleBlock.ts](#17) L1426-L1458
-- [packages/engine/src/parse/parseUtils.ts](#18) L1459-L1479
-- [packages/engine/src/parser.ts](#19) L1480-L1489
-- [packages/engine/src/paths/resolveAndAssertWithin.ts](#20) L1490-L1611
-- [packages/engine/src/plan/buildApplyPlan.ts](#21) L1612-L1643
-- [packages/engine/src/planner.ts](#22) L1644-L1653
-- [packages/engine/src/preflight/candidateValidation.ts](#23) L1654-L1710
-- [packages/engine/src/preflight/preflight.ts](#24) L1711-L1855
-- [packages/engine/src/preview/lineDiff.ts](#25) L1856-L1941
-- [packages/engine/src/preview/operationComparison.ts](#26) L1942-L2176
-- [packages/engine/src/preview/operationPreview.ts](#27) L2177-L2218
-- [packages/engine/src/repo/historyStore.ts](#28) L2219-L2321
-- [packages/engine/src/repo/ignoreRules.ts](#29) L2322-L2450
-- [packages/engine/src/repo/indexer.ts](#30) L2451-L2557
-- [packages/engine/src/repo/pathing.ts](#31) L2558-L2567
-- [packages/engine/src/repo/scopeStore.ts](#32) L2568-L2717
-- [packages/engine/src/repo/statusStore.ts](#33) L2718-L2754
-- [packages/engine/src/repo/storePath.ts](#34) L2755-L2796
-- [packages/engine/src/repo/suggest.ts](#35) L2797-L2863
-- [packages/engine/src/repo/topLevel.ts](#36) L2864-L2898
-- [packages/engine/src/repository.ts](#37) L2899-L2923
-- [packages/engine/src/target/blockTarget.ts](#38) L2924-L2953
-- [packages/engine/src/target/symbolTarget.ts](#39) L2954-L2970
-- [packages/engine/src/target/targetUtils.ts](#40) L2971-L3023
-- [packages/engine/src/target/textTargets.ts](#41) L3024-L3141
-- [packages/engine/src/util/braceScan.ts](#42) L3142-L3391
-- [packages/engine/src/util/path.ts](#43) L3392-L3401
-- [packages/engine/src/util/textSearch.ts](#44) L3402-L3498
-- [packages/engine/src/validator.ts](#45) L3499-L3508
-- [packages/shared/src/cliCommands.ts](#46) L3509-L3734
-- [packages/shared/src/constants.ts](#47) L3735-L3842
-- [packages/shared/src/diagnostics.ts](#48) L3843-L3869
-- [packages/shared/src/directives.ts](#49) L3870-L3927
-- [packages/shared/src/index.ts](#50) L3928-L3949
-- [packages/shared/src/modes.ts](#51) L3950-L4015
-- [packages/shared/src/parseUtils.ts](#52) L4016-L4084
-- [packages/shared/src/path.ts](#53) L4085-L4109
-- [packages/shared/src/types.ts](#54) L4110-L4320
+- [packages/engine/src/applier.ts](#1) L66-L75
+- [packages/engine/src/apply/applyChanges.ts](#2) L76-L229
+- [packages/engine/src/contract/validateBlocks.ts](#3) L230-L297
+- [packages/engine/src/history/restoreExecution.ts](#4) L298-L355
+- [packages/engine/src/history/restoreHistory.ts](#5) L356-L434
+- [packages/engine/src/history/restoreV2.ts](#6) L435-L631
+- [packages/engine/src/index.ts](#7) L632-L668
+- [packages/engine/src/language/jsTsAdapter.ts](#8) L669-L700
+- [packages/engine/src/language/jsTsStructuralResolvers.ts](#9) L701-L799
+- [packages/engine/src/language/phpAdapter.ts](#10) L800-L900
+- [packages/engine/src/language/registry.ts](#11) L901-L926
+- [packages/engine/src/language/types.ts](#12) L927-L947
+- [packages/engine/src/operation/resolveOperationExecution.ts](#13) L948-L1040
+- [packages/engine/src/parse/parseBlocks.ts](#14) L1041-L1153
+- [packages/engine/src/parse/parseDirectives.ts](#15) L1154-L1223
+- [packages/engine/src/parse/parseFencedBlock.ts](#16) L1224-L1344
+- [packages/engine/src/parse/parseSingleBlock.ts](#17) L1345-L1377
+- [packages/engine/src/parse/parseUtils.ts](#18) L1378-L1398
+- [packages/engine/src/parser.ts](#19) L1399-L1408
+- [packages/engine/src/paths/pathPolicy.ts](#20) L1409-L1448
+- [packages/engine/src/paths/resolveAndAssertWithin.ts](#21) L1449-L1555
+- [packages/engine/src/plan/buildApplyPlan.ts](#22) L1556-L1587
+- [packages/engine/src/planner.ts](#23) L1588-L1597
+- [packages/engine/src/preflight/candidateValidation.ts](#24) L1598-L1654
+- [packages/engine/src/preflight/preflight.ts](#25) L1655-L1808
+- [packages/engine/src/preview/lineDiff.ts](#26) L1809-L1894
+- [packages/engine/src/preview/operationComparison.ts](#27) L1895-L2137
+- [packages/engine/src/preview/operationPreview.ts](#28) L2138-L2179
+- [packages/engine/src/repo/historyStore.ts](#29) L2180-L2282
+- [packages/engine/src/repo/ignoreRules.ts](#30) L2283-L2411
+- [packages/engine/src/repo/indexer.ts](#31) L2412-L2518
+- [packages/engine/src/repo/pathing.ts](#32) L2519-L2528
+- [packages/engine/src/repo/scopeStore.ts](#33) L2529-L2678
+- [packages/engine/src/repo/statusStore.ts](#34) L2679-L2715
+- [packages/engine/src/repo/storePath.ts](#35) L2716-L2757
+- [packages/engine/src/repo/suggest.ts](#36) L2758-L2824
+- [packages/engine/src/repo/topLevel.ts](#37) L2825-L2859
+- [packages/engine/src/repository.ts](#38) L2860-L2884
+- [packages/engine/src/target/blockTarget.ts](#39) L2885-L2914
+- [packages/engine/src/target/symbolTarget.ts](#40) L2915-L2931
+- [packages/engine/src/target/targetUtils.ts](#41) L2932-L2984
+- [packages/engine/src/target/textTargets.ts](#42) L2985-L3102
+- [packages/engine/src/util/braceScan.ts](#43) L3103-L3352
+- [packages/engine/src/util/path.ts](#44) L3353-L3362
+- [packages/engine/src/util/textSearch.ts](#45) L3363-L3459
+- [packages/engine/src/validator.ts](#46) L3460-L3469
+- [packages/shared/src/cliCommands.ts](#47) L3470-L3695
+- [packages/shared/src/constants.ts](#48) L3696-L3803
+- [packages/shared/src/diagnostics.ts](#49) L3804-L3830
+- [packages/shared/src/directives.ts](#50) L3831-L3888
+- [packages/shared/src/index.ts](#51) L3889-L3910
+- [packages/shared/src/modes.ts](#52) L3911-L3976
+- [packages/shared/src/parseUtils.ts](#53) L3977-L4045
+- [packages/shared/src/path.ts](#54) L4046-L4070
+- [packages/shared/src/types.ts](#55) L4071-L4290
 <!-- PRODEX_INDEX_LIST_END -->
 
 ---
@@ -97,10 +98,8 @@ function validateOperation(operation: Operation, index: number): string[] {
     return [`Operation ${index} is invalid`];
   }
 
-  if (!isValidMode(operation.type)) {
-    errors.push(`Unknown operation type: ${String(operation.type)}`);
-  }
-
+  // Restore operations use internal transport and might skip normal mode validation
+  // but they should still have a file and a type.
   if (operation.file.trim().length === 0) {
     errors.push(`Operation ${index} requires a non-empty file path`);
   }
@@ -239,7 +238,6 @@ import {
   DIAGNOSTIC_CODES,
   type DiagnosticCode,
   ParsedBlock,
-  RESTORE_DIRECTIVE_V2_SCHEMA,
   ValidationError,
   getOperationModeMetadata,
   getRequiredDirectives,
@@ -259,6 +257,7 @@ function buildError(
 /**
  * Performs static contract validation of parsed blocks.
  * Does not read the filesystem or perform preflight.
+ * Strict: unaware of RESTORE_* internal directives.
  */
 export function validateBlocks(blocks: ParsedBlock[]): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -271,14 +270,6 @@ export function validateBlocks(blocks: ParsedBlock[]): ValidationError[] {
 function validateBlock(block: ParsedBlock): ValidationError[] {
   const errors: ValidationError[] = [];
   const directives = block.directives ?? {};
-
-  // Restore blocks have special handling in history/preflight,
-  // but they still follow basic contract rules if they use a mode.
-  if (directives[RESTORE_DIRECTIVE_V2_SCHEMA] === '2') {
-    // For now, we skip deep contract validation for internal restore blocks
-    // as they are generated by the system.
-    return [];
-  }
 
   const metadata = getOperationModeMetadata(block.mode);
 
@@ -306,6 +297,64 @@ function validateBlock(block: ParsedBlock): ValidationError[] {
 
 ---
 #### 4
+
+
+` File: packages/engine/src/history/restoreExecution.ts`  [Back to top](#index)
+
+```ts
+import { HistoryEntry, RestorePayloadV2 } from '@inscribe/shared';
+import { PreflightExecution } from '../preflight/preflight';
+import { restoreFromPayload } from './restoreV2';
+
+export interface RestoreRequest {
+  entryId: string;
+  payload: RestorePayloadV2;
+}
+
+/**
+ * Resolves a restore request into a deterministic execution result.
+ * This is the internal restore path that avoids public operation semantics.
+ */
+export function resolveRestoreExecution(
+  request: RestoreRequest,
+  currentContent: string,
+  resolvedPath: string,
+  operationIndex: number
+): PreflightExecution {
+  const resolution = restoreFromPayload(currentContent, request.payload);
+
+  if (!resolution.canResolve || resolution.resolvedContent === undefined) {
+    throw new Error(resolution.error ?? 'Unsafe to restore: unable to resolve restore target.');
+  }
+
+  // Restore always results in a state where the file exists (unless we add delete_file restore support)
+  // For now, based on RestorePayloadV2, it's about reverting content.
+
+  // Note: if payload.mode was 'create_file', restoring it means deleting it.
+  const afterExists = request.payload.mode !== 'create_file';
+  const afterContent = afterExists ? resolution.resolvedContent : '';
+
+  return {
+    kind: afterExists ? 'file_content' : 'file_delete',
+    mode: (afterExists ? 'replace_file' : 'delete_file') as any, // internal mapped mode
+    operation: {
+      type: (afterExists ? 'replace_file' : 'delete_file') as any,
+      file: request.payload.file,
+      content: afterContent,
+      blockIndex: -1, // Internal operation
+    },
+    beforeExists: true, // we are restoring from an existing (applied) state
+    afterExists,
+    beforeContent: currentContent,
+    afterContent,
+    operationIndex,
+    resolvedPath,
+  };
+}
+```
+
+---
+#### 5
 
 
 ` File: packages/engine/src/history/restoreHistory.ts`  [Back to top](#index)
@@ -341,13 +390,16 @@ export function buildRestoreEntry(
     file: operation.file,
     mode: operation.type,
     createdAt: appliedAt,
-    restoreOperation,
+    restoreOperation, // Kept for backward compatibility transport for now
     restorePayload,
     blockIndex: operation.blockIndex,
   };
 }
 
 function buildRestoreOperation(operation: Operation, payload: ReturnType<typeof buildRestorePayload>): Operation {
+  // Use a special internal 'restore' type or just keep using the payload transport
+  // Inscribe policy says RESTORE_* should not be public.
+  // We keep it as Operation for internal transport until applyChanges is updated.
   switch (operation.type) {
     case 'create_file':
       return baseRestore('delete_file', operation, payload, '');
@@ -381,7 +433,7 @@ function baseRestore(type: Operation['type'], operation: Operation, payload: Ret
 ```
 
 ---
-#### 5
+#### 6
 
 
 ` File: packages/engine/src/history/restoreV2.ts`  [Back to top](#index)
@@ -578,7 +630,7 @@ function similarity(expected: string, actual: string): number {
 ```
 
 ---
-#### 6
+#### 7
 
 
 ` File: packages/engine/src/index.ts`  [Back to top](#index)
@@ -615,7 +667,7 @@ export {
 ```
 
 ---
-#### 7
+#### 8
 
 
 ` File: packages/engine/src/language/jsTsAdapter.ts`  [Back to top](#index)
@@ -647,7 +699,7 @@ export const jsTsAdapter: StructuralLanguageAdapter = {
 ```
 
 ---
-#### 8
+#### 9
 
 
 ` File: packages/engine/src/language/jsTsStructuralResolvers.ts`  [Back to top](#index)
@@ -746,7 +798,7 @@ export function resolveSymbolDeclarationRange(content: string, name: string): { 
 ```
 
 ---
-#### 9
+#### 10
 
 
 ` File: packages/engine/src/language/phpAdapter.ts`  [Back to top](#index)
@@ -847,7 +899,7 @@ export const phpAdapter: StructuralLanguageAdapter = {
 ```
 
 ---
-#### 10
+#### 11
 
 
 ` File: packages/engine/src/language/registry.ts`  [Back to top](#index)
@@ -873,7 +925,7 @@ export function resolveValidationAdapter(filePath: string): StructuralLanguageAd
 ```
 
 ---
-#### 11
+#### 12
 
 
 ` File: packages/engine/src/language/types.ts`  [Back to top](#index)
@@ -894,7 +946,7 @@ export interface StructuralLanguageAdapter {
 ```
 
 ---
-#### 12
+#### 13
 
 
 ` File: packages/engine/src/operation/resolveOperationExecution.ts`  [Back to top](#index)
@@ -987,7 +1039,7 @@ function normalizeInsert(insert: string, suffix: string, beforeContent: string, 
 ```
 
 ---
-#### 13
+#### 14
 
 
 ` File: packages/engine/src/parse/parseBlocks.ts`  [Back to top](#index)
@@ -1001,35 +1053,31 @@ function normalizeInsert(insert: string, suffix: string, beforeContent: string, 
 import {
   ParsedBlock,
   ParseResult,
+  ParseWarning,
   INSCRIBE_BEGIN,
   INSCRIBE_END,
   matchesMarker,
 } from '@inscribe/shared';
 import { parseSingleBlock, BlockParseResult } from './parseSingleBlock';
-import { parseFallbackBlocks } from './parseFallback';
 
 /**
- * Process a block parse result and add to blocks/errors arrays
- * @param blockResult - The result from parsing a single block
- * @param blockIndex - The index of the block being processed
- * @param blocks - Array of successfully parsed blocks (mutated by this function)
- * @param errors - Array of error messages (mutated by this function)
+ * Process a block parse result and add to blocks/errors/warnings arrays
  */
 function processBlockResult(
   blockResult: BlockParseResult,
   blockIndex: number,
   blocks: ParsedBlock[],
-  errors: string[]
+  errors: string[],
+  warnings: ParseWarning[]
 ): void {
   if (blockResult.error) {
     errors.push(`Block ${blockIndex}: ${blockResult.error}`);
   } else if (blockResult.block) {
     blocks.push(blockResult.block);
 
-    // Add warnings if any
     if (blockResult.warnings && blockResult.warnings.length > 0) {
-      blockResult.warnings.forEach(warning => {
-        errors.push(`Block ${blockIndex} warning: ${warning}`);
+      blockResult.warnings.forEach(message => {
+        warnings.push({ blockIndex, message });
       });
     }
   }
@@ -1039,18 +1087,23 @@ function finalizeBlock(
   blockLines: string[],
   blockIndex: number,
   blocks: ParsedBlock[],
-  errors: string[]
+  errors: string[],
+  warnings: ParseWarning[]
 ): void {
   const blockResult = parseSingleBlock(blockLines, blockIndex);
-  processBlockResult(blockResult, blockIndex, blocks, errors);
+  processBlockResult(blockResult, blockIndex, blocks, errors, warnings);
 }
 
 /**
  * Parse content to extract all Inscribe blocks
  * Collects all errors and warnings, continuing to process remaining blocks
+ *
+ * Strict behavior: only $inscribe BEGIN / $inscribe END blocks are recognized.
+ * parseFallback has been removed.
  */
 export function parseBlocks(content: string): ParseResult {
   const errors: string[] = [];
+  const warnings: ParseWarning[] = [];
   const blocks: ParsedBlock[] = [];
 
   const lines = content.split('\n');
@@ -1063,17 +1116,12 @@ export function parseBlocks(content: string): ParseResult {
 
     if (matchesMarker(line, INSCRIBE_BEGIN)) {
       if (inBlock) {
-        // BEGIN inside BEGIN: This handles nested BEGIN markers
-        // When a BEGIN is found while already in a block, treat the second BEGIN
-        // as an implicit END for the current block, then start a new block.
-        // This is the fallback behavior to handle user error gracefully.
-
-        // Try to parse the previous block
-        finalizeBlock(blockLines, blockIndex, blocks, errors);
-
-        // Add a warning about the implicit END
-        errors.push(`Block ${blockIndex}: BEGIN found without END at line ${i + 1}. Treating this BEGIN as implicit END and start of new block.`);
-
+        // Implicit END
+        finalizeBlock(blockLines, blockIndex, blocks, errors, warnings);
+        warnings.push({
+          blockIndex,
+          message: `Implicit END: BEGIN found at line ${i + 1} while already inside a block.`
+        });
         blockIndex++;
       }
 
@@ -1081,42 +1129,30 @@ export function parseBlocks(content: string): ParseResult {
       blockLines = [];
     } else if (matchesMarker(line, INSCRIBE_END)) {
       if (!inBlock) {
-        // END without BEGIN - collect error but continue processing
         errors.push(`Found END without matching BEGIN at line ${i + 1}`);
         continue;
       }
 
-      // Parse the block
-      finalizeBlock(blockLines, blockIndex, blocks, errors);
-
+      finalizeBlock(blockLines, blockIndex, blocks, errors, warnings);
       inBlock = false;
       blockIndex++;
       blockLines = [];
     } else if (inBlock) {
-      blockLines.push(lines[i]); // Keep original line with whitespace
+      blockLines.push(lines[i]);
     }
   }
 
   if (inBlock) {
-    // Handle unclosed block at end of content
-    errors.push(`Block ${blockIndex}: BEGIN without matching END`);
-
-    // Try to parse it anyway as a best effort
-    finalizeBlock(blockLines, blockIndex, blocks, errors);
+    errors.push(`Block ${blockIndex}: BEGIN without matching END (reached end of input)`);
+    finalizeBlock(blockLines, blockIndex, blocks, errors, warnings);
   }
 
-  if (blocks.length === 0 && errors.length === 0) {
-    // No blocks found with inscribe tags - try fallback mode
-    return parseFallbackBlocks(content);
-  }
-
-  // Return both successfully parsed blocks and accumulated errors
-  return { blocks, errors };
+  return { blocks, errors, warnings };
 }
 ```
 
 ---
-#### 14
+#### 15
 
 
 ` File: packages/engine/src/parse/parseDirectives.ts`  [Back to top](#index)
@@ -1182,123 +1218,6 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
   if (modeError) return { file, mode: OPERATION_MODES[0], directives, contentStartIndex, error: modeError };
   if (!mode) return { file, mode: OPERATION_MODES[0], directives, contentStartIndex, error: 'Missing MODE header' };
   return { file, mode, directives, contentStartIndex, warnings: warnings.length > 0 ? warnings : undefined };
-}
-```
-
----
-#### 15
-
-
-` File: packages/engine/src/parse/parseFallback.ts`  [Back to top](#index)
-
-```ts
-/**
- * Fallback parser for content without Inscribe tags
- * Looks for FILE/MODE headers followed by fenced code blocks
- */
-
-import {
-  ParsedBlock,
-  ParseResult,
-  matchesMarker,
-  INSCRIBE_BEGIN,
-  HEADER_FILE,
-  HEADER_MODE,
-  extractMarkerValue,
-  startsWithMarker,
-  isValidMode,
-} from '@inscribe/shared';
-import { isFileHeader } from './parseUtils';
-import { extractFencedBlock } from './parseFencedBlock';
-
-function findFenceStartBeforeStop(lines: string[], startIndex: number): number {
-  for (let j = startIndex; j < lines.length; j++) {
-    if (isFileHeader(lines[j]) || matchesMarker(lines[j], INSCRIBE_BEGIN)) {
-      return -1;
-    }
-    if (lines[j].trim().startsWith('```')) {
-      return j;
-    }
-  }
-  return -1;
-}
-
-function findModeHeader(lines: string[], startIndex: number, stopIndex: number): string | null {
-  for (let j = startIndex; j < stopIndex; j++) {
-    if (startsWithMarker(lines[j].trim(), HEADER_MODE)) {
-      return extractMarkerValue(lines[j].trim(), HEADER_MODE);
-    }
-  }
-  return null;
-}
-
-/**
- * Parse content without inscribe tags (fallback mode)
- * Looks for FILE/MODE headers followed by fenced code blocks
- */
-export function parseFallbackBlocks(content: string): ParseResult {
-  const errors: string[] = [];
-  const blocks: ParsedBlock[] = [];
-  const lines = content.split('\n');
-
-  let blockIndex = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-
-    // Look for FILE: header (matches case-insensitively by converting to uppercase)
-    if (isFileHeader(lines[i])) {
-      const file = trimmed.substring(HEADER_FILE.length).trim();
-
-      if (!file) {
-        continue; // Skip empty FILE: headers
-      }
-
-      // Look for the next fenced code block
-      const fenceStartIndex = findFenceStartBeforeStop(lines, i + 1);
-
-      if (fenceStartIndex === -1) {
-        continue; // No code block found for this FILE: header
-      }
-
-      const mode = findModeHeader(lines, i + 1, fenceStartIndex);
-      if (!mode) {
-        errors.push(`Block ${blockIndex}: Missing MODE header for file: ${file}`);
-        continue;
-      }
-      if (!isValidMode(mode)) {
-        errors.push(`Block ${blockIndex}: Invalid MODE header: ${mode} for file: ${file}`);
-        continue;
-      }
-
-      const fencedResult = extractFencedBlock(lines, fenceStartIndex);
-      if (fencedResult.error) {
-        errors.push(`Block ${blockIndex}: ${fencedResult.error} for file: ${file}`);
-        return { blocks: [], errors };
-      }
-
-      const fenceEndIndex = fencedResult.endIndex ?? fenceStartIndex;
-      const content = fencedResult.content ?? '';
-
-      blocks.push({
-        file,
-        mode,
-        directives: {},
-        content,
-        blockIndex,
-      });
-
-      blockIndex++;
-      i = fenceEndIndex; // Skip past this block
-    }
-  }
-
-  if (blocks.length === 0) {
-    errors.push('No valid Inscribe blocks found');
-    return { blocks: [], errors };
-  }
-
-  return { blocks, errors: [] };
 }
 ```
 
@@ -1491,6 +1410,46 @@ export { parseBlocks } from './parse/parseBlocks';
 #### 20
 
 
+` File: packages/engine/src/paths/pathPolicy.ts`  [Back to top](#index)
+
+```ts
+import { resolveAndAssertWithinRepo, resolveAndAssertWithinScope } from './resolveAndAssertWithin';
+import { type IgnoreMatcher } from '../repo/ignoreRules';
+import { getOperationModeMetadata, OperationMode } from '@inscribe/shared';
+
+export interface PathPolicyResult {
+  resolvedPath: string;
+  relativePath: string;
+}
+
+/**
+ * Enforces the centralized path and scope policy.
+ *
+ * Policy:
+ * - create_file: may create anywhere inside repo root unless ignored.
+ * - all other operations: must operate inside configured scope and outside ignored paths.
+ */
+export function enforcePathPolicy(
+  repoRoot: string,
+  userPath: string,
+  mode: OperationMode,
+  scopeRoots: string[],
+  ignoreMatcher: IgnoreMatcher
+): PathPolicyResult {
+  const metadata = getOperationModeMetadata(mode);
+
+  if (mode === 'create_file' || metadata.fileExistence === 'must_not_exist') {
+    return resolveAndAssertWithinRepo(repoRoot, userPath, ignoreMatcher);
+  }
+
+  return resolveAndAssertWithinScope(repoRoot, userPath, scopeRoots, ignoreMatcher);
+}
+```
+
+---
+#### 21
+
+
 ` File: packages/engine/src/paths/resolveAndAssertWithin.ts`  [Back to top](#index)
 
 ```ts
@@ -1592,25 +1551,10 @@ export function resolveAndAssertWithinScope(
     relativePath,
   };
 }
-
-/**
- * Legacy function - delegates to resolveAndAssertWithinScope
- * @deprecated Use resolveAndAssertWithinScope or resolveAndAssertWithinRepo instead
- */
-export function resolveAndAssertWithin(
-  repoRoot: string,
-  userPath: string,
-  allowedRoots?: string[]
-): ResolvedPathInfo {
-  return resolveAndAssertWithinScope(repoRoot, userPath, allowedRoots || [], {
-    prefixes: [],
-    globs: [],
-  });
-}
 ```
 
 ---
-#### 21
+#### 22
 
 
 ` File: packages/engine/src/plan/buildApplyPlan.ts`  [Back to top](#index)
@@ -1642,7 +1586,7 @@ export function buildApplyPlan(blocks: ParsedBlock[]): ApplyPlan {
 ```
 
 ---
-#### 22
+#### 23
 
 
 ` File: packages/engine/src/planner.ts`  [Back to top](#index)
@@ -1652,7 +1596,7 @@ export { buildApplyPlan } from './plan/buildApplyPlan';
 ```
 
 ---
-#### 23
+#### 24
 
 
 ` File: packages/engine/src/preflight/candidateValidation.ts`  [Back to top](#index)
@@ -1709,7 +1653,7 @@ export function validateCandidateOrThrow(filePath: string, mode: string, candida
 ```
 
 ---
-#### 24
+#### 25
 
 
 ` File: packages/engine/src/preflight/preflight.ts`  [Back to top](#index)
@@ -1717,12 +1661,13 @@ export function validateCandidateOrThrow(filePath: string, mode: string, candida
 ```ts
 import * as fs from 'fs';
 import * as path from 'path';
-import { Operation, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2 } from '@inscribe/shared';
-import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
+import { Operation, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2, OperationMode } from '@inscribe/shared';
 import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
 import { restoreFromPayload } from '../history/restoreV2';
 import { validateCandidateOrThrow } from './candidateValidation';
 import { resolveOperationExecution, OperationExecutionResult } from '../operation/resolveOperationExecution';
+import { enforcePathPolicy } from '../paths/pathPolicy';
+import { getScopeState } from '../repo/scopeStore';
 
 export interface PreflightExecution extends OperationExecutionResult {
   operationIndex: number;
@@ -1751,12 +1696,20 @@ export class PreflightError extends Error {
  */
 export function preflightOperations(operations: Operation[], repoRoot: string): PreflightExecution[] {
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
+  const scopeState = getScopeState(repoRoot);
+  const scopeRoots = scopeState?.scope ?? [];
   const virtualFiles = new Map<string, VirtualFileState>();
   const executions: PreflightExecution[] = [];
 
   for (const [operationIndex, operation] of operations.entries()) {
     try {
-      const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
+      const { resolvedPath } = enforcePathPolicy(
+        repoRoot,
+        operation.file,
+        operation.type as OperationMode,
+        scopeRoots,
+        ignoreMatcher
+      );
       const before = getVirtualFileState(virtualFiles, resolvedPath);
       const next = resolveOperationExecution(operation, before);
 
@@ -1854,7 +1807,7 @@ function validationMetadata(operation: Operation): Record<string, string> {
 ```
 
 ---
-#### 25
+#### 26
 
 
 ` File: packages/engine/src/preview/lineDiff.ts`  [Back to top](#index)
@@ -1940,7 +1893,7 @@ function diffByLinesFallback(oldText: string, newText: string): LineDiffPart[] {
 ```
 
 ---
-#### 26
+#### 27
 
 
 ` File: packages/engine/src/preview/operationComparison.ts`  [Back to top](#index)
@@ -1948,18 +1901,19 @@ function diffByLinesFallback(oldText: string, newText: string): LineDiffPart[] {
 ```ts
 import * as fs from 'fs';
 import type {
-  ComparisonAnchorSide,
   ComparisonRange,
   Operation,
   OperationComparison,
   OperationComparisonRegion,
   OperationDiffHunk,
+  OperationMode,
 } from '@inscribe/shared';
 import { deriveChangedSegment } from '../history/restoreV2';
-import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
-import { getEffectiveIgnoreMatchers } from '../repository';
+import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
 import { diffLinesStable } from './lineDiff';
 import { resolveOperationExecution } from '../operation/resolveOperationExecution';
+import { enforcePathPolicy } from '../paths/pathPolicy';
+import { getScopeState } from '../repo/scopeStore';
 
 interface BuildRegionInput {
   id: string;
@@ -1980,7 +1934,14 @@ interface FinalizeComparisonInput {
 
 export function buildOperationComparison(operation: Operation, repoRoot: string): OperationComparison {
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
-  const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
+  const scopeRoots = getScopeState(repoRoot)?.scope ?? [];
+  const { resolvedPath } = enforcePathPolicy(
+    repoRoot,
+    operation.file,
+    operation.type as OperationMode,
+    scopeRoots,
+    ignoreMatcher
+  );
   const oldContent = fs.existsSync(resolvedPath) ? fs.readFileSync(resolvedPath, 'utf-8') : '';
 
   const resolved = resolveOperationExecution(operation, { exists: fs.existsSync(resolvedPath), content: oldContent });
@@ -2175,7 +2136,7 @@ function resolveAnchorSide(kind: OperationComparisonRegion['kind'], newContent: 
 ```
 
 ---
-#### 27
+#### 28
 
 
 ` File: packages/engine/src/preview/operationPreview.ts`  [Back to top](#index)
@@ -2217,7 +2178,7 @@ export function buildOperationPreview(operation: Operation, repoRoot: string): O
 ```
 
 ---
-#### 28
+#### 29
 
 
 ` File: packages/engine/src/repo/historyStore.ts`  [Back to top](#index)
@@ -2320,7 +2281,7 @@ export function markHistoryEntryRestored(
 ```
 
 ---
-#### 29
+#### 30
 
 
 ` File: packages/engine/src/repo/ignoreRules.ts`  [Back to top](#index)
@@ -2449,7 +2410,7 @@ export function matchIgnoredPath(
 ```
 
 ---
-#### 30
+#### 31
 
 
 ` File: packages/engine/src/repo/indexer.ts`  [Back to top](#index)
@@ -2556,7 +2517,7 @@ function collectFiles(
 ```
 
 ---
-#### 31
+#### 32
 
 
 ` File: packages/engine/src/repo/pathing.ts`  [Back to top](#index)
@@ -2566,7 +2527,7 @@ export { ensureTrailingSlash, normalizePrefix, normalizeRelativePath } from '../
 ```
 
 ---
-#### 32
+#### 33
 
 
 ` File: packages/engine/src/repo/scopeStore.ts`  [Back to top](#index)
@@ -2716,7 +2677,7 @@ export function getLastVisitedRepo(): string | null {
 ```
 
 ---
-#### 33
+#### 34
 
 
 ` File: packages/engine/src/repo/statusStore.ts`  [Back to top](#index)
@@ -2753,7 +2714,7 @@ export function getIndexStatus(repoRoot: string): IndexStatus {
 ```
 
 ---
-#### 34
+#### 35
 
 
 ` File: packages/engine/src/repo/storePath.ts`  [Back to top](#index)
@@ -2795,7 +2756,7 @@ export function getStorePath(): string {
 ```
 
 ---
-#### 35
+#### 36
 
 
 ` File: packages/engine/src/repo/suggest.ts`  [Back to top](#index)
@@ -2862,7 +2823,7 @@ export function computeDefaultScope(repoRoot: string): { scope: string[]; sugges
 ```
 
 ---
-#### 36
+#### 37
 
 
 ` File: packages/engine/src/repo/topLevel.ts`  [Back to top](#index)
@@ -2897,7 +2858,7 @@ export function listTopLevelFolders(repoRoot: string): string[] {
 ```
 
 ---
-#### 37
+#### 38
 
 
 ` File: packages/engine/src/repository.ts`  [Back to top](#index)
@@ -2922,7 +2883,7 @@ export {
 ```
 
 ---
-#### 38
+#### 39
 
 
 ` File: packages/engine/src/target/blockTarget.ts`  [Back to top](#index)
@@ -2952,15 +2913,15 @@ export function resolveBlockTarget(content: string, directives: Record<string, s
 ```
 
 ---
-#### 39
+#### 40
 
 
 ` File: packages/engine/src/target/symbolTarget.ts`  [Back to top](#index)
 
 ```ts
-import { StructuralAdapter } from '../language/types';
+import { StructuralLanguageAdapter } from '../language/types';
 
-export function resolveSymbolTarget(content: string, directives: Record<string, string>, adapter: StructuralAdapter): { replaceStart:number; replaceEnd:number } {
+export function resolveSymbolTarget(content: string, directives: Record<string, string>, adapter: StructuralLanguageAdapter): { replaceStart:number; replaceEnd:number } {
   const name = directives.NAME;
   if (!name) throw new Error('replace_symbol requires NAME directive');
   const r = adapter.resolveSymbolDeclarationRange(content, name);
@@ -2969,7 +2930,7 @@ export function resolveSymbolTarget(content: string, directives: Record<string, 
 ```
 
 ---
-#### 40
+#### 41
 
 
 ` File: packages/engine/src/target/targetUtils.ts`  [Back to top](#index)
@@ -3022,7 +2983,7 @@ export function formatNoCandidateMatched(): string {
 ```
 
 ---
-#### 41
+#### 42
 
 
 ` File: packages/engine/src/target/textTargets.ts`  [Back to top](#index)
@@ -3140,7 +3101,7 @@ export function resolveBetweenTarget(content: string, directives: Record<string,
 ```
 
 ---
-#### 42
+#### 43
 
 
 ` File: packages/engine/src/util/braceScan.ts`  [Back to top](#index)
@@ -3390,7 +3351,7 @@ export function formatBraceScanError(error: BraceScanError): string {
 ```
 
 ---
-#### 43
+#### 44
 
 
 ` File: packages/engine/src/util/path.ts`  [Back to top](#index)
@@ -3400,7 +3361,7 @@ export { ensureTrailingSlash, normalizePrefix, normalizeRelativePath } from '@in
 ```
 
 ---
-#### 44
+#### 45
 
 
 ` File: packages/engine/src/util/textSearch.ts`  [Back to top](#index)
@@ -3497,7 +3458,7 @@ export function findAllOccurrences(content: string, search: string): MatchRange[
 ```
 
 ---
-#### 45
+#### 46
 
 
 ` File: packages/engine/src/validator.ts`  [Back to top](#index)
@@ -3507,7 +3468,7 @@ export { validateBlocks } from './contract/validateBlocks';
 ```
 
 ---
-#### 46
+#### 47
 
 
 ` File: packages/shared/src/cliCommands.ts`  [Back to top](#index)
@@ -3733,7 +3694,7 @@ export function extractCliCommandSuggestions(text: string): CliCommandSuggestion
 ```
 
 ---
-#### 47
+#### 48
 
 
 ` File: packages/shared/src/constants.ts`  [Back to top](#index)
@@ -3841,7 +3802,7 @@ export const INSCRIBE_END = `${INSCRIBE_PREFIX} ${KEYWORD_END}`;
 ```
 
 ---
-#### 48
+#### 49
 
 
 ` File: packages/shared/src/diagnostics.ts`  [Back to top](#index)
@@ -3868,7 +3829,7 @@ export interface Diagnostic {
 ```
 
 ---
-#### 49
+#### 50
 
 
 ` File: packages/shared/src/directives.ts`  [Back to top](#index)
@@ -3926,7 +3887,7 @@ export function parseDirectiveLine(line: string): ParsedDirectiveLine {
 ```
 
 ---
-#### 50
+#### 51
 
 
 ` File: packages/shared/src/index.ts`  [Back to top](#index)
@@ -3948,7 +3909,7 @@ export * from './diagnostics';
 ```
 
 ---
-#### 51
+#### 52
 
 
 ` File: packages/shared/src/modes.ts`  [Back to top](#index)
@@ -4014,7 +3975,7 @@ export function getModesByCategory(category: ModeCategory): OperationMode[] { re
 ```
 
 ---
-#### 52
+#### 53
 
 
 ` File: packages/shared/src/parseUtils.ts`  [Back to top](#index)
@@ -4083,7 +4044,7 @@ export function extractMarkerValue(line: string, marker: string): string {
 ```
 
 ---
-#### 53
+#### 54
 
 
 ` File: packages/shared/src/path.ts`  [Back to top](#index)
@@ -4108,7 +4069,7 @@ export function normalizePrefix(input: string): string {
 ```
 
 ---
-#### 54
+#### 55
 
 
 ` File: packages/shared/src/types.ts`  [Back to top](#index)
@@ -4284,15 +4245,24 @@ export interface HistoryEntry {
   file: string;
   mode: Mode;
   createdAt: string;
+  /**
+   * @deprecated Use internal restore path based on restorePayload
+   */
   restoreOperation: Operation;
   restorePayload?: RestorePayloadV2;
   blockIndex?: number;
   restoredAt?: string;
 }
 
+export interface ParseWarning {
+  blockIndex?: number;
+  message: string;
+}
+
 export interface ParseResult {
   blocks: ParsedBlock[];
   errors: string[];
+  warnings: ParseWarning[];
 }
 
 export type IndexState = 'idle' | 'running' | 'complete' | 'error';
@@ -4320,4 +4290,4 @@ export interface ScopeState {
 
 ---
 *Generated with [Prodex](https://github.com/emxhive/prodex) — Codebase decoded.*
-<!-- PRODEx v2.0.1 | 2026-05-24T11:00:28.829Z -->
+<!-- PRODEx v2.0.1 | 2026-05-24T15:47:57.989Z -->

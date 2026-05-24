@@ -26,7 +26,14 @@ export function buildDiagnosticGroups(
     groups.push({ id, title, severity, messages: uniqueMessages });
   };
 
-  addGroup('parse', 'Parse Errors', 'error', state.parseErrors);
+  addGroup('parse-errors', 'Parse Errors', 'error', state.parseErrors);
+
+  addGroup(
+    'parse-warnings',
+    'Parse Warnings',
+    'warning',
+    state.parseWarnings?.map(w => w.message) ?? []
+  );
 
   addGroup(
     'intake',

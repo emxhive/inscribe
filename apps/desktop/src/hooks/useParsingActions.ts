@@ -38,6 +38,7 @@ export function useParsingActions() {
       if (parseResult.errors && parseResult.errors.length > 0) {
         updateState({
           parseErrors: parseResult.errors,
+          parseWarnings: parseResult.warnings || [],
           statusMessage: `Parse failed: ${parseResult.errors.length} error(s)`,
           pipelineStatus: 'parse-failure',
           isParsingInProgress: false
@@ -47,14 +48,14 @@ export function useParsingActions() {
 
       updateState({
         parseErrors: [],
+        parseWarnings: parseResult.warnings || [],
         parsedBlocks: parseResult.blocks || [],
         statusMessage: 'Validating blocks...'
       });
 
       // Validate blocks
       const validationErrors = await window.inscribeAPI.validateBlocks(
-        parseResult.blocks || [],
-        state.repoRoot
+        parseResult.blocks || []
       );
 
       // Build review items

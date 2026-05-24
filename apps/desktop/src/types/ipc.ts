@@ -104,8 +104,8 @@ export interface InscribeAPI {
   indexRepository: (repoRoot: string) => Promise<string[]>;
   indexStatus: (repoRoot: string) => Promise<IndexStatus>;
   parseBlocks: (content: string) => Promise<ParseResult>;
-  validateBlocks: (blocks: ParsedBlock[], repoRoot: string) => Promise<ValidationError[]>;
-  validateAndBuildApplyPlan: (blocks: ParsedBlock[], repoRoot: string) => Promise<ApplyPlan>;
+  validateBlocks: (blocks: ParsedBlock[]) => Promise<ValidationError[]>;
+  validateAndBuildApplyPlan: (blocks: ParsedBlock[]) => Promise<ApplyPlan>;
   applyChanges: (plan: ApplyPlan, repoRoot: string) => Promise<ApplyResult>;
   compareOperation: (operation: Operation, repoRoot: string) => Promise<OperationComparisonResult>;
   getHistoryEntries: (repoRoot: string) => Promise<HistoryEntry[]>;

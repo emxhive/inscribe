@@ -1,11 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Operation, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2 } from '@inscribe/shared';
-import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
+import { Operation, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2, OperationMode } from '@inscribe/shared';
 import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
 import { restoreFromPayload } from '../history/restoreV2';
 import { validateCandidateOrThrow } from './candidateValidation';
 import { resolveOperationExecution, OperationExecutionResult } from '../operation/resolveOperationExecution';
+import { enforcePathPolicy } from '../paths/pathPolicy';
+import { getScopeState } from '../repo/scopeStore';
 
 export interface PreflightExecution extends OperationExecutionResult {
   operationIndex: number;
@@ -34,12 +35,20 @@ export class PreflightError extends Error {
  */
 export function preflightOperations(operations: Operation[], repoRoot: string): PreflightExecution[] {
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
+  const scopeState = getScopeState(repoRoot);
+  const scopeRoots = scopeState?.scope ?? [];
   const virtualFiles = new Map<string, VirtualFileState>();
   const executions: PreflightExecution[] = [];
 
   for (const [operationIndex, operation] of operations.entries()) {
     try {
-      const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
+      const { resolvedPath } = enforcePathPolicy(
+        repoRoot,
+        operation.file,
+        operation.type as OperationMode,
+        scopeRoots,
+        ignoreMatcher
+      );
       const before = getVirtualFileState(virtualFiles, resolvedPath);
       const next = resolveOperationExecution(operation, before);
 

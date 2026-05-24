@@ -110,8 +110,8 @@ export function useRepositoryActions() {
     updateState({ statusMessage: 'Re-validating blocks...' });
 
     const [validationErrors, applyPlan] = await Promise.all([
-      window.inscribeAPI.validateBlocks(parsedBlocks, repoRoot),
-      window.inscribeAPI.validateAndBuildApplyPlan(parsedBlocks, repoRoot),
+      window.inscribeAPI.validateBlocks(parsedBlocks),
+      window.inscribeAPI.validateAndBuildApplyPlan(parsedBlocks),
     ]);
 
     const combinedErrors = validationErrors.length > 0 ? validationErrors : applyPlan.errors || [];

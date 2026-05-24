@@ -1,17 +1,18 @@
 import * as fs from 'fs';
 import type {
-  ComparisonAnchorSide,
   ComparisonRange,
   Operation,
   OperationComparison,
   OperationComparisonRegion,
   OperationDiffHunk,
+  OperationMode,
 } from '@inscribe/shared';
 import { deriveChangedSegment } from '../history/restoreV2';
-import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
-import { getEffectiveIgnoreMatchers } from '../repository';
+import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
 import { diffLinesStable } from './lineDiff';
 import { resolveOperationExecution } from '../operation/resolveOperationExecution';
+import { enforcePathPolicy } from '../paths/pathPolicy';
+import { getScopeState } from '../repo/scopeStore';
 
 interface BuildRegionInput {
   id: string;
@@ -32,7 +33,14 @@ interface FinalizeComparisonInput {
 
 export function buildOperationComparison(operation: Operation, repoRoot: string): OperationComparison {
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
-  const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
+  const scopeRoots = getScopeState(repoRoot)?.scope ?? [];
+  const { resolvedPath } = enforcePathPolicy(
+    repoRoot,
+    operation.file,
+    operation.type as OperationMode,
+    scopeRoots,
+    ignoreMatcher
+  );
   const oldContent = fs.existsSync(resolvedPath) ? fs.readFileSync(resolvedPath, 'utf-8') : '';
 
   const resolved = resolveOperationExecution(operation, { exists: fs.existsSync(resolvedPath), content: oldContent });

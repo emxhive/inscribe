@@ -1,13 +1,31 @@
-/**
- * Engine package entry point
- */
+export { parseBlocks } from './parse/parseBlocks';
+export { validateBlocks } from './contract/validateBlocks';
+export { buildApplyPlan } from './plan/buildApplyPlan';
+export { applyChanges } from './apply/applyChanges';
+export { buildOperationComparison } from './preview/operationComparison';
+export { buildOperationPreview } from './preview/operationPreview';
 
-export * from './parser';
-export * from './validator';
-export * from './planner';
-export * from './applier';
-export * from './repository';
-export * from './apply/resolveRangeReplacement';
-export * from './preview/operationPreview';
-export * from './preview/operationComparison';
-export { ensureTrailingSlash, normalizePrefix, normalizeRelativePath } from './util/path';
+export {
+  getScopeState,
+  getOrCreateScope,
+  setScopeState,
+  getLastVisitedRepo,
+} from './repo/scopeStore';
+export {
+  getEffectiveIgnoreMatchers,
+} from './repo/ignoreRules';
+export { listTopLevelFolders } from './repo/topLevel';
+export { computeSuggestedExcludes, computeDefaultScope } from './repo/suggest';
+export { indexRepository } from './repo/indexer';
+export { getIndexStatus } from './repo/statusStore';
+export {
+  getHistoryEntries,
+  appendHistoryEntries,
+  markHistoryEntryRestored,
+} from './repo/historyStore';
+export {
+  buildRestoreEntry,
+} from './history/restoreHistory';
+export {
+  restoreFromPayload,
+} from './history/restoreV2';

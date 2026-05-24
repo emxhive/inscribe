@@ -1,1 +1,1 @@
-export { validateBlocks } from './validate/validateBlocks';
+export { validateBlocks } from './contract/validateBlocks';

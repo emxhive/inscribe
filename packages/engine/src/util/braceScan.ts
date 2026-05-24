@@ -20,19 +20,11 @@ export interface BraceScanResult {
 
 export function resolveBraceSelectionStart(
   anchorStart: number,
-  anchorEnd: number,
-  startDirectiveKey: string
+  _anchorEnd: number,
+  _startDirectiveKey: string
 ): number {
-  switch (startDirectiveKey) {
-    case 'START':
-      return anchorStart;
-    case 'START_AFTER':
-      return anchorEnd;
-    case 'START_BEFORE':
-      return Math.max(0, anchorStart - 1);
-    default:
-      return anchorStart;
-  }
+  // Only START is supported in the active architecture.
+  return anchorStart;
 }
 
 interface BraceScanState {

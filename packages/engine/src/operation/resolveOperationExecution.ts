@@ -1,10 +1,8 @@
 import { getOperationModeMetadata, Operation, OperationMode } from '@inscribe/shared';
 import { resolveStructuralAdapter } from '../language/registry';
-import { resolveBetweenTarget } from '../target/resolveBetweenTarget';
-import { resolveBlockTarget } from '../target/resolveBlockTarget';
-import { resolveLineTarget } from '../target/resolveLineTarget';
-import { resolveRangeTarget } from '../target/resolveRangeTarget';
-import { resolveSymbolTarget } from '../target/resolveSymbolTarget';
+import { resolveBetweenTarget, resolveLineTarget, resolveRangeTarget } from '../target/textTargets';
+import { resolveBlockTarget } from '../target/blockTarget';
+import { resolveSymbolTarget } from '../target/symbolTarget';
 
 export type OperationFileState = { exists: boolean; content: string };
 export type Replacement = { oldStart:number; oldEnd:number; newStart:number; newEnd:number; oldText:string; newText:string };
@@ -30,7 +28,7 @@ export function resolveOperationExecution(operation: Operation, fileState: Opera
     case 'replace_file':
       return { kind:'file_content', mode:operation.type, operation, beforeExists:fileState.exists, afterExists:true, beforeContent, afterContent:operation.content };
     case 'append_file':
-      return { kind:'file_content', mode:'append_file', operation, beforeExists:fileState.exists, afterExists:true, beforeContent, afterContent:`${beforeContent}${operation.content}` };
+      return { kind:'file_content', mode:'append_file', operation, beforeExists:fileState.exists, afterExists:true, beforeContent, afterContent: `${beforeContent}${operation.content}` };
     case 'delete_file':
       return { kind:'file_delete', mode:'delete_file', operation, beforeExists:fileState.exists, afterExists:false, beforeContent, afterContent:'' };
     case 'replace_line':
@@ -54,7 +52,7 @@ function partial(operation: Operation, fileState: OperationFileState, range: { r
   const beforeContent = fileState.content;
   const prefix = beforeContent.slice(0, range.replaceStart);
   const suffix = beforeContent.slice(range.replaceEnd);
-  const insert = normalizeInsert(operation.content, suffix, beforeContent, range, operation.type);
+  const insert = normalizeInsert(operation.content, suffix, beforeContent, range, operation.type as OperationMode);
   const afterContent = `${prefix}${insert}${suffix}`;
   return {
     kind:'partial_replacement',
@@ -75,7 +73,7 @@ function partial(operation: Operation, fileState: OperationFileState, range: { r
   };
 }
 
-function normalizeInsert(insert: string, suffix: string, beforeContent: string, range: { replaceStart:number; replaceEnd:number }, mode: Operation['type']): string {
+function normalizeInsert(insert: string, suffix: string, beforeContent: string, range: { replaceStart:number; replaceEnd:number }, mode: OperationMode): string {
   if (!suffix || !insert) return insert;
   // Same-line replace_between should replace exact interior text without line normalization.
   if (mode === 'replace_between') {

@@ -17,7 +17,7 @@ function isWithin(basePath: string, targetPath: string): boolean {
 
 /**
  * Resolve a path and assert it's within the repository root and not in ignored prefixes/globs.
- * This is used for CREATE mode, which allows creating files anywhere under repo root
+ * This is used for create_file mode, which allows creating files anywhere under repo root
  * that isn't explicitly ignored.
  */
 export function resolveAndAssertWithinRepo(
@@ -53,8 +53,7 @@ export function resolveAndAssertWithinRepo(
 
 /**
  * Resolve a path and assert it's within scope roots and not in ignored prefixes/globs.
- * This is used for REPLACE, APPEND, and RANGE modes which must operate
- * on files within the configured scope.
+ * This is used for modes that must operate on files within the configured scope.
  */
 export function resolveAndAssertWithinScope(
   repoRoot: string,

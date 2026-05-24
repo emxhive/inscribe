@@ -70,17 +70,17 @@ export function parseIntakeStructure(
       block.warnings.push('Missing MODE header');
     }
 
-    const modeValue = block.directives.MODE?.value?.toLowerCase();
+    const modeValue = block.directives.MODE?.value?.trim();
     if (modeValue && !OPERATION_MODES.includes(modeValue as (typeof OPERATION_MODES)[number])) {
       block.warnings.push(`Unknown MODE header value: ${block.directives.MODE?.value}`);
     }
 
-    if (modeValue === 'range') {
-      const hasStart = Boolean(
-        block.directives.START || block.directives.START_BEFORE || block.directives.START_AFTER
-      );
-      if (!hasStart) {
-        block.warnings.push('Missing START directive for range mode');
+    const activeMode = modeValue as (typeof OPERATION_MODES)[number];
+    const isPartialReplacement = ['replace_line', 'replace_range', 'replace_between', 'replace_block'].includes(activeMode);
+
+    if (isPartialReplacement) {
+      if (!block.directives.START) {
+        block.warnings.push(`Missing START directive for ${activeMode} mode`);
       }
     }
 
@@ -88,10 +88,10 @@ export function parseIntakeStructure(
     const normalizedFile = fileValue ? normalizeRelativePath(fileValue) : '';
     if (options?.indexedFileSet && normalizedFile) {
       const isIndexed = options.indexedFileSet.has(normalizedFile);
-      if (modeValue === 'create' && isIndexed) {
-        block.warnings.push(`MODE=create targets an existing indexed file: ${normalizedFile}`);
+      if (modeValue === 'create_file' && isIndexed) {
+        block.warnings.push(`MODE=create_file targets an existing indexed file: ${normalizedFile}`);
       }
-      if ((modeValue === 'replace' || modeValue === 'append' || modeValue === 'range') && !isIndexed) {
+      if (modeValue !== 'create_file' && !isIndexed && OPERATION_MODES.includes(modeValue as (typeof OPERATION_MODES)[number])) {
         block.warnings.push(`MODE=${modeValue} targets a file that is not indexed: ${normalizedFile}`);
       }
     }

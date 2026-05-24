@@ -68,13 +68,10 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
 
     for (const execution of executions) {
       const restoreEntry = buildRestoreEntry(
-        execution.operation,
+        execution,
         repoRoot,
         applyId,
         appliedAt,
-        execution.operationIndex,
-        execution.beforeContent,
-        execution.afterContent
       );
       historyEntries.push(restoreEntry);
     }

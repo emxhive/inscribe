@@ -698,7 +698,7 @@ function HistoryInspector() {
                 file: item.restoreOperation?.file ?? item.file,
                 lineCount: item.restoreOperation?.content ? item.restoreOperation.content.split('\n').length : 0,
                 language: getLanguageFromFilename(item.restoreOperation?.file ?? item.file),
-                mode: item.restoreOperation?.type ?? item.mode ?? 'range',
+                mode: item.restoreOperation?.type ?? item.mode ?? 'unknown',
               };
               return (
                 <FileListEntry

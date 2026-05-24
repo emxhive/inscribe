@@ -24,8 +24,5 @@ export {
   markHistoryEntryRestored,
 } from './repo/historyStore';
 export {
-  buildRestoreEntry,
-} from './history/restoreHistory';
-export {
   restoreFromPayload,
 } from './history/restoreV2';

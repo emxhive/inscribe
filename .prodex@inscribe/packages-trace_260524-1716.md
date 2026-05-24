@@ -7,59 +7,59 @@
 <!-- PRODEX_INDEX_LIST_START -->
 - [packages/engine/src/applier.ts](#1) L66-L75
 - [packages/engine/src/apply/applyChanges.ts](#2) L76-L229
-- [packages/engine/src/contract/validateBlocks.ts](#3) L230-L297
-- [packages/engine/src/history/restoreExecution.ts](#4) L298-L355
-- [packages/engine/src/history/restoreHistory.ts](#5) L356-L434
-- [packages/engine/src/history/restoreV2.ts](#6) L435-L631
-- [packages/engine/src/index.ts](#7) L632-L668
-- [packages/engine/src/language/jsTsAdapter.ts](#8) L669-L700
-- [packages/engine/src/language/jsTsStructuralResolvers.ts](#9) L701-L799
-- [packages/engine/src/language/phpAdapter.ts](#10) L800-L900
-- [packages/engine/src/language/registry.ts](#11) L901-L926
-- [packages/engine/src/language/types.ts](#12) L927-L947
-- [packages/engine/src/operation/resolveOperationExecution.ts](#13) L948-L1040
-- [packages/engine/src/parse/parseBlocks.ts](#14) L1041-L1153
-- [packages/engine/src/parse/parseDirectives.ts](#15) L1154-L1223
-- [packages/engine/src/parse/parseFencedBlock.ts](#16) L1224-L1344
-- [packages/engine/src/parse/parseSingleBlock.ts](#17) L1345-L1377
-- [packages/engine/src/parse/parseUtils.ts](#18) L1378-L1398
-- [packages/engine/src/parser.ts](#19) L1399-L1408
-- [packages/engine/src/paths/pathPolicy.ts](#20) L1409-L1448
-- [packages/engine/src/paths/resolveAndAssertWithin.ts](#21) L1449-L1555
-- [packages/engine/src/plan/buildApplyPlan.ts](#22) L1556-L1587
-- [packages/engine/src/planner.ts](#23) L1588-L1597
-- [packages/engine/src/preflight/candidateValidation.ts](#24) L1598-L1654
-- [packages/engine/src/preflight/preflight.ts](#25) L1655-L1808
-- [packages/engine/src/preview/lineDiff.ts](#26) L1809-L1894
-- [packages/engine/src/preview/operationComparison.ts](#27) L1895-L2137
-- [packages/engine/src/preview/operationPreview.ts](#28) L2138-L2179
-- [packages/engine/src/repo/historyStore.ts](#29) L2180-L2282
-- [packages/engine/src/repo/ignoreRules.ts](#30) L2283-L2411
-- [packages/engine/src/repo/indexer.ts](#31) L2412-L2518
-- [packages/engine/src/repo/pathing.ts](#32) L2519-L2528
-- [packages/engine/src/repo/scopeStore.ts](#33) L2529-L2678
-- [packages/engine/src/repo/statusStore.ts](#34) L2679-L2715
-- [packages/engine/src/repo/storePath.ts](#35) L2716-L2757
-- [packages/engine/src/repo/suggest.ts](#36) L2758-L2824
-- [packages/engine/src/repo/topLevel.ts](#37) L2825-L2859
-- [packages/engine/src/repository.ts](#38) L2860-L2884
-- [packages/engine/src/target/blockTarget.ts](#39) L2885-L2914
-- [packages/engine/src/target/symbolTarget.ts](#40) L2915-L2931
-- [packages/engine/src/target/targetUtils.ts](#41) L2932-L2984
-- [packages/engine/src/target/textTargets.ts](#42) L2985-L3102
-- [packages/engine/src/util/braceScan.ts](#43) L3103-L3352
-- [packages/engine/src/util/path.ts](#44) L3353-L3362
-- [packages/engine/src/util/textSearch.ts](#45) L3363-L3459
-- [packages/engine/src/validator.ts](#46) L3460-L3469
-- [packages/shared/src/cliCommands.ts](#47) L3470-L3695
-- [packages/shared/src/constants.ts](#48) L3696-L3803
-- [packages/shared/src/diagnostics.ts](#49) L3804-L3830
-- [packages/shared/src/directives.ts](#50) L3831-L3888
-- [packages/shared/src/index.ts](#51) L3889-L3910
-- [packages/shared/src/modes.ts](#52) L3911-L3976
-- [packages/shared/src/parseUtils.ts](#53) L3977-L4045
-- [packages/shared/src/path.ts](#54) L4046-L4070
-- [packages/shared/src/types.ts](#55) L4071-L4290
+- [packages/engine/src/contract/validateBlocks.ts](#3) L230-L294
+- [packages/engine/src/history/restoreExecution.ts](#4) L295-L383
+- [packages/engine/src/history/restoreHistory.ts](#5) L384-L462
+- [packages/engine/src/history/restoreV2.ts](#6) L463-L659
+- [packages/engine/src/index.ts](#7) L660-L700
+- [packages/engine/src/language/jsTsAdapter.ts](#8) L701-L732
+- [packages/engine/src/language/jsTsStructuralResolvers.ts](#9) L733-L831
+- [packages/engine/src/language/phpAdapter.ts](#10) L832-L932
+- [packages/engine/src/language/registry.ts](#11) L933-L958
+- [packages/engine/src/language/types.ts](#12) L959-L979
+- [packages/engine/src/operation/resolveOperationExecution.ts](#13) L980-L1072
+- [packages/engine/src/parse/parseBlocks.ts](#14) L1073-L1185
+- [packages/engine/src/parse/parseDirectives.ts](#15) L1186-L1255
+- [packages/engine/src/parse/parseFencedBlock.ts](#16) L1256-L1376
+- [packages/engine/src/parse/parseSingleBlock.ts](#17) L1377-L1409
+- [packages/engine/src/parse/parseUtils.ts](#18) L1410-L1430
+- [packages/engine/src/parser.ts](#19) L1431-L1440
+- [packages/engine/src/paths/pathPolicy.ts](#20) L1441-L1480
+- [packages/engine/src/paths/resolveAndAssertWithin.ts](#21) L1481-L1587
+- [packages/engine/src/plan/buildApplyPlan.ts](#22) L1588-L1619
+- [packages/engine/src/planner.ts](#23) L1620-L1629
+- [packages/engine/src/preflight/candidateValidation.ts](#24) L1630-L1686
+- [packages/engine/src/preflight/preflight.ts](#25) L1687-L1814
+- [packages/engine/src/preview/lineDiff.ts](#26) L1815-L1900
+- [packages/engine/src/preview/operationComparison.ts](#27) L1901-L2144
+- [packages/engine/src/preview/operationPreview.ts](#28) L2145-L2187
+- [packages/engine/src/repo/historyStore.ts](#29) L2188-L2290
+- [packages/engine/src/repo/ignoreRules.ts](#30) L2291-L2419
+- [packages/engine/src/repo/indexer.ts](#31) L2420-L2526
+- [packages/engine/src/repo/pathing.ts](#32) L2527-L2536
+- [packages/engine/src/repo/scopeStore.ts](#33) L2537-L2686
+- [packages/engine/src/repo/statusStore.ts](#34) L2687-L2723
+- [packages/engine/src/repo/storePath.ts](#35) L2724-L2765
+- [packages/engine/src/repo/suggest.ts](#36) L2766-L2832
+- [packages/engine/src/repo/topLevel.ts](#37) L2833-L2867
+- [packages/engine/src/repository.ts](#38) L2868-L2892
+- [packages/engine/src/target/blockTarget.ts](#39) L2893-L2922
+- [packages/engine/src/target/symbolTarget.ts](#40) L2923-L2939
+- [packages/engine/src/target/targetUtils.ts](#41) L2940-L2992
+- [packages/engine/src/target/textTargets.ts](#42) L2993-L3110
+- [packages/engine/src/util/braceScan.ts](#43) L3111-L3360
+- [packages/engine/src/util/path.ts](#44) L3361-L3370
+- [packages/engine/src/util/textSearch.ts](#45) L3371-L3467
+- [packages/engine/src/validator.ts](#46) L3468-L3477
+- [packages/shared/src/cliCommands.ts](#47) L3478-L3703
+- [packages/shared/src/constants.ts](#48) L3704-L3811
+- [packages/shared/src/diagnostics.ts](#49) L3812-L3838
+- [packages/shared/src/directives.ts](#50) L3839-L3896
+- [packages/shared/src/index.ts](#51) L3897-L3918
+- [packages/shared/src/modes.ts](#52) L3919-L3984
+- [packages/shared/src/parseUtils.ts](#53) L3985-L4053
+- [packages/shared/src/path.ts](#54) L4054-L4078
+- [packages/shared/src/types.ts](#55) L4079-L4298
 <!-- PRODEX_INDEX_LIST_END -->
 
 ---
@@ -239,7 +239,6 @@ import {
   type DiagnosticCode,
   ParsedBlock,
   ValidationError,
-  getOperationModeMetadata,
   getRequiredDirectives,
   modeAllowsDirective,
   modeAllowsEmptyContent,
@@ -271,8 +270,6 @@ function validateBlock(block: ParsedBlock): ValidationError[] {
   const errors: ValidationError[] = [];
   const directives = block.directives ?? {};
 
-  const metadata = getOperationModeMetadata(block.mode);
-
   // Content policies
   if (modeRequiresContent(block.mode) && !modeAllowsEmptyContent(block.mode) && block.content.length === 0) {
     errors.push(buildError(block, `${block.mode} does not allow empty content`, DIAGNOSTIC_CODES.EMPTY_CONTENT_NOT_ALLOWED));
@@ -302,7 +299,7 @@ function validateBlock(block: ParsedBlock): ValidationError[] {
 ` File: packages/engine/src/history/restoreExecution.ts`  [Back to top](#index)
 
 ```ts
-import { HistoryEntry, RestorePayloadV2 } from '@inscribe/shared';
+import { RestorePayloadV2 } from '@inscribe/shared';
 import { PreflightExecution } from '../preflight/preflight';
 import { restoreFromPayload } from './restoreV2';
 
@@ -321,30 +318,61 @@ export function resolveRestoreExecution(
   resolvedPath: string,
   operationIndex: number
 ): PreflightExecution {
-  const resolution = restoreFromPayload(currentContent, request.payload);
+  const { payload } = request;
+
+  // DELIBERATE RESTORE BEHAVIOR PER MODE:
+
+  // 1. create_file restore: delete the file
+  if (payload.mode === 'create_file') {
+     return {
+      kind: 'file_delete',
+      mode: 'delete_file',
+      operation: { type: 'delete_file', file: payload.file, content: '', blockIndex: -1 },
+      beforeExists: true,
+      afterExists: false,
+      beforeContent: currentContent,
+      afterContent: '',
+      operationIndex,
+      resolvedPath,
+    };
+  }
+
+  // 2. delete_file restore: recreate the file with oldContent
+  if (payload.mode === 'delete_file') {
+    return {
+      kind: 'file_content',
+      mode: 'create_file',
+      operation: { type: 'create_file', file: payload.file, content: payload.oldContent, blockIndex: -1 },
+      beforeExists: false,
+      afterExists: true,
+      beforeContent: '',
+      afterContent: payload.oldContent,
+      operationIndex,
+      resolvedPath,
+    };
+  }
+
+  // 3. replace_file / append_file / partial replacements:
+  // These all use the context-aware restoreFromPayload logic.
+  const resolution = restoreFromPayload(currentContent, payload);
 
   if (!resolution.canResolve || resolution.resolvedContent === undefined) {
     throw new Error(resolution.error ?? 'Unsafe to restore: unable to resolve restore target.');
   }
 
-  // Restore always results in a state where the file exists (unless we add delete_file restore support)
-  // For now, based on RestorePayloadV2, it's about reverting content.
-
-  // Note: if payload.mode was 'create_file', restoring it means deleting it.
-  const afterExists = request.payload.mode !== 'create_file';
-  const afterContent = afterExists ? resolution.resolvedContent : '';
+  const afterContent = resolution.resolvedContent;
 
   return {
-    kind: afterExists ? 'file_content' : 'file_delete',
-    mode: (afterExists ? 'replace_file' : 'delete_file') as any, // internal mapped mode
+    kind: 'file_content',
+    mode: 'replace_file', // internal mapped mode for any non-delete content restoration
     operation: {
-      type: (afterExists ? 'replace_file' : 'delete_file') as any,
-      file: request.payload.file,
+      type: 'replace_file',
+      file: payload.file,
       content: afterContent,
-      blockIndex: -1, // Internal operation
+      blockIndex: -1,
     },
-    beforeExists: true, // we are restoring from an existing (applied) state
-    afterExists,
+    beforeExists: true,
+    afterExists: true,
     beforeContent: currentContent,
     afterContent,
     operationIndex,
@@ -664,6 +692,10 @@ export {
 export {
   restoreFromPayload,
 } from './history/restoreV2';
+export {
+  resolveRestoreExecution,
+  type RestoreRequest,
+} from './history/restoreExecution';
 ```
 
 ---
@@ -1661,9 +1693,8 @@ export function validateCandidateOrThrow(filePath: string, mode: string, candida
 ```ts
 import * as fs from 'fs';
 import * as path from 'path';
-import { Operation, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2, OperationMode } from '@inscribe/shared';
+import { Operation, OperationMode } from '@inscribe/shared';
 import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
-import { restoreFromPayload } from '../history/restoreV2';
 import { validateCandidateOrThrow } from './candidateValidation';
 import { resolveOperationExecution, OperationExecutionResult } from '../operation/resolveOperationExecution';
 import { enforcePathPolicy } from '../paths/pathPolicy';
@@ -1742,31 +1773,6 @@ function getVirtualFileState(files: Map<string, VirtualFileState>, filePath: str
     exists: true,
     content: fs.readFileSync(filePath, 'utf-8'),
   };
-}
-
-export function tryApplyRestoreV2(current: string, directives: Record<string, string>): string | undefined {
-  if (directives[RESTORE_DIRECTIVE_V2_SCHEMA] !== '2') {
-    return undefined;
-  }
-
-  const encoded = directives[RESTORE_DIRECTIVE_V2_PAYLOAD];
-  if (!encoded) {
-    throw new Error('Unsafe to restore: missing restore payload.');
-  }
-
-  let payload: RestorePayloadV2;
-  try {
-    payload = JSON.parse(encoded) as RestorePayloadV2;
-  } catch {
-    throw new Error('Unsafe to restore: invalid restore payload.');
-  }
-
-  const resolution = restoreFromPayload(current, payload);
-  if (!resolution.canResolve || resolution.resolvedContent === undefined) {
-    throw new Error(resolution.error ?? 'Unsafe to restore: could not locate applied section.');
-  }
-
-  return resolution.resolvedContent;
 }
 
 export function cleanupEmptyDirs(filePath: string, repoRoot: string): void {
@@ -1901,6 +1907,7 @@ function diffByLinesFallback(oldText: string, newText: string): LineDiffPart[] {
 ```ts
 import * as fs from 'fs';
 import type {
+  ComparisonAnchorSide,
   ComparisonRange,
   Operation,
   OperationComparison,
@@ -2142,37 +2149,38 @@ function resolveAnchorSide(kind: OperationComparisonRegion['kind'], newContent: 
 ` File: packages/engine/src/preview/operationPreview.ts`  [Back to top](#index)
 
 ```ts
-import type { Operation, OperationPreview } from '@inscribe/shared';
-import { buildOperationComparison } from './operationComparison';
+import { OperationPreview } from '@inscribe/shared';
+import { resolveOperationExecution } from '../operation/resolveOperationExecution';
 
 /**
- * Legacy single-region preview shape. It now derives from the canonical
- * comparison model for all currently-supported single-operation review modes.
+ * Builds a preview shape for a single operation.
+ * This is primarily for display and confirmation.
  */
-export function buildOperationPreview(operation: Operation, repoRoot: string): OperationPreview {
-  const comparison = buildOperationComparison(operation, repoRoot);
-  const region = comparison.regions[0];
+export function buildOperationPreview(operation: any, content: string): OperationPreview {
+  const resolved = resolveOperationExecution(operation, { exists: true, content });
 
-  if (!region) {
+  if (resolved.kind === 'partial_replacement') {
+    const { replacement } = resolved;
     return {
       type: operation.type,
       file: operation.file,
-      content: comparison.oldContent,
-      insert: '',
-      replaceStart: 0,
-      replaceEnd: 0,
-      removed: '',
+      content: resolved.afterContent,
+      insert: replacement.newText,
+      replaceStart: replacement.oldStart,
+      replaceEnd: replacement.oldEnd,
+      removed: replacement.oldText,
     };
   }
 
+  // Full file operations
   return {
     type: operation.type,
     file: operation.file,
-    content: comparison.oldContent,
-    insert: region.newText,
-    replaceStart: region.oldRange.start,
-    replaceEnd: region.oldRange.end,
-    removed: region.oldText,
+    content: resolved.afterContent,
+    insert: resolved.afterContent,
+    replaceStart: 0,
+    replaceEnd: content.length,
+    removed: content,
   };
 }
 ```
@@ -4290,4 +4298,4 @@ export interface ScopeState {
 
 ---
 *Generated with [Prodex](https://github.com/emxhive/prodex) — Codebase decoded.*
-<!-- PRODEx v2.0.1 | 2026-05-24T15:47:57.989Z -->
+<!-- PRODEx v2.0.1 | 2026-05-24T17:16:10.487Z -->

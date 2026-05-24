@@ -78,6 +78,9 @@ const api = {
   applyChanges: (plan: ApplyPlan, repoRoot: string): Promise<ApplyResult> =>
     ipcRenderer.invoke('apply-changes', plan, repoRoot),
 
+  restoreEntry: (request: import('@inscribe/engine').RestoreRequest, repoRoot: string): Promise<ApplyResult> =>
+    ipcRenderer.invoke('restore-entry', request, repoRoot),
+
   compareOperation: (operation: Operation, repoRoot: string) =>
     ipcRenderer.invoke('compare-operation', operation, repoRoot),
 

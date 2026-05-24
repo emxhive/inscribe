@@ -1,24 +1,7 @@
-import type { ApplyPlan, ParsedBlock } from '@inscribe/shared';
-import type { HistoryItem, RestoreStatus } from '@/types';
+import type { ApplyResult } from '@inscribe/shared';
+import type { HistoryItem } from '@/types';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
-
-function buildRestoreBlock(item: HistoryItem): ParsedBlock {
-  return {
-    file: item.restoreOperation.file,
-    mode: item.restoreOperation.type,
-    directives: item.restoreOperation.directives ?? {},
-    content: item.restoreOperation.content,
-    blockIndex: item.blockIndex ?? 0,
-  };
-}
-
-function resolveRestoreStatus(errors: string[]): RestoreStatus {
-  if (errors.some((error) => error.startsWith('Unsafe to restore'))) {
-    return 'unsafe';
-  }
-  return 'validation-failed';
-}
 
 export function useHistoryActions() {
   const { state, updateState } = useAppStateContext();
@@ -32,36 +15,19 @@ export function useHistoryActions() {
   };
 
   const restoreItem = async (item: HistoryItem) => {
-    if (!state.repoRoot || state.isRestoringInProgress) return;
+    if (!state.repoRoot || state.isRestoringInProgress || !item.restorePayload) return;
 
     updateHistoryItem(item.id, { restoreStatus: 'restoring', restoreMessage: undefined });
-    updateState({ isRestoringInProgress: true, statusMessage: 'Validating restore...' });
+    updateState({ isRestoringInProgress: true, statusMessage: `Restoring ${item.file}...` });
 
     try {
-      const restoreBlock = buildRestoreBlock(item);
-      const validationErrors = await window.inscribeAPI.validateBlocks(
-        [restoreBlock]
-      );
+      const request = {
+        entryId: item.id,
+        payload: item.restorePayload,
+      };
 
-      if (validationErrors.length > 0) {
-        const errorMessages = validationErrors.map((error) => error.message);
-        const status = resolveRestoreStatus(errorMessages);
-        updateHistoryItem(item.id, {
-          restoreStatus: status,
-          restoreMessage: errorMessages.join('; '),
-        });
-        updateState({
-          statusMessage:
-            status === 'unsafe'
-              ? `Unsafe to restore ${item.file}: ${errorMessages.join('; ')}`
-              : `Restore validation failed for ${item.file}: ${errorMessages.join('; ')}`,
-        });
-        return { status, errors: errorMessages };
-      }
-
-      updateState({ statusMessage: `Restoring ${item.file}...` });
-      const plan: ApplyPlan = { operations: [item.restoreOperation] };
-      const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
+      // Call internal restore flow
+      const result: ApplyResult = await window.inscribeAPI.restoreEntry(request, state.repoRoot);
 
       if (result.success) {
         const restoredAt = new Date().toISOString();
@@ -107,8 +73,6 @@ export function useHistoryActions() {
     if (items.length === 0) return;
 
     let successCount = 0;
-    let unsafeCount = 0;
-    let validationCount = 0;
     let applyFailedCount = 0;
 
     for (const item of items) {
@@ -117,12 +81,6 @@ export function useHistoryActions() {
       switch (result.status) {
         case 'success':
           successCount += 1;
-          break;
-        case 'unsafe':
-          unsafeCount += 1;
-          break;
-        case 'validation-failed':
-          validationCount += 1;
           break;
         case 'apply-failed':
           applyFailedCount += 1;
@@ -134,8 +92,6 @@ export function useHistoryActions() {
 
     const summaryParts = [
       `${successCount} restored`,
-      unsafeCount ? `${unsafeCount} unsafe` : null,
-      validationCount ? `${validationCount} failed validation` : null,
       applyFailedCount ? `${applyFailedCount} failed apply` : null,
     ].filter(Boolean);
 

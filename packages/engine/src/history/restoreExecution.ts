@@ -1,4 +1,4 @@
-import { HistoryEntry, RestorePayloadV2 } from '@inscribe/shared';
+import { RestorePayloadV2 } from '@inscribe/shared';
 import { PreflightExecution } from '../preflight/preflight';
 import { restoreFromPayload } from './restoreV2';
 
@@ -17,30 +17,61 @@ export function resolveRestoreExecution(
   resolvedPath: string,
   operationIndex: number
 ): PreflightExecution {
-  const resolution = restoreFromPayload(currentContent, request.payload);
+  const { payload } = request;
+
+  // DELIBERATE RESTORE BEHAVIOR PER MODE:
+
+  // 1. create_file restore: delete the file
+  if (payload.mode === 'create_file') {
+     return {
+      kind: 'file_delete',
+      mode: 'delete_file',
+      operation: { type: 'delete_file', file: payload.file, content: '', blockIndex: -1 },
+      beforeExists: true,
+      afterExists: false,
+      beforeContent: currentContent,
+      afterContent: '',
+      operationIndex,
+      resolvedPath,
+    };
+  }
+
+  // 2. delete_file restore: recreate the file with oldContent
+  if (payload.mode === 'delete_file') {
+    return {
+      kind: 'file_content',
+      mode: 'create_file',
+      operation: { type: 'create_file', file: payload.file, content: payload.oldContent, blockIndex: -1 },
+      beforeExists: false,
+      afterExists: true,
+      beforeContent: '',
+      afterContent: payload.oldContent,
+      operationIndex,
+      resolvedPath,
+    };
+  }
+
+  // 3. replace_file / append_file / partial replacements:
+  // These all use the context-aware restoreFromPayload logic.
+  const resolution = restoreFromPayload(currentContent, payload);
 
   if (!resolution.canResolve || resolution.resolvedContent === undefined) {
     throw new Error(resolution.error ?? 'Unsafe to restore: unable to resolve restore target.');
   }
 
-  // Restore always results in a state where the file exists (unless we add delete_file restore support)
-  // For now, based on RestorePayloadV2, it's about reverting content.
-
-  // Note: if payload.mode was 'create_file', restoring it means deleting it.
-  const afterExists = request.payload.mode !== 'create_file';
-  const afterContent = afterExists ? resolution.resolvedContent : '';
+  const afterContent = resolution.resolvedContent;
 
   return {
-    kind: afterExists ? 'file_content' : 'file_delete',
-    mode: (afterExists ? 'replace_file' : 'delete_file') as any, // internal mapped mode
+    kind: 'file_content',
+    mode: 'replace_file', // internal mapped mode for any non-delete content restoration
     operation: {
-      type: (afterExists ? 'replace_file' : 'delete_file') as any,
-      file: request.payload.file,
+      type: 'replace_file',
+      file: payload.file,
       content: afterContent,
-      blockIndex: -1, // Internal operation
+      blockIndex: -1,
     },
-    beforeExists: true, // we are restoring from an existing (applied) state
-    afterExists,
+    beforeExists: true,
+    afterExists: true,
     beforeContent: currentContent,
     afterContent,
     operationIndex,

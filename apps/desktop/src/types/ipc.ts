@@ -107,6 +107,7 @@ export interface InscribeAPI {
   validateBlocks: (blocks: ParsedBlock[]) => Promise<ValidationError[]>;
   validateAndBuildApplyPlan: (blocks: ParsedBlock[]) => Promise<ApplyPlan>;
   applyChanges: (plan: ApplyPlan, repoRoot: string) => Promise<ApplyResult>;
+  restoreEntry: (request: import('@inscribe/engine').RestoreRequest, repoRoot: string) => Promise<ApplyResult>;
   compareOperation: (operation: Operation, repoRoot: string) => Promise<OperationComparisonResult>;
   getHistoryEntries: (repoRoot: string) => Promise<HistoryEntry[]>;
   markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) => Promise<boolean>;

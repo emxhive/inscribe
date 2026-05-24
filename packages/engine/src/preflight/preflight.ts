@@ -1,8 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Operation, RESTORE_DIRECTIVE_V2_PAYLOAD, RESTORE_DIRECTIVE_V2_SCHEMA, RestorePayloadV2, OperationMode } from '@inscribe/shared';
+import { Operation, OperationMode } from '@inscribe/shared';
 import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
-import { restoreFromPayload } from '../history/restoreV2';
 import { validateCandidateOrThrow } from './candidateValidation';
 import { resolveOperationExecution, OperationExecutionResult } from '../operation/resolveOperationExecution';
 import { enforcePathPolicy } from '../paths/pathPolicy';
@@ -81,31 +80,6 @@ function getVirtualFileState(files: Map<string, VirtualFileState>, filePath: str
     exists: true,
     content: fs.readFileSync(filePath, 'utf-8'),
   };
-}
-
-export function tryApplyRestoreV2(current: string, directives: Record<string, string>): string | undefined {
-  if (directives[RESTORE_DIRECTIVE_V2_SCHEMA] !== '2') {
-    return undefined;
-  }
-
-  const encoded = directives[RESTORE_DIRECTIVE_V2_PAYLOAD];
-  if (!encoded) {
-    throw new Error('Unsafe to restore: missing restore payload.');
-  }
-
-  let payload: RestorePayloadV2;
-  try {
-    payload = JSON.parse(encoded) as RestorePayloadV2;
-  } catch {
-    throw new Error('Unsafe to restore: invalid restore payload.');
-  }
-
-  const resolution = restoreFromPayload(current, payload);
-  if (!resolution.canResolve || resolution.resolvedContent === undefined) {
-    throw new Error(resolution.error ?? 'Unsafe to restore: could not locate applied section.');
-  }
-
-  return resolution.resolvedContent;
 }
 
 export function cleanupEmptyDirs(filePath: string, repoRoot: string): void {

@@ -10,7 +10,7 @@ import { buildRestoreEntry } from './restoreHistory';
 import { resolveRangeDirectiveShape } from '../range/resolveRange';
 import { cleanupEmptyDirs, PreflightExecution, preflightOperations } from './preflight';
 
-const VALID_OPERATION_TYPES = new Set(['create', 'replace', 'append', 'range', 'delete', 'replace_symbol']);
+import { isValidMode } from '@inscribe/shared';
 
 function validateOperation(operation: Operation, index: number): string[] {
   const errors: string[] = [];
@@ -19,7 +19,7 @@ function validateOperation(operation: Operation, index: number): string[] {
     return [`Operation ${index} is invalid`];
   }
 
-  if (!VALID_OPERATION_TYPES.has(operation.type)) {
+  if (!isValidMode(operation.type)) {
     errors.push(`Unknown operation type: ${String(operation.type)}`);
   }
 
@@ -29,7 +29,7 @@ function validateOperation(operation: Operation, index: number): string[] {
 
 
 
-  if (operation.type === 'range') {
+  if (operation.type === 'replace_range' || operation.type === 'replace_between') {
     const directives = operation.directives || {};
     if (directives.RESTORE_V2_SCHEMA !== '2') {
       try {

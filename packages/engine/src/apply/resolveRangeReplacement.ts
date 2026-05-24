@@ -1,5 +1,5 @@
 import { Operation } from '@inscribe/shared';
-import { resolveRange } from '../range/resolveRange';
+import { resolveReplaceBetween, resolveReplaceBlock, resolveReplaceLine, resolveReplaceRange } from '../range/resolveRange';
 
 export interface RangeReplaceResolution {
   replaceStart: number;
@@ -14,7 +14,9 @@ export function resolveRangeReplacement(
   content: string,
   operation: Operation
 ): RangeReplaceResolution {
-  const { replaceStart, replaceEnd } = resolveRange(content, operation.directives || {});
+  const directives = operation.directives || {};
+  const resolved = operation.type === 'replace_line' ? resolveReplaceLine(content, directives) : operation.type === 'replace_range' ? resolveReplaceRange(content, directives) : operation.type === 'replace_between' ? resolveReplaceBetween(content, directives) : operation.type === 'replace_block' ? resolveReplaceBlock(content, directives) : (() => { throw new Error(`Unsupported partial replacement mode: ${operation.type}`); })();
+  const { replaceStart, replaceEnd } = resolved;
 
   const suffix = content.substring(replaceEnd);
   const insert = normalizeLineInsert(operation.content, suffix);

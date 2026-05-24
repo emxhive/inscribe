@@ -2,7 +2,7 @@ import {
   INSCRIBE_BEGIN,
   INSCRIBE_END,
   INSCRIBE_PREFIX,
-  VALID_MODES,
+  OPERATION_MODES,
   matchesMarker,
   startsWithMarker,
   parseDirectiveLine,
@@ -71,7 +71,7 @@ export function parseIntakeStructure(
     }
 
     const modeValue = block.directives.MODE?.value?.toLowerCase();
-    if (modeValue && !VALID_MODES.includes(modeValue as (typeof VALID_MODES)[number])) {
+    if (modeValue && !OPERATION_MODES.includes(modeValue as (typeof OPERATION_MODES)[number])) {
       block.warnings.push(`Unknown MODE header value: ${block.directives.MODE?.value}`);
     }
 

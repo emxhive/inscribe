@@ -30,7 +30,7 @@ export const OPERATION_MODE_METADATA: Record<OperationMode, OperationModeMetadat
   replace_line: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: ['START'], allowedDirectives: ['START'] },
   replace_range: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: ['START', 'END'], allowedDirectives: ['START', 'END', 'CONTAINS'] },
   replace_between: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: ['START', 'END'], allowedDirectives: ['START', 'END', 'CONTAINS'] },
-  replace_block: { category: 'structural', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: ['START'], allowedDirectives: ['START'] },
+  replace_block: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: ['START'], allowedDirectives: ['START'] },
   replace_symbol: { category: 'structural', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: ['NAME'], allowedDirectives: ['NAME'] },
 };
 

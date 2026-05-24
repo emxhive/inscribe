@@ -87,16 +87,21 @@ function getVirtualFileState(files: Map<string, VirtualFileState>, filePath: str
 
 function assertModeCanApply(operation: Operation, fileExists: boolean): void {
   switch (operation.type) {
-    case 'create':
+    case 'create_file':
       if (fileExists) {
         throw new Error('File already exists (MODE: create requires non-existing file)');
       }
       return;
-    case 'replace':
-    case 'append':
-    case 'range':
+    case 'replace_file':
+    case 'append_file':
+    case 'replace_file':
+    case 'append_file':
+    case 'replace_line':
+    case 'replace_range':
+    case 'replace_between':
+    case 'replace_block':
     case 'replace_symbol':
-    case 'delete':
+    case 'delete_file':
       if (!fileExists) {
         throw new Error(`File does not exist (MODE: ${operation.type} requires existing file)`);
       }
@@ -108,11 +113,16 @@ function assertModeCanApply(operation: Operation, fileExists: boolean): void {
 
 function resolveNextState(operation: Operation, before: VirtualFileState): VirtualFileState {
   switch (operation.type) {
-    case 'create':
+    case 'create_file':
       return { exists: true, content: operation.content };
-    case 'replace':
-    case 'append':
-    case 'range':
+    case 'replace_file':
+    case 'append_file':
+    case 'replace_file':
+    case 'append_file':
+    case 'replace_line':
+    case 'replace_range':
+    case 'replace_between':
+    case 'replace_block':
     case 'replace_symbol': {
       const restored = tryApplyRestoreV2(before.content, operation.directives ?? {});
       if (restored !== undefined) {
@@ -122,7 +132,7 @@ function resolveNextState(operation: Operation, before: VirtualFileState): Virtu
       const resolved = resolveOperationContent(operation, before.content);
       return { exists: true, content: resolved.afterContent };
     }
-    case 'delete':
+    case 'delete_file':
       const restored = tryApplyRestoreV2(before.content, operation.directives ?? {});
       if (restored !== undefined && restored.length > 0) {
         return { exists: true, content: restored };
@@ -179,7 +189,7 @@ export function cleanupEmptyDirs(filePath: string, repoRoot: string): void {
 }
 
 function validationMetadata(operation: Operation): Record<string, string> {
-  if (operation.type === 'range') {
+  if (operation.type === 'replace_range' || operation.type === 'replace_between' || operation.type === 'replace_line' || operation.type === 'replace_block') {
     return {
       START: operation.directives?.START ?? '',
       CONTAINS: operation.directives?.CONTAINS ?? '',

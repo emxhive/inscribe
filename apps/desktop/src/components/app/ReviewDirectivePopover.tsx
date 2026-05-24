@@ -3,7 +3,7 @@ import type { ReviewItem } from '@/types';
 import {
   DIRECTIVE_KEYS,
   HEADER_KEYS,
-  VALID_MODES,
+  OPERATION_MODES,
   type DirectiveKey,
   type HeaderKey,
 } from '@inscribe/shared';
@@ -119,7 +119,7 @@ export function ReviewDirectivePopover({
                     className="mt-1 font-mono"
                     value={draft.MODE ?? ''}
                     placeholder="MODE:"
-                    options={VALID_MODES.map((mode) => ({ value: mode, label: mode }))}
+                    options={OPERATION_MODES.map((mode) => ({ value: mode, label: mode }))}
                     onChange={(event) =>
                       setDraft((prev) => ({
                         ...prev,

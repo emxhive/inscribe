@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import type {
+  ComparisonAnchorSide,
   ComparisonRange,
   Operation,
   OperationComparison,

@@ -3,7 +3,6 @@ import {
   type DiagnosticCode,
   ParsedBlock,
   ValidationError,
-  getOperationModeMetadata,
   getRequiredDirectives,
   modeAllowsDirective,
   modeAllowsEmptyContent,
@@ -34,8 +33,6 @@ export function validateBlocks(blocks: ParsedBlock[]): ValidationError[] {
 function validateBlock(block: ParsedBlock): ValidationError[] {
   const errors: ValidationError[] = [];
   const directives = block.directives ?? {};
-
-  const metadata = getOperationModeMetadata(block.mode);
 
   // Content policies
   if (modeRequiresContent(block.mode) && !modeAllowsEmptyContent(block.mode) && block.content.length === 0) {

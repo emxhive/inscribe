@@ -26,3 +26,7 @@ export {
 export {
   restoreFromPayload,
 } from './history/restoreV2';
+export {
+  resolveRestoreExecution,
+  type RestoreRequest,
+} from './history/restoreExecution';

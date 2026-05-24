@@ -16,3 +16,6 @@ packages/*/src/**/*.js
 packages/*/src/**/*.d.ts
 /.prodex@inscribe
 /packages/engine/debug_playground
+docs/.obsidian/workspace.json
+docs/Untitled.md
+docs/.obsidian/workspace.json

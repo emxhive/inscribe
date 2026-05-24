@@ -7,7 +7,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ApplyPlan, ApplyResult, HistoryEntry, Operation, ValidationError } from '@inscribe/shared';
 import { buildRestoreEntry } from './restoreHistory';
-import { resolveRangeDirectiveShape } from '../range/resolveRange';
 import { cleanupEmptyDirs, PreflightExecution, preflightOperations } from './preflight';
 
 import { isValidMode } from '@inscribe/shared';
@@ -27,18 +26,6 @@ function validateOperation(operation: Operation, index: number): string[] {
     errors.push(`Operation ${index} requires a non-empty file path`);
   }
 
-
-
-  if (operation.type === 'replace_range' || operation.type === 'replace_between') {
-    const directives = operation.directives || {};
-    if (directives.RESTORE_V2_SCHEMA !== '2') {
-      try {
-        resolveRangeDirectiveShape(directives);
-      } catch (error) {
-        errors.push(error instanceof Error ? error.message : 'Invalid range directives');
-      }
-    }
-  }
 
   return errors;
 }

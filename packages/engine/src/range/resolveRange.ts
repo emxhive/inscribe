@@ -56,8 +56,17 @@ export function resolveReplaceBetween(content: string, directives: Record<string
   const candidates: { start: number; end: number }[] = [];
   for (const s of starts) for (const e of ends) {
     if (e.start < s.end) continue;
-    const start = startDirective.value === VIRTUAL_START ? 0 : lineEnd(content, s.end);
-    const end = endDirective.value === VIRTUAL_END ? content.length : lineStart(content, e.start);
+
+    // Same-line anchors replace exactly between anchor spans.
+    const sameLine = lineStart(content, s.start) === lineStart(content, e.start);
+    let start = startDirective.value === VIRTUAL_START ? 0 : lineEnd(content, s.end);
+    let end = endDirective.value === VIRTUAL_END ? content.length : lineStart(content, e.start);
+
+    if (sameLine && startDirective.value !== VIRTUAL_START && endDirective.value !== VIRTUAL_END) {
+      start = s.end;
+      end = e.start;
+    }
+
     if (end <= start) continue;
     candidates.push({ start, end });
   }

@@ -5,16 +5,11 @@ import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { getEffectiveIgnoreMatchers } from '../repository';
 import { restoreFromPayload } from './restoreV2';
 import { validateCandidateOrThrow } from './candidateValidation';
-import { resolveOperationContent } from '../operation/resolveOperationContent';
+import { resolveOperationExecution, OperationExecutionResult } from '../operation/resolveOperationExecution';
 
-export interface PreflightExecution {
-  operation: Operation;
+export interface PreflightExecution extends OperationExecutionResult {
   operationIndex: number;
   resolvedPath: string;
-  beforeExists: boolean;
-  afterExists: boolean;
-  beforeContent: string;
-  afterContent: string;
 }
 
 interface VirtualFileState {
@@ -42,24 +37,14 @@ export function preflightOperations(operations: Operation[], repoRoot: string): 
     try {
       const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
       const before = getVirtualFileState(virtualFiles, resolvedPath);
-      assertModeCanApply(operation, before.exists);
+      const next = resolveOperationExecution(operation, before);
 
-      const next = resolveNextState(operation, before);
-
-      if (next.exists) {
-        validateCandidateOrThrow(operation.file, operation.type, next.content, validationMetadata(operation));
+      if (next.afterExists) {
+        validateCandidateOrThrow(operation.file, operation.type, next.afterContent, validationMetadata(operation));
       }
 
-      virtualFiles.set(resolvedPath, next);
-      executions.push({
-        operation,
-        operationIndex,
-        resolvedPath,
-        beforeExists: before.exists,
-        afterExists: next.exists,
-        beforeContent: before.content,
-        afterContent: next.content,
-      });
+      virtualFiles.set(resolvedPath, { exists: next.afterExists, content: next.afterContent });
+      executions.push({ ...next, operationIndex, resolvedPath });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown preflight error';
       throw new PreflightError(message, operation, operationIndex);
@@ -83,65 +68,6 @@ function getVirtualFileState(files: Map<string, VirtualFileState>, filePath: str
     exists: true,
     content: fs.readFileSync(filePath, 'utf-8'),
   };
-}
-
-function assertModeCanApply(operation: Operation, fileExists: boolean): void {
-  switch (operation.type) {
-    case 'create_file':
-      if (fileExists) {
-        throw new Error('File already exists (MODE: create requires non-existing file)');
-      }
-      return;
-    case 'replace_file':
-    case 'append_file':
-    case 'replace_file':
-    case 'append_file':
-    case 'replace_line':
-    case 'replace_range':
-    case 'replace_between':
-    case 'replace_block':
-    case 'replace_symbol':
-    case 'delete_file':
-      if (!fileExists) {
-        throw new Error(`File does not exist (MODE: ${operation.type} requires existing file)`);
-      }
-      return;
-    default:
-      throw new Error(`Unknown operation type: ${operation.type}`);
-  }
-}
-
-function resolveNextState(operation: Operation, before: VirtualFileState): VirtualFileState {
-  switch (operation.type) {
-    case 'create_file':
-      return { exists: true, content: operation.content };
-    case 'replace_file':
-    case 'append_file':
-    case 'replace_file':
-    case 'append_file':
-    case 'replace_line':
-    case 'replace_range':
-    case 'replace_between':
-    case 'replace_block':
-    case 'replace_symbol': {
-      const restored = tryApplyRestoreV2(before.content, operation.directives ?? {});
-      if (restored !== undefined) {
-        return { exists: true, content: restored };
-      }
-
-      const resolved = resolveOperationContent(operation, before.content);
-      return { exists: true, content: resolved.afterContent };
-    }
-    case 'delete_file':
-      const restored = tryApplyRestoreV2(before.content, operation.directives ?? {});
-      if (restored !== undefined && restored.length > 0) {
-        return { exists: true, content: restored };
-      }
-
-      return { exists: false, content: '' };
-    default:
-      throw new Error(`Unknown operation type: ${operation.type}`);
-  }
 }
 
 export function tryApplyRestoreV2(current: string, directives: Record<string, string>): string | undefined {

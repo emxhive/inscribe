@@ -11,7 +11,7 @@ import { deriveChangedSegment } from '../apply/restoreV2';
 import { resolveAndAssertWithinRepo } from '../paths/resolveAndAssertWithin';
 import { getEffectiveIgnoreMatchers } from '../repository';
 import { diffLinesStable } from './lineDiff';
-import { resolveOperationContent } from '../operation/resolveOperationContent';
+import { resolveOperationExecution } from '../operation/resolveOperationExecution';
 
 interface BuildRegionInput {
   id: string;
@@ -35,47 +35,28 @@ export function buildOperationComparison(operation: Operation, repoRoot: string)
   const { resolvedPath } = resolveAndAssertWithinRepo(repoRoot, operation.file, ignoreMatcher);
   const oldContent = fs.existsSync(resolvedPath) ? fs.readFileSync(resolvedPath, 'utf-8') : '';
 
-  switch (operation.type) {
-    case 'create':
-    case 'replace':
-    case 'append':
-    case 'delete': {
-      const { afterContent: newContent } = resolveOperationContent(operation, oldContent);
-      const replacementRegions = buildTrimmedComparisonRegions(oldContent, newContent);
-      const diffHunks = buildLineDiffHunks(oldContent, newContent);
-      return finalizeOperationComparison({ operation, oldContent, newContent, replacementRegions, diffHunks });
-    }
-
-    case 'range':
-    case 'replace_symbol': {
-      const { afterContent: newContent, replacement } = resolveOperationContent(operation, oldContent);
-      if (!replacement) {
-        throw new Error(`Missing replacement metadata for operation type: ${operation.type}`);
-      }
-      const replacementRegion = createOperationComparisonRegion({
-        id: 'window-0',
-        oldContent,
-        newContent,
-        oldRange: { start: replacement.oldStart, end: replacement.oldEnd },
-        newRange: { start: replacement.newStart, end: replacement.newEnd },
-      });
-      const diffHunks = buildLineDiffHunks(
-        replacement.oldText,
-        replacement.newText,
-        { oldBase: replacement.oldStart, newBase: replacement.newStart, replacementRegionId: replacementRegion.id }
-      );
-      return finalizeOperationComparison({
-        operation,
-        oldContent,
-        newContent,
-        replacementRegions: [replacementRegion],
-        diffHunks,
-      });
-    }
-
-    default:
-      throw new Error(`Unknown operation type: ${operation.type}`);
+  const resolved = resolveOperationExecution(operation, { exists: fs.existsSync(resolvedPath), content: oldContent });
+  const newContent = resolved.afterContent;
+  if (resolved.kind === 'partial_replacement') {
+    const replacement = resolved.replacement;
+    const replacementRegion = createOperationComparisonRegion({
+      id: 'window-0',
+      oldContent,
+      newContent,
+      oldRange: { start: replacement.oldStart, end: replacement.oldEnd },
+      newRange: { start: replacement.newStart, end: replacement.newEnd },
+    });
+    const diffHunks = buildLineDiffHunks(
+      replacement.oldText,
+      replacement.newText,
+      { oldBase: replacement.oldStart, newBase: replacement.newStart, replacementRegionId: replacementRegion.id }
+    );
+    return finalizeOperationComparison({ operation, oldContent, newContent, replacementRegions: [replacementRegion], diffHunks });
   }
+
+  const replacementRegions = buildTrimmedComparisonRegions(oldContent, newContent);
+  const diffHunks = buildLineDiffHunks(oldContent, newContent);
+  return finalizeOperationComparison({ operation, oldContent, newContent, replacementRegions, diffHunks });
 }
 
 export function finalizeOperationComparison({

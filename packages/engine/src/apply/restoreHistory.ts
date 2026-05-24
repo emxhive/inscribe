@@ -37,43 +37,32 @@ export function buildRestoreEntry(
 
 function buildRestoreOperation(operation: Operation, payload: ReturnType<typeof buildRestorePayload>): Operation {
   switch (operation.type) {
-    case 'create':
-      return {
-        type: 'delete',
-        file: operation.file,
-        content: '',
-        directives: {
-          [RESTORE_DIRECTIVE_V2_SCHEMA]: '2',
-          [RESTORE_DIRECTIVE_V2_PAYLOAD]: JSON.stringify(payload),
-        },
-        blockIndex: operation.blockIndex,
-      };
-    case 'replace':
-    case 'append':
-    case 'range':
+    case 'create_file':
+      return baseRestore('delete_file', operation, payload, '');
+    case 'replace_file':
+    case 'append_file':
+    case 'replace_line':
+    case 'replace_range':
+    case 'replace_between':
+    case 'replace_block':
     case 'replace_symbol':
-      return {
-        type: operation.type,
-        file: operation.file,
-        content: payload.oldContent,
-        directives: {
-          [RESTORE_DIRECTIVE_V2_SCHEMA]: '2',
-          [RESTORE_DIRECTIVE_V2_PAYLOAD]: JSON.stringify(payload),
-        },
-        blockIndex: operation.blockIndex,
-      };
-    case 'delete':
-      return {
-        type: 'create',
-        file: operation.file,
-        content: payload.oldContent,
-        directives: {
-          [RESTORE_DIRECTIVE_V2_SCHEMA]: '2',
-          [RESTORE_DIRECTIVE_V2_PAYLOAD]: JSON.stringify(payload),
-        },
-        blockIndex: operation.blockIndex,
-      };
+      return baseRestore(operation.type, operation, payload, payload.oldContent);
+    case 'delete_file':
+      return baseRestore('create_file', operation, payload, payload.oldContent);
     default:
       throw new Error(`Unknown operation type: ${operation.type}`);
   }
+}
+
+function baseRestore(type: Operation['type'], operation: Operation, payload: ReturnType<typeof buildRestorePayload>, content: string): Operation {
+  return {
+    type,
+    file: operation.file,
+    content,
+    directives: {
+      [RESTORE_DIRECTIVE_V2_SCHEMA]: '2',
+      [RESTORE_DIRECTIVE_V2_PAYLOAD]: JSON.stringify(payload),
+    },
+    blockIndex: operation.blockIndex,
+  };
 }

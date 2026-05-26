@@ -99,6 +99,7 @@ function fileContentExecution(input: {
     afterContent: input.afterContent,
     operationIndex: 0,
     resolvedPath: input.resolvedPath,
+    canonicalPath: input.resolvedPath,
   };
 }
 
@@ -121,6 +122,7 @@ function fileDeleteExecution(input: {
     afterContent: input.afterContent,
     operationIndex: 0,
     resolvedPath: input.resolvedPath,
+    canonicalPath: input.resolvedPath,
   };
 }
 

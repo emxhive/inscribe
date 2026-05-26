@@ -1,97 +1,65 @@
 # Inscribe
 
-Inscribe is a desktop app that turns LLM output into safe, reviewable repository changes.
-It only applies explicitly tagged blocks and enforces strict validation before any write.
+Inscribe is a desktop app that turns explicitly tagged LLM output into reviewable repository changes.
 
-## Core Guarantees
+It only applies `$inscribe BEGIN` / `$inscribe END` blocks, validates the active contract, preflights changes, writes files, and persists restore history.
 
-- **Explicit intent only**: only `$inscribe BEGIN` / `$inscribe END` blocks are considered.
-- **Fail-closed behavior**: invalid blocks fail safely; no partial apply for that block.
-- **Pre-write candidate validation for JS/TS-family files**: `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs` candidates are parsed in memory before write.
-- **Structural targeting support** for risky edits:
-  - `MODE: replace_symbol` for full owning declaration replacement.
-- **Canonical review model**: replacement windows and actual diff hunks are produced by the engine and rendered by UI.
-
-## Basic Workflow
-
-1. Select a repository.
-2. Paste full LLM response.
-3. Inscribe parses blocks and validates directives/paths.
-4. Review replacement windows + precise diff hunks.
-5. Apply selected/valid changes.
-6. Restore safely via history when needed.
-
-## Inscribe Block Format
+## Active Block Format
 
 ````
 $inscribe BEGIN
 FILE: relative/path/from/repo/root.ext
-MODE: create | replace | append | range | delete | replace_symbol
-(optional directives)
+MODE: create_file
 
-```language
-<content>
+```ts
+export const example = true;
 ```
 
 $inscribe END
 ````
 
-Rules:
-- `$inscribe` prefix is valid only for `BEGIN` and `END` markers.
-- `FILE:`, `MODE:`, and directives must be unprefixed.
-- For `MODE: delete`, fenced content is optional.
+`$inscribe` is valid only on `BEGIN` and `END` marker lines. `FILE`, `MODE`, `START`, `END`, `CONTAINS`, and `NAME` must not be prefixed.
 
-## Supported Modes
+## Active Modes
 
-- **create**: create a new file (target must not exist)
-- **replace**: replace an existing file entirely
-- **append**: append to existing file end
-- **range**: replace a resolved subrange in an existing file
-- **delete**: remove an existing file
-- **replace_symbol**: replace a full owning declaration by symbol name (`NAME:` required)
+The supported mode names are exact:
 
-## Directive Quick Reference
+- `create_file`
+- `replace_file`
+- `append_file`
+- `delete_file`
+- `replace_line`
+- `replace_range`
+- `replace_between`
+- `replace_block`
+- `replace_symbol`
 
-### `MODE: range`
+Old aliases such as `create`, `replace`, `append`, `delete`, and `range` are invalid.
 
-Required:
-- Exactly one start directive: `START` | `START_BEFORE` | `START_AFTER`
+## Directive Summary
 
-Optional end directives:
-- `END` | `END_BEFORE` | `END_AFTER`
+- `replace_line` requires `START`.
+- `replace_range` requires `START` and `END`; `CONTAINS` is optional.
+- `replace_between` requires `START` and `END`; `CONTAINS` is optional.
+- `replace_block` requires `START`.
+- `replace_symbol` requires `NAME`.
 
+For the full LLM authoring contract, use [docs/llm-guide.md](docs/llm-guide.md).
 
-Optional repeated `CONTAINS:` directives for disambiguation (ALL must match)
+## Workflow
 
-Notes:
-- `CONTAINS:` is a textual disambiguation directive that narrows broad `START` matches.
+1. Select a repository.
+2. Paste an LLM response containing explicit Inscribe blocks.
+3. Review parsed operations and diffs.
+4. Apply selected, valid, or all pending changes.
+5. Restore applied changes from persisted history when needed.
 
-### `MODE: replace_symbol`
+## Safety Notes
 
-Required:
-- `NAME: SymbolName`
+- `FILE` must be repo-relative.
+- Absolute paths and `../` traversal are rejected.
+- Ignored paths are blocked.
+- Non-create operations must be inside configured scope.
+- Supported JS/TS and PHP candidates are syntax-validated before write.
+- If disk writes succeed but history persistence fails, writes are rolled back.
 
-Behavior:
-- Resolves a full owning declaration for the symbol.
-- For JS/TS-family files, supported declarations include plain and exported function declarations, named default function declarations, function-like variable declarations, and supported wrappers such as `memo` and `forwardRef`.
-- When a symbol is declared inside an export statement, the replacement window is the full owning export declaration, so replacement content should include the intended `export` keyword.
-- Fails safely when zero or multiple matches are found.
-
-## Parse Validation & Diagnostics
-
-For JS/TS-family file candidates, Inscribe parses in-memory candidate content before disk write.
-On parse failure, write is blocked and a copyable `INSCRIBE_PARSE_ERROR` diagnostic is surfaced with context and file-not-modified note.
-
-## Review Model
-
-Review distinguishes two concepts:
-
-- **Replacement windows**: what the operation intends to replace.
-- **Diff hunks**: actual changed line hunks for user-facing review/navigation.
-
-UI highlights diff hunks primarily, with replacement windows as secondary context.
-
-## Documentation
-
-- [`docs/llm-guide.md`](docs/llm-guide.md): LLM authoring guide (recommended prompt contract)
-- [`docs/terminology.md`](docs/terminology.md): terminology and behavior references

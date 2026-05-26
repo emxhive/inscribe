@@ -6,7 +6,8 @@
 import { ApplyPlan, ApplyResult, HistoryEntry, Operation, ValidationError } from '@inscribe/shared';
 import { buildRestoreEntry } from '../history/restoreHistory';
 import { preflightOperations } from '../preflight/preflight';
-import { writeExecutions } from './writeExecutions';
+import { appendHistoryEntries } from '../repo/historyStore';
+import { rollbackExecutions, writeExecutions } from './writeExecutions';
 
 function validateOperation(operation: Operation, index: number): string[] {
   const errors: string[] = [];
@@ -63,8 +64,6 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
     // Apply all operations only after the full plan has resolved and validated.
     const appliedAt = new Date().toISOString();
     const applyId = buildApplyId(appliedAt);
-    writeExecutions(executions, repoRoot);
-
     for (const execution of executions) {
       const restoreEntry = buildRestoreEntry(
         execution,
@@ -75,6 +74,32 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
       historyEntries.push(restoreEntry);
     }
 
+    writeExecutions(executions, repoRoot);
+
+    try {
+      appendHistoryEntries(repoRoot, historyEntries);
+    } catch (historyError) {
+      const rollbackErrors = rollbackExecutions(executions, repoRoot);
+      const historyMessage = historyError instanceof Error ? historyError.message : 'Unknown history persistence error';
+      if (rollbackErrors.length > 0) {
+        return {
+          success: false,
+          errors: [
+            `History persistence failed after disk writes: ${historyMessage}`,
+            `Rollback failed: ${rollbackErrors.join('; ')}`,
+          ],
+        };
+      }
+
+      return {
+        success: false,
+        errors: [
+          `History persistence failed after disk writes: ${historyMessage}`,
+          'Disk writes were rolled back.',
+        ],
+      };
+    }
+
     return {
       success: true,
       historyEntries,
@@ -83,7 +108,6 @@ export function applyChanges(plan: ApplyPlan, repoRoot: string): ApplyResult {
     return {
       success: false,
       errors: [error instanceof Error ? error.message : 'Unknown error'],
-      historyEntries,
     };
   }
 }

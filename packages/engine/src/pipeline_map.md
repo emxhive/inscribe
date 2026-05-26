@@ -12,22 +12,31 @@ This document describes the active architecture and flow of the Inscribe engine.
    - Validates the public operation contract against shared metadata.
    - Checks for valid mode, required/allowed directives, and content policies.
 
-3. **Target Resolution** (`packages/engine/src/target/`)
-   - Identifies the specific span of a file targeted by an operation.
-   - Returns only `{ replaceStart, replaceEnd }`.
+3. **Preflight** (`packages/engine/src/preflight/`)
+   - Simulates operations against the repository state.
+   - Enforces path, scope, and ignore policy before resolving each operation.
+   - Manages virtual file state by canonical path and performs candidate validation.
 
 4. **Operation Execution** (`packages/engine/src/operation/`)
    - The central layer that interprets operation meaning.
-   - `resolveOperationExecution` consumes targets and composes `afterContent`.
+   - `resolveOperationExecution` consumes current file state and composes `afterContent`.
 
-5. **Preflight** (`packages/engine/src/preflight/`)
-   - Simulates operations against the repository state.
-   - Manages virtual file state and performs candidate validation.
+5. **Target Resolution** (`packages/engine/src/target/`)
+   - Used by operation execution for partial replacement modes.
+   - Identifies the specific span of a file targeted by line, range, between, block, or symbol operations.
+   - Returns only `{ replaceStart, replaceEnd }`.
 
-6. **Apply** (`packages/engine/src/apply/`)
+6. **Candidate Validation** (`packages/engine/src/preflight/candidateValidation.ts`)
+   - Validates supported candidate file contents before disk writes.
+   - JS/TS-family files are parsed in memory.
+   - PHP files are linted by invoking the local `php -l` binary.
+
+7. **Apply** (`packages/engine/src/apply/`)
    - Persists resolved preflight executions to the filesystem.
-   - Handles rollbacks and history entry generation.
+   - Builds restore history entries before writing.
+   - Persists restore history inside the engine apply boundary after writes.
+   - Rolls back filesystem writes if history persistence fails.
 
-7. **Preview / History**
+8. **Preview / History**
    - **Preview** (`packages/engine/src/preview/`): Builds comparisons/diffs from resolved results.
    - **History** (`packages/engine/src/history/`): Manages restore payloads and logic.

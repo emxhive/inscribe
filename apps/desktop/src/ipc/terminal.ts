@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
@@ -11,6 +11,7 @@ import type {
   TerminalSessionInfo,
   TerminalShellPreference,
 } from '../types';
+import { requireTrustedRepoRoot } from './trustedRepo';
 
 type TerminalShellKind = 'powershell' | 'cmd' | 'posix';
 
@@ -361,11 +362,18 @@ function disposeSession(sessionId: string, reason: TerminalSessionExitEvent['rea
   return true;
 }
 
+function getOwnedSession(event: IpcMainInvokeEvent, sessionId: string): TerminalSession | null {
+  const session = sessions.get(sessionId);
+  if (!session) return null;
+  if (session.owner !== event.sender) return null;
+  return session;
+}
+
 export function registerTerminalHandlers() {
   ipcMain.handle('terminal-create', async (event, options: TerminalCreateOptions): Promise<TerminalSessionInfo> => {
+    const cwd = requireTrustedRepoRoot(event, options.cwd);
     const shellCandidates = getShellCandidates(options.shellPreference);
     const id = randomUUID();
-    const cwd = options.cwd || process.cwd();
     const webContents = event.sender;
     const onExit = (exitCode: number | null) => handleProcessExit(id, exitCode);
 
@@ -430,8 +438,8 @@ export function registerTerminalHandlers() {
     };
   });
 
-  ipcMain.handle('terminal-run-command', (_event, sessionId: string, runId: string, command: string) => {
-    const session = sessions.get(sessionId);
+  ipcMain.handle('terminal-run-command', (event, sessionId: string, runId: string, command: string) => {
+    const session = getOwnedSession(event, sessionId);
     if (!session) return false;
     if (session.activeRunId) return false;
 
@@ -441,23 +449,23 @@ export function registerTerminalHandlers() {
     return true;
   });
 
-  ipcMain.handle('terminal-write', (_event, sessionId: string, data: string) => {
-    const session = sessions.get(sessionId);
+  ipcMain.handle('terminal-write', (event, sessionId: string, data: string) => {
+    const session = getOwnedSession(event, sessionId);
     if (!session) return false;
     if (!session.activeRunId) return false;
     session.process.write(data);
     return true;
   });
 
-  ipcMain.handle('terminal-resize', (_event, sessionId: string, cols: number, rows: number) => {
-    const session = sessions.get(sessionId);
+  ipcMain.handle('terminal-resize', (event, sessionId: string, cols: number, rows: number) => {
+    const session = getOwnedSession(event, sessionId);
     if (!session) return false;
     session.process.resize(cols, rows);
     return true;
   });
 
-  ipcMain.handle('terminal-signal', (_event, sessionId: string, kind: TerminalSignalKind) => {
-    const session = sessions.get(sessionId);
+  ipcMain.handle('terminal-signal', (event, sessionId: string, kind: TerminalSignalKind) => {
+    const session = getOwnedSession(event, sessionId);
     if (!session) return false;
     if (kind === 'interrupt') {
       session.process.write('\x03');
@@ -479,12 +487,16 @@ export function registerTerminalHandlers() {
     return false;
   });
 
-  ipcMain.handle('terminal-interrupt', (_event, sessionId: string) => {
-    const session = sessions.get(sessionId);
+  ipcMain.handle('terminal-interrupt', (event, sessionId: string) => {
+    const session = getOwnedSession(event, sessionId);
     if (!session) return false;
     session.process.write('\x03');
     return true;
   });
 
-  ipcMain.handle('terminal-dispose', (_event, sessionId: string) => disposeSession(sessionId));
+  ipcMain.handle('terminal-dispose', (event, sessionId: string) => {
+    const session = getOwnedSession(event, sessionId);
+    if (!session) return false;
+    return disposeSession(sessionId);
+  });
 }

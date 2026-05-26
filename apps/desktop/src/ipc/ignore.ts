@@ -11,12 +11,14 @@ import {
   indexRepository,
   getIndexStatus,
 } from '@inscribe/engine';
+import { requireTrustedRepoRoot } from './trustedRepo';
 
 /**
  * Register ignore-related IPC handlers
  */
 export function registerIgnoreHandlers() {
-  ipcMain.handle('read-ignore', async (_event, repoRoot: string) => {
+  ipcMain.handle('read-ignore', async (event, suppliedRepoRoot?: string) => {
+    const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
     try {
       return readIgnoreRules(repoRoot);
     } catch {
@@ -24,7 +26,8 @@ export function registerIgnoreHandlers() {
     }
   });
 
-  ipcMain.handle('read-ignore-raw', async (_event, repoRoot: string) => {
+  ipcMain.handle('read-ignore-raw', async (event, suppliedRepoRoot?: string) => {
+    const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
     try {
       const ignorePath = join(repoRoot, '.inscribeignore');
       
@@ -39,7 +42,8 @@ export function registerIgnoreHandlers() {
     }
   });
 
-  ipcMain.handle('write-ignore', async (_event, repoRoot: string, content: string) => {
+  ipcMain.handle('write-ignore', async (event, suppliedRepoRoot: string | undefined, content: string) => {
+    const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
     const result = writeIgnoreFile(repoRoot, content);
     const suggested = computeSuggestedExcludes(repoRoot);
     const defaults = computeDefaultScope(repoRoot);

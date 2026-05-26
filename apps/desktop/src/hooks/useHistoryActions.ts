@@ -22,10 +22,7 @@ export function useHistoryActions() {
     updateState({ isRestoringInProgress: true, statusMessage: `Restoring ${item.file}...` });
 
     try {
-      const request = {
-        entryId: item.id,
-        payload: item.restorePayload,
-      };
+      const request = { entryId: item.id };
 
       // Call internal restore flow
       const result: ApplyResult = await window.inscribeAPI.restoreEntry(request, state.repoRoot);

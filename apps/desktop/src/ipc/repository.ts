@@ -10,6 +10,7 @@ import {
   getIndexStatus,
 } from '@inscribe/engine';
 import { recentProjectsManager } from '../recentProjects';
+import { requireTrustedRepoRoot } from './trustedRepo';
 
 /**
  * Register repository-related IPC handlers
@@ -19,8 +20,9 @@ export function registerRepositoryHandlers() {
     return getLastVisitedRepo();
   });
 
-  ipcMain.handle('repo-init', async (_event, repoRoot: string) => {
+  ipcMain.handle('repo-init', async (event, suppliedRepoRoot?: string) => {
     try {
+      const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
       const scopeState = getOrCreateScope(repoRoot);
       const topLevelFolders = listTopLevelFolders(repoRoot);
       const suggested = computeSuggestedExcludes(repoRoot);
@@ -56,7 +58,8 @@ export function registerRepositoryHandlers() {
     }
   });
 
-  ipcMain.handle('index-repository', async (_event, repoRoot: string) => {
+  ipcMain.handle('index-repository', async (event, suppliedRepoRoot?: string) => {
+    const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
     try {
       return indexRepository(repoRoot);
     } catch (error) {
@@ -65,7 +68,8 @@ export function registerRepositoryHandlers() {
     }
   });
 
-  ipcMain.handle('index-status', async (_event, repoRoot: string) => {
+  ipcMain.handle('index-status', async (event, suppliedRepoRoot?: string) => {
+    const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
     return getIndexStatus(repoRoot);
   });
 }

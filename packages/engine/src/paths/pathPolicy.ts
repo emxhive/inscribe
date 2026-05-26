@@ -5,6 +5,7 @@ import { getOperationModeMetadata, OperationMode } from '@inscribe/shared';
 export interface PathPolicyResult {
   resolvedPath: string;
   relativePath: string;
+  canonicalPath: string;
 }
 
 /**

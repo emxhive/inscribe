@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app } from 'electron';
 import { registerAllHandlers } from './ipc';
 import { windowManager } from './windowManager';
 import './recentProjects';
@@ -19,13 +19,5 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (!windowManager.hasOpenWindows()) {
     windowManager.createWindow();
-  }
-});
-
-// Handle repo opening from renderer
-ipcMain.on('claim-repo', (event, repoRoot: string) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (win) {
-    windowManager.bindWindowToRepo(win, repoRoot);
   }
 });

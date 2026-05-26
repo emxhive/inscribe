@@ -5,12 +5,14 @@ import {
   indexRepository,
   getIndexStatus,
 } from '@inscribe/engine';
+import { requireTrustedRepoRoot } from './trustedRepo';
 
 /**
  * Register scope-related IPC handlers
- */
+  */
 export function registerScopeHandlers() {
-  ipcMain.handle('get-scope', async (_event, repoRoot: string) => {
+  ipcMain.handle('get-scope', async (event, suppliedRepoRoot?: string) => {
+    const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
     try {
       return getOrCreateScope(repoRoot).scope;
     } catch {
@@ -18,8 +20,9 @@ export function registerScopeHandlers() {
     }
   });
 
-  ipcMain.handle('set-scope', async (_event, repoRoot: string, scope: string[]) => {
+  ipcMain.handle('set-scope', async (event, suppliedRepoRoot: string | undefined, scope: string[]) => {
     try {
+      const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
       const updated = setScopeState(repoRoot, scope);
       const indexedFiles = indexRepository(repoRoot, updated.scope);
       return {

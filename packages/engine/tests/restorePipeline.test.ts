@@ -39,6 +39,71 @@ describe('restoreEntry active restore pipeline', () => {
     expect(fs.existsSync(filePath('created.txt'))).toBe(false);
   });
 
+  it('fails safely when a created file was edited after apply', () => {
+    const entry = applyAndStore({
+      type: 'create_file',
+      file: 'created-edited.txt',
+      content: 'created content\n',
+      blockIndex: 0,
+    });
+    fs.writeFileSync(filePath('created-edited.txt'), 'manual edit\n');
+
+    const result = restoreStoredEntry(entry);
+
+    expect(result.success).toBe(false);
+    expect(result.errors?.join('\n')).toContain('Unsafe to restore create_file');
+    expect(readRepoFile('created-edited.txt')).toBe('manual edit\n');
+    expect(getHistoryEntries(repoRoot)[0].restoredAt).toBeUndefined();
+  });
+
+  it('uses the stored history payload when request omits the compatibility payload', () => {
+    const entry = applyAndStore({
+      type: 'create_file',
+      file: 'stored-payload.txt',
+      content: 'created content\n',
+      blockIndex: 0,
+    });
+
+    const result = restoreEntry({ entryId: entry.id }, repoRoot);
+
+    expect(result.success).toBe(true);
+    expect(fs.existsSync(filePath('stored-payload.txt'))).toBe(false);
+  });
+
+  it('rejects a restore request with a mismatched compatibility payload', () => {
+    const entry = applyAndStore({
+      type: 'create_file',
+      file: 'trusted.txt',
+      content: 'trusted content\n',
+      blockIndex: 0,
+    });
+    const payload = clonePayload(entry.restorePayload!);
+    payload.file = 'other.txt';
+
+    const result = restoreEntry({ entryId: entry.id, payload }, repoRoot);
+
+    expect(result.success).toBe(false);
+    expect(result.errors?.join('\n')).toContain('Restore payload mismatch');
+    expect(readRepoFile('trusted.txt')).toBe('trusted content\n');
+    expect(getHistoryEntries(repoRoot)[0].restoredAt).toBeUndefined();
+  });
+
+  it('fails duplicate restore requests', () => {
+    const entry = applyAndStore({
+      type: 'create_file',
+      file: 'duplicate.txt',
+      content: 'created content\n',
+      blockIndex: 0,
+    });
+
+    const first = restoreEntry({ entryId: entry.id }, repoRoot);
+    const second = restoreEntry({ entryId: entry.id }, repoRoot);
+
+    expect(first.success).toBe(true);
+    expect(second.success).toBe(false);
+    expect(second.errors?.join('\n')).toContain('already restored');
+  });
+
   it('recreates a file deleted by delete_file restore', () => {
     fs.writeFileSync(filePath('deleted.txt'), 'previous content\n');
     const entry = applyAndStore({
@@ -335,4 +400,8 @@ function filePath(relativePath: string): string {
 
 function readRepoFile(relativePath: string): string {
   return fs.readFileSync(filePath(relativePath), 'utf-8');
+}
+
+function clonePayload(payload: NonNullable<HistoryEntry['restorePayload']>) {
+  return JSON.parse(JSON.stringify(payload)) as NonNullable<HistoryEntry['restorePayload']>;
 }

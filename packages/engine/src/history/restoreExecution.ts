@@ -1,10 +1,10 @@
 import { RestorePayloadV2 } from '@inscribe/shared';
 import { PreflightExecution } from '../preflight/preflight';
-import { restoreFromPayload, restorePayloadLineEndings } from './restoreV2';
+import { normalizeForMatch, restoreFromPayload, restorePayloadLineEndings, sha256 } from './restoreV2';
 
 export interface RestoreRequest {
   entryId: string;
-  payload: RestorePayloadV2;
+  payload?: RestorePayloadV2;
 }
 
 export interface RestoreFileState {
@@ -23,13 +23,17 @@ export function resolveRestoreExecution(
   operationIndex: number
 ): PreflightExecution {
   const { payload } = request;
+  if (!payload) {
+    throw new Error('Restore execution requires a trusted stored payload');
+  }
   const currentContent = currentFile.content;
 
   // DELIBERATE RESTORE BEHAVIOR PER MODE:
 
   // 1. create_file restore: delete the file
   if (payload.mode === 'create_file') {
-     return {
+    assertSafeCreateFileRestore(currentFile, payload);
+    return {
       kind: 'file_delete',
       mode: 'delete_file',
       operation: { type: payload.mode, file: payload.file, content: '', blockIndex: -1 },
@@ -86,6 +90,22 @@ export function resolveRestoreExecution(
     operationIndex,
     resolvedPath,
   };
+}
+
+function assertSafeCreateFileRestore(currentFile: RestoreFileState, payload: RestorePayloadV2): void {
+  if (!currentFile.exists) {
+    return;
+  }
+
+  const normalizedCurrent = normalizeForMatch(currentFile.content);
+  if (
+    sha256(normalizedCurrent) === payload.appliedFileHash &&
+    normalizedCurrent === payload.newContent
+  ) {
+    return;
+  }
+
+  throw new Error('Unsafe to restore create_file: target file was modified after apply.');
 }
 
 function assertSafeDeleteFileRestore(currentFile: RestoreFileState, oldContent: string): void {

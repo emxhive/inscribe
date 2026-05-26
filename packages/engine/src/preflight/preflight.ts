@@ -10,6 +10,7 @@ import { getScopeState } from '../repo/scopeStore';
 export type PreflightExecution = OperationExecutionResult & {
   operationIndex: number;
   resolvedPath: string;
+  canonicalPath?: string;
 };
 
 interface VirtualFileState {
@@ -41,22 +42,22 @@ export function preflightOperations(operations: Operation[], repoRoot: string): 
 
   for (const [operationIndex, operation] of operations.entries()) {
     try {
-      const { resolvedPath } = enforcePathPolicy(
+      const { resolvedPath, canonicalPath } = enforcePathPolicy(
         repoRoot,
         operation.file,
         operation.type as OperationMode,
         scopeRoots,
         ignoreMatcher
       );
-      const before = getVirtualFileState(virtualFiles, resolvedPath);
+      const before = getVirtualFileState(virtualFiles, canonicalPath, resolvedPath);
       const next = resolveOperationExecution(operation, before);
 
       if (next.afterExists) {
         validateCandidateOrThrow(operation.file, operation.type, next.afterContent, validationMetadata(operation));
       }
 
-      virtualFiles.set(resolvedPath, { exists: next.afterExists, content: next.afterContent });
-      executions.push({ ...next, operationIndex, resolvedPath });
+      virtualFiles.set(canonicalPath, { exists: next.afterExists, content: next.afterContent });
+      executions.push({ ...next, operationIndex, resolvedPath, canonicalPath });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown preflight error';
       throw new PreflightError(message, operation, operationIndex);
@@ -66,8 +67,8 @@ export function preflightOperations(operations: Operation[], repoRoot: string): 
   return executions;
 }
 
-function getVirtualFileState(files: Map<string, VirtualFileState>, filePath: string): VirtualFileState {
-  const existing = files.get(filePath);
+function getVirtualFileState(files: Map<string, VirtualFileState>, canonicalPath: string, filePath: string): VirtualFileState {
+  const existing = files.get(canonicalPath);
   if (existing) {
     return { ...existing };
   }

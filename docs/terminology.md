@@ -1,208 +1,85 @@
 # Inscribe Terminology
 
-This document provides detailed definitions and explanations of key terms and concepts used in Inscribe.
+This document names the active concepts used by Inscribe. For LLM output rules and examples, use [llm-guide.md](llm-guide.md).
 
-## Core Concepts
+## Inscribe Block
 
-### Inscribe Block
-A specially marked section in pasted content that contains explicit instructions for file operations. Each block is delimited by `$inscribe BEGIN` and `$inscribe END` markers.
-
-**Structure:**
-
- $inscribe BEGIN<br>
- FILE: <path><br>
- MODE: <mode><br>
-[additional directives]
-
-```<language>
-<code content>
-```
-
-$inscribe END
-
-
-### Block Headers
-Required fields that specify the target file and operation mode. Headers are always required and must be specified **without** the `$inscribe` prefix.
-
-#### Required Headers
-
-- **FILE:** Specifies the relative path from repository root where the file will be created or modified
-  - Format: `FILE: relative/path/from/repo/root.ext`
-  - Path must be under repository root and not in an ignored directory
-  - **Must not use `$inscribe` prefix**
-
-- **MODE:** Specifies the operation type
-  - Format: `MODE: <create|replace|append|range|delete>`
-  - Must be exactly one of the five supported modes
-  - **Must not use `$inscribe` prefix**
-
-### Directives
-Optional commands within an Inscribe block that provide additional instructions for processing the code content. Directives must be specified **without** the `$inscribe` prefix.
-
-**Important:** 
-- Each directive value must be single-line only. The parser processes directives line-by-line, so multiline directive values are not supported.
-- Directives do **not** use the `$inscribe` prefix. Only `BEGIN` and `END` markers use the prefix.
-- The `FILE:` and `MODE:` fields are headers, not directives.
-
-- **START / START_BEFORE / START_AFTER:** (exactly one required for range mode) The anchor that selects the starting line for range edits
-  - Format: `START: <exact substring>` / `START_BEFORE: <exact substring>` / `START_AFTER: <exact substring>`
-  - **Must not use `$inscribe` prefix**
-  - Anchors are **literal substring matches** (not regex, not whole-line matches)
-  - Can match anywhere within a line (beginning, middle, or end)
-  - **Replacements always expand to full line boundaries** (no inline splicing)
-  - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
-  - START anchor must match exactly once in the target file
-  - If no END directive is provided, START selects the **single line** to replace (the inserted code can be multi-line)
-  - **START** begins replacement at the start of the line containing the anchor (the anchor line is replaced)
-  - **START_BEFORE** begins replacement at the start of the line before the anchor (previous line + anchor line + rest)
-  - **START_AFTER** begins replacement at the start of the line after the anchor
-  
-- **END / END_BEFORE / END_AFTER:** (optional for range mode) The ending anchor for line-based replacement
-  - Format: `END: <exact substring>` / `END_BEFORE: <exact substring>` / `END_AFTER: <exact substring>`
-  - **Must not use `$inscribe` prefix**
-  - Anchors are **literal substring matches** (not regex, not whole-line matches)
-  - Can match anywhere within a line (beginning, middle, or end)
-  - **Replacements always expand to full line boundaries** (no inline splicing)
-  - If no exact match is found, Inscribe retries once with a **whitespace-insensitive** match that strips all whitespace within each line from both the file and the anchor.
-  - END anchor can appear multiple times; Inscribe uses the **first END after START**
-  - **END** ends replacement at the end of the line containing the anchor (the anchor line is replaced)
-  - **END_BEFORE** ends replacement at the start of the line containing the anchor (anchor line is excluded)
-  - **END_AFTER** ends replacement at the end of the line after the anchor
-
-### Prefix Usage Rules
-
-The `$inscribe` prefix is **only** used for block boundaries:
-- ✅ `$inscribe BEGIN` - correct
-- ✅ `$inscribe END` - correct
-- ❌ `$inscribe FILE: path/to/file.js` - **INVALID** (use `FILE: path/to/file.js`)
-- ❌ `$inscribe MODE: create` - **INVALID** (use `MODE: create`)
-- ❌ `$inscribe START: anchor` - **INVALID** (use `START: anchor`)
-
-**All headers and directives must be written without the `$inscribe` prefix.** Lines with `$inscribe` prefix that are not `BEGIN` or `END` will be rejected as invalid.
-
-## Modes
-
-### create
-Creates a new file with the provided content.
-
-**Requirements:**
-- File MUST NOT exist
-- Path must be under repository root
-- Parent directory will be created if needed
-
-**Failure conditions:**
-- File already exists
-- Path is in an ignored directory (e.g., `.git/`, `node_modules/`, etc.)
-- Path escapes the repository root
-
-### replace
-Replaces the entire content of an existing file.
-
-**Requirements:**
-- File MUST exist
-- Path must be under repository root and not ignored
-
-**Failure conditions:**
-- File does not exist
-- Path is in an ignored directory
-- Path escapes the repository root
-
-### append
-Appends content to the end of an existing file.
-
-**Requirements:**
-- File MUST exist
-- Path must be under repository root and not ignored
-
-**Failure conditions:**
-- File does not exist
-- Path is in an ignored directory
-- Path escapes the repository root
-
-**Important:** Inscribe does **not** automatically insert a newline when appending. If you need a newline before your appended content, include it explicitly (e.g., start your fenced code content with a blank line).
-
-**Example with leading newline:**
+An Inscribe block is an explicit file operation delimited by marker lines:
 
 ````
 $inscribe BEGIN
-FILE: src/config.js
-MODE: append
+FILE: relative/path/from/repo/root.ext
+MODE: <active_mode>
+optional directives
 
-```javascript
-
-// New configuration section
-export const newFeature = true;
+```language
+payload content
 ```
 
 $inscribe END
 ````
 
-### range
-Replaces content between two anchor points in an existing file. Anchors match substrings, but replacements always operate on full lines. Anchor inclusion depends on whether you use START/END (inclusive) or START_AFTER/END_BEFORE (exclusive). If END is omitted, Inscribe replaces **exactly one line** (selected by the START directive semantics) and inserts the block content, which may span multiple lines. END anchors are always plain textual matches (including `}`).
+Only `$inscribe BEGIN` and `$inscribe END` use the `$inscribe` prefix.
 
-**Requirements:**
-- File MUST exist
-- If END is omitted, Inscribe replaces **exactly one line** (selected by the START directive semantics) and inserts the block content, which may span multiple lines
-- Exactly one START directive is required (START / START_BEFORE / START_AFTER) and it must match exactly once
-- END is optional; if provided, exactly one END directive is required (END / END_BEFORE / END_AFTER)
-- If END is provided, the selected END must be the first occurrence after START
-- Path must be under repository root and not ignored
+## Headers
 
-### delete
-Deletes an existing file from the repository.
+Headers are required metadata fields:
 
-**Requirements:**
-- File MUST exist
-- Path must be under repository root and not ignored
-- No fenced code block is required (content is ignored if provided)
+- `FILE`: repo-relative target path.
+- `MODE`: active operation mode.
 
-**Behavior:**
-- Removes the specified file from disk
-- Cleans up empty parent directories (up to repository root)
+Headers must be unprefixed. `$inscribe FILE:` and `$inscribe MODE:` are invalid.
 
-**Failure conditions:**
-- File does not exist
-- Path is in an ignored directory
-- Path escapes the repository root
+## Directives
 
-**Example:**
+Directives are mode-specific metadata fields:
 
-````
-$inscribe BEGIN
-FILE: src/deprecated/old-component.js
-MODE: delete
+- `START`
+- `END`
+- `CONTAINS`
+- `NAME`
 
-$inscribe END
-````
+Directives must be unprefixed. Unsupported directive names do not add behavior.
 
-## When to Use Each Mode
+## Active Modes
 
-Choosing the right mode depends on your specific use case:
+| mode | meaning |
+| --- | --- |
+| `create_file` | Create a new file. |
+| `replace_file` | Replace an existing file completely. |
+| `append_file` | Append content to the end of an existing file. |
+| `delete_file` | Delete an existing file. |
+| `replace_line` | Replace one line selected by `START`. |
+| `replace_range` | Replace whole lines from `START` through `END`. |
+| `replace_between` | Replace content between `START` and `END`. |
+| `replace_block` | Replace the first brace-delimited block after `START`. |
+| `replace_symbol` | Replace a supported whole declaration selected by `NAME`. |
 
-| Mode | Best For | Example Use Cases |
-|------|----------|-------------------|
-| **create** | Adding entirely new files | Creating a new component, adding a new test file, scaffolding configuration files |
-| **replace** | Completely rewriting existing files | Major refactoring, regenerating auto-generated files, replacing obsolete implementations |
-| **append** | Adding content to the end of a file | Adding new test cases, appending log entries, adding exports to an index file |
-| **range** | Surgical edits within a file | Updating a specific function, modifying a configuration section, changing one method in a class |
-| **delete** | Removing obsolete files | Deleting deprecated code, removing temporary files, cleaning up unused components |
+Old aliases such as `create`, `replace`, `append`, `delete`, and `range` are not active modes.
 
-**General Guidelines:**
+## Content
 
-- Use **create** when the file doesn't exist yet
-- Use **replace** when you need to change most or all of the file's content
-- Use **append** when adding new content that logically goes at the end (remember to include leading newlines if needed)
-- Use **range** for precise, localized changes where you want to preserve surrounding context
-- Use **delete** when removing files that are no longer needed
+Content modes require one fenced payload. `delete_file` forbids non-whitespace payload content.
 
-## Validation
+The parser accepts backtick and tilde fences with at least three characters. Non-whitespace text after the closing fence is a parse error.
 
-### Strict Validation Policy
-Inscribe validates ALL blocks before applying ANY changes. If even one block fails validation, the entire operation is rejected.
+## Anchors
 
-### Fail-Fast Behavior
-When validation fails, all errors are reported and no files are modified.
+`START`, `END`, and `CONTAINS` are literal text values. They are not regular expressions.
 
-## History and Smart Restore
+`replace_line`, `replace_range`, `replace_between`, and `replace_block` fail if required anchors are missing or ambiguous.
 
-Every successful apply generates per-block history entries. Restores replay these entries through the same validation + apply pipeline as any other change, and they will fail when anchors or expected content no longer match.
+## Symbol Target
+
+`replace_symbol` uses structural adapters. Active support is limited to JS/TS-family files and PHP files. Missing, ambiguous, or unsupported symbols fail safely.
+
+## Path Policy
+
+`FILE` must be repo-relative. Absolute paths, traversal outside the repository, ignored paths, out-of-scope paths for non-create operations, and symlink escapes are blocked.
+
+## Apply And Restore
+
+Apply preflights operations, writes files, persists restore history, and rolls back disk writes if history persistence fails.
+
+Restore uses stored history payloads as the source of truth.
+

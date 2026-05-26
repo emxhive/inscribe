@@ -1,321 +1,382 @@
-# INSCRIBE LLM GUIDE (CURRENT CONTRACT)
+# Inscribe LLM Guide
 
-This guide is the prompt contract for producing Inscribe-compatible output.
-Optimize for boring, literal, reviewable edits.
+## Current Contract
 
-## Mental Model
+This guide describes the active Inscribe contract. Generate only syntax supported by the active code.
 
-Inscribe is not smart.
+Do not use old mode aliases. These are invalid: `create`, `replace`, `append`, `delete`, `range`.
 
-It is not a code generator, refactoring engine, formatter, typechecker, import fixer, instruction follower, or shell runner. It parses text markers, resolves the requested file/range/symbol, builds the candidate file text, and writes only that candidate text when validation allows it.
+Unsupported syntax must not be emitted. Do not invent directives such as `START_AFTER`, `END_BEFORE`, `SCOPE_START`, or `SCOPE_END`.
 
-The fenced payload must already be the code/text to place in the repository. If you write instructions in the payload, those instructions are written into the file. For `range`, the payload is the inserted text; when replacing before remaining file content, Inscribe may add one trailing newline if the payload is nonempty and does not already end with `\n`.
+## Exact Block Shape
 
-## Response Shape
-
-When producing real edits:
-
-1. Put optional human explanation outside Inscribe blocks.
-2. Put each intended file operation in its own Inscribe block.
-3. Put only final code/text inside payload fences.
-4. Put shell commands outside Inscribe blocks as separate shell fences.
-5. Do not include example/template blocks in the same response as real edits.
-
-When not producing real edits, do not output raw `$inscribe BEGIN` or `$inscribe END` marker lines. If you are explaining the format, escape or describe the markers in prose so they cannot be parsed as intended edits.
-
-## Block Format
+Every operation is one explicit block:
 
 ````
 $inscribe BEGIN
 FILE: relative/path/from/repo/root.ext
-MODE: create | replace | append | range | delete | replace_symbol
-(optional directives)
+MODE: <active_mode>
+optional directives
 
 ```language
-<final payload text>
+payload content
 ```
 
 $inscribe END
 ````
 
-Do not output angle-bracket placeholders such as `<final payload text>` in real blocks. Replace placeholders with actual paths, directives, and payload.
+For `delete_file`, omit the payload fence unless you need an empty whitespace-only fence. Do not put explanatory text inside a block.
 
-## Marker and Field Rules
+## Active Modes
 
-- Use exact marker lines: `$inscribe BEGIN` and `$inscribe END`.
-- Marker matching is case-insensitive and whitespace-tolerant, so a marker-looking line inside payload can still terminate or split the block. Avoid marker-only payload lines entirely.
-- `$inscribe` is valid only on `BEGIN` and `END` marker lines.
-- `FILE:`, `MODE:`, and every directive must be unprefixed.
-- Use canonical uppercase field names and lowercase mode values.
-- Mode values are exact: `create`, `replace`, `append`, `range`, `delete`, `replace_symbol`.
-- Header and directive values are single-line only.
-- Only `CONTAINS:` is intentionally repeatable. Do not duplicate `FILE:`, `MODE:`, `START*`, `END*`, or `NAME:`.
-- Unknown unprefixed fields are ignored. Prefixed fields create parser warnings, and the desktop intake treats parser warnings/errors as blocking.
+The only active modes are:
 
-## Payload Rules
+- `create_file`
+- `replace_file`
+- `append_file`
+- `delete_file`
+- `replace_line`
+- `replace_range`
+- `replace_between`
+- `replace_block`
+- `replace_symbol`
 
-For every mode except `delete`, the first fenced code block after the headers/directives is the payload.
+## Mode Decision Table
 
-- The fence language label is ignored by Inscribe. Candidate validation is chosen by `FILE:` extension, not by the fence label.
-- Text before the payload fence is parsed as headers/directives or ignored.
-- Headers/directives after the payload fence are payload text, not metadata.
-- Non-whitespace text after the closing payload fence and before `$inscribe END` is a parse error.
-- Multiple payload fences in one block are a parse error unless they are inside a longer outer fence.
-- If the payload contains triple backtick fences, use a longer outer fence such as ```` or use `~~~`.
-- A target file that must contain a raw marker-only line such as `$inscribe END` cannot be represented safely in an Inscribe payload.
+| mode | use when | requires existing file? | requires content? | required directives | common mistake |
+| --- | --- | --- | --- | --- | --- |
+| `create_file` | Creating a new file | No, file must not exist | Yes, fenced payload required | none | Using it for an existing file |
+| `replace_file` | Replacing the entire file | Yes | Yes, fenced payload required | none | Using it for a small edit |
+| `append_file` | Adding content exactly at file end | Yes | Yes, non-empty payload | none | Forgetting to include a leading newline when needed |
+| `delete_file` | Deleting a file | Yes | No, content forbidden | none | Adding a payload or notes |
+| `replace_line` | Replacing one exact line | Yes | Yes, fenced payload required | `START` | Using a weak anchor that appears more than once |
+| `replace_range` | Replacing whole lines from `START` through `END` | Yes | Yes, fenced payload required | `START`, `END` | Using broad anchors like `}` or `</div>` |
+| `replace_between` | Replacing content between two anchors | Yes | Yes, fenced payload required | `START`, `END` | Expecting it to include the anchors |
+| `replace_block` | Replacing the first brace-delimited block after `START` | Yes | Yes, fenced payload required | `START` | Using it when `replace_symbol` is available |
+| `replace_symbol` | Replacing a supported whole declaration by name | Yes | Yes, fenced payload required | `NAME` | Assuming every language or declaration kind is supported |
 
-## Fallback Parsing Warning
+## Headers And Directives
 
-Always use explicit `$inscribe BEGIN` / `$inscribe END` blocks for intended edits.
+Headers:
 
-If a pasted response contains no explicit Inscribe markers, the engine has a fallback mode that may parse bare `FILE:` + `MODE:` + fenced-code triplets as blocks. Therefore, an explanation-only response should avoid bare `FILE:`/`MODE:` examples followed by code fences unless the markers are escaped or clearly not line-leading fields.
+- `FILE`
+- `MODE`
 
-## Paths and Modes
+Directives:
 
-`FILE:` is a path relative to the selected repository root. Use forward slashes. Do not use absolute paths. Do not use `..` to escape the repository. Paths are rejected if they resolve outside the repo or into ignored paths.
+- `START`
+- `END`
+- `CONTAINS`
+- `NAME`
 
-Default ignored prefixes include `.git/`, `node_modules/`, `vendor/`, `storage/`, `bootstrap/cache/`, `public/build/`, and `.inscribe/`; `.inscribeignore` can add more.
+Rules:
 
-Mode selection:
+- `$inscribe` is only for `$inscribe BEGIN` and `$inscribe END`.
+- Do not write `$inscribe FILE:`, `$inscribe MODE:`, `$inscribe START:`, `$inscribe END:`, `$inscribe CONTAINS:`, or `$inscribe NAME:`.
+- Header and directive values are single-line values.
+- Use each singleton field once. Repeated `CONTAINS` lines are combined and all must match.
+- Unknown fields do not create supported behavior. Do not emit them.
 
-1. New file -> `MODE: create`
-2. Existing file, complete rewrite -> `MODE: replace`
-3. Existing file, append exactly at EOF -> `MODE: append`
-4. Existing file, delete file -> `MODE: delete`
-5. Existing JS/TS/PHP file, replace a supported whole declaration -> `MODE: replace_symbol` + `NAME:`
-6. Existing file, surgical line-based replacement -> `MODE: range`
+## Fenced Content Rules
 
-`create` requires the target file to not exist. `replace`, `append`, `range`, `delete`, and `replace_symbol` require the target file to exist.
+- Content modes require a fenced payload.
+- `delete_file` must not contain non-whitespace fenced content.
+- The parser accepts backtick and tilde fences with at least three characters, such as `` ``` `` and `~~~`.
+- A block should contain only one payload fence.
+- No trailing non-whitespace content may appear after the closing payload fence and before `$inscribe END`.
+- The fence language label is for readability only. File syntax validation is chosen from `FILE`.
+- Payload text is written as code/text. Instructions in the payload become repository content.
 
-## Mode Details
+## Safe Mode Selection
 
-### `MODE: create`
+- Use `create_file` for new files.
+- Use `replace_file` only for full-file replacement.
+- Use `append_file` only for file-end additions.
+- Use `delete_file` only for file deletion.
+- Use `replace_symbol` for complete supported declarations where possible.
+- Use `replace_line` only for one exact line.
+- Use `replace_range` for whole-line replacement from `START` through `END`.
+- Use `replace_between` for replacing content between two anchors.
+- Use `replace_block` only when intending to replace the brace-delimited block after `START`.
 
-Use for a non-existing file. Parent directories are created when the target path is valid.
+## Target Resolution Rules
 
-The payload becomes the full new file content.
+Anchors are literal substrings, not regexes and not instructions. Direct matching is attempted first. If no direct match exists, the active text search may retry a single-line whitespace-insensitive match. Do not rely on that fallback; write anchors that match real file text.
 
-### `MODE: replace`
+`replace_line`:
 
-Use only when the payload should become the entire existing file.
+- Requires `START`.
+- `START` must resolve to exactly one match.
+- Replaces the full line containing the match.
 
-The payload replaces the full file. Do not use `replace` for a small edit unless intentionally regenerating the whole file.
+`replace_range`:
 
-### `MODE: append`
+- Requires `START` and `END`.
+- Replaces whole lines from the line containing `START` through the line containing `END`.
+- `CONTAINS` can narrow candidate ranges. Every `CONTAINS` value must be inside the candidate range.
+- `::START_OF_FILE` plus `::END_OF_FILE` is rejected for full-file range replacement. Use `replace_file`.
 
-Use only when the payload belongs exactly at the end of the existing file.
+`replace_between`:
 
-Inscribe does not insert a leading newline or trailing newline for append. If appended content must start on a new line, put the leading newline in the payload.
+- Requires `START` and `END`.
+- Replaces content between anchors, not the anchors themselves.
+- If both anchors are on the same line, only the exact interior text between matches is replaced.
+- For multiline spans, replacement starts after the `START` line and ends before the `END` line.
+- `CONTAINS` can narrow candidate ranges.
 
-### `MODE: delete`
+## Hardened Range Guidance
 
-Use only to remove an existing file.
+Use range modes only when the anchors are unique and intention-bearing.
 
-No payload fence is required. If a payload fence is present, it is ignored. Do not put notes or instructions there.
+Never use vague anchors such as `</div>`, `}`, `return (`, or `className=` unless paired with stronger context through `START`, `END`, and useful `CONTAINS`.
 
-### `MODE: replace_symbol`
+Prefer `replace_symbol` over `replace_range` for complete function, component, or class-style declarations.
 
-Use when replacing a whole supported declaration.
+Prefer smaller targeted edits over huge fragile ranges. Do not use `replace_range` to replace an entire component unless no structural symbol target is available and the anchors are specific.
 
-Required directive:
+If unsure, do not emit an Inscribe block. Ask for current file context or a better anchor.
 
-```text
-NAME: SymbolName
-```
+## replace_symbol
 
-Supported JS/TS-family targets:
+`replace_symbol` requires `NAME`.
 
-- Top-level function declarations.
-- Top-level class declarations.
-- Top-level variable declarations initialized with a function, arrow function, `memo(...)`, `forwardRef(...)`, or `React.memo(...)`.
-- Exported declarations, including named default function declarations.
+It works only for supported structural adapters. Unsupported file types fail. Ambiguous or missing symbols fail.
 
-Supported PHP targets:
+For JS/TS-family files (`.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs`), the active resolver supports top-level:
 
-- Functions and methods matched by name.
+- function declarations
+- class declarations
+- variable declarations initialized with a function or arrow function
+- variable declarations initialized with supported wrappers: `memo`, `forwardRef`, or `React.memo`
+- exported forms of the supported declarations
 
-Important:
+It does not generally target imports, interfaces, type aliases, class methods, object methods, arbitrary nested declarations, or anonymous default exports.
 
-- `NAME:` is a literal symbol name, not a pattern.
-- The payload must be the complete replacement declaration.
-- If the existing declaration is exported, include the intended `export` / `export default` form in the payload.
-- `replace_symbol` does not target imports, types/interfaces, class methods, object properties, anonymous default exports, arbitrary nested JS/TS declarations, or unsupported file types.
-- If zero or multiple supported declarations match, the operation fails safely.
+For PHP (`.php`, `.phtml`), the active resolver supports named functions and methods through the PHP adapter. Unsupported or ambiguous matches fail.
 
-### `MODE: range`
+PHP candidate validation invokes the local `php -l` binary. If that binary is unavailable, PHP writes can fail during validation.
 
-Use for textual, line-based replacement inside an existing file.
+`replace_symbol` is usually safer than textual range replacement for complete declarations.
 
-Required: exactly one start directive:
+## replace_block
 
-```text
-START: literal substring
-START_BEFORE: literal substring
-START_AFTER: literal substring
-```
+`replace_block` requires `START`.
 
-Optional: exactly one end directive:
+It finds the unique `START` anchor, then targets the first brace-delimited block after that anchor. The replacement span is the braces and everything inside them, not the declaration header before the opening brace.
 
-```text
-END: literal substring
-END_BEFORE: literal substring
-END_AFTER: literal substring
-```
+It is not a full language parser. It scans braces while trying to ignore comments and strings. Use cautiously.
 
-Optional disambiguation:
+Do not use `replace_block` when `replace_symbol` can target the declaration.
 
-```text
-CONTAINS: literal substring that must be inside the candidate range
-CONTAINS: another required substring
-```
+## Path And File Safety
 
-Range matching rules:
+`FILE` must be a repo-relative path.
 
-- Anchors are literal substrings, not regexes and not instructions.
-- Anchor matching is case-sensitive.
-- Anchors can match anywhere inside a line; they do not need to match the whole line.
-- A direct match is tried first. If none exists, matching retries within each individual line with whitespace removed.
-- Whitespace-insensitive retry does not match across line boundaries.
-- The start anchor must resolve to exactly one candidate after optional `CONTAINS` filtering.
-- If an end directive is present, the selected end is the first matching end anchor after the selected start.
-- `CONTAINS` requires `END`, `END_BEFORE`, or `END_AFTER` because it filters bounded candidate ranges.
-- `CONTAINS` checks the text from each candidate start match through that candidate's first following end match. All repeated `CONTAINS:` values must be present.
-- `SCOPE_START` and `SCOPE_END` are obsolete. Do not use them.
+- Absolute paths are invalid.
+- `../` traversal is invalid.
+- Ignored paths are blocked.
+- Non-create operations must be inside configured scope.
+- Paths that escape repo or scope through symlink traversal are blocked.
+- Do not target generated, vendor, dependency, build, cache, or ignored files unless the user explicitly intends that and the path is in scope.
 
-Range replacement is line-based:
+## What Happens After Generation
 
-| Directive | Replacement boundary |
-| --- | --- |
-| `START` | starts at the beginning of the anchor line |
-| `START_BEFORE` | starts at the beginning of the previous line |
-| `START_AFTER` | starts at the beginning of the line after the anchor line |
-| `END` | ends after the end-anchor line |
-| `END_BEFORE` | ends before the end-anchor line |
-| `END_AFTER` | ends after the line following the end-anchor line |
+Inscribe:
 
-Without an end directive, `range` replaces exactly one selected line: the `START` anchor line, the line before the `START_BEFORE` anchor line, or the line after the `START_AFTER` anchor line.
+1. Parses `$inscribe BEGIN` / `$inscribe END` blocks.
+2. Parses `FILE`, `MODE`, directives, and fenced payload.
+3. Validates the static mode/directive contract.
+4. Enforces repo path, scope, and ignore policy.
+5. Preflights all operations against virtual file state.
+6. Resolves line, range, between, block, or symbol targets.
+7. Syntax-validates supported candidate files before writing.
+8. Applies writes.
+9. Persists restore history.
+10. Restores later from stored history payloads, not from caller-provided payload data.
 
-Do not assume `END: }`, `END: </Tag>`, or similar anchors understand syntax structure. They are plain text anchors, and the first matching end after the selected start wins.
+## Never Do This
 
-Prefer `replace_symbol` over `range` when replacing a whole supported declaration. Prefer specific anchors over broad anchors. If a broad anchor is unavoidable, use a bounded range plus `CONTAINS`.
+- `MODE: create`, `MODE: replace`, `MODE: append`, `MODE: delete`, or `MODE: range`.
+- `$inscribe FILE:` or `$inscribe MODE:`.
+- Multiple payload fences in one block.
+- Explanation, prose, TODO instructions, or shell commands inside a payload.
+- Weak anchors such as `}`, `</div>`, `return (`, or `className=`.
+- Huge `replace_range` blocks for entire components when `replace_symbol` is possible.
+- `delete_file` with content.
+- Absolute paths.
+- Paths outside repo, scope, or ignored policy.
+- Assuming regex matching.
+- Assuming fuzzy matching will save a weak or wrong anchor.
+- Emitting an Inscribe block when current file context is missing.
 
-## Validation and Failure Behavior
+## Correct Examples
 
-Expect strict fail-safe behavior.
+### create_file
 
-- Parse warnings/errors stop the desktop intake flow.
-- Missing files, existing files in `create`, ignored paths, and paths outside the repo fail validation.
-- Missing or ambiguous range starts fail validation.
-- Missing range ends fail validation.
-- Invalid range directive combinations fail before apply.
-- `replace_symbol` with zero or multiple matching declarations fails.
-- Validation resolves and syntax-checks the full in-memory apply plan before disk writes are allowed.
-- Apply re-runs that full preflight and writes transactionally; if a write fails, previously written files are rolled back.
-- JS/TS-family candidates (`.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs`) are parsed before write.
-- PHP candidates (`.php`, `.phtml`) are linted before write through the PHP adapter.
-- Other languages are not syntax-validated by Inscribe.
-- Candidate validation checks the whole candidate file, not only the payload.
-- Inscribe does not run tests, typecheck, format, install packages, update imports, or execute shell commands.
-
-Design for safe retries: make blocks deterministic and let diagnostics guide the next attempt.
-
-## Easy Misunderstandings to Avoid
-
-- Do not put "replace this function with..." inside the payload. Put the finished replacement code there.
-- Do not put comments like `// add validation here` unless that comment should remain in the repository.
-- Do not output placeholder paths, ellipses, TODO stubs, or omitted code in payloads unless they are truly intended file content.
-- Do not place shell commands inside an Inscribe payload.
-- Do not wrap two files or two payload fences in one block.
-- Do not output illustrative `$inscribe BEGIN` examples in a response meant to apply real edits.
-- Do not assume `START_AFTER` means after the matched substring. It means the next line after the anchor line.
-- Do not assume `END_BEFORE` means before the matched substring. It means before the end-anchor line.
-- Do not assume `CONTAINS` searches the whole file. It searches each bounded candidate range.
-- Do not assume the fence language label controls validation.
-- Do not assume unknown directives help. Unknown unprefixed fields are ignored.
-- Do not assume `replace_symbol` preserves modifiers automatically. The replacement declaration must include exactly the modifiers/exports you want.
-- Do not assume append starts on a new line. Include the leading newline yourself.
-- Do not assume a successful parse means the file will validate or apply.
-
-## Shape Examples
-
-These are format examples only. In a real response, output only blocks for the actual intended files and never include this examples section.
-
-### Create
-
+````
 $inscribe BEGIN
-FILE: src/utils/date.ts
-MODE: create
+FILE: src/utils/formatDate.ts
+MODE: create_file
 
 ```ts
 export function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
+  return date.toISOString().slice(0, 10);
 }
 ```
 
 $inscribe END
+````
 
-### Replace symbol
+### replace_file
 
+````
 $inscribe BEGIN
-FILE: src/components/ParticipantSurfacePanel.tsx
-MODE: replace_symbol
-NAME: ParticipantSurfacePanel
+FILE: src/config/featureFlags.ts
+MODE: replace_file
 
-```tsx
-export const ParticipantSurfacePanel = () => {
-  return <section aria-label="Participants">Ready</section>;
+```ts
+export const featureFlags = {
+  signup: true,
+  billing: false,
 };
 ```
 
 $inscribe END
+````
 
-### Bounded textual range with disambiguation
+### append_file
 
+````
 $inscribe BEGIN
-FILE: src/features.ts
-MODE: range
-START_AFTER: // feature flags: start
-END_BEFORE: // feature flags: end
-CONTAINS: enableSignupFlow
-
-```ts
-export const enableSignupFlow = true;
-export const enableBillingFlow = false;
-```
-
-$inscribe END
-
-### Append with intentional leading newline
-
-$inscribe BEGIN
-FILE: src/config.ts
-MODE: append
+FILE: src/index.ts
+MODE: append_file
 
 ```ts
 
-export const enableNewFlow = true;
+export { formatDate } from './utils/formatDate';
 ```
 
 $inscribe END
+````
 
-### Delete
+### delete_file
 
+```text
 $inscribe BEGIN
-FILE: src/deprecated/old-component.tsx
-MODE: delete
+FILE: src/deprecated/oldWidget.ts
+MODE: delete_file
 
 $inscribe END
+```
 
-## Final Checklist Before Output
+### replace_line
 
-- The response contains real edits only, not examples/templates.
-- Every intended edit has exactly one block.
-- Every block has exactly one `FILE:` and one lowercase `MODE:`.
-- Every non-delete block has exactly one payload fence.
-- Payloads contain final code/text, not instructions or placeholders.
-- No raw marker-only lines appear inside payloads.
-- Range blocks have exactly one start directive.
-- Range blocks using `CONTAINS` also have exactly one end directive.
-- `replace_symbol` blocks include `NAME:` and a complete replacement declaration.
-- Append payloads include any needed leading newline.
-- Any suggested commands are outside Inscribe blocks.
+````
+$inscribe BEGIN
+FILE: src/config/limits.ts
+MODE: replace_line
+START: export const retryLimit = 3;
+
+```ts
+export const retryLimit = 5;
+```
+
+$inscribe END
+````
+
+### replace_range
+
+````
+$inscribe BEGIN
+FILE: src/config/featureFlags.ts
+MODE: replace_range
+START: export const featureFlags = {
+END: };
+CONTAINS: signup
+
+```ts
+export const featureFlags = {
+  signup: true,
+  billing: true,
+};
+```
+
+$inscribe END
+````
+
+### replace_between
+
+````
+$inscribe BEGIN
+FILE: src/routes.ts
+MODE: replace_between
+START: // routes:start
+END: // routes:end
+CONTAINS: /dashboard
+
+```ts
+router.get('/dashboard', dashboardHandler);
+router.get('/settings', settingsHandler);
+```
+
+$inscribe END
+````
+
+### replace_block
+
+````
+$inscribe BEGIN
+FILE: src/server.ts
+MODE: replace_block
+START: if (config.enableMetrics)
+
+```ts
+{
+  metrics.start();
+  logger.info('metrics enabled');
+}
+```
+
+$inscribe END
+````
+
+### replace_symbol
+
+````
+$inscribe BEGIN
+FILE: src/components/StatusBadge.tsx
+MODE: replace_symbol
+NAME: StatusBadge
+
+```tsx
+export function StatusBadge({ status }: { status: string }) {
+  return <span data-status={status}>{status}</span>;
+}
+```
+
+$inscribe END
+````
+
+## LLM Self-Check Before Output
+
+Before emitting a block, verify:
+
+- Did I use an active `MODE`?
+- Is `FILE` repo-relative?
+- Did I include all required directives?
+- Did I avoid forbidden content?
+- Is the anchor unique enough?
+- Did I keep explanation outside the block?
+- Is this the smallest safe edit?
+- Would `replace_symbol` be safer?
+
+## When Not To Use Inscribe
+
+Do not emit Inscribe blocks when:
+
+- anchors are uncertain
+- current file context is missing
+- function or symbol names are ambiguous
+- the change is broad and destructive
+- the target is generated, dependency, vendor, build, cache, or ignored content
+- the user only asked for discussion, review, or planning

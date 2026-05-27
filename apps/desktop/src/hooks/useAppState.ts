@@ -34,6 +34,7 @@ export const initialState: AppState = {
   reviewView: 'unified',
   selectedHunkId: null,
   reviewComparisonError: null,
+  reviewPreflightByItem: {},
   isLeftPanelCollapsed: false,
   isRightPanelCollapsed: false,
   hiddenRightPanelSections: [],
@@ -64,21 +65,26 @@ export function useAppState() {
 
   // Specialized updaters for complex operations
   const updateReviewItemContent = useCallback((id: string, editedContent: string) => {
-    setState((prev) => ({
-      ...prev,
-      reviewItems: prev.reviewItems.map((item) => {
-        if (item.id !== id) {
-          return item;
-        }
-        const status: ReviewItem['status'] =
-          item.status === 'invalid' ? 'invalid' : 'pending';
-        return {
-          ...item,
-          editedContent,
-          status,
-        };
-      }),
-    }));
+    setState((prev) => {
+      const { [id]: _cleared, ...reviewPreflightByItem } = prev.reviewPreflightByItem;
+      return {
+        ...prev,
+        reviewComparisonError: prev.selectedItemId === id ? null : prev.reviewComparisonError,
+        reviewPreflightByItem,
+        reviewItems: prev.reviewItems.map((item) => {
+          if (item.id !== id) {
+            return item;
+          }
+          const status: ReviewItem['status'] =
+            item.status === 'invalid' ? 'invalid' : 'pending';
+          return {
+            ...item,
+            editedContent,
+            status,
+          };
+        }),
+      };
+    });
   }, []);
 
   const setLastAppliedPlan = useCallback((plan: ApplyPlan | null) => {

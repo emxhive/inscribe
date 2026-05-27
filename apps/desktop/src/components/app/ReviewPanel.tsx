@@ -17,9 +17,10 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useAppStateContext, useReviewActions } from '@/hooks';
 import { buildResultReviewModel, buildUnifiedDiffModel } from '@/utils/reviewComparison';
+import { buildReviewItemPreflightFingerprint, getCurrentReviewPreflight } from '@/utils';
 import { cn } from '@/lib/utils';
 import type { Operation, OperationComparison } from '@inscribe/shared';
-import type { ReviewView } from '@/types';
+import type { ReviewItem, ReviewPreflightResult, ReviewView } from '@/types';
 
 class DeletedRegionWidget extends WidgetType {
   constructor(
@@ -45,6 +46,14 @@ const reviewViewOptions: Array<{ id: ReviewView; label: string }> = [
   { id: 'edit', label: 'Edit' },
 ];
 
+const buildOperationFromReviewItem = (item: ReviewItem): Operation => ({
+  type: item.mode,
+  file: item.file,
+  content: item.editedContent,
+  directives: item.directives,
+  blockIndex: item.blockIndex,
+});
+
 export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
   const reviewActions = useReviewActions();
@@ -58,6 +67,95 @@ export function ReviewPanel() {
   const selectedItemId = selectedItem?.id ?? null;
   const collapsedHunkIds = selectedItemId ? state.collapsedHunkIdsByItem[selectedItemId] ?? [] : [];
   const collapsedDiffGroupIds = selectedItemId ? state.collapsedDiffGroupIdsByItem[selectedItemId] ?? [] : [];
+
+  const setItemPreflightResult = (
+    item: ReviewItem,
+    result: ReviewPreflightResult,
+  ) => {
+    updateState((prev) => {
+      const currentItem = prev.reviewItems.find((candidate) => candidate.id === item.id);
+      if (!currentItem || buildReviewItemPreflightFingerprint(currentItem) !== result.fingerprint) {
+        return {};
+      }
+      const previousResult = prev.reviewPreflightByItem[item.id];
+      const selectedComparisonError =
+        result.status === 'failed' ? result.error ?? 'Review comparison/preflight failed.' : null;
+      const isSameResult =
+        previousResult?.status === result.status &&
+        previousResult?.fingerprint === result.fingerprint &&
+        previousResult?.error === result.error;
+
+      if (isSameResult) {
+        return prev.selectedItemId === item.id && prev.reviewComparisonError !== selectedComparisonError
+          ? { reviewComparisonError: selectedComparisonError }
+          : {};
+      }
+
+      return {
+        reviewPreflightByItem: {
+          ...prev.reviewPreflightByItem,
+          [item.id]: result,
+        },
+        ...(prev.selectedItemId === item.id
+          ? { reviewComparisonError: selectedComparisonError }
+          : {}),
+      };
+    });
+  };
+
+  useEffect(() => {
+    if (state.mode !== 'review' || !state.repoRoot) {
+      return;
+    }
+
+    const repoRoot = state.repoRoot;
+    const reviewItemsById = new Map(state.reviewItems.map((item) => [item.id, item]));
+    const pendingItemsNeedingPreflight = state.reviewItems.filter(
+      (item) => item.status === 'pending' && !getCurrentReviewPreflight(item, state.reviewPreflightByItem),
+    );
+    const stalePreflightIds = Object.keys(state.reviewPreflightByItem).filter((itemId) => {
+      const item = reviewItemsById.get(itemId);
+      return !item || item.status !== 'pending' || !getCurrentReviewPreflight(item, state.reviewPreflightByItem);
+    });
+
+    if (pendingItemsNeedingPreflight.length === 0 && stalePreflightIds.length === 0) {
+      return;
+    }
+
+    updateState((prev) => {
+      const nextPreflightByItem = { ...prev.reviewPreflightByItem };
+      stalePreflightIds.forEach((itemId) => {
+        delete nextPreflightByItem[itemId];
+      });
+      pendingItemsNeedingPreflight.forEach((item) => {
+        nextPreflightByItem[item.id] = {
+          status: 'checking',
+          fingerprint: buildReviewItemPreflightFingerprint(item),
+        };
+      });
+      return { reviewPreflightByItem: nextPreflightByItem };
+    });
+
+    pendingItemsNeedingPreflight.forEach((item) => {
+      const fingerprint = buildReviewItemPreflightFingerprint(item);
+      window.inscribeAPI.compareOperation(buildOperationFromReviewItem(item), repoRoot)
+        .then((result) => {
+          setItemPreflightResult(
+            item,
+            'error' in result
+              ? { status: 'failed', fingerprint, error: result.error }
+              : { status: 'passed', fingerprint },
+          );
+        })
+        .catch((error) => {
+          setItemPreflightResult(item, {
+            status: 'failed',
+            fingerprint,
+            error: error instanceof Error ? error.message : 'Failed to run review comparison/preflight.',
+          });
+        });
+    });
+  }, [state.mode, state.repoRoot, state.reviewItems, state.reviewPreflightByItem, updateState]);
 
   const languageExtension = useMemo(() => {
     const fileName = selectedItem?.file;
@@ -112,33 +210,39 @@ export function ReviewPanel() {
     const loadComparison = async () => {
       updateState({ selectedHunkId: null });
 
-      if (!state.repoRoot || !selectedItem || isEditing) {
+      if (!state.repoRoot || !selectedItem || selectedIsApplied || isEditing) {
         setComparisonData(null);
         updateState({ reviewComparisonError: null });
         return;
       }
 
-      const operation: Operation = {
-        type: selectedItem.mode,
-        file: selectedItem.file,
-        content: editorValue,
-        directives: selectedItem.directives,
-      };
+      const preflight = getCurrentReviewPreflight(selectedItem, state.reviewPreflightByItem);
+      if (preflight?.status === 'failed') {
+        setComparisonData(null);
+        updateState({ reviewComparisonError: preflight.error ?? 'Review comparison/preflight failed.' });
+        return;
+      }
+
+      const fingerprint = buildReviewItemPreflightFingerprint(selectedItem);
+      const operation = buildOperationFromReviewItem(selectedItem);
 
       try {
         const result = await window.inscribeAPI.compareOperation(operation, state.repoRoot);
         if (cancelled) return;
         if ('error' in result) {
           setComparisonData(null);
+          setItemPreflightResult(selectedItem, { status: 'failed', fingerprint, error: result.error });
           updateState({ reviewComparisonError: result.error });
           return;
         }
         setComparisonData(result);
+        setItemPreflightResult(selectedItem, { status: 'passed', fingerprint });
         updateState({ reviewComparisonError: null });
       } catch (error) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : 'Failed to load comparison';
         setComparisonData(null);
+        setItemPreflightResult(selectedItem, { status: 'failed', fingerprint, error: message });
         updateState({ reviewComparisonError: message });
       }
     };
@@ -148,7 +252,7 @@ export function ReviewPanel() {
     return () => {
       cancelled = true;
     };
-  }, [editorValue, isEditing, selectedItem, state.repoRoot]);
+  }, [editorValue, isEditing, selectedIsApplied, selectedItem, state.repoRoot, state.reviewPreflightByItem]);
 
   const resultModel = useMemo(
     () => (comparisonData ? buildResultReviewModel(comparisonData) : null),
@@ -387,6 +491,14 @@ export function ReviewPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
+        {!isEditing && state.reviewComparisonError && (
+          <div className="flex h-full items-center justify-center p-6 text-sm text-destructive">
+            <div className="max-w-2xl rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3">
+              {state.reviewComparisonError}
+            </div>
+          </div>
+        )}
+
         {activeReviewView === 'edit' && (
           <CodeMirror
             className="h-full w-full overflow-hidden text-sm font-mono"
@@ -399,7 +511,7 @@ export function ReviewPanel() {
           />
         )}
 
-        {activeReviewView === 'result' && (
+        {activeReviewView === 'result' && !state.reviewComparisonError && (
           <div className="review-preview h-full w-full overflow-hidden text-sm font-mono">
             <CodeMirror
               className="h-full w-full overflow-hidden text-sm font-mono"
@@ -415,7 +527,7 @@ export function ReviewPanel() {
           </div>
         )}
 
-        {activeReviewView === 'unified' && (
+        {activeReviewView === 'unified' && !state.reviewComparisonError && (
           <UnifiedDiffView
             model={unifiedModel}
             selectedHunkId={state.selectedHunkId}

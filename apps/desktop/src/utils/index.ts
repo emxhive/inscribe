@@ -6,5 +6,18 @@
 export { getLanguageFromFilename } from './language';
 export { normalizePath, getPathBasename } from './path';
 export { countLines, toSentenceCase } from './text';
-export { buildReviewItems, buildApplyPlanFromItems } from './review';
+export {
+  buildReviewItems,
+  buildApplyPlanFromItems,
+  buildReviewItemPreflightFingerprint,
+  getApplyablePendingReviewItems,
+  getBlockedReviewItems,
+  getCurrentReviewPreflight,
+  getReviewApplySummary,
+  getReviewItemApplyState,
+  getReviewSidebarError,
+  getReviewSidebarStatus,
+  getUnresolvedPreflightReviewItems,
+  summarizeSkippedReviewItems,
+} from './review';
 export { decorateHistoryEntries } from './history';

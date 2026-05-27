@@ -89,6 +89,7 @@ export function useRepositoryActions() {
       selectedItemId: null,
       selectedIntakeBlockId: null,
       reviewComparisonError: null,
+      reviewPreflightByItem: {},
       isEditing: false,
       pipelineStatus: 'idle',
       isParsingInProgress: false,

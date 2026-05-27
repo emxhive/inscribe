@@ -42,6 +42,14 @@ export interface ReviewItem {
   directives: Record<string, string>;
 }
 
+export type ReviewPreflightStatus = 'checking' | 'passed' | 'failed';
+
+export interface ReviewPreflightResult {
+  status: ReviewPreflightStatus;
+  fingerprint: string;
+  error?: string;
+}
+
 export type RestoreStatus =
   | 'idle'
   | 'restoring'
@@ -95,6 +103,7 @@ export interface AppState {
   reviewView: ReviewView;
   selectedHunkId: string | null;
   reviewComparisonError: string | null;
+  reviewPreflightByItem: Record<string, ReviewPreflightResult>;
   isLeftPanelCollapsed: boolean;
   isRightPanelCollapsed: boolean;
   hiddenRightPanelSections: RightPanelSectionId[];

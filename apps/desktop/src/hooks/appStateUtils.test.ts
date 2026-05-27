@@ -32,4 +32,47 @@ describe('applyAppStateUpdates', () => {
     expect(next.canUndoApply).toBe(false);
     expect(next.lastApplyId).toBe(null);
   });
+
+  it('clears stale review comparison/preflight state when leaving review', () => {
+    const reviewState = applyAppStateUpdates(initialState, {
+      mode: 'review',
+      reviewComparisonError: 'Selected comparison failed',
+      reviewPreflightByItem: {
+        item: { status: 'failed', fingerprint: 'old', error: 'Old blocker' },
+      },
+    });
+    const next = applyAppStateUpdates(reviewState, { mode: 'intake' });
+
+    expect(next.reviewComparisonError).toBe(null);
+    expect(next.reviewPreflightByItem).toEqual({});
+  });
+
+  it('clears stale review comparison/preflight state when review items are rebuilt', () => {
+    const reviewState = applyAppStateUpdates(initialState, {
+      mode: 'review',
+      reviewComparisonError: 'Selected comparison failed',
+      reviewPreflightByItem: {
+        item: { status: 'failed', fingerprint: 'old', error: 'Old blocker' },
+      },
+    });
+    const next = applyAppStateUpdates(reviewState, { reviewItems: [] });
+
+    expect(next.reviewComparisonError).toBe(null);
+    expect(next.reviewPreflightByItem).toEqual({});
+  });
+
+  it('clears stale review comparison/preflight state when switching repositories', () => {
+    const reviewState = applyAppStateUpdates(initialState, {
+      repoRoot: 'C:/repo-a',
+      mode: 'review',
+      reviewComparisonError: 'Selected comparison failed',
+      reviewPreflightByItem: {
+        item: { status: 'failed', fingerprint: 'old', error: 'Old blocker' },
+      },
+    });
+    const next = applyAppStateUpdates(reviewState, { repoRoot: 'C:/repo-b' });
+
+    expect(next.reviewComparisonError).toBe(null);
+    expect(next.reviewPreflightByItem).toEqual({});
+  });
 });

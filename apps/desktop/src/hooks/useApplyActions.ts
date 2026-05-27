@@ -1,4 +1,10 @@
-import {buildApplyPlanFromItems, decorateHistoryEntries} from '@/utils';
+import {
+    buildApplyPlanFromItems,
+    decorateHistoryEntries,
+    getReviewApplySummary,
+    getReviewItemApplyState,
+    summarizeSkippedReviewItems,
+} from '@/utils';
 import type {ReviewItem} from '@/types';
 import { extractCliCommandSuggestions } from '@inscribe/shared';
 import {useAppStateContext} from './useAppStateContext';
@@ -18,14 +24,19 @@ export function useApplyActions() {
     };
     const markItemsApplied = (ids: string[]) => {
         const appliedStatus: ReviewItem['status'] = 'applied';
+        const appliedIds = new Set(ids);
         updateState((prev) => {
             const nextReviewItems = prev.reviewItems.map((item) =>
-                ids.includes(item.id) ? {...item, status: appliedStatus} : item
+                appliedIds.has(item.id) ? {...item, status: appliedStatus} : item
             );
-            const selectedWasApplied = prev.selectedItemId ? ids.includes(prev.selectedItemId) : false;
+            const selectedWasApplied = prev.selectedItemId ? appliedIds.has(prev.selectedItemId) : false;
+            const reviewPreflightByItem = Object.fromEntries(
+                Object.entries(prev.reviewPreflightByItem).filter(([itemId]) => !appliedIds.has(itemId))
+            );
             return {
                 reviewItems: nextReviewItems,
-                ...(selectedWasApplied ? {isEditing: false} : {}),
+                reviewPreflightByItem,
+                ...(selectedWasApplied ? {isEditing: false, reviewComparisonError: null, selectedHunkId: null} : {}),
             };
         });
     };
@@ -46,12 +57,13 @@ export function useApplyActions() {
         const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
         if (!selectedItem) return;
 
-        if (selectedItem.status === 'invalid') {
-            updateState({statusMessage: `Cannot apply: ${selectedItem.validationError}`});
-            return;
-        }
-        if (selectedItem.status !== 'pending') {
-            updateState({statusMessage: 'Selected file is not pending'});
+        const selectedItemState = getReviewItemApplyState(selectedItem, state.reviewPreflightByItem);
+        if (!selectedItemState.applyable) {
+            updateState({
+                statusMessage: selectedItemState.blocker
+                    ? `Cannot apply selected: ${selectedItemState.blocker}`
+                    : 'Selected file is not pending',
+            });
             return;
         }
 
@@ -115,13 +127,23 @@ export function useApplyActions() {
             return;
         }
 
-        const invalidItems = state.reviewItems.filter(item => item.status === 'invalid');
-        if (invalidItems.length > 0) {
-            updateState({statusMessage: `Cannot apply: ${invalidItems.length} file(s) have validation errors`});
+        const applySummary = getReviewApplySummary(state.reviewItems, state.reviewPreflightByItem);
+        if (applySummary.staticBlockedItems.length > 0) {
+            updateState({statusMessage: `Cannot apply: ${applySummary.staticBlockedItems.length} file(s) have validation errors`});
             return;
         }
 
-        const pendingItems = state.reviewItems.filter(item => item.status === 'pending');
+        if (applySummary.preflightBlockedItems.length > 0) {
+            updateState({statusMessage: `Cannot apply all: ${applySummary.preflightBlockedItems.length} file(s) have comparison/preflight blockers`});
+            return;
+        }
+
+        if (applySummary.unresolvedPreflightItems.length > 0) {
+            updateState({statusMessage: `Cannot apply all: ${applySummary.unresolvedPreflightItems.length} file(s) are still awaiting comparison/preflight checks`});
+            return;
+        }
+
+        const pendingItems = applySummary.pendingItems;
         if (pendingItems.length === 0) {
             updateState({statusMessage: 'No pending files to apply'});
             return;
@@ -181,17 +203,19 @@ export function useApplyActions() {
     const handleApplyValidBlocks = async () => {
         if (!state.repoRoot) return;
 
-        const pendingItems = state.reviewItems.filter(item => item.status === 'pending');
+        const applySummary = getReviewApplySummary(state.reviewItems, state.reviewPreflightByItem);
+        const pendingItems = applySummary.applyablePendingItems;
 
         if (pendingItems.length === 0) {
             updateState({
-                statusMessage: 'No pending valid files to apply',
+                statusMessage: 'No pending applyable files to apply',
                 pipelineStatus: 'idle'
             });
             return;
         }
 
-        const invalidCount = state.reviewItems.filter(item => item.status === 'invalid').length;
+        const skippedItems = state.reviewItems.filter((item) => item.status !== 'applied' && !pendingItems.includes(item));
+        const skippedSummary = summarizeSkippedReviewItems(skippedItems, state.reviewPreflightByItem);
 
         try {
             updateState({
@@ -218,9 +242,9 @@ export function useApplyActions() {
                 setLastAppliedPlan(plan);
                 const applyId = result.historyEntries?.[0]?.applyId ?? null;
                 markItemsApplied(pendingItems.map((item) => item.id));
-                const message = invalidCount > 0
-                    ? `✓ Applied ${pendingItems.length} valid file(s). ${invalidCount} file(s) with errors were skipped.`
-                    : `✓ Applied all: ${pendingItems.length} file(s).`;
+                const message = skippedItems.length > 0
+                    ? `Applied ${pendingItems.length} valid file(s). Skipped ${skippedItems.length}: ${skippedSummary}.`
+                    : `Applied all valid files: ${pendingItems.length} file(s).`;
 
                 updateState({
                     pipelineStatus: 'apply-success',

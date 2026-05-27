@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import type { ReviewItem } from '@/types';
 import { ReviewDirectivePopover } from './ReviewDirectivePopover';
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { getReviewSidebarError, getReviewSidebarStatus } from '@/utils';
 
 export const MIN_SIDEBAR_WIDTH = 240;
 export const MAX_SIDEBAR_WIDTH = 420;
@@ -169,7 +170,8 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                 lineCount={item.lineCount}
                 language={item.language}
                 mode={item.mode}
-                status={item.status}
+                status={getReviewSidebarStatus(item, state.reviewPreflightByItem)}
+                validationError={getReviewSidebarError(item, state.reviewPreflightByItem)}
                 isSelected={state.selectedItemId === item.id}
                 onClick={() => handleSelectItem(item.id)}
                 onDoubleClick={(event) => handleOpenDirectiveEditor(item, event)}

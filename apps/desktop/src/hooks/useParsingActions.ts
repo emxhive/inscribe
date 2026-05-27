@@ -30,6 +30,8 @@ export function useParsingActions() {
       updateState({
         isParsingInProgress: true,
         pipelineStatus: 'parsing',
+        reviewComparisonError: null,
+        reviewPreflightByItem: {},
         statusMessage: 'Parsing code blocks...'
       });
 

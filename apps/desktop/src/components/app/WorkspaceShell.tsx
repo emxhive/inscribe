@@ -21,7 +21,13 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { FileListEntry } from '@/components/common/FileListEntry';
 import { useAppStateContext, useApplyActions, useHistoryActions, useIntakeBlocks, useParsingActions, useRepositoryActions, useReviewActions } from '@/hooks';
-import { getLanguageFromFilename, getPathBasename, toSentenceCase } from '@/utils';
+import {
+  getLanguageFromFilename,
+  getPathBasename,
+  getReviewApplySummary,
+  getReviewItemApplyState,
+  toSentenceCase,
+} from '@/utils';
 import { updateDirectiveInText } from '@/utils/intake';
 import { FileSidebar, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from './FileSidebar';
 import { IntakePanel } from './IntakePanel';
@@ -30,7 +36,7 @@ import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
 import { TerminalPanel } from './TerminalPanel';
 import { cn } from '@/lib/utils';
 import type { AppState, RightPanelSectionId } from '@/types';
-import { buildDiagnosticGroups, type DiagnosticGroup } from '@/utils/diagnostics';
+import { buildDiagnosticGroups, formatDiagnosticGroupForClipboard, type DiagnosticGroup } from '@/utils/diagnostics';
 
 const RIGHT_PANEL_WIDTH = 336;
 const PANEL_STORAGE_KEYS = {
@@ -304,11 +310,10 @@ function WorkspaceBottomBar() {
   const { handleParseBlocks } = useParsingActions();
   const applyActions = useApplyActions();
   const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId) ?? null;
-  const hasInvalidItems = state.reviewItems.some((item) => item.status === 'invalid');
-  const hasAnyApplied = state.reviewItems.some((item) => item.status === 'applied');
-  const hasPending = state.reviewItems.some((item) => item.status === 'pending');
+  const applySummary = getReviewApplySummary(state.reviewItems, state.reviewPreflightByItem);
   const selectedIsApplied = selectedItem?.status === 'applied';
-  const canApplySelected = Boolean(selectedItem) && selectedItem?.status === 'pending' && !state.isApplyingInProgress;
+  const selectedApplyState = selectedItem ? getReviewItemApplyState(selectedItem, state.reviewPreflightByItem) : null;
+  const canApplySelected = Boolean(selectedApplyState?.applyable) && !state.isApplyingInProgress;
   const canUndoSelected =
     Boolean(selectedItem) &&
     selectedIsApplied &&
@@ -394,7 +399,7 @@ function WorkspaceBottomBar() {
             size="sm"
             type="button"
             onClick={applyActions.handleApplyValidBlocks}
-            disabled={!hasPending || state.isApplyingInProgress}
+            disabled={!applySummary.canApplyValid || state.isApplyingInProgress}
           >
             Apply Valid
           </Button>
@@ -402,7 +407,7 @@ function WorkspaceBottomBar() {
             type="button"
             size="sm"
             onClick={applyActions.handleApplyAll}
-            disabled={!hasPending || hasAnyApplied || hasInvalidItems || state.isApplyingInProgress}
+            disabled={!applySummary.canApplyAll || state.isApplyingInProgress}
           >
             Apply All
           </Button>
@@ -423,7 +428,7 @@ function RightPanel() {
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
   const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId) ?? null;
   const reviewActions = useReviewActions();
-  const diagnostics = buildDiagnosticGroups(state, blocks);
+  const diagnostics = buildDiagnosticGroups(state, blocks, { scope: state.mode });
   const sections: RightPanelSectionId[] = ['selection', 'directives', 'diagnostics', 'history'];
   const visibleSections = sections.filter((section) => !state.hiddenRightPanelSections.includes(section));
   const isOpen = (section: RightPanelSectionId) => state.openRightPanelSections.includes(section);
@@ -539,11 +544,23 @@ function SelectionSection({
     return <p className="text-xs text-muted-foreground">Select a change to inspect.</p>;
   }
 
+  const itemState = getReviewItemApplyState(selectedItem, state.reviewPreflightByItem);
+  const status =
+    itemState.kind === 'pending-applyable'
+      ? 'pending and applyable'
+      : itemState.kind === 'blocked-static-validation'
+        ? 'blocked by validation'
+        : itemState.kind === 'blocked-preflight'
+          ? 'blocked by preflight'
+          : itemState.kind === 'pending-preflight'
+            ? 'awaiting preflight'
+            : 'applied';
+
   return (
     <dl className="space-y-2 text-xs">
       <InspectorRow label="File" value={selectedItem.file} mono />
       <InspectorRow label="Mode" value={selectedItem.mode} />
-      <InspectorRow label="Status" value={selectedItem.status} />
+      <InspectorRow label="Status" value={status} />
       <InspectorRow label="Language" value={selectedItem.language} />
       <InspectorRow label="Lines" value={String(selectedItem.lineCount)} />
       {state.selectedHunkId && <InspectorRow label="Hunk" value={state.selectedHunkId} />}
@@ -769,7 +786,7 @@ function HistoryInspector() {
 function DiagnosticsSection({ groups }: { groups: DiagnosticGroup[] }) {
   const { updateState } = useAppStateContext();
   const handleCopy = async (group: DiagnosticGroup) => {
-    const text = group.messages.join('\n');
+    const text = formatDiagnosticGroupForClipboard(group);
     try {
       await navigator.clipboard.writeText(text);
       updateState({ statusMessage: `Copied ${group.title.toLowerCase()}.` });

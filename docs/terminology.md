@@ -40,6 +40,7 @@ Directives are mode-specific metadata fields:
 - `END_LINE_EQUALS`
 - `END_OCCURRENCE`
 - `RANGE_CONTAINS`
+- `RANGE_LINE_CONTAINS_ALL`
 - `NAME`
 
 Directives must be unprefixed. Unsupported directive names fail validation.
@@ -67,13 +68,17 @@ The parser accepts backtick and tilde fences with at least three characters. Non
 
 ## Boundary Selectors and Range Filters
 
-`START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `END_OCCURRENCE`, and `RANGE_CONTAINS` are literal text values. They are not regular expressions.
+`START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `END_OCCURRENCE`, `RANGE_CONTAINS`, and `RANGE_LINE_CONTAINS_ALL` are literal text values. They are not regular expressions.
 
 `replace_line` and `replace_block` require their `START_*` selector to resolve to exactly one boundary line.
 
 For `replace_range` and `replace_between`, each matching `START_*` line creates at most one candidate by selecting the requested `END_OCCURRENCE` after that start. `END_OCCURRENCE` is optional, one-based, and defaults to `1`.
 
-`RANGE_CONTAINS` filters the resulting start-based candidates. The operation succeeds only when exactly one candidate remains.
+`RANGE_CONTAINS` filters the resulting start-based candidates by exact substring anywhere in the candidate.
+
+`RANGE_LINE_CONTAINS_ALL` is valid only for `replace_range` and `replace_between`. Its value is a comma-separated list of non-empty fragments. A candidate passes when at least one line inside it contains every listed fragment. Multiple `RANGE_LINE_CONTAINS_ALL` directives are AND conditions.
+
+The operation succeeds only when exactly one candidate remains after all range filters.
 ## Symbol Target
 
 `replace_symbol` uses structural adapters. Active support is limited to JS/TS-family files and PHP files. Missing, ambiguous, or unsupported symbols fail safely.

@@ -49,9 +49,25 @@ describe('parseIntakeStructure', () => {
       'START_LINE_EQUALS',
       'END_LINE_CONTAINS',
       'END_LINE_EQUALS',
-      'END_OCCURRENCE',      'RANGE_CONTAINS',
+      'END_OCCURRENCE',
+      'RANGE_CONTAINS',
+      'RANGE_LINE_CONTAINS_ALL',
       'NAME',
     ]);
+  });
+
+  it('aggregates repeated RANGE_LINE_CONTAINS_ALL directives in intake structure', () => {
+    const input = wrapBlock([
+      'FILE: src/range.ts',
+      'MODE: replace_range',
+      'START_LINE_CONTAINS: // start',
+      'END_LINE_CONTAINS: // end',
+      'RANGE_LINE_CONTAINS_ALL: id, status',
+      'RANGE_LINE_CONTAINS_ALL: role, enabled',
+    ].join('\n'));
+    const { blocks } = parseIntakeStructure(input);
+
+    expect(blocks[0].directives.RANGE_LINE_CONTAINS_ALL?.value).toBe('id, status\nrole, enabled');
   });
 
   it.each([

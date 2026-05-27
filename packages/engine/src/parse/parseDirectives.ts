@@ -25,7 +25,9 @@ const FIELD_KEY_MAP: Partial<Record<ParsedFieldKey, string | null>> = {
   START_LINE_EQUALS: 'START_LINE_EQUALS',
   END_LINE_CONTAINS: 'END_LINE_CONTAINS',
   END_LINE_EQUALS: 'END_LINE_EQUALS',
-  END_OCCURRENCE: 'END_OCCURRENCE',  RANGE_CONTAINS: 'RANGE_CONTAINS',
+  END_OCCURRENCE: 'END_OCCURRENCE',
+  RANGE_CONTAINS: 'RANGE_CONTAINS',
+  RANGE_LINE_CONTAINS_ALL: 'RANGE_LINE_CONTAINS_ALL',
   NAME: 'NAME',
   START: 'START',
   END: 'END',
@@ -60,7 +62,7 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
         return { file, mode: mode ?? OPERATION_MODES[0], directives, contentStartIndex: -1, error: formatLegacyDirectiveError(parsed.key!) };
       }
 
-      if (fieldKey === 'RANGE_CONTAINS' && directives[fieldKey]) directives[fieldKey] = `${directives[fieldKey]}\n${value}`;
+      if ((fieldKey === 'RANGE_CONTAINS' || fieldKey === 'RANGE_LINE_CONTAINS_ALL') && directives[fieldKey]) directives[fieldKey] = `${directives[fieldKey]}\n${value}`;
       else directives[fieldKey] = value;
     }
   }

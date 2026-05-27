@@ -90,11 +90,18 @@ export function resolveBoundarySelector(
   return { matches, name, value, isVirtual, strategy };
 }
 
-export function filterCandidates(content: string, candidates: { start: number; end: number }[], contains: string[]): { start: number; end: number }[] {
-  if (contains.length === 0) return candidates;
+export function filterCandidates(
+  content: string,
+  candidates: { start: number; end: number }[],
+  contains: string[],
+  lineContainsAll: string[][] = [],
+): { start: number; end: number }[] {
+  if (contains.length === 0 && lineContainsAll.length === 0) return candidates;
   return candidates.filter((c) => {
     const text = content.slice(c.start, c.end);
-    return contains.every((v) => text.includes(v));
+    const lines = lineContainsAll.length > 0 ? text.split(/\r\n|\n|\r/) : [];
+    return contains.every((v) => text.includes(v)) &&
+      lineContainsAll.every((fragments) => lines.some((line) => fragments.every((fragment) => line.includes(fragment))));
   });
 }
 

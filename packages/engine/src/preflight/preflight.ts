@@ -103,6 +103,7 @@ function validationMetadata(operation: Operation): Record<string, string> {
       END_LINE_CONTAINS: operation.directives?.END_LINE_CONTAINS ?? '',
       END_LINE_EQUALS: operation.directives?.END_LINE_EQUALS ?? '',
       RANGE_CONTAINS: operation.directives?.RANGE_CONTAINS ?? '',
+      RANGE_LINE_CONTAINS_ALL: operation.directives?.RANGE_LINE_CONTAINS_ALL ?? '',
     };
   }
 

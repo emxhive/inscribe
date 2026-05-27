@@ -28,8 +28,8 @@ export const OPERATION_MODE_METADATA: Record<OperationMode, OperationModeMetadat
   append_file: { category: 'file', fileExistence: 'must_exist', content: 'required', allowEmptyContent: false, requiredDirectives: [], allowedDirectives: [] },
   delete_file: { category: 'file', fileExistence: 'must_exist', content: 'forbidden', allowEmptyContent: true, requiredDirectives: [], allowedDirectives: [] },
   replace_line: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: [], allowedDirectives: ['START_LINE_CONTAINS', 'START_LINE_EQUALS'] },
-  replace_range: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: [], allowedDirectives: ['START_LINE_CONTAINS', 'START_LINE_EQUALS', 'END_LINE_CONTAINS', 'END_LINE_EQUALS', 'END_OCCURRENCE', 'RANGE_CONTAINS'] },
-  replace_between: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: [], allowedDirectives: ['START_LINE_CONTAINS', 'START_LINE_EQUALS', 'END_LINE_CONTAINS', 'END_LINE_EQUALS', 'END_OCCURRENCE', 'RANGE_CONTAINS'] },
+  replace_range: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: [], allowedDirectives: ['START_LINE_CONTAINS', 'START_LINE_EQUALS', 'END_LINE_CONTAINS', 'END_LINE_EQUALS', 'END_OCCURRENCE', 'RANGE_CONTAINS', 'RANGE_LINE_CONTAINS_ALL'] },
+  replace_between: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: [], allowedDirectives: ['START_LINE_CONTAINS', 'START_LINE_EQUALS', 'END_LINE_CONTAINS', 'END_LINE_EQUALS', 'END_OCCURRENCE', 'RANGE_CONTAINS', 'RANGE_LINE_CONTAINS_ALL'] },
   replace_block: { category: 'text', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: [], allowedDirectives: ['START_LINE_CONTAINS', 'START_LINE_EQUALS'] },
   replace_symbol: { category: 'structural', fileExistence: 'must_exist', content: 'required', allowEmptyContent: true, requiredDirectives: ['NAME'], allowedDirectives: ['NAME'] },
 };

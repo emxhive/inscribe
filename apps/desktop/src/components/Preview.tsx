@@ -55,6 +55,11 @@ export default function Preview({ file, block }: PreviewProps) {
                 <strong>RANGE_CONTAINS:</strong> {block.directives.RANGE_CONTAINS}
               </p>
             )}
+            {block.directives.RANGE_LINE_CONTAINS_ALL && (
+              <p>
+                <strong>RANGE_LINE_CONTAINS_ALL:</strong> {block.directives.RANGE_LINE_CONTAINS_ALL}
+              </p>
+            )}
           </>
         )}
       </div>

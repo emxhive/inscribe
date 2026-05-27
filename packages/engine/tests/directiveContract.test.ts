@@ -25,7 +25,9 @@ describe('directive contract', () => {
       'START_LINE_EQUALS',
       'END_LINE_CONTAINS',
       'END_LINE_EQUALS',
-      'END_OCCURRENCE',      'RANGE_CONTAINS',
+      'END_OCCURRENCE',
+      'RANGE_CONTAINS',
+      'RANGE_LINE_CONTAINS_ALL',
       'NAME',
     ]);
     expect(DIRECTIVE_KEYS).not.toContain('START');
@@ -46,5 +48,22 @@ describe('directive contract', () => {
 
     expect(result.blocks).toHaveLength(0);
     expect(result.errors.join('\n')).toContain(message);
+  });
+
+  it('parses repeated RANGE_LINE_CONTAINS_ALL directives as newline-delimited AND clauses', () => {
+    const result = parseBlocks(`$inscribe BEGIN
+FILE: src/example.ts
+MODE: replace_range
+START_LINE_CONTAINS: // start
+END_LINE_CONTAINS: // end
+RANGE_LINE_CONTAINS_ALL: id, status
+RANGE_LINE_CONTAINS_ALL: role, enabled
+\`\`\`
+replacement
+\`\`\`
+$inscribe END`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.blocks[0].directives.RANGE_LINE_CONTAINS_ALL).toBe('id, status\nrole, enabled');
   });
 });

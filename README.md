@@ -18,7 +18,7 @@ export const example = true;
 $inscribe END
 ````
 
-`$inscribe` is valid only on `BEGIN` and `END` marker lines. `FILE`, `MODE`, `START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `RANGE_CONTAINS`, and `NAME` must not be prefixed.
+`$inscribe` is valid only on `BEGIN` and `END` marker lines. `FILE`, `MODE`, `START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `END_OCCURRENCE`, `RANGE_CONTAINS`, `RANGE_LINE_CONTAINS_ALL`, and `NAME` must not be prefixed.
 
 ## Active Modes
 
@@ -38,11 +38,11 @@ Old aliases such as `create`, `replace`, `append`, `delete`, and `range` are inv
 
 ## Directive Summary
 
-Active directives are `START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `RANGE_CONTAINS`, and `NAME`.
+Active directives are `START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `END_OCCURRENCE`, `RANGE_CONTAINS`, `RANGE_LINE_CONTAINS_ALL`, and `NAME`.
 
 - `replace_line` requires one `START_*` selector.
-- `replace_range` requires one `START_*` and one `END_*` selector; `RANGE_CONTAINS` is optional.
-- `replace_between` requires one `START_*` and one `END_*` selector; `RANGE_CONTAINS` is optional.
+- `replace_range` requires one `START_*` and one `END_*` selector; `END_OCCURRENCE`, `RANGE_CONTAINS`, and `RANGE_LINE_CONTAINS_ALL` are optional.
+- `replace_between` requires one `START_*` and one `END_*` selector; `END_OCCURRENCE`, `RANGE_CONTAINS`, and `RANGE_LINE_CONTAINS_ALL` are optional.
 - `replace_block` requires one `START_*` selector.
 - `replace_symbol` requires `NAME`.
 

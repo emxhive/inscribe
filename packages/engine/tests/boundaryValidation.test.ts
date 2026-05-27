@@ -71,11 +71,62 @@ describe('validateBlocks boundary rules', () => {
       directives: {
         START_LINE_CONTAINS: 'start',
         END_LINE_EQUALS: 'end',
-        RANGE_CONTAINS: 'mid'
+        RANGE_CONTAINS: 'mid',
+        RANGE_LINE_CONTAINS_ALL: 'id, status',
       },
       content: 'new',
       blockIndex: 0
     }];
+    expect(validateBlocks(blocks)).toHaveLength(0);
+  });
+
+  it.each(['', 'id,', 'id,,status', 'id,   ,status'])('rejects invalid RANGE_LINE_CONTAINS_ALL value %j', (value) => {
+    const blocks: ParsedBlock[] = [{
+      file: 'test.ts',
+      mode: 'replace_range',
+      directives: {
+        START_LINE_CONTAINS: 'start',
+        END_LINE_EQUALS: 'end',
+        RANGE_LINE_CONTAINS_ALL: value,
+      },
+      content: 'new',
+      blockIndex: 0,
+    }];
+
+    const errors = validateBlocks(blocks);
+    expect(errors.map((error) => error.message)).toContain(
+      'RANGE_LINE_CONTAINS_ALL must be a comma-separated list of non-empty fragments'
+    );
+  });
+
+  it('rejects RANGE_LINE_CONTAINS_ALL outside replace_range and replace_between', () => {
+    const blocks: ParsedBlock[] = [{
+      file: 'test.ts',
+      mode: 'replace_line',
+      directives: {
+        START_LINE_CONTAINS: 'start',
+        RANGE_LINE_CONTAINS_ALL: 'id, status',
+      },
+      content: 'new',
+      blockIndex: 0,
+    }];
+
+    expect(validateBlocks(blocks).some((error) => error.message.includes('Invalid directive RANGE_LINE_CONTAINS_ALL'))).toBe(true);
+  });
+
+  it('allows RANGE_LINE_CONTAINS_ALL for replace_between', () => {
+    const blocks: ParsedBlock[] = [{
+      file: 'test.ts',
+      mode: 'replace_between',
+      directives: {
+        START_LINE_CONTAINS: 'start',
+        END_LINE_EQUALS: 'end',
+        RANGE_LINE_CONTAINS_ALL: 'id, status',
+      },
+      content: 'new',
+      blockIndex: 0,
+    }];
+
     expect(validateBlocks(blocks)).toHaveLength(0);
   });
 

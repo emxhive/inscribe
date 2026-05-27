@@ -51,6 +51,18 @@ function validateBlock(block: ParsedBlock): ValidationError[] {
   if (endOccurrence !== undefined && !/^[1-9]\d*$/.test(endOccurrence.trim())) {
     errors.push(buildError(block, `END_OCCURRENCE must be a positive integer`, DIAGNOSTIC_CODES.INVALID_DIRECTIVE));
   }
+
+  const rangeLineContainsAll = directives.RANGE_LINE_CONTAINS_ALL;
+  if (rangeLineContainsAll !== undefined) {
+    for (const value of rangeLineContainsAll.split('\n')) {
+      const fragments = value.split(',').map((fragment) => fragment.trim());
+      if (fragments.length === 0 || fragments.some((fragment) => fragment.length === 0)) {
+        errors.push(buildError(block, `RANGE_LINE_CONTAINS_ALL must be a comma-separated list of non-empty fragments`, DIAGNOSTIC_CODES.INVALID_DIRECTIVE));
+        break;
+      }
+    }
+  }
+
   // Boundary specific validation
   if (['replace_line', 'replace_range', 'replace_between', 'replace_block'].includes(block.mode)) {
     const startContains = directives.START_LINE_CONTAINS;

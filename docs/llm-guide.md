@@ -56,7 +56,7 @@ An Inscribe block may be emitted only if every gate passes:
 * The needed file context is current and visible.
 * The chosen mode follows Section 3.
 * The selected anchors are safe.
-* `START_*` is unique, or repeated starts are intentionally disambiguated with strong `RANGE_CONTAINS`.
+* `START_*` is unique, or repeated starts are intentionally disambiguated with strong range filters.
 * `END_*` is understood as first/Nth matching end after each matching start.
 * Any widened replacement is local.
 * Any widened replacement preserves unrelated content.
@@ -101,6 +101,7 @@ Valid directives:
 * `END_LINE_EQUALS`
 * `END_OCCURRENCE`
 * `RANGE_CONTAINS`
+* `RANGE_LINE_CONTAINS_ALL`
 * `NAME`
 
 Only these items are valid.
@@ -233,6 +234,7 @@ Rules:
 * Replaces the whole matched line.
 * `END_*` is forbidden.
 * `RANGE_CONTAINS` is forbidden.
+* `RANGE_LINE_CONTAINS_ALL` is forbidden.
 * `END_OCCURRENCE` is forbidden.
 
 Use `replace_line` when the exact target line is unique.
@@ -251,7 +253,7 @@ Range candidate model:
 2. For each matching start, find matching `END_*` lines after that start.
 3. Select the first/Nth end after each start using `END_OCCURRENCE`.
 4. Each start creates at most one candidate.
-5. Apply all `RANGE_CONTAINS` filters.
+5. Apply all `RANGE_CONTAINS` and `RANGE_LINE_CONTAINS_ALL` filters.
 6. Succeed only if exactly one candidate remains.
 
 Binding rules:
@@ -316,13 +318,15 @@ The occurrence count must be verified from current context.
 
 ---
 
-## 10. `RANGE_CONTAINS`
+## 10. Range Filters
+
+### `RANGE_CONTAINS`
 
 `RANGE_CONTAINS` filters candidate ranges after start/end selection.
 
 Multiple `RANGE_CONTAINS` values are AND conditions.
 
-A candidate must contain every listed value.
+A candidate must contain every listed value as an exact substring anywhere in the candidate.
 
 Use `RANGE_CONTAINS` to select among repeated candidate regions.
 
@@ -339,6 +343,22 @@ Generic filter text is forbidden.
 
 If selected end occurrence is wrong, set `END_OCCURRENCE`.
 
+### `RANGE_LINE_CONTAINS_ALL`
+
+`RANGE_LINE_CONTAINS_ALL` is valid only for `replace_range` and `replace_between`.
+
+Its value is a comma-separated list of tokens or fragments.
+
+Each fragment is trimmed.
+
+Empty lists and empty fragments are invalid.
+
+A candidate must contain at least one line that contains every listed fragment.
+
+Fragments on different lines do not satisfy one directive.
+
+Multiple `RANGE_LINE_CONTAINS_ALL` directives are AND conditions.
+
 ---
 
 ## 11. Anchor Discipline
@@ -349,7 +369,7 @@ A non-unique `START_*` is allowed only when all conditions are true:
 
 * repeated starts intentionally represent candidate regions
 * each candidate has a predictable selected end
-* `RANGE_CONTAINS` reduces candidates to exactly one
+* range filters reduce candidates to exactly one
 * current context includes the possible candidate regions
 
 Generic `START_*` anchors are forbidden unless intentionally disambiguated.
@@ -376,7 +396,7 @@ When the exact target is not safely selectable:
 
 1. Use `replace_line` if the exact target line is unique.
 2. If the target line is not unique, widen to the nearest local candidate region.
-3. Use meaningful `RANGE_CONTAINS` to select the intended candidate.
+3. Use meaningful range filters to select the intended candidate.
 4. Preserve unrelated lines inside the widened region.
 5. Use file boundaries only for real edge-of-file regions.
 6. Use `replace_file` only when no safe partial operation exists.
@@ -661,6 +681,7 @@ Check:
 * repeated `START_*`
 * missing `RANGE_CONTAINS`
 * weak `RANGE_CONTAINS`
+* missing or weak `RANGE_LINE_CONTAINS_ALL`
 * generic `END_*`
 * missing `END_OCCURRENCE`
 * unsafe scope

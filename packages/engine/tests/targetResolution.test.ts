@@ -118,6 +118,88 @@ line 4`;
         '// block:end',
       ].join('\n') + '\n');
     });
+
+    it('uses RANGE_LINE_CONTAINS_ALL when all fragments appear on the same line', () => {
+      const content = [
+        '// block:start',
+        'alpha id=one status=old',
+        '// block:end',
+        '// block:start',
+        'beta id=two status=new',
+        '// block:end',
+      ].join('\n');
+
+      const range = resolveRangeTarget(content, {
+        START_LINE_CONTAINS: '// block:start',
+        END_LINE_CONTAINS: '// block:end',
+        RANGE_LINE_CONTAINS_ALL: 'id=two, status=new',
+      });
+
+      expect(content.slice(range.replaceStart, range.replaceEnd)).toBe([
+        '// block:start',
+        'beta id=two status=new',
+        '// block:end',
+      ].join('\n'));
+    });
+
+    it('does not match RANGE_LINE_CONTAINS_ALL fragments spread across different lines', () => {
+      const content = [
+        '// block:start',
+        'id=two',
+        'status=new',
+        '// block:end',
+      ].join('\n');
+
+      expect(() => resolveRangeTarget(content, {
+        START_LINE_CONTAINS: '// block:start',
+        END_LINE_CONTAINS: '// block:end',
+        RANGE_LINE_CONTAINS_ALL: 'id=two, status=new',
+      })).toThrow('No range candidate matched boundary selectors and RANGE_CONTAINS filters');
+    });
+
+    it('applies multiple RANGE_LINE_CONTAINS_ALL directives as AND conditions', () => {
+      const content = [
+        '// block:start',
+        'id=one status=new',
+        'role=admin enabled=false',
+        '// block:end',
+        '// block:start',
+        'id=two status=new',
+        'role=admin enabled=true',
+        '// block:end',
+      ].join('\n');
+
+      const range = resolveRangeTarget(content, {
+        START_LINE_CONTAINS: '// block:start',
+        END_LINE_CONTAINS: '// block:end',
+        RANGE_LINE_CONTAINS_ALL: 'id=two, status=new\nrole=admin, enabled=true',
+      });
+
+      expect(content.slice(range.replaceStart, range.replaceEnd)).toBe([
+        '// block:start',
+        'id=two status=new',
+        'role=admin enabled=true',
+        '// block:end',
+      ].join('\n'));
+    });
+
+    it('keeps RANGE_CONTAINS as an exact substring anywhere in the candidate', () => {
+      const content = [
+        '// block:start',
+        'first fragment',
+        'second fragment',
+        '// block:end',
+      ].join('\n');
+
+      const range = resolveRangeTarget(content, {
+        START_LINE_CONTAINS: '// block:start',
+        END_LINE_CONTAINS: '// block:end',
+        RANGE_CONTAINS: 'first fragment\nsecond fragment',
+      });
+
+      expect(content.slice(range.replaceStart, range.replaceEnd)).toBe(content);
+    });
+
     it('resolves between anchors', () => {
       const res = resolveBetweenTarget(content, {
         START_LINE_CONTAINS: 'line 1',

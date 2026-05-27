@@ -211,12 +211,17 @@ export function parseIntakeStructure(
       return;
     }
 
-    current.directives[key] = {
-      key,
-      value,
-      lineIndex,
-      raw: line,
-    };
+    const existing = current.directives[key];
+    if ((key === 'RANGE_CONTAINS' || key === 'RANGE_LINE_CONTAINS_ALL') && existing) {
+      existing.value = `${existing.value}\n${value}`;
+    } else {
+      current.directives[key] = {
+        key,
+        value,
+        lineIndex,
+        raw: line,
+      };
+    }
 
     const isHeader = HEADER_KEYS.includes(key as (typeof HEADER_KEYS)[number]);
     lineMeta[lineIndex].type = isHeader ? 'header' : 'directive';

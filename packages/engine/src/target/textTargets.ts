@@ -29,6 +29,21 @@ function getRangeContains(directives: Record<string, string>): string[] {
     .filter(Boolean);
 }
 
+function getRangeLineContainsAll(directives: Record<string, string>): string[][] {
+  const raw = directives.RANGE_LINE_CONTAINS_ALL;
+  if (raw === undefined) {
+    return [];
+  }
+
+  return raw.split('\n').map((value) => {
+    const fragments = value.split(',').map((fragment) => fragment.trim());
+    if (fragments.length === 0 || fragments.some((fragment) => fragment.length === 0)) {
+      throw new Error('RANGE_LINE_CONTAINS_ALL must be a comma-separated list of non-empty fragments');
+    }
+    return fragments;
+  });
+}
+
 function parseEndOccurrence(directives: Record<string, string>): number {
   const raw = directives.END_OCCURRENCE?.trim();
   if (raw === undefined || raw.length === 0) {
@@ -192,13 +207,14 @@ export function resolveRangeTarget(content: string, directives: Record<string, s
 
   const occurrence = parseEndOccurrence(directives);
   const contains = getRangeContains(directives);
+  const lineContainsAll = getRangeLineContainsAll(directives);
   const candidates = buildRangeCandidates(content, start.matches, end.matches, occurrence);
 
   if (candidates.length === 0) {
     throw new Error(`No END boundary occurrence ${occurrence} found after START boundary matches`);
   }
 
-  const filtered = filterCandidates(content, candidates, contains);
+  const filtered = filterCandidates(content, candidates, contains, lineContainsAll);
   if (filtered.length === 0) throw new Error(formatNoCandidateMatched());
   if (filtered.length > 1) throw new Error(formatRangeAmbiguous(filtered.length));
 
@@ -220,13 +236,14 @@ export function resolveBetweenTarget(content: string, directives: Record<string,
 
   const occurrence = parseEndOccurrence(directives);
   const contains = getRangeContains(directives);
+  const lineContainsAll = getRangeLineContainsAll(directives);
   const candidates = buildBetweenCandidates(content, start, end, occurrence);
 
   if (candidates.length === 0) {
     throw new Error(formatNoCandidateMatched());
   }
 
-  const filtered = filterCandidates(content, candidates, contains);
+  const filtered = filterCandidates(content, candidates, contains, lineContainsAll);
   if (filtered.length === 0) throw new Error(formatNoCandidateMatched());
   if (filtered.length > 1) throw new Error(formatRangeAmbiguous(filtered.length));
 

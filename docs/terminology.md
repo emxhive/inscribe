@@ -41,7 +41,7 @@ Directives are mode-specific metadata fields:
 - `RANGE_CONTAINS`
 - `NAME`
 
-Directives must be unprefixed. Unsupported directive names do not add behavior.
+Directives must be unprefixed. Unsupported or legacy directive names fail validation or migration checks.
 
 ## Active Modes
 
@@ -52,7 +52,7 @@ Directives must be unprefixed. Unsupported directive names do not add behavior.
 | `append_file` | Append content to the end of an existing file. |
 | `delete_file` | Delete an existing file. |
 | `replace_line` | Replace one line selected by a `START_*` selector. |
-| `replace_range` | Replace whole lines from `START_*` through `END_*`. |
+| `replace_range` | Replace whole lines from a `START_*` boundary through an `END_*` boundary. |
 | `replace_between` | Replace content between `START_*` and `END_*`. |
 | `replace_block` | Replace the first brace-delimited block after `START_*`. |
 | `replace_symbol` | Replace a supported whole declaration selected by `NAME`. |

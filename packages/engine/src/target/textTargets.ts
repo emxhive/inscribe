@@ -3,13 +3,13 @@ import {
   VIRTUAL_END,
   lineStart,
   lineEnd,
-  resolveLineLevelAnchors,
   filterCandidates,
   formatAnchorNotFound,
   formatAnchorAmbiguous,
   formatRangeAmbiguous,
   formatNoCandidateMatched,
   findAllOccurrences,
+  resolveBoundarySelector,
 } from './targetUtils';
 
 export interface ResolvedRange {
@@ -17,44 +17,8 @@ export interface ResolvedRange {
   replaceEnd: number;
 }
 
-interface BoundaryResolution {
-  matches: { start: number; end: number; value: string }[];
-  name: string;
-  value: string;
-  isVirtual: boolean;
-  strategy: 'equals' | 'contains';
-}
-
-function resolveBoundary(
-  content: string,
-  directives: Record<string, string>,
-  side: 'START' | 'END',
-): BoundaryResolution {
-  const containsKey = `${side}_LINE_CONTAINS`;
-  const equalsKey = `${side}_LINE_EQUALS`;
-  const containsValue = directives[containsKey];
-  const equalsValue = directives[equalsKey];
-
-  if (containsValue !== undefined && equalsValue !== undefined) {
-    throw new Error(`Cannot use both ${containsKey} and ${equalsKey}`);
-  }
-
-  if (containsValue === undefined && equalsValue === undefined) {
-    throw new Error(`Missing required ${side} boundary selector (${containsKey} or ${equalsKey})`);
-  }
-
-  const name = containsValue !== undefined ? containsKey : equalsKey;
-  const value = (containsValue ?? equalsValue)!;
-  const strategy = containsValue !== undefined ? 'contains' : 'equals';
-  const isVirtual = value === VIRTUAL_START || value === VIRTUAL_END;
-
-  const matches = resolveLineLevelAnchors(content, value, strategy).map(m => ({ ...m, value }));
-
-  return { matches, name, value, isVirtual, strategy };
-}
-
 export function resolveLineTarget(content: string, directives: Record<string, string>): ResolvedRange {
-  const start = resolveBoundary(content, directives, 'START');
+  const start = resolveBoundarySelector(content, directives, 'START');
   if (start.isVirtual) {
     throw new Error('replace_line requires non-virtual START boundary');
   }
@@ -69,8 +33,8 @@ export function resolveLineTarget(content: string, directives: Record<string, st
 }
 
 export function resolveRangeTarget(content: string, directives: Record<string, string>): ResolvedRange {
-  const start = resolveBoundary(content, directives, 'START');
-  const end = resolveBoundary(content, directives, 'END');
+  const start = resolveBoundarySelector(content, directives, 'START');
+  const end = resolveBoundarySelector(content, directives, 'END');
 
   if (start.value === VIRTUAL_START && end.value === VIRTUAL_END) {
     throw new Error('replace_range cannot target full file via virtual anchors; use replace_file');
@@ -97,8 +61,8 @@ export function resolveRangeTarget(content: string, directives: Record<string, s
 }
 
 export function resolveBetweenTarget(content: string, directives: Record<string, string>): ResolvedRange {
-  const start = resolveBoundary(content, directives, 'START');
-  const end = resolveBoundary(content, directives, 'END');
+  const start = resolveBoundarySelector(content, directives, 'START');
+  const end = resolveBoundarySelector(content, directives, 'END');
 
   if (start.value === VIRTUAL_START && end.value === VIRTUAL_END) {
     throw new Error('replace_between cannot target full file via virtual anchors; use replace_file');
@@ -122,7 +86,7 @@ export function resolveBetweenTarget(content: string, directives: Record<string,
 
       const lEnd = lineEnd(content, sLineStart);
       if (sameLine) {
-        // Only with CONTAINS + CONTAINS on same line
+        // Same-line interior edits are only valid with line-contains selectors.
         const lineText = content.slice(sLineStart, lEnd);
         const sOccs = findAllOccurrences(lineText, s.value);
         const eOccs = findAllOccurrences(lineText, e.value);

@@ -38,6 +38,8 @@ Old aliases such as `create`, `replace`, `append`, `delete`, and `range` are inv
 
 ## Directive Summary
 
+Active directives are `START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `RANGE_CONTAINS`, and `NAME`.
+
 - `replace_line` requires one `START_*` selector.
 - `replace_range` requires one `START_*` and one `END_*` selector; `RANGE_CONTAINS` is optional.
 - `replace_between` requires one `START_*` and one `END_*` selector; `RANGE_CONTAINS` is optional.

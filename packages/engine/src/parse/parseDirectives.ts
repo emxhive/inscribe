@@ -3,7 +3,9 @@ import {
   isValidMode,
   type Mode,
   parseDirectiveLine,
-  FieldKey,
+  formatLegacyDirectiveError,
+  isLegacyDirectiveKey,
+  type ParsedFieldKey,
 } from '@inscribe/shared';
 import { isFenceOpeningLine } from './parseFencedBlock';
 
@@ -16,7 +18,7 @@ export interface DirectiveParseResult {
   warnings?: string[];
 }
 
-const FIELD_KEY_MAP: Partial<Record<FieldKey, string | null>> = {
+const FIELD_KEY_MAP: Partial<Record<ParsedFieldKey, string | null>> = {
   FILE: null,
   MODE: null,
   START_LINE_CONTAINS: 'START_LINE_CONTAINS',
@@ -54,14 +56,8 @@ export function parseDirectives(lines: string[]): DirectiveParseResult {
       else if (isValidMode(value)) mode = value;
       else modeError = `Invalid MODE header: ${value}`;
     } else if (fieldKey) {
-      if (fieldKey === 'START') {
-        return { file, mode: mode ?? OPERATION_MODES[0], directives, contentStartIndex: -1, error: 'START is no longer supported. Use START_LINE_CONTAINS or START_LINE_EQUALS.' };
-      }
-      if (fieldKey === 'END') {
-        return { file, mode: mode ?? OPERATION_MODES[0], directives, contentStartIndex: -1, error: 'END is no longer supported. Use END_LINE_CONTAINS or END_LINE_EQUALS.' };
-      }
-      if (fieldKey === 'CONTAINS') {
-        return { file, mode: mode ?? OPERATION_MODES[0], directives, contentStartIndex: -1, error: 'CONTAINS is no longer supported. Use RANGE_CONTAINS.' };
+      if (isLegacyDirectiveKey(parsed.key!)) {
+        return { file, mode: mode ?? OPERATION_MODES[0], directives, contentStartIndex: -1, error: formatLegacyDirectiveError(parsed.key!) };
       }
 
       if (fieldKey === 'RANGE_CONTAINS' && directives[fieldKey]) directives[fieldKey] = `${directives[fieldKey]}\n${value}`;

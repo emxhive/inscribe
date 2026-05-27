@@ -6,12 +6,15 @@ import {
   matchesMarker,
   startsWithMarker,
   parseDirectiveLine,
-  FieldKey,
+  formatLegacyDirectiveError,
+  isLegacyDirectiveKey,
+  type FieldKey,
+  type LegacyDirectiveKey,
   HEADER_KEYS,
   normalizeRelativePath,
 } from '@inscribe/shared';
 
-export type IntakeDirectiveKey = FieldKey;
+export type IntakeDirectiveKey = FieldKey | LegacyDirectiveKey;
 
 export interface IntakeDirective {
   key: IntakeDirectiveKey;
@@ -200,6 +203,13 @@ export function parseIntakeStructure(
 
     const key = parsed.key as IntakeDirectiveKey;
     const value = parsed.value ?? '';
+
+    if (isLegacyDirectiveKey(key)) {
+      current.errors.push(formatLegacyDirectiveError(key));
+      lineMeta[lineIndex].type = 'unknown-directive';
+      lineMeta[lineIndex].status = 'error';
+      return;
+    }
 
     current.directives[key] = {
       key,

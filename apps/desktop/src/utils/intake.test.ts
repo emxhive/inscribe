@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DIRECTIVE_KEYS } from '@inscribe/shared';
 import { parseIntakeStructure } from './intake';
 
 const wrapBlock = (body: string) => `$inscribe BEGIN\n${body}\n$inscribe END`;
@@ -26,7 +27,7 @@ describe('parseIntakeStructure', () => {
     );
   });
 
-  it('accepts START/END variants for replace_range mode structural checks', () => {
+  it('accepts explicit boundary selectors for replace_range mode structural checks', () => {
     const input = wrapBlock(
       `FILE: src/range.ts\nMODE: replace_range\nSTART_LINE_CONTAINS: // start\nEND_LINE_EQUALS: // end`
     );
@@ -40,5 +41,28 @@ describe('parseIntakeStructure', () => {
     const { blocks } = parseIntakeStructure(input);
 
     expect(blocks[0].warnings).not.toContain('Missing START boundary selector for replace_line mode');
+  });
+
+  it('uses only active directives for UI add-directive sources', () => {
+    expect([...DIRECTIVE_KEYS]).toEqual([
+      'START_LINE_CONTAINS',
+      'START_LINE_EQUALS',
+      'END_LINE_CONTAINS',
+      'END_LINE_EQUALS',
+      'RANGE_CONTAINS',
+      'NAME',
+    ]);
+  });
+
+  it.each([
+    ['START', 'START is no longer supported. Use START_LINE_CONTAINS or START_LINE_EQUALS.'],
+    ['END', 'END is no longer supported. Use END_LINE_CONTAINS or END_LINE_EQUALS.'],
+    ['CONTAINS', 'CONTAINS is no longer supported. Use RANGE_CONTAINS.'],
+  ])('reports pasted legacy %s directives as migration errors', (key, message) => {
+    const input = wrapBlock(`FILE: src/range.ts\nMODE: replace_line\n${key}: marker`);
+    const { blocks, lines } = parseIntakeStructure(input);
+
+    expect(blocks[0].errors).toContain(message);
+    expect(lines.find((line) => line.text.startsWith(`${key}:`))?.status).toBe('error');
   });
 });

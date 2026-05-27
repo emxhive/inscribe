@@ -102,8 +102,12 @@ export const DIRECTIVE_KEYS = [
   KEYWORD_END_LINE_EQUALS,
   KEYWORD_RANGE_CONTAINS,
   KEYWORD_NAME,
+] as const;
+
+// Legacy directive keys are parse-only and exist solely for migration errors.
+export const LEGACY_DIRECTIVE_KEYS = [
   KEYWORD_START,
-  'END',
+  KEYWORD_END,
   KEYWORD_CONTAINS,
 ] as const;
 
@@ -111,6 +115,12 @@ export const DIRECTIVE_KEYS = [
 export const ALL_FIELD_KEYS = [
   ...HEADER_KEYS,
   ...DIRECTIVE_KEYS,
+] as const;
+
+// All parse-recognized field keys, including legacy directives for diagnostics.
+export const PARSE_FIELD_KEYS = [
+  ...ALL_FIELD_KEYS,
+  ...LEGACY_DIRECTIVE_KEYS,
 ] as const;
 
 // Block boundary markers (with prefix)

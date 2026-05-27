@@ -55,6 +55,41 @@ export function resolveLineLevelAnchors(
   return matches;
 }
 
+export interface BoundaryResolution {
+  matches: { start: number; end: number; value: string }[];
+  name: string;
+  value: string;
+  isVirtual: boolean;
+  strategy: 'equals' | 'contains';
+}
+
+export function resolveBoundarySelector(
+  content: string,
+  directives: Record<string, string>,
+  side: 'START' | 'END',
+): BoundaryResolution {
+  const containsKey = `${side}_LINE_CONTAINS`;
+  const equalsKey = `${side}_LINE_EQUALS`;
+  const containsValue = directives[containsKey];
+  const equalsValue = directives[equalsKey];
+
+  if (containsValue !== undefined && equalsValue !== undefined) {
+    throw new Error(`Cannot use both ${containsKey} and ${equalsKey}`);
+  }
+
+  if (containsValue === undefined && equalsValue === undefined) {
+    throw new Error(`Missing required ${side} boundary selector (${containsKey} or ${equalsKey})`);
+  }
+
+  const name = containsValue !== undefined ? containsKey : equalsKey;
+  const value = (containsValue ?? equalsValue)!;
+  const strategy = containsValue !== undefined ? 'contains' : 'equals';
+  const isVirtual = value === VIRTUAL_START || value === VIRTUAL_END;
+  const matches = resolveLineLevelAnchors(content, value, strategy).map(m => ({ ...m, value }));
+
+  return { matches, name, value, isVirtual, strategy };
+}
+
 export function filterCandidates(content: string, candidates: { start: number; end: number }[], contains: string[]): { start: number; end: number }[] {
   if (contains.length === 0) return candidates;
   return candidates.filter((c) => {
@@ -76,5 +111,5 @@ export function formatRangeAmbiguous(count: number): string {
 }
 
 export function formatNoCandidateMatched(): string {
-  return 'No range candidate matched START + END + CONTAINS';
+  return 'No range candidate matched boundary selectors and RANGE_CONTAINS filters';
 }

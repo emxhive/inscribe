@@ -28,6 +28,12 @@
     "profiles": {
         "config": {
             "include": [
+            "**/package.json",
+            "**/tsconfig*.json",
+            "**/vite.config*.ts",
+            "docs/**",
+            "prodex.json"
+        ]
                 "**/package.json",
                 "**/tsconfig*.json",
                 "**/vite.config*.ts",

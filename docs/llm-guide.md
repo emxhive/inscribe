@@ -6,7 +6,7 @@ This guide describes the active Inscribe contract. Generate only syntax supporte
 
 Do not use old mode aliases. These are invalid: `create`, `replace`, `append`, `delete`, `range`.
 
-Unsupported syntax must not be emitted. Do not invent directives such as `START_AFTER`, `END_BEFORE`, `SCOPE_START`, or `SCOPE_END`.
+Unsupported syntax must not be emitted. Use only the active modes, headers, and directives listed here.
 
 ## Exact Block Shape
 
@@ -49,10 +49,10 @@ The only active modes are:
 | `replace_file` | Replacing the entire file | Yes | Yes, fenced payload required | none | Using it for a small edit |
 | `append_file` | Adding content exactly at file end | Yes | Yes, non-empty payload | none | Forgetting to include a leading newline when needed |
 | `delete_file` | Deleting a file | Yes | No, content forbidden | none | Adding a payload or notes |
-| `replace_line` | Replacing one exact line | Yes | Yes, fenced payload required | `START` | Using a weak anchor that appears more than once |
-| `replace_range` | Replacing whole lines from `START` through `END` | Yes | Yes, fenced payload required | `START`, `END` | Using broad anchors like `}` or `</div>` |
-| `replace_between` | Replacing content between two anchors | Yes | Yes, fenced payload required | `START`, `END` | Expecting it to include the anchors |
-| `replace_block` | Replacing the first brace-delimited block after `START` | Yes | Yes, fenced payload required | `START` | Using it when `replace_symbol` is available |
+| `replace_line` | Replacing one exact line | Yes | Yes, fenced payload required | `START_LINE_CONTAINS` or `START_LINE_EQUALS` | Using a weak anchor that appears more than once |
+| `replace_range` | Replacing whole lines from the start boundary through the end boundary | Yes | Yes, fenced payload required | `START_*`, `END_*` boundary selectors | Using broad anchors like `}` or `</div>` |
+| `replace_between` | Replacing content between two anchors | Yes | Yes, fenced payload required | `START_*`, `END_*` boundary selectors | Expecting it to include the anchors |
+| `replace_block` | Replacing the first brace-delimited block after the selected start boundary | Yes | Yes, fenced payload required | `START_LINE_CONTAINS` or `START_LINE_EQUALS` | Using it when `replace_symbol` is available |
 | `replace_symbol` | Replacing a supported whole declaration by name | Yes | Yes, fenced payload required | `NAME` | Assuming every language or declaration kind is supported |
 
 ## Headers And Directives
@@ -64,24 +64,26 @@ Headers:
 
 Directives:
 
-- `START`
-- `END`
-- `CONTAINS`
+- `START_LINE_CONTAINS`
+- `START_LINE_EQUALS`
+- `END_LINE_CONTAINS`
+- `END_LINE_EQUALS`
+- `RANGE_CONTAINS`
 - `NAME`
 
 Rules:
 
 - `$inscribe` is only for `$inscribe BEGIN` and `$inscribe END`.
-- Do not write `$inscribe FILE:`, `$inscribe MODE:`, `$inscribe START:`, `$inscribe END:`, `$inscribe CONTAINS:`, or `$inscribe NAME:`.
+- Do not write `$inscribe FILE:`, `$inscribe MODE:`, `$inscribe START_LINE_CONTAINS:`, etc.
 - Header and directive values are single-line values.
-- Use each singleton field once. Repeated `CONTAINS` lines are combined and all must match.
-- Unknown fields do not create supported behavior. Do not emit them.
+- Use each singleton field once. Repeated `RANGE_CONTAINS` lines are combined and all must match.
+- Unknown fields and legacy directive names are invalid. Do not emit them.
 
 ## Fenced Content Rules
 
 - Content modes require a fenced payload.
 - `delete_file` must not contain non-whitespace fenced content.
-- The parser accepts backtick and tilde fences with at least three characters, such as `` ``` `` and `~~~`.
+- The parser accepts backtick and tilde fences with at least three characters, such as ` ``` ` and `~~~`.
 - A block should contain only one payload fence.
 - No trailing non-whitespace content may appear after the closing payload fence and before `$inscribe END`.
 - The fence language label is for readability only. File syntax validation is chosen from `FILE`.
@@ -95,40 +97,45 @@ Rules:
 - Use `delete_file` only for file deletion.
 - Use `replace_symbol` for complete supported declarations where possible.
 - Use `replace_line` only for one exact line.
-- Use `replace_range` for whole-line replacement from `START` through `END`.
+- Use `replace_range` for whole-line replacement from the start boundary through the end boundary.
 - Use `replace_between` for replacing content between two anchors.
-- Use `replace_block` only when intending to replace the brace-delimited block after `START`.
+- Use `replace_block` only when intending to replace the brace-delimited block after the selected start boundary.
 
 ## Target Resolution Rules
 
-Anchors are literal substrings, not regexes and not instructions. Direct matching is attempted first. If no direct match exists, the active text search may retry a single-line whitespace-insensitive match. Do not rely on that fallback; write anchors that match real file text.
+Boundary selector values are literal text, not regexes and not instructions. Write selectors that match real file text.
+
+- `START_LINE_EQUALS` and `END_LINE_EQUALS` compare against the trimmed full line. Leading and trailing whitespace are ignored; internal whitespace is not collapsed.
+- `START_LINE_CONTAINS` and `END_LINE_CONTAINS` match within individual lines only. They do not match across newlines.
+- Ambiguity is counted by matching lines. Multiple occurrences on the same line count as one boundary-line match.
+- Multiple matching lines are ambiguous.
 
 `replace_line`:
 
-- Requires `START`.
-- `START` must resolve to exactly one match.
+- Requires exactly one of `START_LINE_CONTAINS` or `START_LINE_EQUALS`.
+- Selector must resolve to exactly one line.
 - Replaces the full line containing the match.
 
 `replace_range`:
 
-- Requires `START` and `END`.
-- Replaces whole lines from the line containing `START` through the line containing `END`.
-- `CONTAINS` can narrow candidate ranges. Every `CONTAINS` value must be inside the candidate range.
+- Requires one `START_*` and one `END_*` selector.
+- Replaces whole lines from the line containing the start match through the line containing the end match.
+- `RANGE_CONTAINS` can narrow candidate ranges. Every `RANGE_CONTAINS` value must be inside the candidate range.
 - `::START_OF_FILE` plus `::END_OF_FILE` is rejected for full-file range replacement. Use `replace_file`.
 
 `replace_between`:
 
-- Requires `START` and `END`.
+- Requires one `START_*` and one `END_*` selector.
 - Replaces content between anchors, not the anchors themselves.
-- If both anchors are on the same line, only the exact interior text between matches is replaced.
-- For multiline spans, replacement starts after the `START` line and ends before the `END` line.
-- `CONTAINS` can narrow candidate ranges.
+- If both anchors are on the same line, interior replacement is allowed only with `START_LINE_CONTAINS` and `END_LINE_CONTAINS`. `START_LINE_EQUALS` and `END_LINE_EQUALS` on the same line are rejected.
+- For multiline spans, replacement starts after the start line and ends before the end line.
+- `RANGE_CONTAINS` can narrow candidate ranges.
 
 ## Hardened Range Guidance
 
 Use range modes only when the anchors are unique and intention-bearing.
 
-Never use vague anchors such as `</div>`, `}`, `return (`, or `className=` unless paired with stronger context through `START`, `END`, and useful `CONTAINS`.
+Never use vague anchors such as `</div>`, `}`, `return (`, or `className=` unless paired with stronger context through boundary selectors and useful `RANGE_CONTAINS`.
 
 Prefer `replace_symbol` over `replace_range` for complete function, component, or class-style declarations.
 
@@ -160,9 +167,9 @@ PHP candidate validation invokes the local `php -l` binary. If that binary is un
 
 ## replace_block
 
-`replace_block` requires `START`.
+`replace_block` requires exactly one of `START_LINE_CONTAINS` or `START_LINE_EQUALS`.
 
-It finds the unique `START` anchor, then targets the first brace-delimited block after that anchor. The replacement span is the braces and everything inside them, not the declaration header before the opening brace.
+It finds the unique selected boundary line, then targets the first brace-delimited block after that line. The replacement span is the braces and everything inside them, not the declaration header before the opening brace.
 
 It is not a full language parser. It scans braces while trying to ignore comments and strings. Use cautiously.
 
@@ -275,7 +282,7 @@ $inscribe END
 $inscribe BEGIN
 FILE: src/config/limits.ts
 MODE: replace_line
-START: export const retryLimit = 3;
+START_LINE_EQUALS: export const retryLimit = 3;
 
 ```ts
 export const retryLimit = 5;
@@ -290,9 +297,9 @@ $inscribe END
 $inscribe BEGIN
 FILE: src/config/featureFlags.ts
 MODE: replace_range
-START: export const featureFlags = {
-END: };
-CONTAINS: signup
+START_LINE_CONTAINS: export const featureFlags = {
+END_LINE_EQUALS: };
+RANGE_CONTAINS: signup
 
 ```ts
 export const featureFlags = {
@@ -310,9 +317,9 @@ $inscribe END
 $inscribe BEGIN
 FILE: src/routes.ts
 MODE: replace_between
-START: // routes:start
-END: // routes:end
-CONTAINS: /dashboard
+START_LINE_CONTAINS: // routes:start
+END_LINE_CONTAINS: // routes:end
+RANGE_CONTAINS: /dashboard
 
 ```ts
 router.get('/dashboard', dashboardHandler);
@@ -328,7 +335,7 @@ $inscribe END
 $inscribe BEGIN
 FILE: src/server.ts
 MODE: replace_block
-START: if (config.enableMetrics)
+START_LINE_CONTAINS: if (config.enableMetrics)
 
 ```ts
 {

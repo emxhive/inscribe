@@ -1,5 +1,7 @@
 import { findAllOccurrences } from '../util/textSearch';
 
+export { findAllOccurrences };
+
 export const VIRTUAL_START = '::START_OF_FILE';
 export const VIRTUAL_END = '::END_OF_FILE';
 
@@ -17,6 +19,75 @@ export function resolveAnchors(content: string, value: string): { start: number;
   if (value === VIRTUAL_START) return [{ start: 0, end: 0 }];
   if (value === VIRTUAL_END) return [{ start: content.length, end: content.length }];
   return findAllOccurrences(content, value);
+}
+
+export function resolveLineLevelAnchors(
+  content: string,
+  value: string,
+  strategy: 'equals' | 'contains',
+): { start: number; end: number }[] {
+  if (value === VIRTUAL_START) return [{ start: 0, end: 0 }];
+  if (value === VIRTUAL_END) return [{ start: content.length, end: content.length }];
+
+  const lines = content.split('\n');
+  const matches: { start: number; end: number }[] = [];
+  let currentPos = 0;
+
+  const targetValue = value.trim();
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const nextPos = currentPos + line.length + (i < lines.length - 1 ? 1 : 0);
+
+    if (strategy === 'equals') {
+      if (line.trim() === targetValue) {
+        matches.push({ start: currentPos, end: currentPos + line.length });
+      }
+    } else {
+      if (line.includes(value)) {
+        matches.push({ start: currentPos, end: currentPos + line.length });
+      }
+    }
+
+    currentPos = nextPos;
+  }
+
+  return matches;
+}
+
+export interface BoundaryResolution {
+  matches: { start: number; end: number; value: string }[];
+  name: string;
+  value: string;
+  isVirtual: boolean;
+  strategy: 'equals' | 'contains';
+}
+
+export function resolveBoundarySelector(
+  content: string,
+  directives: Record<string, string>,
+  side: 'START' | 'END',
+): BoundaryResolution {
+  const containsKey = `${side}_LINE_CONTAINS`;
+  const equalsKey = `${side}_LINE_EQUALS`;
+  const containsValue = directives[containsKey];
+  const equalsValue = directives[equalsKey];
+
+  if (containsValue !== undefined && equalsValue !== undefined) {
+    throw new Error(`Cannot use both ${containsKey} and ${equalsKey}`);
+  }
+
+  if (containsValue === undefined && equalsValue === undefined) {
+    throw new Error(`Missing required ${side} boundary selector (${containsKey} or ${equalsKey})`);
+  }
+
+  const name = containsValue !== undefined ? containsKey : equalsKey;
+  const value = (containsValue ?? equalsValue)!;
+  const strategy = containsValue !== undefined ? 'contains' : 'equals';
+  const isVirtual = value === VIRTUAL_START || value === VIRTUAL_END;
+  const matches = resolveLineLevelAnchors(content, value, strategy).map(m => ({ ...m, value }));
+
+  return { matches, name, value, isVirtual, strategy };
 }
 
 export function filterCandidates(content: string, candidates: { start: number; end: number }[], contains: string[]): { start: number; end: number }[] {
@@ -40,5 +111,5 @@ export function formatRangeAmbiguous(count: number): string {
 }
 
 export function formatNoCandidateMatched(): string {
-  return 'No range candidate matched START + END + CONTAINS';
+  return 'No range candidate matched boundary selectors and RANGE_CONTAINS filters';
 }

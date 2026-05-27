@@ -32,7 +32,7 @@ describe('diagnostics utils', () => {
       [{ ...block, warnings: ['Missing MODE header'], status: 'warning' }],
     );
 
-    expect(groups.map((group) => group.id)).toEqual(['parse', 'intake']);
+    expect(groups.map((group) => group.id)).toEqual(['parse-errors', 'intake']);
     expect(groups[0].messages).toEqual(['Missing END marker']);
     expect(groups[1].messages).toEqual(['src/app.ts: Missing MODE header']);
   });
@@ -45,7 +45,7 @@ describe('diagnostics utils', () => {
           {
             id: '0-src/app.ts',
             file: 'src/app.ts',
-            mode: 'replace',
+            mode: 'replace_file',
             language: 'typescript',
             lineCount: 1,
             status: 'invalid',
@@ -78,9 +78,9 @@ describe('diagnostics utils', () => {
             id: 'history-1',
             applyId: 'apply-1',
             file: 'src/app.ts',
-            mode: 'replace',
+            mode: 'replace_file',
             createdAt: '2026-05-12T00:00:00.000Z',
-            restoreOperation: { type: 'replace', file: 'src/app.ts', content: '' },
+            restoreOperation: { type: 'replace_file', file: 'src/app.ts', content: '' },
             restoreStatus: 'apply-failed',
             restoreMessage: 'Restore failed',
           },

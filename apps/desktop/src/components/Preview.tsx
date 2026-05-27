@@ -30,14 +30,29 @@ export default function Preview({ file, block }: PreviewProps) {
         </p>
         {isTextMode && (
           <>
-            {block.directives.START && (
+            {block.directives.START_LINE_CONTAINS && (
               <p>
-                <strong>START:</strong> {block.directives.START}
+                <strong>START_LINE_CONTAINS:</strong> {block.directives.START_LINE_CONTAINS}
               </p>
             )}
-            {block.directives.END && (
+            {block.directives.START_LINE_EQUALS && (
               <p>
-                <strong>END:</strong> {block.directives.END}
+                <strong>START_LINE_EQUALS:</strong> {block.directives.START_LINE_EQUALS}
+              </p>
+            )}
+            {block.directives.END_LINE_CONTAINS && (
+              <p>
+                <strong>END_LINE_CONTAINS:</strong> {block.directives.END_LINE_CONTAINS}
+              </p>
+            )}
+            {block.directives.END_LINE_EQUALS && (
+              <p>
+                <strong>END_LINE_EQUALS:</strong> {block.directives.END_LINE_EQUALS}
+              </p>
+            )}
+            {block.directives.RANGE_CONTAINS && (
+              <p>
+                <strong>RANGE_CONTAINS:</strong> {block.directives.RANGE_CONTAINS}
               </p>
             )}
           </>

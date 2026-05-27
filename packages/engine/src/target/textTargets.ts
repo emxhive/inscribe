@@ -3,12 +3,13 @@ import {
   VIRTUAL_END,
   lineStart,
   lineEnd,
-  resolveAnchors,
+  resolveLineLevelAnchors,
   filterCandidates,
   formatAnchorNotFound,
   formatAnchorAmbiguous,
   formatRangeAmbiguous,
   formatNoCandidateMatched,
+  findAllOccurrences,
 } from './targetUtils';
 
 export interface ResolvedRange {
@@ -16,40 +17,70 @@ export interface ResolvedRange {
   replaceEnd: number;
 }
 
-export function resolveLineTarget(content: string, directives: Record<string, string>): ResolvedRange {
-  const start = directives.START?.trim();
-  if (!start) throw new Error('Missing required START directive');
-  if (start === VIRTUAL_START || start === VIRTUAL_END) {
-    throw new Error('replace_line requires non-virtual START directive');
+interface BoundaryResolution {
+  matches: { start: number; end: number; value: string }[];
+  name: string;
+  value: string;
+  isVirtual: boolean;
+  strategy: 'equals' | 'contains';
+}
+
+function resolveBoundary(
+  content: string,
+  directives: Record<string, string>,
+  side: 'START' | 'END',
+): BoundaryResolution {
+  const containsKey = `${side}_LINE_CONTAINS`;
+  const equalsKey = `${side}_LINE_EQUALS`;
+  const containsValue = directives[containsKey];
+  const equalsValue = directives[equalsKey];
+
+  if (containsValue !== undefined && equalsValue !== undefined) {
+    throw new Error(`Cannot use both ${containsKey} and ${equalsKey}`);
   }
 
-  const matches = resolveAnchors(content, start);
-  if (matches.length === 0) throw new Error(formatAnchorNotFound('START', start));
-  if (matches.length > 1) throw new Error(formatAnchorAmbiguous('START', matches.length));
+  if (containsValue === undefined && equalsValue === undefined) {
+    throw new Error(`Missing required ${side} boundary selector (${containsKey} or ${equalsKey})`);
+  }
+
+  const name = containsValue !== undefined ? containsKey : equalsKey;
+  const value = (containsValue ?? equalsValue)!;
+  const strategy = containsValue !== undefined ? 'contains' : 'equals';
+  const isVirtual = value === VIRTUAL_START || value === VIRTUAL_END;
+
+  const matches = resolveLineLevelAnchors(content, value, strategy).map(m => ({ ...m, value }));
+
+  return { matches, name, value, isVirtual, strategy };
+}
+
+export function resolveLineTarget(content: string, directives: Record<string, string>): ResolvedRange {
+  const start = resolveBoundary(content, directives, 'START');
+  if (start.isVirtual) {
+    throw new Error('replace_line requires non-virtual START boundary');
+  }
+
+  if (start.matches.length === 0) throw new Error(formatAnchorNotFound(start.name, start.value));
+  if (start.matches.length > 1) throw new Error(formatAnchorAmbiguous(start.name, start.matches.length));
 
   return {
-    replaceStart: lineStart(content, matches[0].start),
-    replaceEnd: lineEnd(content, matches[0].end),
+    replaceStart: lineStart(content, start.matches[0].start),
+    replaceEnd: lineEnd(content, start.matches[0].end),
   };
 }
 
 export function resolveRangeTarget(content: string, directives: Record<string, string>): ResolvedRange {
-  const start = directives.START?.trim();
-  const end = directives.END?.trim();
-  if (!start) throw new Error('Missing required START directive');
-  if (!end) throw new Error('Missing required END directive');
+  const start = resolveBoundary(content, directives, 'START');
+  const end = resolveBoundary(content, directives, 'END');
 
-  if (start === VIRTUAL_START && end === VIRTUAL_END) {
+  if (start.value === VIRTUAL_START && end.value === VIRTUAL_END) {
     throw new Error('replace_range cannot target full file via virtual anchors; use replace_file');
   }
 
-  const starts = resolveAnchors(content, start);
-  const ends = resolveAnchors(content, end);
-  const contains = (directives.CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
+  const contains = (directives.RANGE_CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
 
   const candidates: { start: number; end: number }[] = [];
-  for (const s of starts) {
-    for (const e of ends) {
+  for (const s of start.matches) {
+    for (const e of end.matches) {
       if (e.start < s.end) continue;
       candidates.push({ start: lineStart(content, s.start), end: lineEnd(content, e.end) });
     }
@@ -66,35 +97,50 @@ export function resolveRangeTarget(content: string, directives: Record<string, s
 }
 
 export function resolveBetweenTarget(content: string, directives: Record<string, string>): ResolvedRange {
-  const start = directives.START?.trim();
-  const end = directives.END?.trim();
-  if (!start) throw new Error('Missing required START directive');
-  if (!end) throw new Error('Missing required END directive');
+  const start = resolveBoundary(content, directives, 'START');
+  const end = resolveBoundary(content, directives, 'END');
 
-  if (start === VIRTUAL_START && end === VIRTUAL_END) {
+  if (start.value === VIRTUAL_START && end.value === VIRTUAL_END) {
     throw new Error('replace_between cannot target full file via virtual anchors; use replace_file');
   }
 
-  const starts = resolveAnchors(content, start);
-  const ends = resolveAnchors(content, end);
-  const contains = (directives.CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
+  const contains = (directives.RANGE_CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
 
-  const candidates: { start: number; end: number }[] = [];
-  for (const s of starts) {
-    for (const e of ends) {
-      if (e.start < s.end) continue;
+  const candidates: { start: number; end: number; sameLine: boolean }[] = [];
+  for (const s of start.matches) {
+    for (const e of end.matches) {
+      const sLineStart = start.isVirtual && s.start === 0 ? 0 : lineStart(content, s.start);
+      const eLineStart = end.isVirtual && e.start === content.length ? content.length : lineStart(content, e.start);
+      const sameLine = sLineStart === eLineStart;
 
-      const sameLine = lineStart(content, s.start) === lineStart(content, e.start);
-      let rStart = start === VIRTUAL_START ? 0 : lineEnd(content, s.end);
-      let rEnd = end === VIRTUAL_END ? content.length : lineStart(content, e.start);
+      if (!sameLine && e.start < s.end) continue;
 
-      if (sameLine && start !== VIRTUAL_START && end !== VIRTUAL_END) {
-        rStart = s.end;
-        rEnd = e.start;
+      if (sameLine && (start.strategy === 'equals' || end.strategy === 'equals')) {
+        // Skip same-line matches if EQUALS strategy is used, per requirements.
+        continue;
       }
 
-      if (rEnd < rStart) continue;
-      candidates.push({ start: rStart, end: rEnd });
+      const lEnd = lineEnd(content, sLineStart);
+      if (sameLine) {
+        // Only with CONTAINS + CONTAINS on same line
+        const lineText = content.slice(sLineStart, lEnd);
+        const sOccs = findAllOccurrences(lineText, s.value);
+        const eOccs = findAllOccurrences(lineText, e.value);
+
+        for (const sOcc of sOccs) {
+          for (const eOcc of eOccs) {
+            if (eOcc.start < sOcc.end) continue;
+            candidates.push({ start: sLineStart + sOcc.end, end: sLineStart + eOcc.start, sameLine: true });
+          }
+        }
+      } else {
+        const rStart = start.isVirtual && s.start === 0 ? 0 : lineEnd(content, s.end);
+        const rEnd = end.isVirtual && e.start === content.length ? content.length : lineStart(content, e.start);
+
+        if (rEnd >= rStart) {
+          candidates.push({ start: rStart, end: rEnd, sameLine: false });
+        }
+      }
     }
   }
 

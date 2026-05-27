@@ -40,7 +40,7 @@ export interface IntakeLineMeta {
   status?: 'warning' | 'error';
 }
 
-const isFenceLine = (line: string) => line.trim().startsWith('```');
+const isFenceLine = (line: string) => line.trim().startsWith('` ` `'.replace(/ /g, ''));
 
 export function parseIntakeStructure(
   input: string,
@@ -79,8 +79,17 @@ export function parseIntakeStructure(
     const isPartialReplacement = ['replace_line', 'replace_range', 'replace_between', 'replace_block'].includes(activeMode);
 
     if (isPartialReplacement) {
-      if (!block.directives.START) {
-        block.warnings.push(`Missing START directive for ${activeMode} mode`);
+      const hasStart = block.directives.START_LINE_CONTAINS || block.directives.START_LINE_EQUALS;
+      if (!hasStart) {
+        block.warnings.push(`Missing START boundary selector for ${activeMode} mode`);
+      }
+
+      const isRangeOrBetween = ['replace_range', 'replace_between'].includes(activeMode);
+      if (isRangeOrBetween) {
+        const hasEnd = block.directives.END_LINE_CONTAINS || block.directives.END_LINE_EQUALS;
+        if (!hasEnd) {
+          block.warnings.push(`Missing END boundary selector for ${activeMode} mode`);
+        }
       }
     }
 
@@ -168,7 +177,7 @@ export function parseIntakeStructure(
 
     lineMeta[lineIndex].blockId = current.id;
 
-    if (isFenceLine(line)) {
+    if (line.trim().startsWith('` ` `'.replace(/ /g, ''))) {
       current.directivesLocked = true;
       return;
     }

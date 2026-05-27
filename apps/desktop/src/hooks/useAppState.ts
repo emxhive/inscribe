@@ -17,6 +17,7 @@ export const initialState: AppState = {
   mode: 'intake',
   aiInput: '',
   parseErrors: [],
+  parseWarnings: [],
   parsedBlocks: [],
   validationErrors: [],
   reviewItems: [],

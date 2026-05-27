@@ -34,9 +34,11 @@ Headers must be unprefixed. `$inscribe FILE:` and `$inscribe MODE:` are invalid.
 
 Directives are mode-specific metadata fields:
 
-- `START`
-- `END`
-- `CONTAINS`
+- `START_LINE_CONTAINS`
+- `START_LINE_EQUALS`
+- `END_LINE_CONTAINS`
+- `END_LINE_EQUALS`
+- `RANGE_CONTAINS`
 - `NAME`
 
 Directives must be unprefixed. Unsupported directive names do not add behavior.
@@ -49,10 +51,10 @@ Directives must be unprefixed. Unsupported directive names do not add behavior.
 | `replace_file` | Replace an existing file completely. |
 | `append_file` | Append content to the end of an existing file. |
 | `delete_file` | Delete an existing file. |
-| `replace_line` | Replace one line selected by `START`. |
-| `replace_range` | Replace whole lines from `START` through `END`. |
-| `replace_between` | Replace content between `START` and `END`. |
-| `replace_block` | Replace the first brace-delimited block after `START`. |
+| `replace_line` | Replace one line selected by a `START_*` selector. |
+| `replace_range` | Replace whole lines from `START_*` through `END_*`. |
+| `replace_between` | Replace content between `START_*` and `END_*`. |
+| `replace_block` | Replace the first brace-delimited block after `START_*`. |
 | `replace_symbol` | Replace a supported whole declaration selected by `NAME`. |
 
 Old aliases such as `create`, `replace`, `append`, `delete`, and `range` are not active modes.
@@ -63,11 +65,11 @@ Content modes require one fenced payload. `delete_file` forbids non-whitespace p
 
 The parser accepts backtick and tilde fences with at least three characters. Non-whitespace text after the closing fence is a parse error.
 
-## Anchors
+## Boundary Selectors and Range Filters
 
-`START`, `END`, and `CONTAINS` are literal text values. They are not regular expressions.
+`START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, and `RANGE_CONTAINS` are literal text values. They are not regular expressions.
 
-`replace_line`, `replace_range`, `replace_between`, and `replace_block` fail if required anchors are missing or ambiguous.
+`replace_line`, `replace_range`, `replace_between`, and `replace_block` fail if required boundary selectors are missing, unsupported, or ambiguous.
 
 ## Symbol Target
 
@@ -82,4 +84,3 @@ The parser accepts backtick and tilde fences with at least three characters. Non
 Apply preflights operations, writes files, persists restore history, and rolls back disk writes if history persistence fails.
 
 Restore uses stored history payloads as the source of truth.
-

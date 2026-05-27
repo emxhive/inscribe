@@ -4,7 +4,7 @@ import {
   ParsedBlock,
   ValidationError,
   getRequiredDirectives,
-  modeAllowsDirective,
+  getAllowedDirectives,
   modeAllowsEmptyContent,
   modeRequiresContent,
 } from '@inscribe/shared';
@@ -40,12 +40,37 @@ function validateBlock(block: ParsedBlock): ValidationError[] {
   }
 
   // Directive policies
-  const required = getRequiredDirectives(block.mode);
+  const allowed = getAllowedDirectives(block.mode);
   for (const key of Object.keys(directives)) {
-    if (!modeAllowsDirective(block.mode, key)) {
+    if (!allowed.includes(key)) {
       errors.push(buildError(block, `Invalid directive ${key} for mode ${block.mode}`, DIAGNOSTIC_CODES.INVALID_DIRECTIVE));
     }
   }
+
+  // Boundary specific validation
+  if (['replace_line', 'replace_range', 'replace_between', 'replace_block'].includes(block.mode)) {
+    const startContains = directives.START_LINE_CONTAINS;
+    const startEquals = directives.START_LINE_EQUALS;
+    if (startContains === undefined && startEquals === undefined) {
+      errors.push(buildError(block, `Missing required START boundary selector (START_LINE_CONTAINS or START_LINE_EQUALS) for mode ${block.mode}`, DIAGNOSTIC_CODES.MISSING_DIRECTIVE));
+    }
+    if (startContains !== undefined && startEquals !== undefined) {
+      errors.push(buildError(block, `Cannot use both START_LINE_CONTAINS and START_LINE_EQUALS`, DIAGNOSTIC_CODES.INVALID_DIRECTIVE));
+    }
+
+    if (['replace_range', 'replace_between'].includes(block.mode)) {
+      const endContains = directives.END_LINE_CONTAINS;
+      const endEquals = directives.END_LINE_EQUALS;
+      if (endContains === undefined && endEquals === undefined) {
+        errors.push(buildError(block, `Missing required END boundary selector (END_LINE_CONTAINS or END_LINE_EQUALS) for mode ${block.mode}`, DIAGNOSTIC_CODES.MISSING_DIRECTIVE));
+      }
+      if (endContains !== undefined && endEquals !== undefined) {
+        errors.push(buildError(block, `Cannot use both END_LINE_CONTAINS and END_LINE_EQUALS`, DIAGNOSTIC_CODES.INVALID_DIRECTIVE));
+      }
+    }
+  }
+
+  const required = getRequiredDirectives(block.mode);
   for (const key of required) {
     if (!directives[key]) {
       errors.push(buildError(block, `Missing required directive ${key} for mode ${block.mode}`, DIAGNOSTIC_CODES.MISSING_DIRECTIVE));

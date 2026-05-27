@@ -18,7 +18,7 @@ export const example = true;
 $inscribe END
 ````
 
-`$inscribe` is valid only on `BEGIN` and `END` marker lines. `FILE`, `MODE`, `START`, `END`, `CONTAINS`, and `NAME` must not be prefixed.
+`$inscribe` is valid only on `BEGIN` and `END` marker lines. `FILE`, `MODE`, `START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `RANGE_CONTAINS`, and `NAME` must not be prefixed.
 
 ## Active Modes
 
@@ -38,10 +38,10 @@ Old aliases such as `create`, `replace`, `append`, `delete`, and `range` are inv
 
 ## Directive Summary
 
-- `replace_line` requires `START`.
-- `replace_range` requires `START` and `END`; `CONTAINS` is optional.
-- `replace_between` requires `START` and `END`; `CONTAINS` is optional.
-- `replace_block` requires `START`.
+- `replace_line` requires one `START_*` selector.
+- `replace_range` requires one `START_*` and one `END_*` selector; `RANGE_CONTAINS` is optional.
+- `replace_between` requires one `START_*` and one `END_*` selector; `RANGE_CONTAINS` is optional.
+- `replace_block` requires one `START_*` selector.
 - `replace_symbol` requires `NAME`.
 
 For the full LLM authoring contract, use [docs/llm-guide.md](docs/llm-guide.md).
@@ -62,4 +62,3 @@ For the full LLM authoring contract, use [docs/llm-guide.md](docs/llm-guide.md).
 - Non-create operations must be inside configured scope.
 - Supported JS/TS and PHP candidates are syntax-validated before write.
 - If disk writes succeed but history persistence fails, writes are rolled back.
-

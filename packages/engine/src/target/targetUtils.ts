@@ -1,5 +1,7 @@
 import { findAllOccurrences } from '../util/textSearch';
 
+export { findAllOccurrences };
+
 export const VIRTUAL_START = '::START_OF_FILE';
 export const VIRTUAL_END = '::END_OF_FILE';
 
@@ -17,6 +19,40 @@ export function resolveAnchors(content: string, value: string): { start: number;
   if (value === VIRTUAL_START) return [{ start: 0, end: 0 }];
   if (value === VIRTUAL_END) return [{ start: content.length, end: content.length }];
   return findAllOccurrences(content, value);
+}
+
+export function resolveLineLevelAnchors(
+  content: string,
+  value: string,
+  strategy: 'equals' | 'contains',
+): { start: number; end: number }[] {
+  if (value === VIRTUAL_START) return [{ start: 0, end: 0 }];
+  if (value === VIRTUAL_END) return [{ start: content.length, end: content.length }];
+
+  const lines = content.split('\n');
+  const matches: { start: number; end: number }[] = [];
+  let currentPos = 0;
+
+  const targetValue = value.trim();
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const nextPos = currentPos + line.length + (i < lines.length - 1 ? 1 : 0);
+
+    if (strategy === 'equals') {
+      if (line.trim() === targetValue) {
+        matches.push({ start: currentPos, end: currentPos + line.length });
+      }
+    } else {
+      if (line.includes(value)) {
+        matches.push({ start: currentPos, end: currentPos + line.length });
+      }
+    }
+
+    currentPos = nextPos;
+  }
+
+  return matches;
 }
 
 export function filterCandidates(content: string, candidates: { start: number; end: number }[], contains: string[]): { start: number; end: number }[] {

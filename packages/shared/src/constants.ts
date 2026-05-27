@@ -60,19 +60,33 @@ export const KEYWORD_FILE = 'FILE';
 export const KEYWORD_MODE = 'MODE';
 
 // Directive keywords (optional fields, without prefix or colon)
+export const KEYWORD_START_LINE_CONTAINS = 'START_LINE_CONTAINS';
+export const KEYWORD_START_LINE_EQUALS = 'START_LINE_EQUALS';
+export const KEYWORD_END_LINE_CONTAINS = 'END_LINE_CONTAINS';
+export const KEYWORD_END_LINE_EQUALS = 'END_LINE_EQUALS';
+export const KEYWORD_RANGE_CONTAINS = 'RANGE_CONTAINS';
+export const KEYWORD_NAME = 'NAME';
+
+// Legacy Directive keywords (for migration reporting)
 export const KEYWORD_START = 'START';
 export const KEYWORD_CONTAINS = 'CONTAINS';
-export const KEYWORD_NAME = 'NAME';
 
 // Header markers (with colon suffix, no prefix)
 export const HEADER_FILE = `${KEYWORD_FILE}:`;
 export const HEADER_MODE = `${KEYWORD_MODE}:`;
 
 // Directive markers (with colon suffix, no prefix)
-export const DIRECTIVE_START = `${KEYWORD_START}:`;
-export const DIRECTIVE_END = `${KEYWORD_END}:`;
-export const DIRECTIVE_CONTAINS = `${KEYWORD_CONTAINS}:`;
+export const DIRECTIVE_START_LINE_CONTAINS = `${KEYWORD_START_LINE_CONTAINS}:`;
+export const DIRECTIVE_START_LINE_EQUALS = `${KEYWORD_START_LINE_EQUALS}:`;
+export const DIRECTIVE_END_LINE_CONTAINS = `${KEYWORD_END_LINE_CONTAINS}:`;
+export const DIRECTIVE_END_LINE_EQUALS = `${KEYWORD_END_LINE_EQUALS}:`;
+export const DIRECTIVE_RANGE_CONTAINS = `${KEYWORD_RANGE_CONTAINS}:`;
 export const DIRECTIVE_NAME = `${KEYWORD_NAME}:`;
+
+// Legacy Directive markers
+export const DIRECTIVE_START = `${KEYWORD_START}:`;
+export const DIRECTIVE_END = 'END:';
+export const DIRECTIVE_CONTAINS = `${KEYWORD_CONTAINS}:`;
 
 // Canonical header keys
 export const HEADER_KEYS = [
@@ -82,10 +96,15 @@ export const HEADER_KEYS = [
 
 // Canonical directive keys (excludes headers)
 export const DIRECTIVE_KEYS = [
-  KEYWORD_START,
-  KEYWORD_END,
-  KEYWORD_CONTAINS,
+  KEYWORD_START_LINE_CONTAINS,
+  KEYWORD_START_LINE_EQUALS,
+  KEYWORD_END_LINE_CONTAINS,
+  KEYWORD_END_LINE_EQUALS,
+  KEYWORD_RANGE_CONTAINS,
   KEYWORD_NAME,
+  KEYWORD_START,
+  'END',
+  KEYWORD_CONTAINS,
 ] as const;
 
 // All block field keys (headers + directives combined)
@@ -97,4 +116,3 @@ export const ALL_FIELD_KEYS = [
 // Block boundary markers (with prefix)
 export const INSCRIBE_BEGIN = `${INSCRIBE_PREFIX} ${KEYWORD_BEGIN}`;
 export const INSCRIBE_END = `${INSCRIBE_PREFIX} ${KEYWORD_END}`;
-

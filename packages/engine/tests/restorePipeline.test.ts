@@ -235,7 +235,7 @@ describe('restoreEntry active restore pipeline', () => {
       type: 'replace_line',
       file: 'line.txt',
       content: 'new line',
-      directives: { START: 'old line' },
+      directives: { START_LINE_EQUALS: 'old line' },
       blockIndex: 0,
     });
 
@@ -251,7 +251,7 @@ describe('restoreEntry active restore pipeline', () => {
       type: 'replace_range',
       file: 'range.txt',
       content: 'new range',
-      directives: { START: 'old a', END: 'old b' },
+      directives: { START_LINE_EQUALS: 'old a', END_LINE_EQUALS: 'old b' },
       blockIndex: 0,
     });
 
@@ -267,7 +267,7 @@ describe('restoreEntry active restore pipeline', () => {
       type: 'replace_between',
       file: 'between.txt',
       content: 'new middle',
-      directives: { START: 'START', END: 'END' },
+      directives: { START_LINE_EQUALS: 'START', END_LINE_EQUALS: 'END' },
       blockIndex: 0,
     });
 

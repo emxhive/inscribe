@@ -105,8 +105,11 @@ export function cleanupEmptyDirs(filePath: string, repoRoot: string): void {
 function validationMetadata(operation: Operation): Record<string, string> {
   if (operation.type === 'replace_range' || operation.type === 'replace_between' || operation.type === 'replace_line' || operation.type === 'replace_block') {
     return {
-      START: operation.directives?.START ?? '',
-      CONTAINS: operation.directives?.CONTAINS ?? '',
+      START_LINE_CONTAINS: operation.directives?.START_LINE_CONTAINS ?? '',
+      START_LINE_EQUALS: operation.directives?.START_LINE_EQUALS ?? '',
+      END_LINE_CONTAINS: operation.directives?.END_LINE_CONTAINS ?? '',
+      END_LINE_EQUALS: operation.directives?.END_LINE_EQUALS ?? '',
+      RANGE_CONTAINS: operation.directives?.RANGE_CONTAINS ?? '',
     };
   }
 

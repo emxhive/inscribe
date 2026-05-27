@@ -145,6 +145,11 @@ end`;
   });
 
   describe('resolveBlockTarget', () => {
+    it('rejects missing START selector strategies', () => {
+      expect(() => resolveBlockTarget('if (ok) { run(); }\n', {}))
+        .toThrow('Missing required START boundary selector (START_LINE_CONTAINS or START_LINE_EQUALS)');
+    });
+
     it('rejects both START selector strategies', () => {
       expect(() => resolveBlockTarget('if (ok) { run(); }\n', {
         START_LINE_CONTAINS: 'if (ok)',

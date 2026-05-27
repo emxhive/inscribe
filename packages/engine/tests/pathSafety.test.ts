@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Operation } from '@inscribe/shared';
 import { applyChanges } from '../src/apply/applyChanges';
 import { preflightOperations } from '../src/preflight/preflight';
-import { setScopeState } from '../src/repo/scopeStore';
 
 let workspaceRoot = '';
 let repoRoot = '';
@@ -47,14 +46,13 @@ describe('path safety', () => {
     expect(fs.existsSync(absoluteTarget)).toBe(false);
   });
 
-  it('rejects ignored paths', () => {
+  it('allows writes to ignored paths because ignore only controls indexing', () => {
     const result = applyChanges({
       operations: [createFile('node_modules/pkg/file.txt', 'ignored\n')],
     }, repoRoot);
 
-    expect(result.success).toBe(false);
-    expect(result.errors?.join('\n')).toContain('File is in ignored path');
-    expect(fs.existsSync(path.join(repoRoot, 'node_modules/pkg/file.txt'))).toBe(false);
+    expect(result.success).toBe(true);
+    expect(fs.readFileSync(path.join(repoRoot, 'node_modules/pkg/file.txt'), 'utf-8')).toBe('ignored\n');
   });
 
   it('rejects create_file through a symlinked directory that escapes the repository', () => {
@@ -70,12 +68,11 @@ describe('path safety', () => {
     expect(fs.existsSync(path.join(outsideRoot, 'created.txt'))).toBe(false);
   });
 
-  it('rejects replace_file through a scoped symlinked directory that escapes the scope', () => {
+  it('rejects replace_file through a symlinked directory that escapes the repository', () => {
     fs.mkdirSync(path.join(repoRoot, 'src'), { recursive: true });
     fs.writeFileSync(path.join(outsideRoot, 'existing.txt'), 'old\n');
     const linkPath = path.join(repoRoot, 'src', 'linked');
     if (!createDirectoryLink(outsideRoot, linkPath)) return;
-    setScopeState(repoRoot, ['src']);
 
     const result = applyChanges({
       operations: [{

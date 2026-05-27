@@ -9,11 +9,9 @@ import type {
   OperationMode,
 } from '@inscribe/shared';
 import { deriveChangedSegment } from '../history/restoreV2';
-import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
 import { diffLinesStable } from './lineDiff';
 import { resolveOperationExecution } from '../operation/resolveOperationExecution';
 import { enforcePathPolicy } from '../paths/pathPolicy';
-import { getScopeState } from '../repo/scopeStore';
 
 interface BuildRegionInput {
   id: string;
@@ -33,14 +31,10 @@ interface FinalizeComparisonInput {
 }
 
 export function buildOperationComparison(operation: Operation, repoRoot: string): OperationComparison {
-  const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
-  const scopeRoots = getScopeState(repoRoot)?.scope ?? [];
   const { resolvedPath } = enforcePathPolicy(
     repoRoot,
     operation.file,
-    operation.type as OperationMode,
-    scopeRoots,
-    ignoreMatcher
+    operation.type as OperationMode
   );
   const oldContent = fs.existsSync(resolvedPath) ? fs.readFileSync(resolvedPath, 'utf-8') : '';
 

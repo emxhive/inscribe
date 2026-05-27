@@ -1,6 +1,5 @@
-import { resolveAndAssertWithinRepo, resolveAndAssertWithinScope } from './resolveAndAssertWithin';
-import { type IgnoreMatcher } from '../repo/ignoreRules';
-import { getOperationModeMetadata, OperationMode } from '@inscribe/shared';
+import { resolveAndAssertWithinRepo } from './resolveAndAssertWithin';
+import { OperationMode } from '@inscribe/shared';
 
 export interface PathPolicyResult {
   resolvedPath: string;
@@ -9,40 +8,31 @@ export interface PathPolicyResult {
 }
 
 /**
- * Enforces the centralized path and scope policy.
+ * Enforces the centralized path policy.
  *
  * Policy:
- * - create_file: may create anywhere inside repo root unless ignored.
- * - all other operations: must operate inside configured scope and outside ignored paths.
+ * - all file operations must resolve inside the repository root.
+ * - index ignore rules affect indexing/context only; they do not block writes.
  */
 export function enforcePathPolicy(
   repoRoot: string,
   userPath: string,
-  mode: OperationMode,
-  scopeRoots: string[],
-  ignoreMatcher: IgnoreMatcher
+  mode: OperationMode
 ): PathPolicyResult {
-  const metadata = getOperationModeMetadata(mode);
-
-  if (mode === 'create_file' || metadata.fileExistence === 'must_not_exist') {
-    return resolveAndAssertWithinRepo(repoRoot, userPath, ignoreMatcher);
-  }
-
-  return resolveAndAssertWithinScope(repoRoot, userPath, scopeRoots, ignoreMatcher);
+  void mode;
+  return resolveAndAssertWithinRepo(repoRoot, userPath);
 }
 
 /**
  * Enforces restore path policy from the original payload mode.
  *
- * Restore execution may write the inverse file state, but path/scope/ignore
- * policy must follow the operation that originally produced the history entry.
+ * Restore execution may write the inverse file state, but it still must stay
+ * within the repository root.
  */
 export function enforceRestorePathPolicy(
   repoRoot: string,
   userPath: string,
-  originalMode: OperationMode,
-  scopeRoots: string[],
-  ignoreMatcher: IgnoreMatcher
+  originalMode: OperationMode
 ): PathPolicyResult {
-  return enforcePathPolicy(repoRoot, userPath, originalMode, scopeRoots, ignoreMatcher);
+  return enforcePathPolicy(repoRoot, userPath, originalMode);
 }

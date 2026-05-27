@@ -7,7 +7,6 @@ import { applyChanges } from '../src/apply/applyChanges';
 import { restoreEntry } from '../src/history/restoreEntry';
 import { buildRestorePayload } from '../src/history/restoreV2';
 import { appendHistoryEntries, getHistoryEntries } from '../src/repo/historyStore';
-import { setScopeState } from '../src/repo/scopeStore';
 
 let workspaceRoot = '';
 let repoRoot = '';
@@ -343,11 +342,10 @@ describe('restoreEntry active restore pipeline', () => {
   it('uses restore path policy from payload.mode instead of synthetic inverse mode', () => {
     fs.mkdirSync(filePath('src'), { recursive: true });
     fs.mkdirSync(filePath('outside'), { recursive: true });
-    setScopeState(repoRoot, ['src']);
     const entry = applyAndStore({
       type: 'create_file',
       file: 'outside/created.txt',
-      content: 'created outside scope\n',
+      content: 'created outside indexed paths\n',
       blockIndex: 0,
     });
 

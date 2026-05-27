@@ -2,19 +2,9 @@
  * Shared constants for Inscribe
  */
 
-export const INDEXED_ROOTS = [
-  'app/',
-  'routes/',
-  'resources/',
-  'database/',
-  'config/',
-  'tests/',
-] as const;
-
 // Inscribe directory and metadata - define first as they're used by other constants
 export const INSCRIBE_DIR = '.inscribe';
 export const INSCRIBE_IGNORE_FILE = '.inscribeignore';
-export const SCOPE_STORE_FILE = 'scope.json';
 export const HISTORY_STORE_DIR = 'history';
 
 export const IGNORED_PATHS = [

@@ -11,15 +11,15 @@ export interface DiagnosticGroup {
   messages: string[];
 }
 
-export type DiagnosticScope = AppState['mode'] | 'all';
+export type DiagnosticMode = AppState['mode'] | 'all';
 
 export function buildDiagnosticGroups(
   state: AppState,
   blocks: IntakeBlock[],
-  options: { scope?: DiagnosticScope } = {},
+  options: { mode?: DiagnosticMode } = {},
 ): DiagnosticGroup[] {
   const groups: DiagnosticGroup[] = [];
-  const scope = options.scope ?? 'all';
+  const mode = options.mode ?? 'all';
   const addGroup = (
     id: string,
     title: string,
@@ -31,7 +31,7 @@ export function buildDiagnosticGroups(
     groups.push({ id, title, severity, messages: uniqueMessages });
   };
 
-  if (scope === 'intake' || scope === 'all') {
+  if (mode === 'intake' || mode === 'all') {
     addGroup('parse-errors', 'Parse Errors', 'error', state.parseErrors);
 
     addGroup(
@@ -52,7 +52,7 @@ export function buildDiagnosticGroups(
     );
   }
 
-  if (scope === 'review' || scope === 'all') {
+  if (mode === 'review' || mode === 'all') {
     addGroup(
       'validation',
       'Validation Errors',
@@ -73,7 +73,7 @@ export function buildDiagnosticGroups(
     state.indexStatus.state === 'error' ? [state.indexStatus.message ?? 'Repository indexing failed.'] : [],
   );
 
-  if (scope === 'review' || scope === 'all') {
+  if (mode === 'review' || mode === 'all') {
     addGroup(
       'apply-restore',
       'Apply / Restore Failures',

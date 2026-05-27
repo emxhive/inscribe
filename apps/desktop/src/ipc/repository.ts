@@ -1,10 +1,7 @@
 import { ipcMain } from 'electron';
 import {
-  getOrCreateScope,
-  getLastVisitedRepo,
   listTopLevelFolders,
   computeSuggestedExcludes,
-  setScopeState,
   readIgnoreRules,
   indexRepository,
   getIndexStatus,
@@ -17,16 +14,14 @@ import { requireTrustedRepoRoot } from './trustedRepo';
  */
 export function registerRepositoryHandlers() {
   ipcMain.handle('repo-last-visited', async () => {
-    return getLastVisitedRepo();
+    return recentProjectsManager.getRecentProjects()[0] ?? null;
   });
 
   ipcMain.handle('repo-init', async (event, suppliedRepoRoot?: string) => {
     try {
       const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
-      const scopeState = getOrCreateScope(repoRoot);
       const topLevelFolders = listTopLevelFolders(repoRoot);
       const suggested = computeSuggestedExcludes(repoRoot);
-      setScopeState(repoRoot, scopeState.scope, { lastSuggested: suggested });
       const ignore = readIgnoreRules(repoRoot);
       const indexedFiles = indexRepository(repoRoot);
 
@@ -35,7 +30,6 @@ export function registerRepositoryHandlers() {
 
       return {
         topLevelFolders,
-        scope: scopeState.scope,
         ignore,
         suggested,
         indexedFiles,
@@ -45,7 +39,6 @@ export function registerRepositoryHandlers() {
     } catch (error) {
       return {
         topLevelFolders: [],
-        scope: [],
         ignore: { entries: [], source: 'none', path: '' },
         suggested: [],
         indexedFiles: [],

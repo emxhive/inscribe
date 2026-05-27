@@ -13,16 +13,8 @@ import type {
 
 export interface RepoInitResult {
   topLevelFolders: string[];
-  scope: string[];
   ignore: IgnoreRules;
   suggested: string[];
-  indexedFiles: string[];
-  indexedCount: number;
-  indexStatus: IndexStatus;
-}
-
-export interface ScopeUpdateResult {
-  scope: string[];
   indexedFiles: string[];
   indexedCount: number;
   indexStatus: IndexStatus;
@@ -32,7 +24,6 @@ export interface IgnoreWriteResult {
   success: boolean;
   error?: string;
   suggested: string[];
-  defaultScope: string[];
   topLevelFolders: string[];
   indexedFiles: string[];
   indexedCount: number;
@@ -96,8 +87,6 @@ export interface InscribeAPI {
   getWindowRepo: () => Promise<string | null>;
   onOpenRepo: (callback: (repoRoot: string) => void) => () => void;
   onRecentProjectsUpdated: (callback: (projects: string[]) => void) => () => void;
-  getScope: (repoRoot: string) => Promise<string[]>;
-  setScope: (repoRoot: string, scope: string[]) => Promise<ScopeUpdateResult>;
   readIgnore: (repoRoot: string) => Promise<IgnoreRules>;
   readIgnoreRaw: (repoRoot: string) => Promise<ReadIgnoreRawResult>;
   writeIgnore: (repoRoot: string, content: string) => Promise<IgnoreWriteResult>;

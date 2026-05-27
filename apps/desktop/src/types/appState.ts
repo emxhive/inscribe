@@ -73,7 +73,6 @@ export interface AppState {
   // Repository state
   repoRoot: string | null;
   topLevelFolders: string[];
-  scope: string[];
   ignore: IgnoreRules;
   suggested: string[];
   indexedFiles: string[];

@@ -38,7 +38,7 @@ describe('diagnostics utils', () => {
     expect(groups[1].messages).toEqual(['src/app.ts: Missing MODE header']);
   });
 
-  it('scopes diagnostics to the active intake or review mode', () => {
+  it('filters diagnostics to the active intake or review mode', () => {
     const reviewItem = {
       id: '0-src/app.ts',
       file: 'src/app.ts',
@@ -58,10 +58,10 @@ describe('diagnostics utils', () => {
       reviewItems: [reviewItem],
     });
 
-    expect(buildDiagnosticGroups(state, [block], { scope: 'intake' }).map((group) => group.id)).toEqual([
+    expect(buildDiagnosticGroups(state, [block], { mode: 'intake' }).map((group) => group.id)).toEqual([
       'parse-errors',
     ]);
-    expect(buildDiagnosticGroups(state, [block], { scope: 'review' }).map((group) => group.id)).toEqual([
+    expect(buildDiagnosticGroups(state, [block], { mode: 'review' }).map((group) => group.id)).toEqual([
       'validation',
     ]);
   });

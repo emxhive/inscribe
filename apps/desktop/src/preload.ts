@@ -11,7 +11,6 @@ import type {
   IgnoreWriteResult,
   ReadIgnoreRawResult,
   RepoInitResult,
-  ScopeUpdateResult,
 } from './types';
 
 const api = {
@@ -44,12 +43,6 @@ const api = {
     ipcRenderer.on('recent-projects-updated', subscription);
     return () => ipcRenderer.removeListener('recent-projects-updated', subscription);
   },
-
-  getScope: (repoRoot: string): Promise<string[]> =>
-    ipcRenderer.invoke('get-scope', repoRoot),
-
-  setScope: (repoRoot: string, scope: string[]): Promise<ScopeUpdateResult> =>
-    ipcRenderer.invoke('set-scope', repoRoot, scope),
 
   readIgnore: (repoRoot: string): Promise<RepoInitResult['ignore']> =>
     ipcRenderer.invoke('read-ignore', repoRoot),

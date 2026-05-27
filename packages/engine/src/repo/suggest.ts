@@ -48,11 +48,3 @@ export function computeSuggestedExcludes(repoRoot: string): string[] {
   return suggested.sort();
 }
 
-export function computeDefaultScope(repoRoot: string): { scope: string[]; suggested: string[]; topLevel: string[] } {
-  const topLevel = listTopLevelFolders(repoRoot);
-  const suggested = computeSuggestedExcludes(repoRoot);
-  const suggestedSet = new Set(suggested);
-  const scope = topLevel.filter(folder => !suggestedSet.has(folder)).sort();
-
-  return { scope, suggested, topLevel };
-}

@@ -6,7 +6,6 @@ import { applyAppStateUpdates } from './appStateUtils';
 export const initialState: AppState = {
   repoRoot: null,
   topLevelFolders: [],
-  scope: [],
   ignore: { entries: [], source: 'none', path: '' },
   suggested: [],
   indexedFiles: [],

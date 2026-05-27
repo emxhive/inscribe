@@ -5,9 +5,7 @@ import {
   readIgnoreRules,
   writeIgnoreFile,
   computeSuggestedExcludes,
-  computeDefaultScope,
-  getOrCreateScope,
-  setScopeState,
+  listTopLevelFolders,
   indexRepository,
   getIndexStatus,
 } from '@inscribe/engine';
@@ -46,15 +44,12 @@ export function registerIgnoreHandlers() {
     const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
     const result = writeIgnoreFile(repoRoot, content);
     const suggested = computeSuggestedExcludes(repoRoot);
-    const defaults = computeDefaultScope(repoRoot);
-    const scopeState = getOrCreateScope(repoRoot);
-    setScopeState(repoRoot, scopeState.scope, { lastSuggested: suggested });
+    const topLevelFolders = listTopLevelFolders(repoRoot);
     const indexedFiles = result.success ? indexRepository(repoRoot) : [];
     return {
       ...result,
       suggested,
-      defaultScope: defaults.scope,
-      topLevelFolders: defaults.topLevel,
+      topLevelFolders,
       indexedFiles,
       indexedCount: indexedFiles.length,
       indexStatus: getIndexStatus(repoRoot),

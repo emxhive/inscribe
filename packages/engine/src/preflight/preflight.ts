@@ -1,11 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Operation, OperationMode } from '@inscribe/shared';
-import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
 import { validateCandidateOrThrow } from './candidateValidation';
 import { resolveOperationExecution, OperationExecutionResult } from '../operation/resolveOperationExecution';
 import { enforcePathPolicy } from '../paths/pathPolicy';
-import { getScopeState } from '../repo/scopeStore';
 
 export type PreflightExecution = OperationExecutionResult & {
   operationIndex: number;
@@ -34,9 +32,6 @@ export class PreflightError extends Error {
  * Manages virtual file state and handles disk reading of initial state.
  */
 export function preflightOperations(operations: Operation[], repoRoot: string): PreflightExecution[] {
-  const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
-  const scopeState = getScopeState(repoRoot);
-  const scopeRoots = scopeState?.scope ?? [];
   const virtualFiles = new Map<string, VirtualFileState>();
   const executions: PreflightExecution[] = [];
 
@@ -45,9 +40,7 @@ export function preflightOperations(operations: Operation[], repoRoot: string): 
       const { resolvedPath, canonicalPath } = enforcePathPolicy(
         repoRoot,
         operation.file,
-        operation.type as OperationMode,
-        scopeRoots,
-        ignoreMatcher
+        operation.type as OperationMode
       );
       const before = getVirtualFileState(virtualFiles, canonicalPath, resolvedPath);
       const next = resolveOperationExecution(operation, before);

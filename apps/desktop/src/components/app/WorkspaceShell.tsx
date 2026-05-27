@@ -46,13 +46,11 @@ const PANEL_STORAGE_KEYS = {
 } as const;
 
 type WorkspaceShellProps = {
-  onOpenScopeModal: () => void;
   onOpenIgnore: () => void;
   onOpenIndexedList: () => void;
 };
 
 export function WorkspaceShell({
-  onOpenScopeModal,
   onOpenIgnore,
   onOpenIndexedList,
 }: WorkspaceShellProps) {
@@ -101,7 +99,6 @@ export function WorkspaceShell({
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       <WorkspaceTopBar
-        onOpenScopeModal={onOpenScopeModal}
         onOpenIgnore={onOpenIgnore}
         onOpenIndexedList={onOpenIndexedList}
       />
@@ -139,7 +136,6 @@ export function WorkspaceShell({
 }
 
 function WorkspaceTopBar({
-  onOpenScopeModal,
   onOpenIgnore,
   onOpenIndexedList,
 }: WorkspaceShellProps) {
@@ -259,9 +255,6 @@ function WorkspaceTopBar({
           Review
         </ChromeButton>
         <span className="mx-1 h-4 w-px bg-border" />
-        <ChromeButton disabled={!hasRepository} onClick={() => requireRepository(onOpenScopeModal, 'Select a repository to configure scope.')}>
-          Scope {state.scope.length}
-        </ChromeButton>
         <ChromeButton disabled={!hasRepository} onClick={() => requireRepository(onOpenIgnore, 'Select a repository to edit ignore rules.')}>
           Ignore {state.ignore.entries.length}
         </ChromeButton>
@@ -428,7 +421,7 @@ function RightPanel() {
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
   const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId) ?? null;
   const reviewActions = useReviewActions();
-  const diagnostics = buildDiagnosticGroups(state, blocks, { scope: state.mode });
+  const diagnostics = buildDiagnosticGroups(state, blocks, { mode: state.mode });
   const sections: RightPanelSectionId[] = ['selection', 'directives', 'diagnostics', 'history'];
   const visibleSections = sections.filter((section) => !state.hiddenRightPanelSections.includes(section));
   const isOpen = (section: RightPanelSectionId) => state.openRightPanelSections.includes(section);

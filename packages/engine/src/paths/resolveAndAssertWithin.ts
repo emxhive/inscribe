@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { normalizeRelativePath, ensureTrailingSlash } from '../util/path';
-import { type IgnoreMatcher, matchIgnoredPath } from '../repo/ignoreRules';
+import { normalizeRelativePath } from '../util/path';
 
 export type ResolvedPathInfo = {
   resolvedPath: string;
@@ -76,7 +75,6 @@ function resolveExistingPathOrAncestor(resolvedTarget: string): {
 function assertRealPathWithin(
   resolvedTarget: string,
   realRepoRoot: string,
-  allowedRealRoots: string[],
 ): string {
   const { realExistingPath, canonicalPath } = resolveExistingPathOrAncestor(resolvedTarget);
 
@@ -84,22 +82,15 @@ function assertRealPathWithin(
     throw new Error('File resolves outside repository root through symlink traversal');
   }
 
-  if (allowedRealRoots.length > 0 && !allowedRealRoots.some(root => isWithin(root, realExistingPath))) {
-    throw new Error('File resolves outside scope roots through symlink traversal');
-  }
-
   return canonicalPath;
 }
 
 /**
- * Resolve a path and assert it's within the repository root and not in ignored prefixes/globs.
- * This is used for create_file mode, which allows creating files anywhere under repo root
- * that isn't explicitly ignored.
+ * Resolve a path and assert it's within the repository root.
  */
 export function resolveAndAssertWithinRepo(
   repoRoot: string,
-  userPath: string,
-  ignoreMatcher: IgnoreMatcher
+  userPath: string
 ): ResolvedPathInfo {
   const resolvedRepoRoot = path.resolve(repoRoot);
   const realRepoRoot = realpath(resolvedRepoRoot);
@@ -111,18 +102,8 @@ export function resolveAndAssertWithinRepo(
     throw new Error('File resolves outside repository root');
   }
 
-  const canonicalPath = assertRealPathWithin(resolvedTarget, realRepoRoot, []);
+  const canonicalPath = assertRealPathWithin(resolvedTarget, realRepoRoot);
   const relativePath = normalizeRelativePath(path.relative(resolvedRepoRoot, resolvedTarget));
-  
-  // Check if path is under any ignored prefix or glob
-  const filePrefix = ensureTrailingSlash(relativePath);
-  const ignoreMatch =
-    matchIgnoredPath(relativePath, ignoreMatcher) ??
-    matchIgnoredPath(filePrefix, ignoreMatcher, { isDirectory: true });
-  
-  if (ignoreMatch) {
-    throw new Error(`File is in ignored path: ${ignoreMatch}`);
-  }
 
   return {
     resolvedPath: resolvedTarget,
@@ -131,58 +112,3 @@ export function resolveAndAssertWithinRepo(
   };
 }
 
-/**
- * Resolve a path and assert it's within scope roots and not in ignored prefixes/globs.
- * This is used for modes that must operate on files within the configured scope.
- */
-export function resolveAndAssertWithinScope(
-  repoRoot: string,
-  userPath: string,
-  scopeRoots: string[],
-  ignoreMatcher: IgnoreMatcher
-): ResolvedPathInfo {
-  const resolvedRepoRoot = path.resolve(repoRoot);
-  const realRepoRoot = realpath(resolvedRepoRoot);
-  assertRelativeUserPath(userPath);
-  const normalizedUserPath = normalizeRelativePath(userPath);
-  const resolvedTarget = path.resolve(resolvedRepoRoot, normalizedUserPath);
-
-  if (!isWithin(resolvedRepoRoot, resolvedTarget)) {
-    throw new Error('File resolves outside repository root');
-  }
-
-  if (scopeRoots && scopeRoots.length > 0) {
-    const allowedResolved = scopeRoots.map(root =>
-      path.resolve(resolvedRepoRoot, normalizeRelativePath(root))
-    );
-    const isAllowed = allowedResolved.some(root => isWithin(root, resolvedTarget));
-    if (!isAllowed) {
-      throw new Error(`File must be under scope roots: ${scopeRoots.join(', ')}`);
-    }
-  }
-
-  const allowedRealRoots = (scopeRoots && scopeRoots.length > 0)
-    ? scopeRoots
-      .map(root => path.resolve(resolvedRepoRoot, normalizeRelativePath(root)))
-      .filter(root => fs.existsSync(root))
-      .map(root => realpath(root))
-    : [];
-  const canonicalPath = assertRealPathWithin(resolvedTarget, realRepoRoot, allowedRealRoots);
-  const relativePath = normalizeRelativePath(path.relative(resolvedRepoRoot, resolvedTarget));
-  
-  // Check if path is under any ignored prefix or glob
-  const filePrefix = ensureTrailingSlash(relativePath);
-  const ignoreMatch =
-    matchIgnoredPath(relativePath, ignoreMatcher) ??
-    matchIgnoredPath(filePrefix, ignoreMatcher, { isDirectory: true });
-  
-  if (ignoreMatch) {
-    throw new Error(`File is in ignored path: ${ignoreMatch}`);
-  }
-
-  return {
-    resolvedPath: resolvedTarget,
-    relativePath,
-    canonicalPath,
-  };
-}

@@ -1,30 +1,10 @@
-import { normalizePrefix, normalizeRelativePath } from '@inscribe/shared';
+import { normalizeRelativePath } from '@inscribe/shared';
 import type { HistoryEntry, ParsedBlock } from '@inscribe/shared';
 import { buildReviewItems, decorateHistoryEntries } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 import { initialState } from './useAppState';
 import type { AppState } from '@/types';
 import type { RepoInitResult } from '@/types/ipc';
-
-const isTopLevelFolderIgnored = (folder: string, ignoreEntries: string[]): boolean => {
-  const folderPrefix = normalizePrefix(folder);
-  return ignoreEntries.some(entry => normalizePrefix(entry) === folderPrefix);
-};
-
-const getTopLevelSegment = (input: string): string => {
-  const normalized = normalizeRelativePath(input);
-  const [segment] = normalized.split('/').filter(Boolean);
-  return segment || '';
-};
-
-const pruneScopeForIgnoredFolders = (scope: string[], ignoreEntries: string[]): string[] =>
-  scope.filter(entry => {
-    const topLevel = getTopLevelSegment(entry);
-    return topLevel.length === 0 || !isTopLevelFolderIgnored(topLevel, ignoreEntries);
-  });
-
-const scopesEqual = (left: string[], right: string[]): boolean =>
-  left.length === right.length && left.every((value, index) => value === right[index]);
 
 const buildIndexedFileState = (indexedFiles: string[] | undefined) => {
   const normalized = (indexedFiles || []).map((file) => normalizeRelativePath(file));
@@ -50,7 +30,6 @@ export async function initRepositoryState(
 
   updateState({
     topLevelFolders: result.topLevelFolders || [],
-    scope: result.scope || [],
     ignore: result.ignore || { entries: [], source: 'none', path: '' },
     suggested: result.suggested || [],
     indexedFiles: indexedFileState.indexedFiles,
@@ -73,7 +52,6 @@ export function useRepositoryActions() {
     updateState({
       repoRoot,
       topLevelFolders: [],
-      scope: [],
       ignore: initialState.ignore,
       suggested: [],
       indexedFiles: [],
@@ -191,34 +169,6 @@ export function useRepositoryActions() {
     }
   };
 
-  const handleSaveScope = async (newScope: string[]) => {
-    if (!state.repoRoot) return;
-    
-    try {
-      updateState({ statusMessage: 'Updating scope...' });
-      const result = await window.inscribeAPI.setScope(state.repoRoot, newScope);
-      const indexedFileState = buildIndexedFileState(result.indexedFiles);
-      
-      updateState({
-        scope: result.scope || newScope,
-        indexedFiles: indexedFileState.indexedFiles,
-        indexedFileSet: indexedFileState.indexedFileSet,
-        indexedCount: indexedFileState.indexedFiles.length,
-        indexStatus: result.indexStatus || { state: 'complete' },
-        statusMessage: `Scope updated: ${indexedFileState.indexedFiles.length} files indexed`
-      });
-      if (state.mode === 'review') {
-        await revalidateParsedBlocks(state.repoRoot, state.parsedBlocks);
-      }
-    } catch (error) {
-      console.error('Failed to update scope:', error);
-      updateState({ 
-        statusMessage: 'Failed to update scope',
-        indexStatus: { state: 'error', message: String(error) }
-      });
-    }
-  };
-
   const handleSaveIgnore = async (content: string) => {
     if (!state.repoRoot) return;
     
@@ -236,12 +186,8 @@ export function useRepositoryActions() {
           indexStatus: result.indexStatus || { state: 'complete' },
           statusMessage: `Ignore rules updated: ${indexedFileState.indexedFiles.length} files indexed`
         });
-        const refreshed = await initRepo(state.repoRoot);
-        if (refreshed) {
-          const prunedScope = pruneScopeForIgnoredFolders(refreshed.scope || [], refreshed.ignore.entries);
-          if (!scopesEqual(prunedScope, refreshed.scope || [])) {
-            await handleSaveScope(prunedScope);
-          }
+        if (state.mode === 'review') {
+          await revalidateParsedBlocks(state.repoRoot, state.parsedBlocks);
         }
       } else {
         updateState({ statusMessage: `Failed to update ignore rules: ${result.error || 'Unknown error'}` });
@@ -254,7 +200,6 @@ export function useRepositoryActions() {
 
   return {
     handleBrowseRepo,
-    handleSaveScope,
     handleSaveIgnore,
     initRepo,
     restoreLastRepo,

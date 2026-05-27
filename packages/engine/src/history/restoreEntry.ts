@@ -2,9 +2,7 @@ import * as fs from 'fs';
 import type { ApplyResult, OperationMode, RestorePayloadV2 } from '@inscribe/shared';
 import { writeExecutions } from '../apply/writeExecutions';
 import { enforceRestorePathPolicy } from '../paths/pathPolicy';
-import { getEffectiveIgnoreMatchers } from '../repo/ignoreRules';
 import { getHistoryEntries, markHistoryEntryRestoredAndGetEntries } from '../repo/historyStore';
-import { getScopeState } from '../repo/scopeStore';
 import { resolveRestoreExecution, type RestoreFileState, type RestoreRequest } from './restoreExecution';
 
 export function restoreEntry(request: RestoreRequest, repoRoot: string): ApplyResult {
@@ -46,14 +44,10 @@ export function restoreEntry(request: RestoreRequest, repoRoot: string): ApplyRe
     }
 
     const trustedPayload = existingEntry.restorePayload;
-    const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
-    const scopeRoots = getScopeState(repoRoot)?.scope ?? [];
     const { resolvedPath } = enforceRestorePathPolicy(
       repoRoot,
       trustedPayload.file,
-      trustedPayload.mode as OperationMode,
-      scopeRoots,
-      ignoreMatcher
+      trustedPayload.mode as OperationMode
     );
     const currentFile = readCurrentFileState(resolvedPath);
     const execution = resolveRestoreExecution(

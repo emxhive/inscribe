@@ -202,10 +202,3 @@ export interface IgnoreRules {
   path: string;
 }
 
-export interface ScopeState {
-  repoRoot: string;
-  scope: string[];
-  lastSuggested?: string[];
-  lastIndexedCount?: number;
-  updatedAt: string;
-}

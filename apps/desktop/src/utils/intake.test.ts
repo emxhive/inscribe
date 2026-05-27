@@ -49,7 +49,7 @@ describe('parseIntakeStructure', () => {
       'START_LINE_EQUALS',
       'END_LINE_CONTAINS',
       'END_LINE_EQUALS',
-      'RANGE_CONTAINS',
+      'END_OCCURRENCE',      'RANGE_CONTAINS',
       'NAME',
     ]);
   });

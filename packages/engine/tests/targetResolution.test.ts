@@ -66,31 +66,58 @@ line 4`;
     });
 
     it('uses RANGE_CONTAINS to disambiguate', () => {
-      const res = resolveRangeTarget(content, {
-        START_LINE_EQUALS: 'line 1',
-        END_LINE_EQUALS: 'line 2',
-        RANGE_CONTAINS: 'line 3' // This should select the range ending at the second "line 2"
-      });
-      expect(res.replaceStart).toBe(0);
-      expect(content.slice(res.replaceStart, res.replaceEnd)).toBe('line 1\n  line 2\nline 3\nline 2\n');
-    });
+      const content = [
+        '// block:start',
+        'alpha',
+        '// block:end',
+        '// block:start',
+        'beta',
+        'target',
+        '// block:end',
+      ].join('\n');
 
+      const range = resolveRangeTarget(content, {
+        START_LINE_CONTAINS: '// block:start',
+        END_LINE_CONTAINS: '// block:end',
+        RANGE_CONTAINS: 'target',
+      });
+
+      expect(content.slice(range.replaceStart, range.replaceEnd)).toBe([
+        '// block:start',
+        'beta',
+        'target',
+        '// block:end',
+      ].join('\n'));
+    });
     it('applies multiple RANGE_CONTAINS filters as AND conditions', () => {
-      const rangeContent = `start
-one
-end
-two
-end`;
-      const res = resolveRangeTarget(rangeContent, {
-        START_LINE_EQUALS: 'start',
-        END_LINE_EQUALS: 'end',
-        RANGE_CONTAINS: 'one\ntwo',
-      });
-      expect(rangeContent.slice(res.replaceStart, res.replaceEnd)).toBe('start\none\nend\ntwo\nend');
-    });
-  });
+      const content = [
+        '// block:start',
+        'alpha',
+        'shared',
+        '// block:end',
+        '// block:start',
+        'target',
+        'shared',
+        '// block:end',
+        '// block:start',
+        'target',
+        'other',
+        '// block:end',
+      ].join('\n');
 
-  describe('resolveBetweenTarget', () => {
+      const range = resolveRangeTarget(content, {
+        START_LINE_CONTAINS: '// block:start',
+        END_LINE_CONTAINS: '// block:end',
+        RANGE_CONTAINS: 'target\nshared',
+      });
+
+      expect(content.slice(range.replaceStart, range.replaceEnd)).toBe([
+        '// block:start',
+        'target',
+        'shared',
+        '// block:end',
+      ].join('\n') + '\n');
+    });
     it('resolves between anchors', () => {
       const res = resolveBetweenTarget(content, {
         START_LINE_CONTAINS: 'line 1',

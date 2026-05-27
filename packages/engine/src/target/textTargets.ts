@@ -17,6 +17,154 @@ export interface ResolvedRange {
   replaceEnd: number;
 }
 
+type BoundarySelector = ReturnType<typeof resolveBoundarySelector>;
+type BoundaryMatch = BoundarySelector['matches'][number];
+type RangeCandidate = { start: number; end: number };
+type BetweenCandidate = RangeCandidate & { sameLine: boolean };
+
+function getRangeContains(directives: Record<string, string>): string[] {
+  return (directives.RANGE_CONTAINS ?? '')
+    .split('\n')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function parseEndOccurrence(directives: Record<string, string>): number {
+  const raw = directives.END_OCCURRENCE?.trim();
+  if (raw === undefined || raw.length === 0) {
+    return 1;
+  }
+
+  if (!/^[1-9]\d*$/.test(raw)) {
+    throw new Error('END_OCCURRENCE must be a positive integer');
+  }
+
+  return Number(raw);
+}
+
+function selectEndForStart(
+  endMatches: BoundaryMatch[],
+  startMatch: BoundaryMatch,
+  occurrence: number,
+  allowSameLine = false,
+  maxEndStart?: number,
+): BoundaryMatch | null {
+  const minimumEndStart = allowSameLine ? startMatch.start : startMatch.end;
+  const matchingEnds = endMatches.filter((endMatch) => (
+    endMatch.start >= minimumEndStart &&
+    (maxEndStart === undefined || endMatch.start < maxEndStart)
+  ));
+  return matchingEnds[occurrence - 1] ?? null;
+}
+
+
+
+function buildRangeCandidates(
+  content: string,
+  starts: BoundaryMatch[],
+  ends: BoundaryMatch[],
+  occurrence: number,
+): RangeCandidate[] {
+  return starts.flatMap((startMatch, index) => {
+    const nextStart = starts[index + 1]?.start;
+    const endMatch = selectEndForStart(ends, startMatch, occurrence, false, nextStart);
+    if (!endMatch) {
+      return [];
+    }
+
+    return [{
+      start: lineStart(content, startMatch.start),
+      end: lineEnd(content, endMatch.end),
+    }];
+  });
+}
+
+
+function resolveSameLineInteriors(
+  content: string,
+  startSelector: BoundarySelector,
+  endSelector: BoundarySelector,
+  startMatch: BoundaryMatch,
+  endMatch: BoundaryMatch,
+  lineStartOffset: number,
+): BetweenCandidate[] {
+  if (startSelector.strategy === 'equals' || endSelector.strategy === 'equals') {
+    return [];
+  }
+
+  const lineText = content.slice(lineStartOffset, lineEnd(content, lineStartOffset));
+  const startOccurrences = findAllOccurrences(lineText, startMatch.value);
+  const endOccurrences = findAllOccurrences(lineText, endMatch.value);
+  const candidates: BetweenCandidate[] = [];
+
+  for (const startOccurrence of startOccurrences) {
+    for (const endOccurrence of endOccurrences) {
+      if (endOccurrence.start < startOccurrence.end) {
+        continue;
+      }
+
+      candidates.push({
+        start: lineStartOffset + startOccurrence.end,
+        end: lineStartOffset + endOccurrence.start,
+        sameLine: true,
+      });
+    }
+  }
+
+  return candidates;
+}
+
+
+function buildBetweenCandidates(
+  content: string,
+  startSelector: BoundarySelector,
+  endSelector: BoundarySelector,
+  occurrence: number,
+): BetweenCandidate[] {
+  return startSelector.matches.flatMap((startMatch, index) => {
+    const nextStart = startSelector.matches[index + 1]?.start;
+    const endMatch = selectEndForStart(endSelector.matches, startMatch, occurrence, true, nextStart);
+    if (!endMatch) {
+      return [];
+    }
+
+    const startLineStart = startSelector.isVirtual && startMatch.start === 0 ? 0 : lineStart(content, startMatch.start);
+    const endLineStart = endSelector.isVirtual && endMatch.start === content.length
+      ? content.length
+      : lineStart(content, endMatch.start);
+    const sameLine = startLineStart === endLineStart;
+
+    if (sameLine) {
+      return resolveSameLineInteriors(
+        content,
+        startSelector,
+        endSelector,
+        startMatch,
+        endMatch,
+        startLineStart,
+      );
+    }
+
+    const replaceStart = startSelector.isVirtual && startMatch.start === 0 ? 0 : lineEnd(content, startMatch.end);
+    const replaceEnd = endSelector.isVirtual && endMatch.start === content.length
+      ? content.length
+      : lineStart(content, endMatch.start);
+
+    if (replaceEnd < replaceStart) {
+      return [];
+    }
+
+    return [{ start: replaceStart, end: replaceEnd, sameLine: false }];
+  });
+}
+
+
+
+function assertBoundaryMatches(start: BoundarySelector, end: BoundarySelector): void {
+  if (start.matches.length === 0) throw new Error(formatAnchorNotFound(start.name, start.value));
+  if (end.matches.length === 0) throw new Error(formatAnchorNotFound(end.name, end.value));
+}
+
 export function resolveLineTarget(content: string, directives: Record<string, string>): ResolvedRange {
   const start = resolveBoundarySelector(content, directives, 'START');
   if (start.isVirtual) {
@@ -40,14 +188,14 @@ export function resolveRangeTarget(content: string, directives: Record<string, s
     throw new Error('replace_range cannot target full file via virtual anchors; use replace_file');
   }
 
-  const contains = (directives.RANGE_CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
+  assertBoundaryMatches(start, end);
 
-  const candidates: { start: number; end: number }[] = [];
-  for (const s of start.matches) {
-    for (const e of end.matches) {
-      if (e.start < s.end) continue;
-      candidates.push({ start: lineStart(content, s.start), end: lineEnd(content, e.end) });
-    }
+  const occurrence = parseEndOccurrence(directives);
+  const contains = getRangeContains(directives);
+  const candidates = buildRangeCandidates(content, start.matches, end.matches, occurrence);
+
+  if (candidates.length === 0) {
+    throw new Error(`No END boundary occurrence ${occurrence} found after START boundary matches`);
   }
 
   const filtered = filterCandidates(content, candidates, contains);
@@ -68,44 +216,14 @@ export function resolveBetweenTarget(content: string, directives: Record<string,
     throw new Error('replace_between cannot target full file via virtual anchors; use replace_file');
   }
 
-  const contains = (directives.RANGE_CONTAINS ?? '').split('\n').map(v => v.trim()).filter(Boolean);
+  assertBoundaryMatches(start, end);
 
-  const candidates: { start: number; end: number; sameLine: boolean }[] = [];
-  for (const s of start.matches) {
-    for (const e of end.matches) {
-      const sLineStart = start.isVirtual && s.start === 0 ? 0 : lineStart(content, s.start);
-      const eLineStart = end.isVirtual && e.start === content.length ? content.length : lineStart(content, e.start);
-      const sameLine = sLineStart === eLineStart;
+  const occurrence = parseEndOccurrence(directives);
+  const contains = getRangeContains(directives);
+  const candidates = buildBetweenCandidates(content, start, end, occurrence);
 
-      if (!sameLine && e.start < s.end) continue;
-
-      if (sameLine && (start.strategy === 'equals' || end.strategy === 'equals')) {
-        // Skip same-line matches if EQUALS strategy is used, per requirements.
-        continue;
-      }
-
-      const lEnd = lineEnd(content, sLineStart);
-      if (sameLine) {
-        // Same-line interior edits are only valid with line-contains selectors.
-        const lineText = content.slice(sLineStart, lEnd);
-        const sOccs = findAllOccurrences(lineText, s.value);
-        const eOccs = findAllOccurrences(lineText, e.value);
-
-        for (const sOcc of sOccs) {
-          for (const eOcc of eOccs) {
-            if (eOcc.start < sOcc.end) continue;
-            candidates.push({ start: sLineStart + sOcc.end, end: sLineStart + eOcc.start, sameLine: true });
-          }
-        }
-      } else {
-        const rStart = start.isVirtual && s.start === 0 ? 0 : lineEnd(content, s.end);
-        const rEnd = end.isVirtual && e.start === content.length ? content.length : lineStart(content, e.start);
-
-        if (rEnd >= rStart) {
-          candidates.push({ start: rStart, end: rEnd, sameLine: false });
-        }
-      }
-    }
+  if (candidates.length === 0) {
+    throw new Error(formatNoCandidateMatched());
   }
 
   const filtered = filterCandidates(content, candidates, contains);

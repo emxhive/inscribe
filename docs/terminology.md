@@ -38,11 +38,11 @@ Directives are mode-specific metadata fields:
 - `START_LINE_EQUALS`
 - `END_LINE_CONTAINS`
 - `END_LINE_EQUALS`
+- `END_OCCURRENCE`
 - `RANGE_CONTAINS`
 - `NAME`
 
-Directives must be unprefixed. Unsupported or legacy directive names fail validation or migration checks.
-
+Directives must be unprefixed. Unsupported directive names fail validation.
 ## Active Modes
 
 | mode | meaning |
@@ -67,10 +67,13 @@ The parser accepts backtick and tilde fences with at least three characters. Non
 
 ## Boundary Selectors and Range Filters
 
-`START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, and `RANGE_CONTAINS` are literal text values. They are not regular expressions.
+`START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `END_OCCURRENCE`, and `RANGE_CONTAINS` are literal text values. They are not regular expressions.
 
-`replace_line`, `replace_range`, `replace_between`, and `replace_block` fail if required boundary selectors are missing, unsupported, or ambiguous.
+`replace_line` and `replace_block` require their `START_*` selector to resolve to exactly one boundary line.
 
+For `replace_range` and `replace_between`, each matching `START_*` line creates at most one candidate by selecting the requested `END_OCCURRENCE` after that start. `END_OCCURRENCE` is optional, one-based, and defaults to `1`.
+
+`RANGE_CONTAINS` filters the resulting start-based candidates. The operation succeeds only when exactly one candidate remains.
 ## Symbol Target
 
 `replace_symbol` uses structural adapters. Active support is limited to JS/TS-family files and PHP files. Missing, ambiguous, or unsupported symbols fail safely.

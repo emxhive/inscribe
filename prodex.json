@@ -30,7 +30,7 @@
             "include": [
             "**/package.json",
             "**/tsconfig*.json",
-            "**/vite.config*.ts"
+            "**/vite.config*.ts",
             "docs/**",
             "prodex.json"
         ]

@@ -47,6 +47,10 @@ function validateBlock(block: ParsedBlock): ValidationError[] {
     }
   }
 
+  const endOccurrence = directives.END_OCCURRENCE;
+  if (endOccurrence !== undefined && !/^[1-9]\d*$/.test(endOccurrence.trim())) {
+    errors.push(buildError(block, `END_OCCURRENCE must be a positive integer`, DIAGNOSTIC_CODES.INVALID_DIRECTIVE));
+  }
   // Boundary specific validation
   if (['replace_line', 'replace_range', 'replace_between', 'replace_block'].includes(block.mode)) {
     const startContains = directives.START_LINE_CONTAINS;

@@ -54,6 +54,8 @@ export interface TerminalSessionInfo {
 
 export type TerminalShellPreference = 'auto' | 'bash' | 'powershell' | 'cmd';
 
+export type OpenRepositoryTarget = 'auto' | 'same-window' | 'new-window';
+
 export interface TerminalDataEvent {
   sessionId: string;
   runId: string | null;
@@ -82,7 +84,7 @@ export interface InscribeAPI {
   selectRepository: (defaultPath?: string) => Promise<string | null>;
   getLastVisitedRepo: () => Promise<string | null>;
   repoInit: (repoRoot: string) => Promise<RepoInitResult>;
-  openRepository: (repoRoot: string) => Promise<void>;
+  openRepository: (repoRoot: string, target?: OpenRepositoryTarget) => Promise<void>;
   getRecentProjects: () => Promise<string[]>;
   getWindowRepo: () => Promise<string | null>;
   onOpenRepo: (callback: (repoRoot: string) => void) => () => void;

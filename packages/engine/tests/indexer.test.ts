@@ -24,11 +24,28 @@ describe('indexRepository', () => {
     writeRepoFile('src/app.ts', 'app\n');
     writeRepoFile('docs/readme.md', 'docs\n');
     writeRepoFile('node_modules/pkg/index.js', 'ignored default\n');
+    writeRepoFile('dist/app.js', 'ignored build\n');
+    writeRepoFile('.env', 'ignored dotfile\n');
+    writeRepoFile('.github/workflows/ci.yml', 'ignored dotfolder\n');
+    writeRepoFile('src/.cache/data.json', 'ignored nested dotfolder\n');
     writeRepoFile('generated/out.txt', 'ignored custom\n');
     fs.writeFileSync(path.join(repoRoot, '.inscribeignore'), 'generated/\n');
 
     expect(indexRepository(repoRoot)).toEqual([
       'docs/readme.md',
+      'src/app.ts',
+    ]);
+  });
+
+  it('allows user unignore rules to override default ignores', () => {
+    writeRepoFile('src/app.ts', 'app\n');
+    writeRepoFile('.github/workflows/ci.yml', 'ci\n');
+    writeRepoFile('dist/app.js', 'build output\n');
+    fs.writeFileSync(path.join(repoRoot, '.inscribeignore'), '!.github/\n!dist/\n');
+
+    expect(indexRepository(repoRoot)).toEqual([
+      '.github/workflows/ci.yml',
+      'dist/app.js',
       'src/app.ts',
     ]);
   });

@@ -19,6 +19,7 @@ import {
 import { DIRECTIVE_KEYS, HEADER_KEYS, OPERATION_MODES, type DirectiveKey, type HeaderKey } from '@inscribe/shared';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
+import { Modal } from '@/components/common';
 import { FileListEntry } from '@/components/common/FileListEntry';
 import { useAppStateContext, useApplyActions, useHistoryActions, useIntakeBlocks, useParsingActions, useRepositoryActions, useReviewActions } from '@/hooks';
 import {
@@ -145,6 +146,7 @@ function WorkspaceTopBar({
   const hasRepository = Boolean(state.repoRoot);
   const [recentProjects, setRecentProjects] = useState<string[]>([]);
   const [showRecent, setShowRecent] = useState(false);
+  const [selectedRecentProject, setSelectedRecentProject] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -171,8 +173,14 @@ function WorkspaceTopBar({
   };
 
   const handleRecentClick = (path: string) => {
-    window.inscribeAPI.openRepository(path);
+    setSelectedRecentProject(path);
     setShowRecent(false);
+  };
+
+  const handleOpenRecentProject = (target: 'same-window' | 'new-window') => {
+    if (!selectedRecentProject) return;
+    window.inscribeAPI.openRepository(selectedRecentProject, target);
+    setSelectedRecentProject(null);
   };
 
   return (
@@ -294,6 +302,42 @@ function WorkspaceTopBar({
           <PanelRight className="h-3.5 w-3.5" />
         </ChromeButton>
       </div>
+      <Modal
+        isOpen={Boolean(selectedRecentProject)}
+        onClose={() => setSelectedRecentProject(null)}
+        title="Open Project"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setSelectedRecentProject(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => handleOpenRecentProject('same-window')}
+            >
+              Open in This Window
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleOpenRecentProject('new-window')}
+            >
+              Open in New Window
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2 text-sm">
+          <p className="text-foreground">How do you want to open this project?</p>
+          <p className="break-all rounded-md border border-border bg-secondary/60 px-3 py-2 font-mono text-xs text-muted-foreground">
+            {selectedRecentProject}
+          </p>
+        </div>
+      </Modal>
     </header>
   );
 }
@@ -422,7 +466,7 @@ function RightPanel() {
   const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId) ?? null;
   const reviewActions = useReviewActions();
   const diagnostics = buildDiagnosticGroups(state, blocks, { mode: state.mode });
-  const sections: RightPanelSectionId[] = ['selection', 'directives', 'diagnostics', 'history'];
+  const sections: RightPanelSectionId[] = ['history', 'selection', 'directives', 'diagnostics'];
   const visibleSections = sections.filter((section) => !state.hiddenRightPanelSections.includes(section));
   const isOpen = (section: RightPanelSectionId) => state.openRightPanelSections.includes(section);
   const toggleSection = (section: RightPanelSectionId) => {

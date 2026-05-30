@@ -80,7 +80,7 @@ export function IgnoreEditorModal({
     >
       <p className="mb-4 text-muted-foreground text-sm leading-relaxed m-0">
         Edit the ignore rules. Each line should contain a folder or file pattern to exclude.
-        Lines starting with # are comments.
+        Lines starting with # are comments. Prefix a pattern with ! to include it even when a default rule ignores it.
       </p>
       {isLoading && <p className="text-muted-foreground text-sm mb-4">Loading current ignore rules...</p>}
       <textarea
@@ -92,7 +92,7 @@ export function IgnoreEditorModal({
         disabled={isLoading}
       />
       <p className="mt-2 text-xs text-muted-foreground">
-        Supports literal prefixes, glob patterns (e.g., **/.*/), and optional regex: entries.
+        Supports literal prefixes and glob patterns. Examples: dist/, **/.cache/**, !.github/.
       </p>
     </Modal>
   );

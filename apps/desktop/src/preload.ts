@@ -23,8 +23,8 @@ const api = {
   repoInit: (repoRoot: string): Promise<RepoInitResult> =>
     ipcRenderer.invoke('repo-init', repoRoot),
 
-  openRepository: (repoRoot: string): Promise<void> =>
-    ipcRenderer.invoke('open-repository', repoRoot),
+  openRepository: (repoRoot: string, target?: import('./types').OpenRepositoryTarget): Promise<void> =>
+    ipcRenderer.invoke('open-repository', repoRoot, target),
 
   getRecentProjects: (): Promise<string[]> =>
     ipcRenderer.invoke('get-recent-projects'),

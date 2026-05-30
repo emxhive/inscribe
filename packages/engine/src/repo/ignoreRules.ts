@@ -8,6 +8,8 @@ import picomatch from 'picomatch';
 export type IgnoreMatcher = {
   prefixes: string[];
   globs: string[];
+  unignorePrefixes: string[];
+  unignoreGlobs: string[];
 };
 
 const GLOB_CHARACTER_PATTERN = /[*?\[\]]/;
@@ -16,29 +18,57 @@ function isGlobPattern(entry: string): boolean {
   return GLOB_CHARACTER_PATTERN.test(entry);
 }
 
-function normalizeIgnoreEntry(entry: string): { type: 'prefix' | 'glob'; value: string } {
-  if (isGlobPattern(entry)) {
-    return { type: 'glob', value: normalizeRelativePath(entry) };
+function normalizeIgnoreEntry(entry: string): { type: 'prefix' | 'glob'; value: string; negated: boolean } {
+  const trimmed = entry.trim();
+  const negated = trimmed.startsWith('!');
+  const rawPattern = negated ? trimmed.slice(1).trim() : trimmed;
+  const value = isGlobPattern(rawPattern) ? normalizeRelativePath(rawPattern) : normalizePrefix(rawPattern);
+
+  return {
+    type: isGlobPattern(rawPattern) ? 'glob' : 'prefix',
+    value: negated ? `!${value}` : value,
+    negated,
+  };
+}
+
+function splitIgnoreValue(entry: string): { type: 'prefix' | 'glob'; value: string; negated: boolean } {
+  const negated = entry.startsWith('!');
+  const value = negated ? entry.slice(1) : entry;
+  return {
+    type: isGlobPattern(value) ? 'glob' : 'prefix',
+    value,
+    negated,
+  };
+}
+
+function isMeaningfulIgnoreLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (trimmed.length === 0 || trimmed.startsWith('#')) {
+    return false;
   }
-  return { type: 'prefix', value: normalizePrefix(entry) };
+  return trimmed !== '!';
 }
 
 function splitIgnoreEntries(entries: string[]): IgnoreMatcher {
   const prefixes: string[] = [];
   const globs: string[] = [];
+  const unignorePrefixes: string[] = [];
+  const unignoreGlobs: string[] = [];
 
   for (const entry of entries) {
-    const normalized = normalizeIgnoreEntry(entry);
+    const normalized = splitIgnoreValue(entry);
     if (normalized.type === 'glob') {
-      globs.push(normalized.value);
+      (normalized.negated ? unignoreGlobs : globs).push(normalized.value);
     } else {
-      prefixes.push(normalized.value);
+      (normalized.negated ? unignorePrefixes : prefixes).push(normalized.value);
     }
   }
 
   return {
     prefixes: Array.from(new Set(prefixes)).sort(),
     globs: Array.from(new Set(globs)).sort(),
+    unignorePrefixes: Array.from(new Set(unignorePrefixes)).sort(),
+    unignoreGlobs: Array.from(new Set(unignoreGlobs)).sort(),
   };
 }
 
@@ -52,7 +82,7 @@ export function readIgnoreRules(repoRoot: string): IgnoreRules {
   const entries = content
     .split('\n')
     .map((line: string) => line.trim())
-    .filter((line: string) => line.length > 0 && !line.startsWith('#'))
+    .filter(isMeaningfulIgnoreLine)
     .map((p: string) => normalizeIgnoreEntry(p).value);
 
   const unique = Array.from(new Set(entries)).sort();
@@ -101,20 +131,42 @@ export function matchIgnoredPath(
   const normalizedDir = ensureTrailingSlash(normalizedPath);
   const prefixTarget = options?.isDirectory ? normalizedDir : normalizedPath;
 
-  const prefixMatch = ignoreMatcher.prefixes.find((prefix) => {
-    const normalizedPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
-    return prefixTarget === normalizedPrefix || prefixTarget.startsWith(prefix) || normalizedPath === normalizedPrefix;
-  });
+  const unignorePrefixMatch = findPrefixMatch(normalizedPath, prefixTarget, ignoreMatcher.unignorePrefixes);
+  if (unignorePrefixMatch) {
+    return null;
+  }
+
+  const unignoreGlobMatch = findGlobMatch(normalizedPath, normalizedDir, ignoreMatcher.unignoreGlobs, options);
+  if (unignoreGlobMatch) {
+    return null;
+  }
+
+  const prefixMatch = findPrefixMatch(normalizedPath, prefixTarget, ignoreMatcher.prefixes);
   if (prefixMatch) {
     return prefixMatch;
   }
 
-  for (const glob of ignoreMatcher.globs) {
+  return findGlobMatch(normalizedPath, normalizedDir, ignoreMatcher.globs, options);
+}
+
+function findPrefixMatch(normalizedPath: string, prefixTarget: string, prefixes: string[]): string | null {
+  return prefixes.find((prefix) => {
+    const normalizedPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
+    return prefixTarget === normalizedPrefix || prefixTarget.startsWith(prefix) || normalizedPath === normalizedPrefix;
+  }) ?? null;
+}
+
+function findGlobMatch(
+  normalizedPath: string,
+  normalizedDir: string,
+  globs: string[],
+  options?: { isDirectory?: boolean }
+): string | null {
+  for (const glob of globs) {
     const isMatch = picomatch(glob, { dot: true });
     if (isMatch(normalizedPath) || (options?.isDirectory && isMatch(normalizedDir))) {
       return glob;
     }
   }
-
   return null;
 }

@@ -2,7 +2,7 @@ import { BrowserWindow, app, ipcMain } from 'electron';
 import path from 'path';
 
 export class WindowManager {
-  private windows: Map<string, BrowserWindow> = new Map(); // normalized repoRoot -> BrowserWindow
+  private windows: Map<string, Set<BrowserWindow>> = new Map(); // normalized repoRoot -> BrowserWindows
   private unboundWindows: Set<BrowserWindow> = new Set();
   private windowToRepo: Map<BrowserWindow, string> = new Map();
 
@@ -54,16 +54,19 @@ export class WindowManager {
 
   public bindWindowToRepo(win: BrowserWindow, repoRoot: string) {
     const absoluteRepoRoot = path.resolve(repoRoot);
-    
-    // If this repo is already open in another window, we might want to handle it.
-    // But usually this is called when opening a new window or initializing an unbound one.
-    const existingWin = this.windows.get(absoluteRepoRoot);
-    if (existingWin && existingWin !== win) {
-       // This shouldn't happen if we use openRepo consistently
-       console.warn(`Repo ${absoluteRepoRoot} is already bound to another window.`);
+
+    const previousRepoRoot = this.windowToRepo.get(win);
+    if (previousRepoRoot) {
+      const previousWindows = this.windows.get(previousRepoRoot);
+      previousWindows?.delete(win);
+      if (previousWindows?.size === 0) {
+        this.windows.delete(previousRepoRoot);
+      }
     }
 
-    this.windows.set(absoluteRepoRoot, win);
+    const repoWindows = this.windows.get(absoluteRepoRoot) ?? new Set<BrowserWindow>();
+    repoWindows.add(win);
+    this.windows.set(absoluteRepoRoot, repoWindows);
     this.windowToRepo.set(win, absoluteRepoRoot);
     this.unboundWindows.delete(win);
   }
@@ -72,17 +75,44 @@ export class WindowManager {
     this.unboundWindows.delete(win);
     const repoRoot = this.windowToRepo.get(win);
     if (repoRoot) {
-      this.windows.delete(repoRoot);
+      const repoWindows = this.windows.get(repoRoot);
+      repoWindows?.delete(win);
+      if (repoWindows?.size === 0) {
+        this.windows.delete(repoRoot);
+      }
       this.windowToRepo.delete(win);
     }
   }
 
   getWindowForRepo(repoRoot: string): BrowserWindow | undefined {
-    return this.windows.get(path.resolve(repoRoot));
+    const repoWindows = this.windows.get(path.resolve(repoRoot));
+    if (!repoWindows) {
+      return undefined;
+    }
+
+    for (const win of repoWindows) {
+      if (!win.isDestroyed()) {
+        return win;
+      }
+    }
+
+    return undefined;
   }
 
-  openRepo(repoRoot: string, fromWindow?: BrowserWindow) {
+  openRepo(repoRoot: string, fromWindow?: BrowserWindow, target: 'auto' | 'same-window' | 'new-window' = 'auto') {
     const absoluteRepoRoot = path.resolve(repoRoot);
+
+    if (target === 'new-window') {
+      return this.createWindow(absoluteRepoRoot);
+    }
+
+    if (target === 'same-window' && fromWindow) {
+      this.bindWindowToRepo(fromWindow, absoluteRepoRoot);
+      fromWindow.webContents.send('open-repo', absoluteRepoRoot);
+      fromWindow.focus();
+      return fromWindow;
+    }
+
     const existingWin = this.getWindowForRepo(absoluteRepoRoot);
 
     if (existingWin) {

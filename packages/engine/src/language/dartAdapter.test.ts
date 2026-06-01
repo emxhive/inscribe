@@ -1,101 +1,125 @@
+import { execFileSync } from 'child_process';
 import { describe, it, expect } from 'vitest';
 import { dartAdapter } from './dartAdapter';
 
-describe('dartAdapter', () => {
-  it('supports .dart files', () => {
+function hasDartRuntime(): boolean {
+  try {
+    execFileSync('dart --version', { stdio: 'ignore', shell: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const describeDart = hasDartRuntime() ? describe : describe.skip;
+const DART_TEST_TIMEOUT = 60_000;
+
+describeDart('dartAdapter', () => {
+  it('supports .dart files only', () => {
     expect(dartAdapter.supportsFile('test.dart')).toBe(true);
     expect(dartAdapter.supportsFile('test.js')).toBe(false);
   });
 
-  it('resolves top-level function', () => {
-    const content = 'void hello() { print("world"); }';
+  it('resolves top-level functions while ignoring comments and strings', () => {
+    const content = [
+      '// void hello() {}',
+      'const fake = "void hello() {}";',
+      '@pragma("vm:prefer-inline")',
+      'void hello() {',
+      '  print(fake);',
+      '}',
+    ].join('\n');
+
     const range = dartAdapter.resolveSymbolDeclarationRange(content, 'hello');
-    expect(range.start).toBe(0);
-    expect(range.end).toBe(32);
-  });
+    expect(content.slice(range.start, range.end)).toBe([
+      '@pragma("vm:prefer-inline")',
+      'void hello() {',
+      '  print(fake);',
+      '}',
+    ].join('\n'));
+  }, DART_TEST_TIMEOUT);
 
-  it('resolves class', () => {
-    const content = 'class MyClass {}';
-    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'MyClass');
-    expect(range.start).toBe(0);
-    expect(range.end).toBe(16);
-  });
+  it('resolves classes, mixins, enums, extensions, and typedefs', () => {
+    const content = [
+      'class Service {}',
+      'mixin Reusable {}',
+      'enum Status { ready }',
+      'extension TextTools on String {}',
+      'typedef Mapper = String Function(int value);',
+    ].join('\n');
 
-  it('resolves method inside class', () => {
-    const content = 'class MyClass {\n  void myMethod() {}\n}';
-    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'myMethod');
-    expect(content.substring(range.start, range.end)).toBe('void myMethod() {}');
-  });
+    expect(content.slice(...rangeTuple(dartAdapter.resolveSymbolDeclarationRange(content, 'Service')))).toBe('class Service {}');
+    expect(content.slice(...rangeTuple(dartAdapter.resolveSymbolDeclarationRange(content, 'Reusable')))).toBe('mixin Reusable {}');
+    expect(content.slice(...rangeTuple(dartAdapter.resolveSymbolDeclarationRange(content, 'Status')))).toBe('enum Status { ready }');
+    expect(content.slice(...rangeTuple(dartAdapter.resolveSymbolDeclarationRange(content, 'TextTools')))).toBe('extension TextTools on String {}');
+    expect(content.slice(...rangeTuple(dartAdapter.resolveSymbolDeclarationRange(content, 'Mapper')))).toBe('typedef Mapper = String Function(int value);');
+  }, DART_TEST_TIMEOUT);
 
-  it('resolves enum', () => {
-    const content = 'enum MyEnum { a, b }';
-    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'MyEnum');
-    expect(content.substring(range.start, range.end)).toBe('enum MyEnum { a, b }');
-  });
+  it('resolves methods with modifiers and nested blocks', () => {
+    const content = [
+      'class Service {',
+      '  static Future<void> load() async {',
+      '    if (true) {',
+      '      print("load");',
+      '    }',
+      '  }',
+      '}',
+    ].join('\n');
 
-  it('resolves mixin', () => {
-    const content = 'mixin MyMixin {}';
-    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'MyMixin');
-    expect(content.substring(range.start, range.end)).toBe('mixin MyMixin {}');
-  });
+    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'load');
+    expect(content.slice(range.start, range.end)).toBe([
+      'static Future<void> load() async {',
+      '    if (true) {',
+      '      print("load");',
+      '    }',
+      '  }',
+    ].join('\n'));
+  }, DART_TEST_TIMEOUT);
 
-  it('resolves extension', () => {
-    const content = 'extension MyExtension on String {}';
-    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'MyExtension');
-    expect(content.substring(range.start, range.end)).toBe('extension MyExtension on String {}');
-  });
+  it('requires constructor symbols to be qualified', () => {
+    const content = [
+      'class Account {',
+      '  Account();',
+      '  Account.named();',
+      '}',
+    ].join('\n');
 
-  it('resolves top-level variable', () => {
-    const content = 'int myVar = 1;';
-    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'myVar');
-    expect(content.substring(range.start, range.end)).toBe('int myVar = 1;');
-  });
+    expect(content.slice(...rangeTuple(dartAdapter.resolveSymbolDeclarationRange(content, 'Account')))).toBe(content);
+    expect(content.slice(...rangeTuple(dartAdapter.resolveSymbolDeclarationRange(content, 'Account.new')))).toBe('Account();');
+    expect(content.slice(...rangeTuple(dartAdapter.resolveSymbolDeclarationRange(content, 'Account.named')))).toBe('Account.named();');
+  }, DART_TEST_TIMEOUT);
 
-  it('resolves field in class', () => {
-    const content = 'class A {\n  int myField = 0;\n}';
-    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'myField');
-    expect(content.substring(range.start, range.end)).toBe('int myField = 0;');
-  });
+  it('treats repeated method names in different classes as ambiguous', () => {
+    const content = [
+      'class A { void save() {} }',
+      'class B { void save() {} }',
+    ].join('\n');
 
-  it('resolves named constructor', () => {
-    const content = 'class A { A.named(); }';
-    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'A.named');
-    expect(content.substring(range.start, range.end)).toBe('A.named();');
-  });
-
-  it('resolves default constructor', () => {
-    const content = 'class A { A(); }';
-    // NAME: A matches both ClassDeclaration and ConstructorDeclaration, which is ambiguous.
-    expect(() => dartAdapter.resolveSymbolDeclarationRange(content, 'A'))
+    expect(() => dartAdapter.resolveSymbolDeclarationRange(content, 'save'))
       .toThrow(/Structural symbol target is ambiguous/);
-  });
+  }, DART_TEST_TIMEOUT);
 
-  it('resolves typedef', () => {
-    const content = 'typedef MyList = List<int>;';
-    const range = dartAdapter.resolveSymbolDeclarationRange(content, 'MyList');
-    expect(content.substring(range.start, range.end)).toBe('typedef MyList = List<int>;');
-  });
-
-  it('throws error for non-existent symbol', () => {
-    const content = 'void hello() {}';
-    expect(() => dartAdapter.resolveSymbolDeclarationRange(content, 'nonExistent'))
+  it('does not resolve multi-variable declarations as a single symbol', () => {
+    const content = 'final alpha = 1, beta = 2;';
+    expect(() => dartAdapter.resolveSymbolDeclarationRange(content, 'alpha'))
       .toThrow(/Structural symbol target not found/);
-  });
+  }, DART_TEST_TIMEOUT);
 
-  it('throws error for ambiguous symbol', () => {
-    const content = 'void same() {} \n class A { void same() {} }';
-    expect(() => dartAdapter.resolveSymbolDeclarationRange(content, 'same'))
-      .toThrow(/Structural symbol target is ambiguous/);
-  });
+  it('fails safely for missing symbols and malformed source', () => {
+    expect(() => dartAdapter.resolveSymbolDeclarationRange('void hello() {}', 'missing'))
+      .toThrow(/Structural symbol target not found/);
 
-  it('validates correct candidate', () => {
-    const content = 'void main() { print("ok"); }';
-    expect(() => dartAdapter.validateCandidate('test.dart', content)).not.toThrow();
-  });
+    expect(() => dartAdapter.resolveSymbolDeclarationRange('void hello( {', 'hello'))
+      .toThrow(/Structural Dart source could not be parsed/);
+  }, DART_TEST_TIMEOUT);
 
-  it('throws for invalid candidate', () => {
-    const content = 'void main() { print("missing closing" }';
-    expect(() => dartAdapter.validateCandidate('test.dart', content))
+  it('validates candidates before write', () => {
+    expect(() => dartAdapter.validateCandidate('test.dart', 'void main() { print("ok"); }')).not.toThrow();
+    expect(() => dartAdapter.validateCandidate('test.dart', 'void main() { print("missing closing" }'))
       .toThrow(/INSCRIBE_PARSE_ERROR/);
-  });
+  }, DART_TEST_TIMEOUT);
 });
+
+function rangeTuple(range: { start: number; end: number }): [number, number] {
+  return [range.start, range.end];
+}

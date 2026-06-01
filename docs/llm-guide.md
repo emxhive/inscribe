@@ -583,20 +583,27 @@ Supported targets include:
 * top-level arrow-function helpers
 * top-level React components assigned to variables
 * supported exported declarations
-* supported PHP functions and methods
+* supported PHP functions, classes, interfaces, traits, enums, and methods
+* supported Dart functions, classes, mixins, enums, named extensions, typedefs, methods, constructors, and single-variable declarations
 
 Unsupported targets require another mode.
 
 Unsupported targets include:
 
 * imports
-* interfaces
-* type aliases
+* unsupported interfaces or type aliases for the target language
 * object methods
-* class properties
+* PHP class properties and constants
+* multi-variable PHP or Dart declarations
 * nested declarations
 * JSX subtrees
 * arbitrary blocks inside functions
+
+Language-specific rules:
+
+* PHP namespace-qualified names and `ClassName::method` forms are allowed when short names are ambiguous.
+* Dart constructors must be named as `ClassName.new` or `ClassName.named`.
+* Helper-backed PHP and Dart support requires local helper dependencies documented in the repository README.
 
 Use `replace_symbol` over textual ranges when replacing a complete supported declaration.
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/source/line_info.dart';
 
 void main(List<String> args) {
   if (args.length < 2) {
@@ -21,6 +22,15 @@ void main(List<String> args) {
   }
 
   final result = parseString(content: content, throwIfDiagnostics: false);
+  final errors = result.errors.where((error) => error.severity.name.toLowerCase() == 'error').toList();
+  if (errors.isNotEmpty) {
+    print(jsonEncode({
+      'status': 'PARSE_ERROR',
+      'message': _formatDiagnostics(result.lineInfo, errors),
+    }));
+    exit(0);
+  }
+
   final unit = result.unit;
 
   final visitor = SymbolVisitor(symbolName);
@@ -55,24 +65,39 @@ class SymbolMatch {
   SymbolMatch(this.start, this.end, this.description);
 }
 
+String _formatDiagnostics(LineInfo lineInfo, List<dynamic> errors) {
+  return errors.map((error) {
+    final location = lineInfo.getLocation(error.offset);
+    return 'line ${location.lineNumber}, column ${location.columnNumber}: ${error.message}';
+  }).join('; ');
+}
+
 class SymbolVisitor extends RecursiveAstVisitor<void> {
   final String name;
   final List<SymbolMatch> matches = [];
 
   SymbolVisitor(this.name);
 
-  void _addMatch(Declaration node, String type) {
+  void _addMatch(AstNode node, String type) {
     final root = node.root;
+    final start = _declarationStart(node);
     int line = 0;
     if (root is CompilationUnit) {
-      line = root.lineInfo.getLocation(node.offset).lineNumber;
+      line = root.lineInfo.getLocation(start).lineNumber;
     }
-    matches.add(SymbolMatch(node.offset, node.end, '$type at line $line'));
+    matches.add(SymbolMatch(start, node.end, '$type at line $line'));
+  }
+
+  int _declarationStart(AstNode node) {
+    if (node is AnnotatedNode && node.metadata.isNotEmpty) {
+      return node.metadata.first.offset;
+    }
+    return node.offset;
   }
 
   @override
   void visitFunctionDeclaration(FunctionDeclaration node) {
-    if (node.name.lexeme == name) {
+    if (node.parent is CompilationUnit && node.name.lexeme == name) {
       _addMatch(node, 'FunctionDeclaration');
     }
     super.visitFunctionDeclaration(node);
@@ -120,6 +145,10 @@ class SymbolVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitFieldDeclaration(FieldDeclaration node) {
+    if (node.fields.variables.length != 1) {
+      super.visitFieldDeclaration(node);
+      return;
+    }
     for (var variable in node.fields.variables) {
       if (variable.name.lexeme == name) {
         _addMatch(node, 'FieldDeclaration');
@@ -130,6 +159,10 @@ class SymbolVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitTopLevelVariableDeclaration(TopLevelVariableDeclaration node) {
+    if (node.variables.variables.length != 1) {
+      super.visitTopLevelVariableDeclaration(node);
+      return;
+    }
     for (var variable in node.variables.variables) {
       if (variable.name.lexeme == name) {
         _addMatch(node, 'TopLevelVariableDeclaration');
@@ -140,12 +173,11 @@ class SymbolVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitConstructorDeclaration(ConstructorDeclaration node) {
-    // Both default (ClassName) and named (ClassName.name) constructors
     final constructorName = node.name?.lexeme;
     final className = node.returnType.name;
-    final fullName = constructorName != null ? '$className.$constructorName' : className;
+    final fullName = constructorName != null ? '$className.$constructorName' : '$className.new';
 
-    if (fullName == name || constructorName == name) {
+    if (fullName == name) {
       _addMatch(node, 'ConstructorDeclaration');
     }
     super.visitConstructorDeclaration(node);
@@ -157,5 +189,13 @@ class SymbolVisitor extends RecursiveAstVisitor<void> {
       _addMatch(node, 'GenericTypeAlias');
     }
     super.visitGenericTypeAlias(node);
+  }
+
+  @override
+  void visitFunctionTypeAlias(FunctionTypeAlias node) {
+    if (node.name.lexeme == name) {
+      _addMatch(node, 'FunctionTypeAlias');
+    }
+    super.visitFunctionTypeAlias(node);
   }
 }

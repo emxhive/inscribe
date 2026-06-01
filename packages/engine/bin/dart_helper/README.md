@@ -4,22 +4,19 @@ This directory contains Dart utilities used by the Inscribe engine for structura
 
 ## Utilities
 
-- `bin/resolver.dart`: Finds the character range of a given symbol (class, function, method, etc.) in a Dart file using the `analyzer` package.
-- `bin/validator.dart`: Performs a fast syntax validation of a Dart file.
+- `bin/resolver.dart`: Finds the character range of one supported declaration using the `analyzer` package.
+- `bin/validator.dart`: Performs syntax validation of a Dart candidate file.
 
 ## Setup
 
 These utilities require the Dart SDK to be installed on the system.
 
 Before use, run:
-```bash
+
+```sh
 dart pub get
 ```
 
-The Inscribe engine will attempt to run these using `dart run bin/resolver.dart` by default. For better performance, they can be compiled to native binaries:
+The engine compiles these scripts to cached Dart kernel files under the OS temp directory and then runs the cached kernels. Native helper binaries are not committed or required.
 
-```bash
-mkdir -p bin
-dart compile exe bin/resolver.dart -o bin/resolver
-dart compile exe bin/validator.dart -o bin/validator
-```
+Supported resolver targets are top-level functions, classes, mixins, enums, named extensions, typedefs, methods, constructors addressed as `ClassName.new` or `ClassName.named`, and single-variable top-level or field declarations. Multi-variable declarations are intentionally unsupported because replacing one name would replace sibling declarations too.

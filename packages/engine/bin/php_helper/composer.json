@@ -1,0 +1,10 @@
+{
+  "name": "inscribe/php-helper",
+  "description": "PHP AST helpers for Inscribe structural symbol replacement.",
+  "type": "project",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.1",
+    "nikic/php-parser": "^4.19"
+  }
+}

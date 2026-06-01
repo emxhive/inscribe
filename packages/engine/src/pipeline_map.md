@@ -29,7 +29,8 @@ This document describes the active architecture and flow of the Inscribe engine.
 6. **Candidate Validation** (`packages/engine/src/preflight/candidateValidation.ts`)
    - Validates supported candidate file contents before disk writes.
    - JS/TS-family files are parsed in memory.
-   - PHP files are linted by invoking the local `php -l` binary.
+   - PHP files are parsed through the `nikic/php-parser` helper.
+   - Dart files are parsed through the Dart analyzer helper.
 
 7. **Apply** (`packages/engine/src/apply/`)
    - Persists resolved preflight executions to the filesystem.

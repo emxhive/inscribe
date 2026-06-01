@@ -81,7 +81,11 @@ For `replace_range` and `replace_between`, each matching `START_*` line creates 
 The operation succeeds only when exactly one candidate remains after all range filters.
 ## Symbol Target
 
-`replace_symbol` uses structural adapters. Active support is limited to JS/TS-family files, PHP files, and Dart files. Missing, ambiguous, or unsupported symbols fail safely.
+`replace_symbol` uses structural adapters. Active support is limited to JS/TS-family files, PHP files, and Dart files. Missing, ambiguous, unsupported, or syntactically invalid symbols fail safely before disk writes.
+
+PHP support uses `nikic/php-parser` through `packages/engine/bin/php_helper`. It supports top-level functions, classes, interfaces, traits, enums, and class/interface/trait/enum methods. Short names must resolve to exactly one declaration; namespace-qualified names and `ClassName::method` forms can select otherwise repeated names.
+
+Dart support uses the Dart analyzer through `packages/engine/bin/dart_helper`. It supports top-level functions, classes, mixins, enums, named extensions, typedefs, methods, constructors named as `ClassName.new` or `ClassName.named`, and single-variable top-level or field declarations.
 
 ## Path Policy
 

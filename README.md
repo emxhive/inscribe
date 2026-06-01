@@ -64,3 +64,19 @@ For the full LLM authoring contract, use [docs/llm-guide.md](docs/llm-guide.md).
 - Non-create operations must be inside configured scope.
 - Supported JS/TS, PHP, and Dart candidates are syntax-validated before write.
 - If disk writes succeed but history persistence fails, writes are rolled back.
+
+## Structural Symbol Support
+
+`replace_symbol` uses structural adapters and fails before writing when a symbol is missing, ambiguous, unsupported, or the candidate file is syntactically invalid.
+
+Supported targets:
+
+- JS/TS: top-level functions, classes, variable-assigned function declarations, supported exported declarations, and supported React wrappers.
+- PHP: top-level functions, classes, interfaces, traits, enums, and class/interface/trait/enum methods.
+- Dart: top-level functions, classes, mixins, enums, named extensions, typedefs, methods, constructors addressed as `ClassName.new` or `ClassName.named`, and single-variable top-level or field declarations.
+
+Runtime helper setup:
+
+- Dart support requires the Dart SDK. Run `dart pub get` in `packages/engine/bin/dart_helper`.
+- PHP support requires PHP 8.1+ and Composer. Run `composer install` in `packages/engine/bin/php_helper`.
+- Helper dependencies are not vendored. Packaged deployments must include the helper source directories and provide these runtime dependencies, or pre-run the setup steps in the deployed environment.

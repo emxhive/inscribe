@@ -81,7 +81,7 @@ For `replace_range` and `replace_between`, each matching `START_*` line creates 
 The operation succeeds only when exactly one candidate remains after all range filters.
 ## Symbol Target
 
-`replace_symbol` uses structural adapters. Active support is limited to JS/TS-family files and PHP files. Missing, ambiguous, or unsupported symbols fail safely.
+`replace_symbol` uses structural adapters. Active support is limited to JS/TS-family files, PHP files, and Dart files. Missing, ambiguous, or unsupported symbols fail safely.
 
 ## Path Policy
 

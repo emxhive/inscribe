@@ -62,5 +62,5 @@ For the full LLM authoring contract, use [docs/llm-guide.md](docs/llm-guide.md).
 - Absolute paths and `../` traversal are rejected.
 - Ignored paths are blocked.
 - Non-create operations must be inside configured scope.
-- Supported JS/TS and PHP candidates are syntax-validated before write.
+- Supported JS/TS, PHP, and Dart candidates are syntax-validated before write.
 - If disk writes succeed but history persistence fails, writes are rolled back.

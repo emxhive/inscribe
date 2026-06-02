@@ -92,7 +92,7 @@ function formatRunForClipboard(run: TerminalRun): string {
 
 export function TerminalPanel({ repoRoot, suggestions, commandHistory, onCommandRun, onClose }: TerminalPanelProps) {
   const terminalElementRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -372,7 +372,7 @@ export function TerminalPanel({ repoRoot, suggestions, commandHistory, onCommand
     }
   };
 
-  const handleCommandKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleCommandKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.shiftKey && event.key === 'ArrowUp') {
       event.preventDefault();
       recallHistory(-1);
@@ -403,7 +403,7 @@ export function TerminalPanel({ repoRoot, suggestions, commandHistory, onCommand
       return;
     }
 
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       void runCommand();
     }
@@ -537,7 +537,7 @@ export function TerminalPanel({ repoRoot, suggestions, commandHistory, onCommand
                     {ghostSuggestion}
                   </div>
                 )}
-                <input
+                <textarea
                   ref={inputRef}
                   value={commandInput}
                   disabled={!hasRepo || !sessionId || isRunning || Boolean(terminalError)}
@@ -546,8 +546,9 @@ export function TerminalPanel({ repoRoot, suggestions, commandHistory, onCommand
                     setHistoryIndex(null);
                   }}
                   onKeyDown={handleCommandKeyDown}
-                  className="relative z-10 h-8 w-full bg-transparent font-mono text-xs text-slate-100 caret-sky-300 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:text-slate-500"
+                  className="relative z-10 h-8 max-h-24 w-full resize-none bg-transparent py-2 font-mono text-xs leading-4 text-slate-100 caret-sky-300 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:text-slate-500"
                   placeholder={terminalError ? 'Terminal unavailable' : isRunning ? 'Type replies in the terminal' : hasRepo ? '' : 'Select a repository first'}
+                  rows={1}
                   spellCheck={false}
                 />
               </div>

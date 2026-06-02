@@ -13,7 +13,7 @@ import type {
 } from '../types';
 import { requireTrustedRepoRoot } from './trustedRepo';
 
-type TerminalShellKind = 'powershell' | 'cmd' | 'posix';
+export type TerminalShellKind = 'powershell' | 'cmd' | 'posix';
 
 interface TerminalProcess {
   write: (data: string) => void;
@@ -76,7 +76,8 @@ function windowsBashCandidates(): ShellConfig[] {
     .filter((file, index) => index === candidates.length - 1 || fs.existsSync(file))
     .map((file) => ({
       file,
-      args: ['--noprofile', '--norc', '-i'],
+      // Load Git Bash profile files so user-managed toolchains are available.
+      args: ['--login', '-i'],
       kind: 'posix' as const,
       preference: 'bash' as const,
     }));
@@ -224,7 +225,7 @@ function stripAnsi(text: string): string {
   return text.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '');
 }
 
-function isInternalPlainLine(plainLine: string): boolean {
+export function isInternalPlainLine(plainLine: string): boolean {
   return (
     plainLine.includes(EXIT_PREFIX) ||
     plainLine.includes(CWD_PREFIX) ||
@@ -234,7 +235,7 @@ function isInternalPlainLine(plainLine: string): boolean {
   );
 }
 
-function isPotentialInternalLine(rawText: string): boolean {
+export function isPotentialInternalLine(rawText: string): boolean {
   const plainText = stripAnsi(rawText).trimStart();
   if (!plainText) return true;
   const internalPrefixes = [
@@ -247,6 +248,10 @@ function isPotentialInternalLine(rawText: string): boolean {
   return (
     internalPrefixes.some((prefix) => plainText.startsWith(prefix) || prefix.startsWith(plainText))
   );
+}
+
+export function shouldFlushPartialLine(activeRunId: string | null, lineBuffer: string): boolean {
+  return Boolean(lineBuffer && !activeRunId && !isPotentialInternalLine(lineBuffer));
 }
 
 function sendRunExit(
@@ -306,7 +311,7 @@ function handleProcessData(session: TerminalSession, data: string) {
     newlineIndex = session.lineBuffer.indexOf('\n');
   }
 
-  if (session.lineBuffer && !isPotentialInternalLine(session.lineBuffer)) {
+  if (shouldFlushPartialLine(session.activeRunId, session.lineBuffer)) {
     sendToOwner(session, 'terminal:data', {
       sessionId: session.id,
       runId: session.activeRunId,
@@ -316,16 +321,20 @@ function handleProcessData(session: TerminalSession, data: string) {
   }
 }
 
-function buildSentinelCommand(session: TerminalSession, runId: string): string {
-  switch (session.shellKind) {
+export function buildSentinelCommandForShell(shellKind: TerminalShellKind, runId: string): string {
+  switch (shellKind) {
     case 'powershell':
-      return `$__inscribeExit = if ($global:LASTEXITCODE -is [int]) { $global:LASTEXITCODE } elseif ($?) { 0 } else { 1 }; Write-Output "${CWD_PREFIX}${runId}:$(Get-Location)"; Write-Output "${EXIT_PREFIX}${runId}:$__inscribeExit"`;
+      return `$__inscribeExit = if ($global:LASTEXITCODE -is [int]) { $global:LASTEXITCODE } elseif ($?) { 0 } else { 1 }; Write-Output ""; Write-Output "${CWD_PREFIX}${runId}:$(Get-Location)"; Write-Output "${EXIT_PREFIX}${runId}:$__inscribeExit"`;
     case 'cmd':
-      return `set INSCRIBE_EXIT=%ERRORLEVEL% && echo ${CWD_PREFIX}${runId}:%CD% && echo ${EXIT_PREFIX}${runId}:%INSCRIBE_EXIT%`;
+      return `echo( && echo ${CWD_PREFIX}${runId}:%CD% && echo ${EXIT_PREFIX}${runId}:%ERRORLEVEL%`;
     case 'posix':
     default:
       return `__inscribe_exit=$?; printf '\\n${CWD_PREFIX}${runId}:%s\\n' "$PWD"; printf '${EXIT_PREFIX}${runId}:%s\\n' "$__inscribe_exit"`;
   }
+}
+
+function buildSentinelCommand(session: TerminalSession, runId: string): string {
+  return buildSentinelCommandForShell(session.shellKind, runId);
 }
 
 function writeLine(session: TerminalSession, line: string) {

@@ -81,7 +81,7 @@ For `replace_range` and `replace_between`, each matching `START_*` line creates 
 The operation succeeds only when exactly one candidate remains after all range filters.
 ## Symbol Target
 
-`replace_symbol` uses structural adapters. Active support is limited to JS/TS-family files and PHP files. Missing, ambiguous, or unsupported symbols fail safely.
+`replace_symbol` uses structural adapters. Active support is limited to JS/TS-family files and PHP files. A bare `NAME` must resolve to exactly one supported declaration. Scoped method selectors use `ClassName::method` across supported languages; JS/TS also accepts `ClassName.method`. PHP symbols include class-like declarations (`class`, `interface`, `trait`, `enum`), functions, and methods. JS/TS symbols include functions, classes, interfaces, enums, class methods, variable function/component declarations, exported declarations, and supported wrapper declarations. Missing, ambiguous, or unsupported symbols fail safely.
 
 ## Path Policy
 

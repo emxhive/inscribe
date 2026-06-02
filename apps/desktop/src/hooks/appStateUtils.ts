@@ -31,6 +31,7 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
     next.isTerminalOpen = false;
     next.terminalCommandSuggestions = [];
     next.terminalSuggestionSourceApplyId = null;
+    next.terminalCommandHistory = [];
   }
 
   return next;

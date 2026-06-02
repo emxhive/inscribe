@@ -22,6 +22,8 @@ interface TerminalRun {
 interface TerminalPanelProps {
   repoRoot: string | null;
   suggestions: CliCommandSuggestion[];
+  commandHistory: string[];
+  onCommandRun: (command: string) => void;
   onClose: () => void;
 }
 
@@ -88,7 +90,7 @@ function formatRunForClipboard(run: TerminalRun): string {
   return [`$ ${run.command}`, output].filter(Boolean).join('\n\n') + exitLine;
 }
 
-export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelProps) {
+export function TerminalPanel({ repoRoot, suggestions, commandHistory, onCommandRun, onClose }: TerminalPanelProps) {
   const terminalElementRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -101,6 +103,7 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
   const [cwd, setCwd] = useState(repoRoot ?? '');
   const [commandInput, setCommandInput] = useState('');
   const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const [historyIndex, setHistoryIndex] = useState<number | null>(null);
   const [runs, setRuns] = useState<TerminalRun[]>([]);
   const [copiedRunId, setCopiedRunId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -301,6 +304,20 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
   const acceptSuggestion = () => {
     if (!activeSuggestion) return;
     setCommandInput(activeSuggestion.command);
+    setHistoryIndex(null);
+  };
+
+  const recallHistory = (direction: -1 | 1) => {
+    if (commandHistory.length === 0) return;
+    setHistoryIndex((currentIndex) => {
+      const latestIndex = commandHistory.length - 1;
+      const nextIndex =
+        currentIndex === null
+          ? latestIndex
+          : Math.min(latestIndex, Math.max(0, currentIndex + direction));
+      setCommandInput(commandHistory[nextIndex] ?? '');
+      return nextIndex;
+    });
   };
 
   const runCommand = async () => {
@@ -329,12 +346,16 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
     setStopRequested(false);
     stopRequestedRef.current = false;
     setCommandInput('');
+    setHistoryIndex(null);
     terminalRef.current?.focus();
     let accepted = false;
     try {
       accepted = await window.inscribeAPI.terminalRunCommand(sessionId, runId, command);
     } catch (error) {
       setTerminalError(error instanceof Error ? error.message : String(error));
+    }
+    if (accepted) {
+      onCommandRun(command);
     }
     if (!accepted) {
       setIsRunning(false);
@@ -352,6 +373,18 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
   };
 
   const handleCommandKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.shiftKey && event.key === 'ArrowUp') {
+      event.preventDefault();
+      recallHistory(-1);
+      return;
+    }
+
+    if (event.shiftKey && event.key === 'ArrowDown') {
+      event.preventDefault();
+      recallHistory(1);
+      return;
+    }
+
     if ((event.key === 'ArrowRight' || event.key === 'Tab') && ghostSuggestion) {
       event.preventDefault();
       acceptSuggestion();
@@ -508,7 +541,10 @@ export function TerminalPanel({ repoRoot, suggestions, onClose }: TerminalPanelP
                   ref={inputRef}
                   value={commandInput}
                   disabled={!hasRepo || !sessionId || isRunning || Boolean(terminalError)}
-                  onChange={(event) => setCommandInput(event.target.value)}
+                  onChange={(event) => {
+                    setCommandInput(event.target.value);
+                    setHistoryIndex(null);
+                  }}
                   onKeyDown={handleCommandKeyDown}
                   className="relative z-10 h-8 w-full bg-transparent font-mono text-xs text-slate-100 caret-sky-300 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:text-slate-500"
                   placeholder={terminalError ? 'Terminal unavailable' : isRunning ? 'Type replies in the terminal' : hasRepo ? '' : 'Select a repository first'}

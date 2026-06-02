@@ -44,7 +44,7 @@ Active directives are `START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONT
 - `replace_range` requires one `START_*` and one `END_*` selector; `END_OCCURRENCE`, `RANGE_CONTAINS`, and `RANGE_LINE_CONTAINS_ALL` are optional.
 - `replace_between` requires one `START_*` and one `END_*` selector; `END_OCCURRENCE`, `RANGE_CONTAINS`, and `RANGE_LINE_CONTAINS_ALL` are optional.
 - `replace_block` requires one `START_*` selector.
-- `replace_symbol` requires `NAME`.
+- `replace_symbol` requires `NAME`; JS/TS and PHP support bare unique symbols plus scoped method selectors such as `ClassName::method`.
 
 For the full LLM authoring contract, use [docs/llm-guide.md](docs/llm-guide.md).
 
@@ -62,5 +62,5 @@ For the full LLM authoring contract, use [docs/llm-guide.md](docs/llm-guide.md).
 - Absolute paths and `../` traversal are rejected.
 - Ignored paths are blocked.
 - Non-create operations must be inside configured scope.
-- Supported JS/TS and PHP candidates are syntax-validated before write.
+- Supported JS/TS and PHP candidates are syntax-validated before write; PHP validation lints the in-memory candidate with `php -l`.
 - If disk writes succeed but history persistence fails, writes are rolled back.

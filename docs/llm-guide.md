@@ -580,9 +580,13 @@ Supported targets include:
 
 * top-level functions
 * top-level classes
+* TypeScript interfaces and enums
+* class methods selected as `ClassName::method`
+* JS/TS class methods selected as `ClassName.method`
 * top-level arrow-function helpers
 * top-level React components assigned to variables
 * supported exported declarations
+* supported PHP class-like declarations: `class`, `interface`, `trait`, and `enum`
 * supported PHP functions and methods
 
 Unsupported targets require another mode.
@@ -590,9 +594,8 @@ Unsupported targets require another mode.
 Unsupported targets include:
 
 * imports
-* interfaces
 * type aliases
-* object methods
+* object literal methods
 * class properties
 * nested declarations
 * JSX subtrees

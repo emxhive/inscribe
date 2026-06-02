@@ -24,12 +24,14 @@ This document describes the active architecture and flow of the Inscribe engine.
 5. **Target Resolution** (`packages/engine/src/target/`)
    - Used by operation execution for partial replacement modes.
    - Identifies the specific span of a file targeted by line, range, between, block, or symbol operations.
+   - JS/TS symbols are resolved with Babel-backed structural parsing for declarations, class methods, and `ClassName::method` / `ClassName.method` selectors.
+   - PHP symbols are resolved with AST-backed structural parsing for class-like declarations, functions, methods, and `ClassName::method` selectors.
    - Returns only `{ replaceStart, replaceEnd }`.
 
 6. **Candidate Validation** (`packages/engine/src/preflight/candidateValidation.ts`)
    - Validates supported candidate file contents before disk writes.
    - JS/TS-family files are parsed in memory.
-   - PHP files are linted by invoking the local `php -l` binary.
+   - PHP files are linted by invoking local `php -l` with the in-memory candidate on stdin.
 
 7. **Apply** (`packages/engine/src/apply/`)
    - Persists resolved preflight executions to the filesystem.

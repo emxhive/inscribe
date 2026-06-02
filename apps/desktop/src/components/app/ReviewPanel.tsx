@@ -41,9 +41,9 @@ class DeletedRegionWidget extends WidgetType {
 }
 
 const reviewViewOptions: Array<{ id: ReviewView; label: string }> = [
-  { id: 'result', label: 'Result' },
-  { id: 'unified', label: 'Unified Diff' },
-  { id: 'edit', label: 'Edit' },
+  { id: 'result', label: 'result' },
+  { id: 'unified', label: 'diff' },
+  { id: 'edit', label: 'edit' },
 ];
 
 const buildOperationFromReviewItem = (item: ReviewItem): Operation => ({

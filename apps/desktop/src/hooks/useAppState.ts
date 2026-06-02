@@ -44,6 +44,7 @@ export const initialState: AppState = {
   isTerminalOpen: false,
   terminalCommandSuggestions: [],
   terminalSuggestionSourceApplyId: null,
+  terminalCommandHistory: [],
 
   lastAppliedPlan: null,
   canRedo: false,

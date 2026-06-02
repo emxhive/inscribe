@@ -128,6 +128,16 @@ export function WorkspaceShell({
         <TerminalPanel
           repoRoot={state.repoRoot}
           suggestions={state.terminalCommandSuggestions}
+          commandHistory={state.terminalCommandHistory}
+          onCommandRun={(command) => {
+            updateState((prev) => {
+              const nextHistory = [
+                ...prev.terminalCommandHistory.filter((entry) => entry !== command),
+                command,
+              ].slice(-50);
+              return { terminalCommandHistory: nextHistory };
+            });
+          }}
           onClose={() => updateState({ isTerminalOpen: false })}
         />
       )}

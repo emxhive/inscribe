@@ -68,7 +68,7 @@ function parseFenceOpening(line: string): FenceOpening | null {
 
 function isFenceClosing(line: string, opening: FenceOpening): boolean {
   const trimmed = line.trim();
-  const pattern = opening.char === '`' ? /^(`{3,})(\s*)$/ : /^(~{3,})(\s*)$/;
+  const pattern = opening.char === '`' ? /^(`{3,}).*$/ : /^(~{3,}).*$/;
   const match = trimmed.match(pattern);
   return Boolean(match && match[1].length >= opening.length);
 }

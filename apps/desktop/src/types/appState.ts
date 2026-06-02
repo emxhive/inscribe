@@ -119,6 +119,7 @@ export interface AppState {
   isTerminalOpen: boolean;
   terminalCommandSuggestions: CliCommandSuggestion[];
   terminalSuggestionSourceApplyId: string | null;
+  terminalCommandHistory: string[];
 
   // Apply/Redo state
   lastAppliedPlan: ApplyPlan | null;

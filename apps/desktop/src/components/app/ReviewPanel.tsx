@@ -58,13 +58,18 @@ export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
   const reviewActions = useReviewActions();
   const { selectedItem, editorValue } = reviewActions;
-  const [comparisonData, setComparisonData] = useState<OperationComparison | null>(null);
   const [previewEditorView, setPreviewEditorView] = useState<EditorView | null>(null);
   const selectedIsApplied = selectedItem?.status === 'applied';
   const canEditSelection = Boolean(selectedItem) && !selectedIsApplied;
   const activeReviewView = canEditSelection ? state.reviewView : state.reviewView === 'edit' ? 'unified' : state.reviewView;
   const isEditing = activeReviewView === 'edit';
   const selectedItemId = selectedItem?.id ?? null;
+  const selectedFingerprint = selectedItem ? buildReviewItemPreflightFingerprint(selectedItem) : null;
+  const selectedComparisonSnapshot = selectedItemId ? state.reviewComparisonByItem[selectedItemId] : null;
+  const comparisonData =
+    selectedComparisonSnapshot && selectedComparisonSnapshot.fingerprint === selectedFingerprint
+      ? selectedComparisonSnapshot.comparison
+      : null;
   const collapsedHunkIds = selectedItemId ? state.collapsedHunkIdsByItem[selectedItemId] ?? [] : [];
   const collapsedDiffGroupIds = selectedItemId ? state.collapsedDiffGroupIdsByItem[selectedItemId] ?? [] : [];
 
@@ -99,6 +104,26 @@ export function ReviewPanel() {
         ...(prev.selectedItemId === item.id
           ? { reviewComparisonError: selectedComparisonError }
           : {}),
+      };
+    });
+  };
+
+  const setItemComparisonSnapshot = (
+    item: ReviewItem,
+    comparison: OperationComparison,
+  ) => {
+    const fingerprint = buildReviewItemPreflightFingerprint(item);
+    updateState((prev) => {
+      const currentItem = prev.reviewItems.find((candidate) => candidate.id === item.id);
+      if (!currentItem || buildReviewItemPreflightFingerprint(currentItem) !== fingerprint) {
+        return {};
+      }
+
+      return {
+        reviewComparisonByItem: {
+          ...prev.reviewComparisonByItem,
+          [item.id]: { fingerprint, comparison },
+        },
       };
     });
   };
@@ -140,6 +165,9 @@ export function ReviewPanel() {
       const fingerprint = buildReviewItemPreflightFingerprint(item);
       window.inscribeAPI.compareOperation(buildOperationFromReviewItem(item), repoRoot)
         .then((result) => {
+          if (!('error' in result)) {
+            setItemComparisonSnapshot(item, result);
+          }
           setItemPreflightResult(
             item,
             'error' in result
@@ -210,16 +238,28 @@ export function ReviewPanel() {
     const loadComparison = async () => {
       updateState({ selectedHunkId: null });
 
-      if (!state.repoRoot || !selectedItem || selectedIsApplied || isEditing) {
-        setComparisonData(null);
+      if (!state.repoRoot || !selectedItem || isEditing) {
         updateState({ reviewComparisonError: null });
+        return;
+      }
+
+      if (selectedIsApplied) {
+        updateState({
+          reviewComparisonError: comparisonData
+            ? null
+            : 'Applied comparison snapshot is unavailable for this change.',
+        });
         return;
       }
 
       const preflight = getCurrentReviewPreflight(selectedItem, state.reviewPreflightByItem);
       if (preflight?.status === 'failed') {
-        setComparisonData(null);
         updateState({ reviewComparisonError: preflight.error ?? 'Review comparison/preflight failed.' });
+        return;
+      }
+
+      if (comparisonData) {
+        updateState({ reviewComparisonError: null });
         return;
       }
 
@@ -230,18 +270,16 @@ export function ReviewPanel() {
         const result = await window.inscribeAPI.compareOperation(operation, state.repoRoot);
         if (cancelled) return;
         if ('error' in result) {
-          setComparisonData(null);
           setItemPreflightResult(selectedItem, { status: 'failed', fingerprint, error: result.error });
           updateState({ reviewComparisonError: result.error });
           return;
         }
-        setComparisonData(result);
+        setItemComparisonSnapshot(selectedItem, result);
         setItemPreflightResult(selectedItem, { status: 'passed', fingerprint });
         updateState({ reviewComparisonError: null });
       } catch (error) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : 'Failed to load comparison';
-        setComparisonData(null);
         setItemPreflightResult(selectedItem, { status: 'failed', fingerprint, error: message });
         updateState({ reviewComparisonError: message });
       }
@@ -252,7 +290,7 @@ export function ReviewPanel() {
     return () => {
       cancelled = true;
     };
-  }, [editorValue, isEditing, selectedIsApplied, selectedItem, state.repoRoot, state.reviewPreflightByItem]);
+  }, [comparisonData, editorValue, isEditing, selectedIsApplied, selectedItem, state.repoRoot, state.reviewPreflightByItem, updateState]);
 
   const resultModel = useMemo(
     () => (comparisonData ? buildResultReviewModel(comparisonData) : null),
@@ -611,10 +649,14 @@ function UnifiedDiffView({
         {model.hunks.map((hunk) => {
           const isCollapsed = collapsedHunkIds.includes(hunk.id);
           const isSelected = selectedHunkId === hunk.id;
+          const beforeContextGroupId = `${hunk.id}:context-before`;
           const removedGroupId = `${hunk.id}:removed`;
           const addedGroupId = `${hunk.id}:added`;
+          const afterContextGroupId = `${hunk.id}:context-after`;
+          const isBeforeContextCollapsed = collapsedDiffGroupIds.includes(beforeContextGroupId);
           const isRemovedCollapsed = collapsedDiffGroupIds.includes(removedGroupId);
           const isAddedCollapsed = collapsedDiffGroupIds.includes(addedGroupId);
+          const isAfterContextCollapsed = collapsedDiffGroupIds.includes(afterContextGroupId);
           return (
             <div key={hunk.id}>
               <button
@@ -637,6 +679,15 @@ function UnifiedDiffView({
               </button>
               {!isCollapsed && (
                 <>
+                  <ContextLineGroup
+                    groupId={beforeContextGroupId}
+                    label="context before"
+                    rows={hunk.beforeContextRows}
+                    isCollapsed={isBeforeContextCollapsed}
+                    selectedHunkId={selectedHunkId}
+                    onSelectHunk={onSelectHunk}
+                    onToggleGroup={onToggleGroup}
+                  />
                   <DiffLineGroup
                     groupId={removedGroupId}
                     label="removed"
@@ -657,12 +708,70 @@ function UnifiedDiffView({
                     onSelectHunk={onSelectHunk}
                     onToggleGroup={onToggleGroup}
                   />
+                  <ContextLineGroup
+                    groupId={afterContextGroupId}
+                    label="context after"
+                    rows={hunk.afterContextRows}
+                    isCollapsed={isAfterContextCollapsed}
+                    selectedHunkId={selectedHunkId}
+                    onSelectHunk={onSelectHunk}
+                    onToggleGroup={onToggleGroup}
+                  />
                 </>
               )}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function ContextLineGroup({
+  groupId,
+  label,
+  rows,
+  isCollapsed,
+  selectedHunkId,
+  onSelectHunk,
+  onToggleGroup,
+}: {
+  groupId: string;
+  label: 'context before' | 'context after';
+  rows: ReturnType<typeof buildUnifiedDiffModel>['hunks'][number]['rows'];
+  isCollapsed: boolean;
+  selectedHunkId: string | null;
+  onSelectHunk: (hunkId: string) => void;
+  onToggleGroup: (groupId: string) => void;
+}) {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => onToggleGroup(groupId)}
+        className="grid w-full grid-cols-[2rem_4rem_4rem_2rem_minmax(0,1fr)] items-center bg-slate-900/80 text-left leading-6 text-slate-300"
+      >
+        <span className="flex items-center justify-center text-slate-500">
+          {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </span>
+        <span />
+        <span />
+        <span className="text-slate-500"> </span>
+        <span className="px-2 text-[11px] text-slate-400">
+          {rows.length} {label}
+        </span>
+      </button>
+      {!isCollapsed && (
+        <DiffRows
+          rows={rows}
+          selectedHunkId={selectedHunkId}
+          onSelectHunk={onSelectHunk}
+        />
+      )}
     </div>
   );
 }
@@ -714,13 +823,36 @@ function DiffLineGroup({
           </span>
         </button>
       )}
-      {(!canFold || !isCollapsed) && rows.map((row) => (
+      {(!canFold || !isCollapsed) && (
+        <DiffRows
+          rows={rows}
+          selectedHunkId={selectedHunkId}
+          onSelectHunk={onSelectHunk}
+        />
+      )}
+    </div>
+  );
+}
+
+function DiffRows({
+  rows,
+  selectedHunkId,
+  onSelectHunk,
+}: {
+  rows: ReturnType<typeof buildUnifiedDiffModel>['hunks'][number]['rows'];
+  selectedHunkId: string | null;
+  onSelectHunk: (hunkId: string) => void;
+}) {
+  return (
+    <>
+      {rows.map((row) => (
         <button
           type="button"
           key={row.id}
           onClick={() => onSelectHunk(row.hunkId)}
           className={cn(
             'grid w-full grid-cols-[4rem_4rem_2rem_minmax(0,1fr)] items-start text-left leading-5',
+            row.kind === 'context' && 'bg-slate-950/55 text-slate-300',
             row.kind === 'remove' && 'bg-red-950/35 text-red-100',
             row.kind === 'add' && 'bg-emerald-950/35 text-emerald-100',
             selectedHunkId === row.hunkId && 'outline outline-1 outline-inset outline-sky-500/50',
@@ -732,6 +864,6 @@ function DiffLineGroup({
           <span className="whitespace-pre px-2">{row.text || ' '}</span>
         </button>
       ))}
-    </div>
+    </>
   );
 }

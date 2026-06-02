@@ -3,6 +3,7 @@ import type {
   IgnoreRules,
   IndexStatus,
   Mode as OperationMode,
+  OperationComparison,
   ParsedBlock,
   ValidationError,
   HistoryEntry,
@@ -48,6 +49,11 @@ export interface ReviewPreflightResult {
   status: ReviewPreflightStatus;
   fingerprint: string;
   error?: string;
+}
+
+export interface ReviewComparisonSnapshot {
+  fingerprint: string;
+  comparison: OperationComparison;
 }
 
 export type RestoreStatus =
@@ -103,6 +109,7 @@ export interface AppState {
   selectedHunkId: string | null;
   reviewComparisonError: string | null;
   reviewPreflightByItem: Record<string, ReviewPreflightResult>;
+  reviewComparisonByItem: Record<string, ReviewComparisonSnapshot>;
   isLeftPanelCollapsed: boolean;
   isRightPanelCollapsed: boolean;
   hiddenRightPanelSections: RightPanelSectionId[];

@@ -26,7 +26,9 @@ export interface ReviewRegionOverlayModel {
   newText: string;
 }
 
-export type UnifiedDiffRowKind = 'hunk' | 'add' | 'remove';
+const DEFAULT_DIFF_CONTEXT_LINES = 3;
+
+export type UnifiedDiffRowKind = 'hunk' | 'context' | 'add' | 'remove';
 
 export interface UnifiedDiffRow {
   id: string;
@@ -34,7 +36,7 @@ export interface UnifiedDiffRow {
   kind: UnifiedDiffRowKind;
   oldLine: number | null;
   newLine: number | null;
-  marker: '@@' | '+' | '-';
+  marker: '@@' | ' ' | '+' | '-';
   text: string;
 }
 
@@ -45,6 +47,8 @@ export interface UnifiedDiffHunkModel {
   header: string;
   oldStartLine: number;
   newStartLine: number;
+  beforeContextRows: UnifiedDiffRow[];
+  afterContextRows: UnifiedDiffRow[];
   removedCount: number;
   addedCount: number;
   removedRows: UnifiedDiffRow[];
@@ -87,12 +91,25 @@ export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedD
   const hunks = comparison.diffHunks ?? [];
   const rows: UnifiedDiffRow[] = [];
   const hunkModels: UnifiedDiffHunkModel[] = [];
+  const oldSourceLines = splitSourceLines(comparison.oldContent);
+  const newSourceLines = splitSourceLines(comparison.newContent);
 
   hunks.forEach((hunk, hunkIndex) => {
     const hunkRows: UnifiedDiffRow[] = [];
     const oldLines = splitDiffLines(hunk.oldText);
     const newLines = splitDiffLines(hunk.newText);
-    const header = buildHunkHeader(hunk, hunkIndex, oldLines.length, newLines.length);
+    const oldStartLine = lineAtOffset(comparison.oldContent, hunk.oldRange.start);
+    const newStartLine = lineAtOffset(comparison.newContent, hunk.newRange.start);
+    const header = buildHunkHeader(hunk, hunkIndex, oldStartLine, newStartLine, oldLines.length, newLines.length);
+    const beforeContextRows = buildContextRows({
+      hunkId: hunk.id,
+      idPrefix: 'before-context',
+      oldSourceLines,
+      newSourceLines,
+      oldStartLine: Math.max(1, oldStartLine - DEFAULT_DIFF_CONTEXT_LINES),
+      newStartLine: Math.max(1, newStartLine - DEFAULT_DIFF_CONTEXT_LINES),
+      count: Math.min(DEFAULT_DIFF_CONTEXT_LINES, oldStartLine - 1, newStartLine - 1),
+    });
 
     const headerRow: UnifiedDiffRow = {
       id: `${hunk.id}-header`,
@@ -109,7 +126,7 @@ export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedD
         id: `${hunk.id}-old-${index}`,
         hunkId: hunk.id,
         kind: 'remove',
-        oldLine: hunk.oldStartLine + index,
+        oldLine: oldStartLine + index,
         newLine: null,
         marker: '-',
         text: line,
@@ -120,20 +137,38 @@ export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedD
         hunkId: hunk.id,
         kind: 'add',
         oldLine: null,
-        newLine: hunk.newStartLine + index,
+        newLine: newStartLine + index,
         marker: '+',
         text: line,
     }));
 
-    hunkRows.push(...removedRows, ...addedRows);
+    const oldAfterStartLine = oldStartLine + oldLines.length;
+    const newAfterStartLine = newStartLine + newLines.length;
+    const afterContextRows = buildContextRows({
+      hunkId: hunk.id,
+      idPrefix: 'after-context',
+      oldSourceLines,
+      newSourceLines,
+      oldStartLine: oldAfterStartLine,
+      newStartLine: newAfterStartLine,
+      count: Math.min(
+        DEFAULT_DIFF_CONTEXT_LINES,
+        oldSourceLines.length - oldAfterStartLine + 1,
+        newSourceLines.length - newAfterStartLine + 1,
+      ),
+    });
+
+    hunkRows.push(...beforeContextRows, ...removedRows, ...addedRows, ...afterContextRows);
     rows.push(...hunkRows);
     hunkModels.push({
       id: hunk.id,
       index: hunkIndex,
       kind: hunk.kind,
       header,
-      oldStartLine: hunk.oldStartLine,
-      newStartLine: hunk.newStartLine,
+      oldStartLine,
+      newStartLine,
+      beforeContextRows,
+      afterContextRows,
       removedCount: oldLines.length,
       addedCount: newLines.length,
       removedRows,
@@ -182,8 +217,20 @@ function getRegionTitle(kind: OperationComparisonRegion['kind']): string {
   }
 }
 
-function buildHunkHeader(hunk: OperationDiffHunk, index: number, oldCount: number, newCount: number): string {
-  return `Hunk ${index + 1} -${hunk.oldStartLine},${oldCount} +${hunk.newStartLine},${newCount}`;
+function buildHunkHeader(
+  _hunk: OperationDiffHunk,
+  index: number,
+  oldStartLine: number,
+  newStartLine: number,
+  oldCount: number,
+  newCount: number,
+): string {
+  return `Hunk ${index + 1} -${oldStartLine},${oldCount} +${newStartLine},${newCount}`;
+}
+
+function lineAtOffset(content: string, offset: number): number {
+  if (offset <= 0) return 1;
+  return content.slice(0, Math.min(offset, content.length)).split('\n').length;
 }
 
 function splitDiffLines(text: string): string[] {
@@ -197,4 +244,64 @@ function splitDiffLines(text: string): string[] {
   }
 
   return normalized.split('\n');
+}
+
+interface SourceLine {
+  lineNumber: number;
+  text: string;
+}
+
+function splitSourceLines(text: string): SourceLine[] {
+  if (!text) {
+    return [];
+  }
+
+  const normalized = text.endsWith('\n') ? text.slice(0, -1) : text;
+  if (!normalized) {
+    return [{ lineNumber: 1, text: '' }];
+  }
+
+  return normalized.split('\n').map((line, index) => ({
+    lineNumber: index + 1,
+    text: line,
+  }));
+}
+
+function buildContextRows({
+  hunkId,
+  idPrefix,
+  oldSourceLines,
+  newSourceLines,
+  oldStartLine,
+  newStartLine,
+  count,
+}: {
+  hunkId: string;
+  idPrefix: string;
+  oldSourceLines: SourceLine[];
+  newSourceLines: SourceLine[];
+  oldStartLine: number;
+  newStartLine: number;
+  count: number;
+}): UnifiedDiffRow[] {
+  if (count <= 0) {
+    return [];
+  }
+
+  return Array.from({ length: count }, (_, index): UnifiedDiffRow => {
+    const oldLineNumber = oldStartLine + index;
+    const newLineNumber = newStartLine + index;
+    const oldLine = oldSourceLines[oldLineNumber - 1] ?? null;
+    const newLine = newSourceLines[newLineNumber - 1] ?? null;
+
+    return {
+      id: `${hunkId}-${idPrefix}-${index}`,
+      hunkId,
+      kind: 'context',
+      oldLine: oldLine?.lineNumber ?? oldLineNumber,
+      newLine: newLine?.lineNumber ?? newLineNumber,
+      marker: ' ',
+      text: newLine?.text ?? oldLine?.text ?? '',
+    };
+  });
 }

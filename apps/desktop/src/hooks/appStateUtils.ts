@@ -10,11 +10,13 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
     next.reviewView = 'unified';
     next.reviewComparisonError = null;
     next.reviewPreflightByItem = {};
+    next.reviewComparisonByItem = {};
   }
 
   if ('reviewItems' in updates && updates.reviewItems !== prev.reviewItems && !('reviewPreflightByItem' in updates)) {
     next.reviewComparisonError = null;
     next.reviewPreflightByItem = {};
+    next.reviewComparisonByItem = {};
   }
 
   if ('repoRoot' in updates && updates.repoRoot !== prev.repoRoot) {
@@ -23,6 +25,7 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
     next.selectedHunkId = null;
     next.reviewComparisonError = null;
     next.reviewPreflightByItem = {};
+    next.reviewComparisonByItem = {};
     next.collapsedHunkIdsByItem = {};
     next.collapsedDiffGroupIdsByItem = {};
     next.isTerminalOpen = false;

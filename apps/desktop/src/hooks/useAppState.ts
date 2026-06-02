@@ -34,6 +34,7 @@ export const initialState: AppState = {
   selectedHunkId: null,
   reviewComparisonError: null,
   reviewPreflightByItem: {},
+  reviewComparisonByItem: {},
   isLeftPanelCollapsed: false,
   isRightPanelCollapsed: false,
   hiddenRightPanelSections: [],
@@ -66,10 +67,12 @@ export function useAppState() {
   const updateReviewItemContent = useCallback((id: string, editedContent: string) => {
     setState((prev) => {
       const { [id]: _cleared, ...reviewPreflightByItem } = prev.reviewPreflightByItem;
+      const { [id]: _clearedComparison, ...reviewComparisonByItem } = prev.reviewComparisonByItem;
       return {
         ...prev,
         reviewComparisonError: prev.selectedItemId === id ? null : prev.reviewComparisonError,
         reviewPreflightByItem,
+        reviewComparisonByItem,
         reviewItems: prev.reviewItems.map((item) => {
           if (item.id !== id) {
             return item;

@@ -36,7 +36,7 @@ export function useApplyActions() {
             return {
                 reviewItems: nextReviewItems,
                 reviewPreflightByItem,
-                ...(selectedWasApplied ? {isEditing: false, reviewComparisonError: null, selectedHunkId: null} : {}),
+                ...(selectedWasApplied ? {isEditing: false, reviewComparisonError: null} : {}),
             };
         });
     };

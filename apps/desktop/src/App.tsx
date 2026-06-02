@@ -3,6 +3,7 @@ import { AppStateProvider, useAppStateContext, useRepositoryActions } from './ho
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
 import { WorkspaceShell } from './components/app/WorkspaceShell';
+import { getWindowTitle } from './utils';
 
 export default function App() {
   return (
@@ -19,6 +20,10 @@ function AppShell() {
   const [indexedListModalOpen, setIndexedListModalOpen] = useState(false);
 
   const hasRepository = Boolean(state.repoRoot);
+
+  useEffect(() => {
+    document.title = getWindowTitle(state.repoRoot);
+  }, [state.repoRoot]);
 
   useEffect(() => {
     void repositoryActions.restoreLastRepo();

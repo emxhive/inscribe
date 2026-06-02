@@ -142,7 +142,6 @@ function WorkspaceTopBar({
 }: WorkspaceShellProps) {
   const { state, updateState } = useAppStateContext();
   const repositoryActions = useRepositoryActions();
-  const repoName = getPathBasename(state.repoRoot || '');
   const hasRepository = Boolean(state.repoRoot);
   const [recentProjects, setRecentProjects] = useState<string[]>([]);
   const [showRecent, setShowRecent] = useState(false);
@@ -194,9 +193,6 @@ function WorkspaceTopBar({
         <PanelLeft className="h-3.5 w-3.5" />
       </ChromeButton>
       <div className="flex min-w-0 items-center gap-2">
-        <span className="w-32 truncate text-xs font-semibold text-foreground" title={repoName || 'Repository'}>
-          {repoName || 'Repository'}
-        </span>
         <div className="relative flex items-center">
           <input
             className="h-7 w-80 rounded-md border border-input bg-secondary px-2 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none"

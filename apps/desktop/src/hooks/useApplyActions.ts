@@ -51,6 +51,7 @@ export function useApplyActions() {
             terminalSuggestionSourceApplyId: applyId,
         });
     };
+
     const handleApplySelected = async () => {
         if (!state.repoRoot || !state.selectedItemId) return;
 
@@ -77,7 +78,7 @@ export function useApplyActions() {
             });
 
             const plan = buildApplyPlanFromItems([selectedItem]);
-            const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
+            const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot, state.aiInput);
 
             if (result.historyEntries?.length) {
                 updateState((prev) => ({
@@ -159,7 +160,7 @@ export function useApplyActions() {
             });
 
             const plan = buildApplyPlanFromItems(pendingItems);
-            const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
+            const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot, state.aiInput);
 
             if (result.historyEntries?.length) {
                 updateState((prev) => ({
@@ -227,7 +228,7 @@ export function useApplyActions() {
             });
 
             const plan = buildApplyPlanFromItems(pendingItems);
-            const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
+            const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot, state.aiInput);
 
             if (result.historyEntries?.length) {
                 updateState((prev) => ({

@@ -7,6 +7,36 @@ import { useAppStateContext } from './useAppStateContext';
  */
 export function useParsingActions() {
   const { state, updateState } = useAppStateContext();
+
+  const confirmPreviouslyAppliedInput = async (): Promise<boolean> => {
+    if (!state.repoRoot || !state.aiInput.trim()) {
+      return true;
+    }
+
+    try {
+      const existing = await window.inscribeAPI.getAppliedAiInput(state.aiInput, state.repoRoot);
+      if (!existing) {
+        return true;
+      }
+
+      const shouldContinue = await window.inscribeAPI.confirmPreviouslyAppliedAiInputParse(existing);
+      if (!shouldContinue) {
+        updateState({
+          pipelineStatus: 'idle',
+          statusMessage: 'Parse canceled: this AI input was already applied.',
+        });
+      }
+      return shouldContinue;
+    } catch (error) {
+      console.error('Failed to check applied AI input:', error);
+      updateState({
+        pipelineStatus: 'idle',
+        statusMessage: 'Unable to check whether this AI input was already applied.',
+      });
+      return false;
+    }
+  };
+
   const handleParseBlocks = async () => {
     if (!state.repoRoot) {
       updateState({
@@ -23,6 +53,10 @@ export function useParsingActions() {
         parseErrors: ['No input provided. Please paste AI response.'],
         pipelineStatus: 'idle'
       });
+      return;
+    }
+
+    if (!(await confirmPreviouslyAppliedInput())) {
       return;
     }
 

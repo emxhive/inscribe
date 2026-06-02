@@ -5,6 +5,7 @@
 
 export { getLanguageFromFilename } from './language';
 export { normalizePath, getPathBasename } from './path';
+export { getRepoDisplayName, getWindowTitle } from './windowTitle';
 export { countLines, toSentenceCase } from './text';
 export {
   buildReviewItems,

@@ -2,6 +2,8 @@ import { ipcMain } from 'electron';
 import {
   applyChanges,
   buildOperationComparison,
+  getAppliedAiInputRecord,
+  recordAppliedAiInput,
   restoreEntry,
   type RestoreRequest,
 } from '@inscribe/engine';
@@ -12,10 +14,27 @@ import { requireTrustedRepoRoot } from './trustedRepo';
  * Register apply IPC handlers
  */
 export function registerApplyHandlers() {
-  ipcMain.handle('apply-changes', async (event, plan: ApplyPlan, suppliedRepoRoot?: string) => {
+  ipcMain.handle('applied-ai-input-get', async (event, rawInput: string, suppliedRepoRoot?: string) => {
+    const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
+    return getAppliedAiInputRecord(repoRoot, rawInput);
+  });
+
+  ipcMain.handle('apply-changes', async (event, plan: ApplyPlan, suppliedRepoRoot?: string, rawAiInput?: string) => {
     try {
       const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
-      return applyChanges(plan, repoRoot);
+      const result = applyChanges(plan, repoRoot);
+      if (result.success && rawAiInput && result.historyEntries?.length) {
+        try {
+          recordAppliedAiInput(repoRoot, rawAiInput, {
+            appliedAt: result.historyEntries[0]?.createdAt,
+            appliedBlockCount: result.historyEntries.length,
+            applyId: result.historyEntries[0]?.applyId,
+          });
+        } catch (recordError) {
+          console.error('Failed to record applied AI input:', recordError);
+        }
+      }
+      return result;
     } catch (error) {
       return {
         success: false,

@@ -6,6 +6,7 @@
 export const INSCRIBE_DIR = '.inscribe';
 export const INSCRIBE_IGNORE_FILE = '.inscribeignore';
 export const HISTORY_STORE_DIR = 'history';
+export const APPLIED_INPUT_STORE_DIR = 'applied-inputs';
 
 export const IGNORED_PATHS = [
   '.git/',

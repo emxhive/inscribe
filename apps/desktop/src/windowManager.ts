@@ -1,5 +1,6 @@
 import { BrowserWindow, app, ipcMain } from 'electron';
 import path from 'path';
+import { getWindowTitle } from './utils/windowTitle';
 
 export class WindowManager {
   private windows: Map<string, Set<BrowserWindow>> = new Map(); // normalized repoRoot -> BrowserWindows
@@ -20,6 +21,7 @@ export class WindowManager {
     // Based on main.ts: const startUrl = isDev ? ... : `file://${path.join(__dirname, 'renderer/index.html')}`;
     
     const win = new BrowserWindow({
+      title: getWindowTitle(repoRoot),
       width: 1200,
       height: 800,
       webPreferences: {
@@ -30,7 +32,7 @@ export class WindowManager {
     });
 
     const startUrl = isDev
-      ? (devServerUrl ?? 'http://localhost:5173')
+      ? (devServerUrl ?? 'http://127.0.0.1:5173')
       : `file://${path.join(__dirname, 'renderer/index.html')}`;
 
     win.loadURL(startUrl);
@@ -68,6 +70,7 @@ export class WindowManager {
     repoWindows.add(win);
     this.windows.set(absoluteRepoRoot, repoWindows);
     this.windowToRepo.set(win, absoluteRepoRoot);
+    win.setTitle(getWindowTitle(absoluteRepoRoot));
     this.unboundWindows.delete(win);
   }
 

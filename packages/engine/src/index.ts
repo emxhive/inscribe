@@ -21,6 +21,12 @@ export {
   markHistoryEntryRestored,
 } from './repo/historyStore';
 export {
+  getAppliedAiInputRecord,
+  hashAppliedAiInput,
+  normalizeAppliedAiInput,
+  recordAppliedAiInput,
+} from './repo/appliedInputStore';
+export {
   restoreFromPayload,
 } from './history/restoreV2';
 export {

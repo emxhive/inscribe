@@ -1,6 +1,7 @@
 import type {
   ApplyPlan,
   ApplyResult,
+  AppliedAiInputRecord,
   IgnoreRules,
   IndexStatus,
   Operation,
@@ -87,6 +88,8 @@ export interface InscribeAPI {
   openRepository: (repoRoot: string, target?: OpenRepositoryTarget) => Promise<void>;
   getRecentProjects: () => Promise<string[]>;
   getWindowRepo: () => Promise<string | null>;
+  getAppliedAiInput: (rawInput: string, repoRoot: string) => Promise<AppliedAiInputRecord | null>;
+  confirmPreviouslyAppliedAiInputParse: (record: AppliedAiInputRecord) => Promise<boolean>;
   onOpenRepo: (callback: (repoRoot: string) => void) => () => void;
   onRecentProjectsUpdated: (callback: (projects: string[]) => void) => () => void;
   readIgnore: (repoRoot: string) => Promise<IgnoreRules>;
@@ -97,7 +100,7 @@ export interface InscribeAPI {
   parseBlocks: (content: string) => Promise<ParseResult>;
   validateBlocks: (blocks: ParsedBlock[]) => Promise<ValidationError[]>;
   validateAndBuildApplyPlan: (blocks: ParsedBlock[]) => Promise<ApplyPlan>;
-  applyChanges: (plan: ApplyPlan, repoRoot: string) => Promise<ApplyResult>;
+  applyChanges: (plan: ApplyPlan, repoRoot: string, rawAiInput?: string) => Promise<ApplyResult>;
   restoreEntry: (request: import('@inscribe/engine').RestoreRequest, repoRoot: string) => Promise<ApplyResult>;
   compareOperation: (operation: Operation, repoRoot: string) => Promise<OperationComparisonResult>;
   getHistoryEntries: (repoRoot: string) => Promise<HistoryEntry[]>;

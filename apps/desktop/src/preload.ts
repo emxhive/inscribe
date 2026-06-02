@@ -32,6 +32,12 @@ const api = {
   getWindowRepo: (): Promise<string | null> =>
     ipcRenderer.invoke('get-window-repo'),
 
+  getAppliedAiInput: (rawInput: string, repoRoot: string) =>
+    ipcRenderer.invoke('applied-ai-input-get', rawInput, repoRoot),
+
+  confirmPreviouslyAppliedAiInputParse: (record: import('@inscribe/shared').AppliedAiInputRecord): Promise<boolean> =>
+    ipcRenderer.invoke('confirm-previously-applied-ai-input-parse', record),
+
   onOpenRepo: (callback: (repoRoot: string) => void) => {
     const subscription = (_event: any, repoRoot: string) => callback(repoRoot);
     ipcRenderer.on('open-repo', subscription);
@@ -68,8 +74,8 @@ const api = {
   validateAndBuildApplyPlan: (blocks: ParsedBlock[]): Promise<ApplyPlan> =>
     ipcRenderer.invoke('validate-and-build-apply-plan', blocks),
 
-  applyChanges: (plan: ApplyPlan, repoRoot: string): Promise<ApplyResult> =>
-    ipcRenderer.invoke('apply-changes', plan, repoRoot),
+  applyChanges: (plan: ApplyPlan, repoRoot: string, rawAiInput?: string): Promise<ApplyResult> =>
+    ipcRenderer.invoke('apply-changes', plan, repoRoot, rawAiInput),
 
   restoreEntry: (request: import('@inscribe/engine').RestoreRequest, repoRoot: string): Promise<ApplyResult> =>
     ipcRenderer.invoke('restore-entry', request, repoRoot),

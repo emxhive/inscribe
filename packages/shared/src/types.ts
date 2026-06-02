@@ -140,6 +140,15 @@ export interface ApplyResult {
   historyEntries?: HistoryEntry[];
 }
 
+export interface AppliedAiInputRecord {
+  inputHash: string;
+  firstAppliedAt: string;
+  lastAppliedAt: string;
+  timesApplied: number;
+  appliedBlockCount: number;
+  lastApplyId?: string;
+}
+
 export interface RestoreWindow {
   preContext: string;
   postContext: string;

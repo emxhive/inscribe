@@ -2,6 +2,7 @@ import type { ReviewItem } from '@/types';
 import { buildReviewItems } from '@/utils';
 import { HEADER_KEYS, type HeaderKey } from '@inscribe/shared';
 import {
+  normalizeInscribeInput,
   parseIntakeStructure,
   updateDirectiveInText,
   type IntakeDirectiveKey,
@@ -75,6 +76,7 @@ export async function updateDirectivesAndRebuild({
     );
   }
 
+  nextInput = normalizeInscribeInput(nextInput).text;
   const parseResult = await window.inscribeAPI.parseBlocks(nextInput);
   if (parseResult.errors && parseResult.errors.length > 0) {
     return {

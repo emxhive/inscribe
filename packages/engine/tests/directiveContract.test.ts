@@ -66,4 +66,17 @@ $inscribe END`);
     expect(result.errors).toEqual([]);
     expect(result.blocks[0].directives.RANGE_LINE_CONTAINS_ALL).toBe('id, status\nrole, enabled');
   });
+
+  it('keeps raw END markers strict when trailing text is present', () => {
+    const result = parseBlocks(`$inscribe BEGIN
+FILE: src/example.ts
+MODE: replace_file
+\`\`\`txt
+replacement
+\`\`\`
+$inscribe END <audit>`);
+
+    expect(result.blocks).toHaveLength(0);
+    expect(result.errors.join('\n')).toContain('BEGIN without matching END');
+  });
 });

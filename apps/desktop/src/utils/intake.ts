@@ -10,6 +10,7 @@ import {
   isLegacyDirectiveKey,
   type FieldKey,
   type LegacyDirectiveKey,
+  PARSE_FIELD_KEYS,
   HEADER_KEYS,
   normalizeRelativePath,
 } from '@inscribe/shared';
@@ -44,6 +45,117 @@ export interface IntakeLineMeta {
 }
 
 const isFenceLine = (line: string) => line.trim().startsWith('` ` `'.replace(/ /g, ''));
+const parseFieldKeySet = new Set<string>(PARSE_FIELD_KEYS);
+
+export interface IntakeNormalizationRepair {
+  lineIndex: number;
+  original: string;
+  normalized: string;
+  message: string;
+}
+
+export interface IntakeNormalizationResult {
+  text: string;
+  repairs: IntakeNormalizationRepair[];
+  changed: boolean;
+}
+
+const getBoundaryNormalization = (line: string): { keyword: 'BEGIN' | 'END'; normalized: string; message?: string } | null => {
+  if (matchesMarker(line, INSCRIBE_BEGIN)) {
+    return { keyword: 'BEGIN', normalized: line };
+  }
+  if (matchesMarker(line, INSCRIBE_END)) {
+    return { keyword: 'END', normalized: line };
+  }
+
+  const trailingMatch = line.match(/^(\s*)\$inscribe\s+(BEGIN|END)\s+.+$/i);
+  if (!trailingMatch) {
+    return null;
+  }
+
+  const keyword = trailingMatch[2].toUpperCase() as 'BEGIN' | 'END';
+  const marker = keyword === 'BEGIN' ? INSCRIBE_BEGIN : INSCRIBE_END;
+  return {
+    keyword,
+    normalized: `${trailingMatch[1]}${marker}`,
+    message: `Trailing text removed after ${marker} marker; marker lines must contain only ${marker}.`,
+  };
+};
+
+const getPrefixedFieldNormalization = (line: string): { normalized: string; message: string } | null => {
+  const prefixedFieldMatch = line.match(/^(\s*)\$inscribe\s+([A-Za-z_]+):(.*)$/);
+  if (!prefixedFieldMatch) {
+    return null;
+  }
+
+  const key = prefixedFieldMatch[2].toUpperCase();
+  if (!parseFieldKeySet.has(key)) {
+    return null;
+  }
+
+  return {
+    normalized: `${prefixedFieldMatch[1]}${key}:${prefixedFieldMatch[3]}`,
+    message: `${key} normalized by removing the $inscribe prefix; headers and directives must be unprefixed.`,
+  };
+};
+
+export function normalizeInscribeInput(input: string): IntakeNormalizationResult {
+  const lines = input.split('\n');
+  const normalizedLines = [...lines];
+  const repairs: IntakeNormalizationRepair[] = [];
+  let inBlock = false;
+  let directivesLocked = false;
+
+  lines.forEach((line, lineIndex) => {
+    const boundary = getBoundaryNormalization(line);
+    if (boundary) {
+      normalizedLines[lineIndex] = boundary.normalized;
+      if (boundary.message && boundary.normalized !== line) {
+        repairs.push({
+          lineIndex,
+          original: line,
+          normalized: boundary.normalized,
+          message: boundary.message,
+        });
+      }
+      inBlock = boundary.keyword === 'BEGIN';
+      directivesLocked = false;
+      return;
+    }
+
+    if (!inBlock) {
+      return;
+    }
+
+    if (isFenceLine(line)) {
+      directivesLocked = true;
+      return;
+    }
+
+    if (directivesLocked) {
+      return;
+    }
+
+    const prefixedField = getPrefixedFieldNormalization(line);
+    if (!prefixedField) {
+      return;
+    }
+
+    normalizedLines[lineIndex] = prefixedField.normalized;
+    repairs.push({
+      lineIndex,
+      original: line,
+      normalized: prefixedField.normalized,
+      message: prefixedField.message,
+    });
+  });
+
+  return {
+    text: normalizedLines.join('\n'),
+    repairs,
+    changed: repairs.length > 0,
+  };
+}
 
 export function parseIntakeStructure(
   input: string,
@@ -52,8 +164,11 @@ export function parseIntakeStructure(
   blocks: IntakeBlock[];
   lines: IntakeLineMeta[];
 } {
-  const lines = input.split('\n');
-  const lineMeta: IntakeLineMeta[] = lines.map((text, lineIndex) => ({
+  const normalization = normalizeInscribeInput(input);
+  const lines = normalization.text.split('\n');
+  const originalLines = input.split('\n');
+  const repairByLine = new Map(normalization.repairs.map((repair) => [repair.lineIndex, repair]));
+  const lineMeta: IntakeLineMeta[] = originalLines.map((text, lineIndex) => ({
     text,
     lineIndex,
     type: 'text',
@@ -121,6 +236,8 @@ export function parseIntakeStructure(
   };
 
   lines.forEach((line, lineIndex) => {
+    const repair = repairByLine.get(lineIndex);
+
     if (matchesMarker(line, INSCRIBE_BEGIN)) {
       if (current) {
         current.errors.push('Missing $inscribe END');
@@ -140,6 +257,10 @@ export function parseIntakeStructure(
         directivesLocked: false,
       };
 
+      if (repair) {
+        current.warnings.push(repair.message);
+        lineMeta[lineIndex].status = 'warning';
+      }
       lineMeta[lineIndex].type = 'begin';
       lineMeta[lineIndex].blockId = current.id;
       return;
@@ -147,6 +268,10 @@ export function parseIntakeStructure(
 
     if (matchesMarker(line, INSCRIBE_END)) {
       if (current) {
+        if (repair) {
+          current.warnings.push(repair.message);
+          lineMeta[lineIndex].status = 'warning';
+        }
         lineMeta[lineIndex].type = 'end';
         lineMeta[lineIndex].blockId = current.id;
         finalizeBlock(current, lineIndex);
@@ -203,6 +328,10 @@ export function parseIntakeStructure(
 
     const key = parsed.key as IntakeDirectiveKey;
     const value = parsed.value ?? '';
+    if (repair) {
+      current.warnings.push(repair.message);
+      lineMeta[lineIndex].status = 'warning';
+    }
 
     if (isLegacyDirectiveKey(key)) {
       current.errors.push(formatLegacyDirectiveError(key));

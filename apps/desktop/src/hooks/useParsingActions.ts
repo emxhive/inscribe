@@ -1,5 +1,6 @@
 import type { ParseResult } from '@inscribe/shared';
 import { buildReviewItems } from '@/utils';
+import { normalizeInscribeInput } from '@/utils/intake';
 import { useAppStateContext } from './useAppStateContext';
 
 /**
@@ -8,13 +9,13 @@ import { useAppStateContext } from './useAppStateContext';
 export function useParsingActions() {
   const { state, updateState } = useAppStateContext();
 
-  const confirmPreviouslyAppliedInput = async (): Promise<boolean> => {
-    if (!state.repoRoot || !state.aiInput.trim()) {
+  const confirmPreviouslyAppliedInput = async (input: string): Promise<boolean> => {
+    if (!state.repoRoot || !input.trim()) {
       return true;
     }
 
     try {
-      const existing = await window.inscribeAPI.getAppliedAiInput(state.aiInput, state.repoRoot);
+      const existing = await window.inscribeAPI.getAppliedAiInput(input, state.repoRoot);
       if (!existing) {
         return true;
       }
@@ -56,7 +57,10 @@ export function useParsingActions() {
       return;
     }
 
-    if (!(await confirmPreviouslyAppliedInput())) {
+    const normalization = normalizeInscribeInput(state.aiInput);
+    const parseInput = normalization.text;
+
+    if (!(await confirmPreviouslyAppliedInput(parseInput))) {
       return;
     }
 
@@ -69,12 +73,15 @@ export function useParsingActions() {
         statusMessage: 'Parsing code blocks...'
       });
 
-      const parseResult: ParseResult = await window.inscribeAPI.parseBlocks(state.aiInput);
+      const parseResult: ParseResult = await window.inscribeAPI.parseBlocks(parseInput);
+      const normalizationWarnings = normalization.repairs.map((repair) => ({ message: repair.message }));
+      const parseWarnings = [...normalizationWarnings, ...(parseResult.warnings || [])];
       
       if (parseResult.errors && parseResult.errors.length > 0) {
         updateState({
+          ...(normalization.changed ? { aiInput: parseInput } : {}),
           parseErrors: parseResult.errors,
-          parseWarnings: parseResult.warnings || [],
+          parseWarnings,
           statusMessage: `Parse failed: ${parseResult.errors.length} error(s)`,
           pipelineStatus: 'parse-failure',
           isParsingInProgress: false
@@ -83,8 +90,9 @@ export function useParsingActions() {
       }
 
       updateState({
+        ...(normalization.changed ? { aiInput: parseInput } : {}),
         parseErrors: [],
-        parseWarnings: parseResult.warnings || [],
+        parseWarnings,
         parsedBlocks: parseResult.blocks || [],
         statusMessage: 'Validating blocks...'
       });

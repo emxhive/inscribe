@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DIRECTIVE_KEYS } from '@inscribe/shared';
-import { parseIntakeStructure } from './intake';
+import { normalizeInscribeInput, parseIntakeStructure } from './intake';
 
 const wrapBlock = (body: string) => `$inscribe BEGIN\n${body}\n$inscribe END`;
 
@@ -80,5 +80,57 @@ describe('parseIntakeStructure', () => {
 
     expect(blocks[0].errors).toContain(message);
     expect(lines.find((line) => line.text.startsWith(`${key}:`))?.status).toBe('error');
+  });
+
+  it('repairs trailing text after END markers instead of cascading missing-END errors', () => {
+    const input = `$inscribe BEGIN
+FILE: src/example.ts
+MODE: replace_line
+START_LINE_EQUALS: old
+\`\`\`txt
+new
+\`\`\`
+$inscribe END <audit>
+
+$inscribe BEGIN
+FILE: src/other.ts
+MODE: append_file
+\`\`\`txt
+more
+\`\`\`
+$inscribe END`;
+    const { blocks, lines } = parseIntakeStructure(input);
+
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].errors).not.toContain('Missing $inscribe END');
+    expect(blocks[0].warnings).toContain(
+      'Trailing text removed after $inscribe END marker; marker lines must contain only $inscribe END.'
+    );
+    expect(lines.find((line) => line.text === '$inscribe END <audit>')?.status).toBe('warning');
+  });
+
+  it('repairs prefixed headers and directives before intake validation', () => {
+    const input = wrapBlock(
+      '$inscribe FILE: src/example.ts\n$inscribe MODE: replace_line\n$inscribe START_LINE_EQUALS: old'
+    );
+    const { blocks, lines } = parseIntakeStructure(input);
+
+    expect(blocks[0].directives.FILE?.value).toBe('src/example.ts');
+    expect(blocks[0].directives.MODE?.value).toBe('replace_line');
+    expect(blocks[0].directives.START_LINE_EQUALS?.value).toBe('old');
+    expect(blocks[0].warnings).toContain(
+      'FILE normalized by removing the $inscribe prefix; headers and directives must be unprefixed.'
+    );
+    expect(lines.find((line) => line.text.startsWith('$inscribe FILE:'))?.status).toBe('warning');
+  });
+
+  it('does not normalize prefixed-looking text inside fenced payload content', () => {
+    const input = wrapBlock(
+      'FILE: src/example.ts\nMODE: replace_file\n```txt\n$inscribe FILE: this is payload\n```'
+    );
+    const normalization = normalizeInscribeInput(input);
+
+    expect(normalization.changed).toBe(false);
+    expect(normalization.text).toBe(input);
   });
 });

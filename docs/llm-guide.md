@@ -200,6 +200,10 @@ Only `BEGIN` and `END` use the `$inscribe` prefix.
 
 Headers and directives are plain unprefixed lines.
 
+Marker lines must be exactly `$inscribe BEGIN` and `$inscribe END`.
+
+Audits, explanations, and commentary must never appear on a marker line.
+
 Headers and directives must use this exact key-value shape:
 
 `KEY: VALUE`

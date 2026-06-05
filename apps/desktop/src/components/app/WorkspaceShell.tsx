@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ChevronDown,
   CheckCircle2,
   Clock,
+  ClipboardPaste,
   Copy,
   Folder,
   History,
@@ -51,11 +52,16 @@ type WorkspaceShellProps = {
   onOpenIndexedList: () => void;
 };
 
+type WorkspaceTopBarProps = WorkspaceShellProps & {
+  onReplaceIntakeFromClipboard: () => void;
+};
+
 export function WorkspaceShell({
   onOpenIgnore,
   onOpenIndexedList,
 }: WorkspaceShellProps) {
   const { state, updateState } = useAppStateContext();
+  const replaceIntakeFromClipboard = useReplaceIntakeFromClipboard();
   const panelPersistenceReady = useRef(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === 'undefined') return 280;
@@ -83,6 +89,25 @@ export function WorkspaceShell({
     window.localStorage.setItem(PANEL_STORAGE_KEYS.rightCollapsed, String(state.isRightPanelCollapsed));
   }, [state.isLeftPanelCollapsed, state.isRightPanelCollapsed]);
 
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const isPasteIntakeShortcut =
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === 'v';
+
+      if (!isPasteIntakeShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      void replaceIntakeFromClipboard();
+    };
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [replaceIntakeFromClipboard]);
+
   const handleSidebarResize = (width: number, options?: { persist?: boolean }) => {
     const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
     setSidebarWidth(clamped);
@@ -102,6 +127,7 @@ export function WorkspaceShell({
       <WorkspaceTopBar
         onOpenIgnore={onOpenIgnore}
         onOpenIndexedList={onOpenIndexedList}
+        onReplaceIntakeFromClipboard={replaceIntakeFromClipboard}
       />
       <div
         className="grid min-h-0 flex-1 overflow-hidden"
@@ -146,10 +172,59 @@ export function WorkspaceShell({
   );
 }
 
+function useReplaceIntakeFromClipboard() {
+  const { updateState } = useAppStateContext();
+
+  return useCallback(async () => {
+    try {
+      const clipboardText = await window.inscribeAPI.readClipboardText();
+      if (!clipboardText.trim()) {
+        updateState({
+          mode: 'intake',
+          statusMessage: 'Clipboard is empty.',
+        });
+        return;
+      }
+
+      updateState({
+        mode: 'intake',
+        aiInput: clipboardText,
+        parseErrors: [],
+        parseWarnings: [],
+        parsedBlocks: [],
+        validationErrors: [],
+        reviewItems: [],
+        selectedItemId: null,
+        selectedIntakeBlockId: null,
+        isEditing: false,
+        pipelineStatus: 'idle',
+        reviewComparisonError: null,
+        reviewPreflightByItem: {},
+        reviewComparisonByItem: {},
+        collapsedHunkIdsByItem: {},
+        collapsedDiffGroupIdsByItem: {},
+        terminalCommandSuggestions: [],
+        terminalSuggestionSourceApplyId: null,
+        lastAppliedPlan: null,
+        canRedo: false,
+        lastApplyId: null,
+        canUndoApply: false,
+        statusMessage: `Replaced intake with ${clipboardText.length} clipboard character${clipboardText.length === 1 ? '' : 's'}.`,
+      });
+    } catch (error) {
+      updateState({
+        mode: 'intake',
+        statusMessage: `Unable to read clipboard: ${error}`,
+      });
+    }
+  }, [updateState]);
+}
+
 function WorkspaceTopBar({
   onOpenIgnore,
   onOpenIndexedList,
-}: WorkspaceShellProps) {
+  onReplaceIntakeFromClipboard,
+}: WorkspaceTopBarProps) {
   const { state, updateState } = useAppStateContext();
   const repositoryActions = useRepositoryActions();
   const hasRepository = Boolean(state.repoRoot);
@@ -260,6 +335,13 @@ function WorkspaceTopBar({
       <div className="ml-auto flex items-center gap-1">
         <ChromeButton active={state.mode === 'intake'} onClick={() => updateState({ mode: 'intake' })}>
           Intake
+        </ChromeButton>
+        <ChromeButton
+          onClick={onReplaceIntakeFromClipboard}
+          title="Replace intake from clipboard (Ctrl+Shift+V)"
+          aria-label="Replace intake from clipboard"
+        >
+          <ClipboardPaste className="h-3.5 w-3.5" />
         </ChromeButton>
         <ChromeButton
           active={state.mode === 'review'}

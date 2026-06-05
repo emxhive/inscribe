@@ -38,6 +38,9 @@ const api = {
   confirmPreviouslyAppliedAiInputParse: (record: import('@inscribe/shared').AppliedAiInputRecord): Promise<boolean> =>
     ipcRenderer.invoke('confirm-previously-applied-ai-input-parse', record),
 
+  readClipboardText: (): Promise<string> =>
+    ipcRenderer.invoke('clipboard-read-text'),
+
   onOpenRepo: (callback: (repoRoot: string) => void) => {
     const subscription = (_event: any, repoRoot: string) => callback(repoRoot);
     ipcRenderer.on('open-repo', subscription);

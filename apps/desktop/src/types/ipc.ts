@@ -90,6 +90,7 @@ export interface InscribeAPI {
   getWindowRepo: () => Promise<string | null>;
   getAppliedAiInput: (rawInput: string, repoRoot: string) => Promise<AppliedAiInputRecord | null>;
   confirmPreviouslyAppliedAiInputParse: (record: AppliedAiInputRecord) => Promise<boolean>;
+  readClipboardText: () => Promise<string>;
   onOpenRepo: (callback: (repoRoot: string) => void) => () => void;
   onRecentProjectsUpdated: (callback: (projects: string[]) => void) => () => void;
   readIgnore: (repoRoot: string) => Promise<IgnoreRules>;

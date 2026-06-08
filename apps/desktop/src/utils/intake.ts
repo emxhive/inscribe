@@ -61,25 +61,26 @@ export interface IntakeNormalizationResult {
 }
 
 const getBoundaryNormalization = (line: string): { keyword: 'BEGIN' | 'END'; normalized: string; message?: string } | null => {
-  if (matchesMarker(line, INSCRIBE_BEGIN)) {
-    return { keyword: 'BEGIN', normalized: line };
-  }
-  if (matchesMarker(line, INSCRIBE_END)) {
-    return { keyword: 'END', normalized: line };
+  // Check if it's perfectly clean first (fast path)
+  if (matchesMarker(line, INSCRIBE_BEGIN)) return { keyword: 'BEGIN', normalized: line };
+  if (matchesMarker(line, INSCRIBE_END)) return { keyword: 'END', normalized: line };
+
+  const trimmedUpper = line.trim().toUpperCase();
+
+  // If it starts with the marker, we don't care what trailing junk (or \r) comes after it
+  if (trimmedUpper.startsWith('$INSCRIBE BEGIN') || trimmedUpper.startsWith('$INSCRIBE END')) {
+    const keyword = trimmedUpper.startsWith('$INSCRIBE BEGIN') ? 'BEGIN' : 'END';
+    const marker = keyword === 'BEGIN' ? INSCRIBE_BEGIN : INSCRIBE_END;
+    const leadingWhitespace = line.match(/^\s*/)?.[0] || '';
+
+    return {
+      keyword,
+      normalized: `${leadingWhitespace}${marker}`,
+      message: `Trailing text removed after ${marker} marker; marker lines must contain only ${marker}.`,
+    };
   }
 
-  const trailingMatch = line.match(/^(\s*)\$inscribe\s+(BEGIN|END)\s+.+$/i);
-  if (!trailingMatch) {
-    return null;
-  }
-
-  const keyword = trailingMatch[2].toUpperCase() as 'BEGIN' | 'END';
-  const marker = keyword === 'BEGIN' ? INSCRIBE_BEGIN : INSCRIBE_END;
-  return {
-    keyword,
-    normalized: `${trailingMatch[1]}${marker}`,
-    message: `Trailing text removed after ${marker} marker; marker lines must contain only ${marker}.`,
-  };
+  return null;
 };
 
 const getPrefixedFieldNormalization = (line: string): { normalized: string; message: string } | null => {

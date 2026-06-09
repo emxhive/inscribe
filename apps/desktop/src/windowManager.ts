@@ -1,6 +1,6 @@
 import { BrowserWindow, app, ipcMain } from 'electron';
 import path from 'path';
-import { getWindowTitle } from './utils/windowTitle';
+import { getWindowTitle } from '@/utils';
 
 export class WindowManager {
   private windows: Map<string, Set<BrowserWindow>> = new Map(); // normalized repoRoot -> BrowserWindows
@@ -37,9 +37,9 @@ export class WindowManager {
 
     win.loadURL(startUrl);
 
-    if (isDev) {
-      win.webContents.openDevTools();
-    }
+    // if (isDev) {
+    //   win.webContents.openDevTools();
+    // }
 
     if (repoRoot) {
       this.bindWindowToRepo(win, repoRoot);

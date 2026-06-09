@@ -37,9 +37,9 @@ export class WindowManager {
 
     win.loadURL(startUrl);
 
-    if (isDev) {
-      win.webContents.openDevTools();
-    }
+    // if (isDev) {
+    //   win.webContents.openDevTools();
+    // }
 
     if (repoRoot) {
       this.bindWindowToRepo(win, repoRoot);

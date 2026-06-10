@@ -6,3 +6,4 @@ export * from './execution/virtualFileState';
 export * from './diff';
 export * from './validators';
 export * from './text/exactMatch';
+export * from './structural';

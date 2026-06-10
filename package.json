@@ -8,7 +8,8 @@
         "packages/*"
     ],
     "scripts": {
-        "build": "npm run build -w packages/shared && npm run build -w packages/engine && npm run build -w apps/desktop",
+        "build:dart-helper:windows": "node -e \"require('fs').mkdirSync('packages/engine/bin/dart_helper/dist/windows',{recursive:true})\" && cd packages/engine/bin/dart_helper && dart compile exe bin/inscribe_dart_helper.dart -o dist/windows/inscribe_dart_helper.exe",
+        "build": "npm run build:dart-helper:windows && npm run build -w packages/shared && npm run build -w packages/engine && npm run build -w apps/desktop",
         "test:engine": "npm run test -w packages/engine",
         "dev:engine": "npm run dev -w packages/engine",
         "dev:desktop": "concurrently -k \"npm -w packages/shared run dev:build\" \"npm -w packages/engine run dev:build\" \"npm -w apps/desktop run dev\""

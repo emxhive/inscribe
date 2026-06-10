@@ -1,8 +1,9 @@
 import { StructuralLanguageAdapter } from './types';
 import { jsTsAdapter } from './jsTsAdapter';
 import { phpAdapter } from './phpAdapter';
+import { dartAdapter } from './dartAdapter';
 
-const adapters: StructuralLanguageAdapter[] = [jsTsAdapter, phpAdapter];
+const adapters: StructuralLanguageAdapter[] = [jsTsAdapter, phpAdapter, dartAdapter];
 
 export function resolveStructuralAdapter(filePath: string): StructuralLanguageAdapter {
   const adapter = adapters.find((candidate) => candidate.supportsFile(filePath));

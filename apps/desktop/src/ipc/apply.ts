@@ -1,14 +1,16 @@
 import { ipcMain } from 'electron';
 import {
-  applyChanges,
-  buildOperationComparison,
   getAppliedAiInputRecord,
   recordAppliedAiInput,
-  restoreEntry,
   type RestoreRequest,
 } from '@inscribe/engine';
 import type { ApplyPlan, Operation } from '@inscribe/shared';
 import { requireTrustedRepoRoot } from './trustedRepo';
+import {
+  applyChangesOnWorker,
+  compareOperation,
+  restoreEntryOnWorker,
+} from './engineWorkerClient';
 
 /**
  * Register apply IPC handlers
@@ -22,7 +24,7 @@ export function registerApplyHandlers() {
   ipcMain.handle('apply-changes', async (event, plan: ApplyPlan, suppliedRepoRoot?: string, rawAiInput?: string) => {
     try {
       const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
-      const result = applyChanges(plan, repoRoot);
+      const result = await applyChangesOnWorker(plan, repoRoot);
       if (result.success && rawAiInput && result.historyEntries?.length) {
         try {
           recordAppliedAiInput(repoRoot, rawAiInput, {
@@ -46,7 +48,7 @@ export function registerApplyHandlers() {
   ipcMain.handle('restore-entry', async (event, request: RestoreRequest, suppliedRepoRoot?: string) => {
     try {
       const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
-      return restoreEntry(request, repoRoot);
+      return await restoreEntryOnWorker(request, repoRoot);
     } catch (error) {
       return {
         success: false,
@@ -58,7 +60,7 @@ export function registerApplyHandlers() {
   ipcMain.handle('compare-operation', async (event, operation: Operation, suppliedRepoRoot?: string) => {
     try {
       const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
-      return buildOperationComparison(operation, repoRoot);
+      return await compareOperation(operation, repoRoot);
     } catch (error) {
       return {
         error: error instanceof Error ? error.message : 'Unknown error',

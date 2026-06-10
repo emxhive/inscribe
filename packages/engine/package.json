@@ -17,6 +17,7 @@
   "dependencies": {
     "@babel/parser": "^7.28.5",
     "@inscribe/shared": "0.1.0",
+    "diff": "^9.0.0",
     "php-parser": "^3.6.0",
     "picomatch": "^2.3.1"
   },

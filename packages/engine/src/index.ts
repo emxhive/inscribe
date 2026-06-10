@@ -34,3 +34,5 @@ export {
   type RestoreRequest,
 } from './history/restoreExecution';
 export { restoreEntry } from './history/restoreEntry';
+
+export * as v2 from './v2';

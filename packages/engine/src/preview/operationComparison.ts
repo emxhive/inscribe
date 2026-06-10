@@ -9,7 +9,7 @@ import type {
   OperationMode,
 } from '@inscribe/shared';
 import { deriveChangedSegment } from '../history/restoreV2';
-import { diffLinesStable } from './lineDiff';
+import { diffLinesStable } from '../diff/lineDiff';
 import { resolveOperationExecution } from '../operation/resolveOperationExecution';
 import { enforcePathPolicy } from '../paths/pathPolicy';
 

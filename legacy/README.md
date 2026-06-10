@@ -1,9 +1,14 @@
-# Legacy Codebase
+# Legacy Archives
 
-This directory contains code and tests that have been moved out of the active engine architecture.
-They are kept here for reference only and should not be imported, compiled, or run by the active engine.
+This directory contains archived versions of the Inscribe codebase. These archives are maintained for reference purposes only.
 
-- `engine-current/`: Contains old semantic paths, operation execution logic, and internal helpers that are no longer part of the unified architecture.
-- `tests-current/`: Contains the previous test suite, which may rely on non-active modes or directives.
+## Layout
 
-A future pass will rebuild the proper contract test suite based on the new architecture.
+- `v0/`: The original archived range-replacement prototype.
+- `v1/`: Frozen text-engine snapshot captured prior to the redesign into the V2 structural-engine.
+
+## Rules & Integration
+
+- **Reference-Only**: All code in this directory is read-only reference material.
+- **No Imports**: Active code must never import from the `legacy/` directory.
+- **Inert**: Legacy code is excluded from TypeScript compilation, active workspace packages, and test discovery.

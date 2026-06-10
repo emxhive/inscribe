@@ -8,6 +8,7 @@
         "packages/*"
     ],
     "scripts": {
+        "check:no-legacy-imports": "node scripts/check-legacy-imports.js",
         "build:dart-helper:windows": "node -e \"require('fs').mkdirSync('packages/engine/bin/dart_helper/dist/windows',{recursive:true})\" && cd packages/engine/bin/dart_helper && dart compile exe bin/inscribe_dart_helper.dart -o dist/windows/inscribe_dart_helper.exe",
         "build": "npm run build:dart-helper:windows && npm run build -w packages/shared && npm run build -w packages/engine && npm run build -w apps/desktop",
         "test:engine": "npm run test -w packages/engine",

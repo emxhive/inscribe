@@ -11,3 +11,5 @@ export * from './path';
 export * from './cliCommands';
 
 export * from './diagnostics';
+
+export * from './v2';

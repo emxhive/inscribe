@@ -1,5 +1,6 @@
 import { spawnSync } from 'child_process';
 import * as path from 'path';
+import { existsSync } from 'fs';
 import { StructuralLanguageAdapter, StructuralSymbolRange } from './types';
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,37 @@ function buildDartInvocation(): {
   command: string;
   args: string[];
 } {
+  // 1. INSCRIBE_DART_HELPER_PATH override, when defined and the file exists
+  if (process.env.INSCRIBE_DART_HELPER_PATH && existsSync(process.env.INSCRIBE_DART_HELPER_PATH)) {
+    return {
+      command: process.env.INSCRIBE_DART_HELPER_PATH,
+      args: [],
+    };
+  }
+
+  // 2. local platform-specific compiled helper path under packages/engine/bin/dart_helper/dist/
+  let platformDir = '';
+  let exeName = 'inscribe_dart_helper';
+  if (process.platform === 'win32') {
+    platformDir = 'windows';
+    exeName = 'inscribe_dart_helper.exe';
+  } else if (process.platform === 'linux') {
+    platformDir = 'linux';
+  } else if (process.platform === 'darwin') {
+    platformDir = 'macos';
+  }
+
+  if (platformDir) {
+    const localBin = path.join(HELPER_ROOT, 'dist', platformDir, exeName);
+    if (existsSync(localBin)) {
+      return {
+        command: localBin,
+        args: [],
+      };
+    }
+  }
+
+  // 3. existing dart-run development fallback
   if (process.platform === 'win32') {
     return {
       command: process.env.ComSpec ?? 'cmd.exe',

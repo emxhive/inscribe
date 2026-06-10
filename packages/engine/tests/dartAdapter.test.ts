@@ -5,9 +5,14 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 // ---------------------------------------------------------------------------
 
 const spawnSyncMock = vi.hoisted(() => vi.fn());
+const existsSyncMock = vi.hoisted(() => vi.fn().mockReturnValue(false));
 
 vi.mock('child_process', () => ({
   spawnSync: spawnSyncMock,
+}));
+
+vi.mock('fs', () => ({
+  existsSync: existsSyncMock,
 }));
 
 // dartAdapter uses __dirname for the helper path; provide a stable value.
@@ -394,6 +399,68 @@ describe('dartAdapter — process error handling', () => {
     spawnSyncMock.mockReturnValue({ status: 1, stdout: '', stderr: 'something crashed', error: undefined });
     expect(() => dartAdapter.resolveSymbolDeclarationRange('class Foo {}', 'Foo')).toThrow(
       'no stdout output',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. Compiled helper selection order
+// ---------------------------------------------------------------------------
+
+describe('dartAdapter — compiled helper selection order', () => {
+  let originalEnvPath: string | undefined;
+
+  beforeEach(() => {
+    spawnSyncMock.mockReset();
+    existsSyncMock.mockReset();
+    originalEnvPath = process.env.INSCRIBE_DART_HELPER_PATH;
+    delete process.env.INSCRIBE_DART_HELPER_PATH;
+  });
+
+  afterEach(() => {
+    process.env.INSCRIBE_DART_HELPER_PATH = originalEnvPath;
+  });
+
+  it('uses INSCRIBE_DART_HELPER_PATH if set and file exists', () => {
+    process.env.INSCRIBE_DART_HELPER_PATH = '/custom/path/to/helper';
+    existsSyncMock.mockImplementation((p) => p === '/custom/path/to/helper');
+    spawnSyncMock.mockReturnValue(okValidate());
+
+    dartAdapter.validateCandidate?.('lib/src/user.dart', 'class Foo {}');
+
+    expect(existsSyncMock).toHaveBeenCalledWith('/custom/path/to/helper');
+    expect(spawnSyncMock).toHaveBeenLastCalledWith(
+      '/custom/path/to/helper',
+      [],
+      expect.objectContaining({ shell: false }),
+    );
+  });
+
+  it('prefers local compiled binary if it exists', () => {
+    existsSyncMock.mockImplementation((p) => p.includes('dist'));
+    spawnSyncMock.mockReturnValue(okValidate());
+
+    dartAdapter.validateCandidate?.('lib/src/user.dart', 'class Foo {}');
+
+    expect(spawnSyncMock).toHaveBeenLastCalledWith(
+      expect.stringContaining('dist'),
+      [],
+      expect.objectContaining({ shell: false }),
+    );
+  });
+
+  it('falls back to dart run if no compiled helper exists', () => {
+    existsSyncMock.mockReturnValue(false);
+    spawnSyncMock.mockReturnValue(okValidate());
+
+    dartAdapter.validateCandidate?.('lib/src/user.dart', 'class Foo {}');
+
+    expect(spawnSyncMock).toHaveBeenLastCalledWith(
+      process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : 'dart',
+      process.platform === 'win32'
+        ? ['/d', '/s', '/c', 'dart run "bin/inscribe_dart_helper.dart"']
+        : ['run', 'bin/inscribe_dart_helper.dart'],
+      expect.objectContaining({ shell: false }),
     );
   });
 });

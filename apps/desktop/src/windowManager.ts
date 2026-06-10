@@ -36,7 +36,7 @@ export class WindowManager {
       : `file://${path.join(__dirname, 'renderer/index.html')}`;
 
     win.loadURL(startUrl);
-    //
+ 
     // if (isDev) {
     //   win.webContents.openDevTools();
     // }

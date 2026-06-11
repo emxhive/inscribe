@@ -21,3 +21,6 @@ export interface CanonicalExecution {
   beforeFileHash: string;
   afterFileHash: string;
 }
+
+export * from './parseInscribeBlocks';
+export * from './protocolErrors';

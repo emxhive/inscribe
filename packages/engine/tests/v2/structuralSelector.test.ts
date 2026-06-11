@@ -1,31 +1,22 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import * as path from 'path';
-import { initTreeSitter, loadLanguage, createParser } from '../../src/v2/structural/treeSitterRuntime';
-import { resolveNodeRange } from '../../src/v2/structural/resolveNodeRange';
+import { createStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
 import { parseSelector } from '../../src/v2/structural/selectorParser';
 
 const CORE_WASM = path.resolve(__dirname, '../../node_modules/web-tree-sitter/tree-sitter.wasm');
 const TS_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm');
 const TSX_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-tsx.wasm');
 
-let parser: any;
-let tsLanguage: any;
-let tsxLanguage: any;
+const ASSETS = {
+  coreWasmPath: CORE_WASM,
+  typescriptWasmPath: TS_WASM,
+  tsxWasmPath: TSX_WASM,
+};
 
-beforeAll(async () => {
-  await initTreeSitter({
-    coreWasmPath: CORE_WASM,
-    typescriptWasmPath: TS_WASM,
-    tsxWasmPath: TSX_WASM,
-  });
-  tsLanguage = await loadLanguage(TS_WASM);
-  tsxLanguage = await loadLanguage(TSX_WASM);
-  parser = createParser();
-});
+const resolver = createStructuralResolver(ASSETS);
 
 describe('Structural selectors', () => {
-  it('uniquely resolves class > method path', () => {
-    parser.setLanguage(tsLanguage);
+  it('uniquely resolves class > method path', async () => {
     const source = `
       class UserService {
         save() {
@@ -33,9 +24,8 @@ describe('Structural selectors', () => {
         }
       }
     `;
-    const tree = parser.parse(source);
     const selector = parseSelector('class:UserService > method:save');
-    const match = resolveNodeRange(source, tree, selector);
+    const match = await resolver({ source, filePath: 'test.ts', selector });
 
     expect(match.kind).toBe('method');
     expect(match.name).toBe('save');
@@ -44,20 +34,17 @@ describe('Structural selectors', () => {
     expect(sliced).toContain('saving');
   });
 
-  it('fails with TARGET_NOT_FOUND when node does not exist', () => {
-    parser.setLanguage(tsLanguage);
+  it('fails with TARGET_NOT_FOUND when node does not exist', async () => {
     const source = `
       class UserService {
         save() {}
       }
     `;
-    const tree = parser.parse(source);
     const selector = parseSelector('class:UserService > method:delete');
-    expect(() => resolveNodeRange(source, tree, selector)).toThrow('TARGET_NOT_FOUND');
+    await expect(resolver({ source, filePath: 'test.ts', selector })).rejects.toThrow('TARGET_NOT_FOUND');
   });
 
-  it('fails with TARGET_AMBIGUOUS when multiple candidates match and no startsWith is provided', () => {
-    parser.setLanguage(tsLanguage);
+  it('fails with TARGET_AMBIGUOUS when multiple candidates match and no startsWith is provided', async () => {
     const source = `
       function saveUser() {
         if (!user.name) {
@@ -68,13 +55,11 @@ describe('Structural selectors', () => {
         }
       }
     `;
-    const tree = parser.parse(source);
     const selector = parseSelector('function:saveUser > if_statement');
-    expect(() => resolveNodeRange(source, tree, selector)).toThrow('TARGET_AMBIGUOUS');
+    await expect(resolver({ source, filePath: 'test.ts', selector })).rejects.toThrow('TARGET_AMBIGUOUS');
   });
 
-  it('resolves unique candidate using STARTS_WITH qualifier', () => {
-    parser.setLanguage(tsLanguage);
+  it('resolves unique candidate using STARTS_WITH qualifier', async () => {
     const source = `
       function saveUser() {
         if (!user.name) {
@@ -85,16 +70,11 @@ describe('Structural selectors', () => {
         }
       }
     `;
-    const tree = parser.parse(source);
     const selector = parseSelector(
       'function:saveUser > if_statement',
-      `
-      if (!user.email) {
-        throw new Error('Missing email');
-      }
-      `
+      "if (!user.email) {"
     );
-    const match = resolveNodeRange(source, tree, selector);
+    const match = await resolver({ source, filePath: 'test.ts', selector });
 
     expect(match.kind).toBe('if_statement');
     const sliced = source.slice(match.start, match.end);
@@ -102,8 +82,7 @@ describe('Structural selectors', () => {
     expect(sliced).not.toContain('Missing name');
   });
 
-  it('uniquely resolves components/methods in TSX file', () => {
-    parser.setLanguage(tsxLanguage);
+  it('uniquely resolves components/methods in TSX file', async () => {
     const source = `
       function MyComponent() {
         if (loading) {
@@ -112,9 +91,8 @@ describe('Structural selectors', () => {
         return <button onClick={save}>Click</button>;
       }
     `;
-    const tree = parser.parse(source);
     const selector = parseSelector('function:MyComponent > if_statement');
-    const match = resolveNodeRange(source, tree, selector);
+    const match = await resolver({ source, filePath: 'test.tsx', selector });
 
     expect(match.kind).toBe('if_statement');
     const sliced = source.slice(match.start, match.end);

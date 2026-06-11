@@ -1,17 +1,18 @@
-import { V2RawPayload } from '@inscribe/shared';
+import { V2Operation } from '@inscribe/shared';
 import { CanonicalExecution } from '../protocol';
 import { VirtualFileState } from './virtualFileState';
-import { resolveOperation } from './resolveOperation';
+import { resolveOperation, V2ExecutionContext } from './resolveOperation';
 
 export interface ResolvedPlan {
   executions: CanonicalExecution[];
   errors: Array<{ stepIndex: number; message: string }>;
 }
 
-export function resolvePlan(
-  payloads: V2RawPayload[],
-  initialFiles: Map<string, { content: string; exists: boolean }>
-): ResolvedPlan {
+export async function resolvePlan(
+  payloads: V2Operation[],
+  initialFiles: Map<string, { content: string; exists: boolean }>,
+  context: V2ExecutionContext = {}
+): Promise<ResolvedPlan> {
   const executions: CanonicalExecution[] = [];
   const errors: Array<{ stepIndex: number; message: string }> = [];
 
@@ -34,7 +35,7 @@ export function resolvePlan(
     }
 
     try {
-      const execution = resolveOperation(payload, virtualState);
+      const execution = await resolveOperation(payload, virtualState, context);
       executions.push(execution);
 
       virtualState.set(payload.filePath, {
@@ -49,7 +50,6 @@ export function resolvePlan(
       break;
     }
   }
-
   return {
     executions,
     errors

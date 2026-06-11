@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolvePlan } from '../../src/v2/execution/resolvePlan';
 
 describe('V2 virtual sequential execution plan', () => {
-  it('runs multiple sequential operations against one virtual file', () => {
+  it('runs multiple sequential operations against one virtual file', async () => {
     const initialFiles = new Map();
     const payloads = [
       {
@@ -14,7 +14,7 @@ describe('V2 virtual sequential execution plan', () => {
         strategy: 'replace_text' as const,
         filePath: 'test.ts',
         content: 'line 2 changed',
-        directives: { SEARCH: 'line 2' }
+        search: 'line 2'
       },
       {
         strategy: 'replace_file' as const,
@@ -23,7 +23,7 @@ describe('V2 virtual sequential execution plan', () => {
       }
     ];
 
-    const plan = resolvePlan(payloads, initialFiles);
+    const plan = await resolvePlan(payloads, initialFiles);
 
     expect(plan.errors.length).toBe(0);
     expect(plan.executions.length).toBe(3);
@@ -46,7 +46,7 @@ describe('V2 virtual sequential execution plan', () => {
     expect(plan.executions[2].afterContent).toBe('final file content');
   });
 
-  it('halts execution on the first error in the sequence', () => {
+  it('halts execution on the first error in the sequence', async () => {
     const initialFiles = new Map();
     const payloads = [
       {
@@ -59,7 +59,7 @@ describe('V2 virtual sequential execution plan', () => {
         strategy: 'replace_text' as const,
         filePath: 'test.ts',
         content: 'fail',
-        directives: { SEARCH: 'non_existent_string' }
+        search: 'non_existent_string'
       },
       {
         strategy: 'replace_file' as const,
@@ -68,7 +68,7 @@ describe('V2 virtual sequential execution plan', () => {
       }
     ];
 
-    const plan = resolvePlan(payloads, initialFiles);
+    const plan = await resolvePlan(payloads, initialFiles);
 
     expect(plan.errors.length).toBe(1);
     expect(plan.errors[0].stepIndex).toBe(1);
@@ -77,7 +77,7 @@ describe('V2 virtual sequential execution plan', () => {
     expect(plan.executions[0].afterContent).toBe('first');
   });
 
-  it('succeeds in create_file -> replace_text -> delete_file sequence', () => {
+  it('succeeds in create_file -> replace_text -> delete_file sequence', async () => {
     const initialFiles = new Map();
     const payloads = [
       {
@@ -89,16 +89,15 @@ describe('V2 virtual sequential execution plan', () => {
         strategy: 'replace_text' as const,
         filePath: 'test.ts',
         content: 'line 2 changed',
-        directives: { SEARCH: 'line 2' }
+        search: 'line 2'
       },
       {
         strategy: 'delete_file' as const,
-        filePath: 'test.ts',
-        content: ''
+        filePath: 'test.ts'
       }
     ];
 
-    const plan = resolvePlan(payloads, initialFiles);
+    const plan = await resolvePlan(payloads, initialFiles);
     expect(plan.errors.length).toBe(0);
     expect(plan.executions.length).toBe(3);
     expect(plan.executions[0].afterExists).toBe(true);
@@ -106,40 +105,38 @@ describe('V2 virtual sequential execution plan', () => {
     expect(plan.executions[2].afterExists).toBe(false);
   });
 
-  it('fails in delete_file -> replace_text sequence', () => {
+  it('fails in delete_file -> replace_text sequence', async () => {
     const initialFiles = new Map([
       ['test.ts', { content: 'line 1\nline 2', exists: true }]
     ]);
     const payloads = [
       {
         strategy: 'delete_file' as const,
-        filePath: 'test.ts',
-        content: ''
+        filePath: 'test.ts'
       },
       {
         strategy: 'replace_text' as const,
         filePath: 'test.ts',
         content: 'change',
-        directives: { SEARCH: 'line 1' }
+        search: 'line 1'
       }
     ];
 
-    const plan = resolvePlan(payloads, initialFiles);
+    const plan = await resolvePlan(payloads, initialFiles);
     expect(plan.errors.length).toBe(1);
     expect(plan.errors[0].stepIndex).toBe(1);
     expect(plan.errors[0].message).toContain('File does not exist');
     expect(plan.executions.length).toBe(1);
   });
 
-  it('succeeds in delete_file -> create_file same path sequence', () => {
+  it('succeeds in delete_file -> create_file same path sequence', async () => {
     const initialFiles = new Map([
       ['test.ts', { content: 'line 1\nline 2', exists: true }]
     ]);
     const payloads = [
       {
         strategy: 'delete_file' as const,
-        filePath: 'test.ts',
-        content: ''
+        filePath: 'test.ts'
       },
       {
         strategy: 'create_file' as const,
@@ -148,7 +145,7 @@ describe('V2 virtual sequential execution plan', () => {
       }
     ];
 
-    const plan = resolvePlan(payloads, initialFiles);
+    const plan = await resolvePlan(payloads, initialFiles);
     expect(plan.errors.length).toBe(0);
     expect(plan.executions.length).toBe(2);
     expect(plan.executions[0].afterExists).toBe(false);
@@ -157,7 +154,7 @@ describe('V2 virtual sequential execution plan', () => {
     expect(plan.executions[1].afterContent).toBe('brand new file');
   });
 
-  it('fails in create_file -> create_file same path sequence', () => {
+  it('fails in create_file -> create_file same path sequence', async () => {
     const initialFiles = new Map();
     const payloads = [
       {
@@ -172,7 +169,7 @@ describe('V2 virtual sequential execution plan', () => {
       }
     ];
 
-    const plan = resolvePlan(payloads, initialFiles);
+    const plan = await resolvePlan(payloads, initialFiles);
     expect(plan.errors.length).toBe(1);
     expect(plan.errors[0].stepIndex).toBe(1);
     expect(plan.errors[0].message).toContain('File already exists');

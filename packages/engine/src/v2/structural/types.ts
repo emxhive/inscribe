@@ -1,14 +1,5 @@
-export type StructuralKind = 'class' | 'method' | 'function' | 'if_statement';
-
-export interface StructuralSelectorSegment {
-  kind: StructuralKind;
-  name?: string;
-}
-
-export interface StructuralSelector {
-  path: StructuralSelectorSegment[];
-  startsWith?: string;
-}
+import { StructuralKind, StructuralSelectorSegment, StructuralSelector } from '@inscribe/shared';
+export { StructuralKind, StructuralSelectorSegment, StructuralSelector };
 
 export interface StructuralNodeMatch {
   kind: StructuralKind;

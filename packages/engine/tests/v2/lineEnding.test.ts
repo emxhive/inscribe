@@ -64,7 +64,7 @@ describe('V2 Line Ending Normalization', () => {
     expect(normalizeLineEndings(input, '\r\n')).toBe('a\r\nb\r\nc\r\nd');
   });
 
-  it('preserves CRLF line endings when LF SEARCH and LF replacement are applied to CRLF file with one line edit', () => {
+  it('preserves CRLF line endings when LF SEARCH and LF replacement are applied to CRLF file with one line edit', async () => {
     const fileContent = 'line 1\r\nline 2\r\nline 3\r\n';
     const virtualState = new Map([
       ['file.txt', { content: fileContent, exists: true }]
@@ -73,10 +73,10 @@ describe('V2 Line Ending Normalization', () => {
       strategy: 'replace_text' as const,
       filePath: 'file.txt',
       content: 'line 2 changed\n',
-      directives: { SEARCH: 'line 2\n' }
+      search: 'line 2\n'
     };
 
-    const execution = resolveOperation(payload, virtualState);
+    const execution = await resolveOperation(payload, virtualState);
 
     expect(execution.afterContent).toBe('line 1\r\nline 2 changed\r\nline 3\r\n');
     expect(execution.actualDiffHunks.length).toBe(1);
@@ -84,7 +84,7 @@ describe('V2 Line Ending Normalization', () => {
     expect(execution.actualDiffHunks[0].newText).toBe('line 2 changed\r\n');
   });
 
-  it('preserves CRLF line endings with zero diff hunks when CRLF file has identical replacement with LF SEARCH/payload', () => {
+  it('preserves CRLF line endings with zero diff hunks when CRLF file has identical replacement with LF SEARCH/payload', async () => {
     const fileContent = 'line 1\r\nline 2\r\nline 3\r\n';
     const virtualState = new Map([
       ['file.txt', { content: fileContent, exists: true }]
@@ -93,10 +93,10 @@ describe('V2 Line Ending Normalization', () => {
       strategy: 'replace_text' as const,
       filePath: 'file.txt',
       content: 'line 2\n',
-      directives: { SEARCH: 'line 2\n' }
+      search: 'line 2\n'
     };
 
-    const execution = resolveOperation(payload, virtualState);
+    const execution = await resolveOperation(payload, virtualState);
 
     expect(execution.afterContent).toBe('line 1\r\nline 2\r\nline 3\r\n');
     expect(execution.actualDiffHunks.length).toBe(0);

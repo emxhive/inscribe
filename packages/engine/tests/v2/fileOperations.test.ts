@@ -3,14 +3,14 @@ import { resolveOperation } from '../../src/v2/execution/resolveOperation';
 import { hashContent } from '../../src/v2/execution/virtualFileState';
 
 describe('V2 file operations', () => {
-  it('creates a new file successfully', () => {
+  it('creates a new file successfully', async () => {
     const virtualState = new Map();
     const payload = {
       strategy: 'create_file' as const,
       filePath: 'test.ts',
       content: 'hello world'
     };
-    const execution = resolveOperation(payload, virtualState);
+    const execution = await resolveOperation(payload, virtualState);
 
     expect(execution.strategy).toBe('create_file');
     expect(execution.beforeExists).toBe(false);
@@ -24,7 +24,7 @@ describe('V2 file operations', () => {
     expect(execution.targetScope.afterRange).toEqual({ start: 0, end: 11 });
   });
 
-  it('fails to create a file if it already exists', () => {
+  it('fails to create a file if it already exists', async () => {
     const virtualState = new Map([
       ['test.ts', { content: 'existing', exists: true }]
     ]);
@@ -33,10 +33,10 @@ describe('V2 file operations', () => {
       filePath: 'test.ts',
       content: 'hello world'
     };
-    expect(() => resolveOperation(payload, virtualState)).toThrow('File already exists');
+    await expect(resolveOperation(payload, virtualState)).rejects.toThrow('File already exists');
   });
 
-  it('replaces an existing file successfully', () => {
+  it('replaces an existing file successfully', async () => {
     const content = 'existing content';
     const virtualState = new Map([
       ['test.ts', { content, exists: true }]
@@ -46,7 +46,7 @@ describe('V2 file operations', () => {
       filePath: 'test.ts',
       content: 'new content'
     };
-    const execution = resolveOperation(payload, virtualState);
+    const execution = await resolveOperation(payload, virtualState);
 
     expect(execution.strategy).toBe('replace_file');
     expect(execution.beforeExists).toBe(true);
@@ -58,17 +58,17 @@ describe('V2 file operations', () => {
     expect(execution.targetScope.afterRange).toEqual({ start: 0, end: 11 });
   });
 
-  it('fails to replace a file if it does not exist', () => {
+  it('fails to replace a file if it does not exist', async () => {
     const virtualState = new Map();
     const payload = {
       strategy: 'replace_file' as const,
       filePath: 'test.ts',
       content: 'hello world'
     };
-    expect(() => resolveOperation(payload, virtualState)).toThrow('File does not exist');
+    await expect(resolveOperation(payload, virtualState)).rejects.toThrow('File does not exist');
   });
 
-  it('deletes an existing file successfully', () => {
+  it('deletes an existing file successfully', async () => {
     const content = 'existing content';
     const virtualState = new Map([
       ['test.ts', { content, exists: true }]
@@ -78,7 +78,7 @@ describe('V2 file operations', () => {
       filePath: 'test.ts',
       content: ''
     };
-    const execution = resolveOperation(payload, virtualState);
+    const execution = await resolveOperation(payload, virtualState);
 
     expect(execution.strategy).toBe('delete_file');
     expect(execution.beforeExists).toBe(true);
@@ -90,13 +90,13 @@ describe('V2 file operations', () => {
     expect(execution.targetScope.afterRange).toBeUndefined();
   });
 
-  it('fails to delete a file if it does not exist', () => {
+  it('fails to delete a file if it does not exist', async () => {
     const virtualState = new Map();
     const payload = {
       strategy: 'delete_file' as const,
       filePath: 'test.ts',
       content: ''
     };
-    expect(() => resolveOperation(payload, virtualState)).toThrow('File does not exist');
+    await expect(resolveOperation(payload, virtualState)).rejects.toThrow('File does not exist');
   });
 });

@@ -1,6 +1,7 @@
 import { Worker } from 'worker_threads';
 import * as path from 'path';
 import { app } from 'electron';
+import type { PreviewV2WorkerPayload, PreviewV2WorkerResponse } from './previewV2Types';
 
 let worker: Worker | null = null;
 const pendingRequests = new Map<string, { resolve: (val: any) => void; reject: (err: any) => void }>();
@@ -129,6 +130,15 @@ export function applyChangesOnWorker(plan: any, repoRoot: string): Promise<any> 
  */
 export function restoreEntryOnWorker(request: any, repoRoot: string): Promise<any> {
   return executeOnWorker('restore-entry', { request, repoRoot });
+}
+
+
+
+/**
+ * Executes V2 preview operations on the worker.
+ */
+export function previewV2OnWorker(payload: PreviewV2WorkerPayload): Promise<PreviewV2WorkerResponse> {
+  return executeOnWorker('preview_v2', payload);
 }
 
 /**

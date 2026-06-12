@@ -12,6 +12,7 @@ import { registerHistoryHandlers } from './history';
 import { registerWindowHandlers } from './window';
 import { registerTerminalHandlers } from './terminal';
 import { registerClipboardHandlers } from './clipboard';
+import { registerPreviewV2Handlers } from './previewV2';
 
 export { registerDialogHandlers } from './dialog';
 export { registerRepositoryHandlers } from './repository';
@@ -22,6 +23,7 @@ export { registerHistoryHandlers } from './history';
 export { registerWindowHandlers } from './window';
 export { registerTerminalHandlers } from './terminal';
 export { registerClipboardHandlers } from './clipboard';
+export { registerPreviewV2Handlers } from './previewV2';
 
 /**
  * Register all IPC handlers
@@ -36,4 +38,5 @@ export function registerAllHandlers() {
   registerWindowHandlers();
   registerTerminalHandlers();
   registerClipboardHandlers();
+  registerPreviewV2Handlers();
 }

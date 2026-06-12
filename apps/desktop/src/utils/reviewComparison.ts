@@ -1,4 +1,5 @@
 import type { ComparisonAnchorSide, OperationComparison, OperationComparisonRegion, OperationDiffHunk } from '@inscribe/shared';
+import type { ReviewComparison } from '@/types';
 
 export interface ReviewRenderableRegion {
   id: string;
@@ -62,8 +63,8 @@ export interface UnifiedDiffModel {
   hunks: UnifiedDiffHunkModel[];
 }
 
-export function buildResultReviewModel(comparison: OperationComparison): ReviewRenderModel {
-  const hunks = (comparison.diffHunks?.length ?? 0) > 0 ? comparison.diffHunks! : comparison.regions;
+export function buildResultReviewModel(comparison: ReviewComparison): ReviewRenderModel {
+  const hunks = (comparison.regions?.length ?? 0) > 0 ? comparison.regions! : (comparison.diffHunks ?? []);
   return {
     content: comparison.newContent,
     regions: hunks.map((region) => ({
@@ -87,7 +88,7 @@ export function buildResultReviewModel(comparison: OperationComparison): ReviewR
 
 export const buildReviewRenderModel = buildResultReviewModel;
 
-export function buildUnifiedDiffModel(comparison: OperationComparison): UnifiedDiffModel {
+export function buildUnifiedDiffModel(comparison: ReviewComparison): UnifiedDiffModel {
   const hunks = comparison.diffHunks ?? [];
   const rows: UnifiedDiffRow[] = [];
   const hunkModels: UnifiedDiffHunkModel[] = [];

@@ -19,8 +19,8 @@ import { useAppStateContext, useReviewActions } from '@/hooks';
 import { buildResultReviewModel, buildUnifiedDiffModel } from '@/utils/reviewComparison';
 import { buildReviewItemPreflightFingerprint, getCurrentReviewPreflight } from '@/utils';
 import { cn } from '@/lib/utils';
-import type { Operation, OperationComparison } from '@inscribe/shared';
-import type { ReviewItem, ReviewPreflightResult, ReviewView } from '@/types';
+import type { Operation } from '@inscribe/shared';
+import type { ReviewItem, V1ReviewItem, ReviewPreflightResult, ReviewView, ReviewComparison } from '@/types';
 
 class DeletedRegionWidget extends WidgetType {
   constructor(
@@ -46,13 +46,19 @@ const reviewViewOptions: Array<{ id: ReviewView; label: string }> = [
   { id: 'edit', label: 'edit' },
 ];
 
-const buildOperationFromReviewItem = (item: ReviewItem): Operation => ({
-  type: item.mode,
-  file: item.file,
-  content: item.editedContent,
-  directives: item.directives,
-  blockIndex: item.blockIndex,
-});
+function isV1ReviewItem(item: ReviewItem): item is V1ReviewItem {
+  return item.engineVersion !== 'v2';
+}
+
+const buildOperationFromReviewItem = (item: V1ReviewItem): Operation => {
+  return {
+    type: item.mode,
+    file: item.file,
+    content: item.editedContent,
+    directives: item.directives,
+    blockIndex: item.blockIndex,
+  };
+};
 
 export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
@@ -60,7 +66,7 @@ export function ReviewPanel() {
   const { selectedItem, editorValue } = reviewActions;
   const [previewEditorView, setPreviewEditorView] = useState<EditorView | null>(null);
   const selectedIsApplied = selectedItem?.status === 'applied';
-  const canEditSelection = Boolean(selectedItem) && !selectedIsApplied;
+  const canEditSelection = Boolean(selectedItem) && !selectedIsApplied && selectedItem?.engineVersion !== 'v2';
   const activeReviewView = canEditSelection ? state.reviewView : state.reviewView === 'edit' ? 'unified' : state.reviewView;
   const isEditing = activeReviewView === 'edit';
   const selectedItemId = selectedItem?.id ?? null;
@@ -110,7 +116,7 @@ export function ReviewPanel() {
 
   const setItemComparisonSnapshot = (
     item: ReviewItem,
-    comparison: OperationComparison,
+    comparison: ReviewComparison,
   ) => {
     const fingerprint = buildReviewItemPreflightFingerprint(item);
     updateState((prev) => {
@@ -135,12 +141,12 @@ export function ReviewPanel() {
 
     const repoRoot = state.repoRoot;
     const reviewItemsById = new Map(state.reviewItems.map((item) => [item.id, item]));
-    const pendingItemsNeedingPreflight = state.reviewItems.filter(
+    const pendingItemsNeedingPreflight = state.reviewItems.filter(isV1ReviewItem).filter(
       (item) => item.status === 'pending' && !getCurrentReviewPreflight(item, state.reviewPreflightByItem),
     );
     const stalePreflightIds = Object.keys(state.reviewPreflightByItem).filter((itemId) => {
       const item = reviewItemsById.get(itemId);
-      return !item || item.status !== 'pending' || !getCurrentReviewPreflight(item, state.reviewPreflightByItem);
+      return !item || (item.engineVersion !== 'v2' && (item.status !== 'pending' || !getCurrentReviewPreflight(item, state.reviewPreflightByItem)));
     });
 
     if (pendingItemsNeedingPreflight.length === 0 && stalePreflightIds.length === 0) {
@@ -252,6 +258,15 @@ export function ReviewPanel() {
         return;
       }
 
+      if (selectedItem.engineVersion === 'v2') {
+        if (comparisonData) {
+          updateState({ reviewComparisonError: null });
+        } else {
+          updateState({ reviewComparisonError: 'Canonical V2 comparison snapshot is missing.' });
+        }
+        return;
+      }
+
       const preflight = getCurrentReviewPreflight(selectedItem, state.reviewPreflightByItem);
       if (preflight?.status === 'failed') {
         updateState({ reviewComparisonError: preflight.error ?? 'Review comparison/preflight failed.' });
@@ -291,6 +306,12 @@ export function ReviewPanel() {
       cancelled = true;
     };
   }, [comparisonData, editorValue, isEditing, selectedIsApplied, selectedItem, state.repoRoot, state.reviewPreflightByItem, updateState]);
+
+  useEffect(() => {
+    if (selectedItem?.engineVersion === 'v2' && state.reviewView === 'edit') {
+      updateState({ reviewView: 'result', isEditing: false });
+    }
+  }, [selectedItem, state.reviewView, updateState]);
 
   const resultModel = useMemo(
     () => (comparisonData ? buildResultReviewModel(comparisonData) : null),

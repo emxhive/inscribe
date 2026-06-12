@@ -2,7 +2,7 @@ import type { ApplyPlan, ParsedBlock, ValidationError } from '@inscribe/shared';
 
 import { getLanguageFromFilename } from './language';
 import { countLines } from './text';
-import type { ReviewItem, ReviewPreflightResult } from '@/types';
+import type { ReviewItem, V1ReviewItem, ReviewPreflightResult } from '@/types';
 
 /**
  * Review item construction utilities
@@ -45,12 +45,19 @@ export function buildReviewItems(
   });
 }
 
+export const V2_APPLY_BLOCKER = 'V2 preview items cannot be applied yet.';
+
 /**
  * Build an apply plan from review items
  */
 export function buildApplyPlanFromItems(items: ReviewItem[]): ApplyPlan {
+  const hasV2 = items.some((item) => item.engineVersion === 'v2');
+  if (hasV2) {
+    throw new Error(V2_APPLY_BLOCKER);
+  }
+  const v1Items = items as V1ReviewItem[];
   return {
-    operations: items.map((item) => ({
+    operations: v1Items.map((item) => ({
       type: item.mode,
       file: item.file,
       content: item.editedContent,
@@ -85,6 +92,11 @@ export type ReviewItemApplyState =
       kind: 'pending-preflight';
       applyable: false;
       blocker: string;
+    }
+  | {
+      kind: 'blocked-v2-apply';
+      applyable: false;
+      blocker: string;
     };
 
 export type ReviewSidebarStatus = ReviewItem['status'];
@@ -93,6 +105,19 @@ const DEFAULT_PREFLIGHT_BLOCKER = 'Review comparison/preflight failed.';
 const PENDING_PREFLIGHT_BLOCKER = 'Review comparison/preflight has not completed.';
 
 export function buildReviewItemPreflightFingerprint(item: ReviewItem): string {
+  if (item.engineVersion === 'v2') {
+    return JSON.stringify({
+      engineVersion: item.engineVersion,
+      executionId: item.executionId,
+      operationIndex: item.operationIndex,
+      filePath: item.filePath,
+      strategy: item.strategy,
+      beforeFileHash: item.beforeFileHash,
+      afterFileHash: item.afterFileHash,
+      beforeExists: item.beforeExists,
+      afterExists: item.afterExists,
+    });
+  }
   return JSON.stringify({
     file: item.file,
     mode: item.mode,
@@ -119,6 +144,14 @@ export function getReviewItemApplyState(
   item: ReviewItem,
   preflightByItem: Record<string, ReviewPreflightResult>,
 ): ReviewItemApplyState {
+  if (item.engineVersion === 'v2') {
+    return {
+      kind: 'blocked-v2-apply',
+      applyable: false,
+      blocker: V2_APPLY_BLOCKER,
+    };
+  }
+
   if (item.status === 'applied') {
     return { kind: 'applied', applyable: false, blocker: null };
   }
@@ -184,6 +217,7 @@ export interface ReviewApplySummary {
   staticBlockedItems: ReviewItem[];
   preflightBlockedItems: ReviewItem[];
   unresolvedPreflightItems: ReviewItem[];
+  v2BlockedItems: ReviewItem[];
   canApplyAll: boolean;
   canApplyValid: boolean;
 }
@@ -198,6 +232,7 @@ export function getReviewApplySummary(
   const staticBlockedItems: ReviewItem[] = [];
   const preflightBlockedItems: ReviewItem[] = [];
   const unresolvedPreflightItems: ReviewItem[] = [];
+  const v2BlockedItems: ReviewItem[] = [];
 
   items.forEach((item) => {
     const itemState = getReviewItemApplyState(item, preflightByItem);
@@ -208,7 +243,9 @@ export function getReviewApplySummary(
     if (item.status === 'pending') {
       pendingItems.push(item);
     }
-    if (itemState.kind === 'pending-applyable') {
+    if (itemState.kind === 'blocked-v2-apply') {
+      v2BlockedItems.push(item);
+    } else if (itemState.kind === 'pending-applyable') {
       applyablePendingItems.push(item);
     } else if (itemState.kind === 'blocked-static-validation') {
       staticBlockedItems.push(item);
@@ -219,6 +256,8 @@ export function getReviewApplySummary(
     }
   });
 
+  const hasV2 = v2BlockedItems.length > 0;
+
   return {
     appliedItems,
     pendingItems,
@@ -226,13 +265,15 @@ export function getReviewApplySummary(
     staticBlockedItems,
     preflightBlockedItems,
     unresolvedPreflightItems,
+    v2BlockedItems,
     canApplyAll:
+      !hasV2 &&
       pendingItems.length > 0 &&
       appliedItems.length === 0 &&
       staticBlockedItems.length === 0 &&
       preflightBlockedItems.length === 0 &&
       unresolvedPreflightItems.length === 0,
-    canApplyValid: applyablePendingItems.length > 0,
+    canApplyValid: !hasV2 && applyablePendingItems.length > 0,
   };
 }
 
@@ -242,7 +283,11 @@ export function getBlockedReviewItems(
 ): ReviewItem[] {
   return items.filter((item) => {
     const itemState = getReviewItemApplyState(item, preflightByItem);
-    return itemState.kind === 'blocked-static-validation' || itemState.kind === 'blocked-preflight';
+    return (
+      itemState.kind === 'blocked-static-validation' ||
+      itemState.kind === 'blocked-preflight' ||
+      itemState.kind === 'blocked-v2-apply'
+    );
   });
 }
 
@@ -266,10 +311,14 @@ export function summarizeSkippedReviewItems(
   const unresolvedCount = items.filter(
     (item) => getReviewItemApplyState(item, preflightByItem).kind === 'pending-preflight',
   ).length;
+  const v2Count = items.filter(
+    (item) => getReviewItemApplyState(item, preflightByItem).kind === 'blocked-v2-apply',
+  ).length;
   const parts = [
     validationCount > 0 ? `${validationCount} validation error(s)` : null,
     preflightCount > 0 ? `${preflightCount} preflight blocker(s)` : null,
     unresolvedCount > 0 ? `${unresolvedCount} pending preflight check(s)` : null,
+    v2Count > 0 ? `${v2Count} V2 blocker(s)` : null,
   ].filter(Boolean);
 
   return parts.length > 0 ? parts.join(', ') : '0 skipped';

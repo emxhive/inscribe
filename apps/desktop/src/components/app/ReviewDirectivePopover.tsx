@@ -48,6 +48,10 @@ export function ReviewDirectivePopover({
       setDraft({});
       return;
     }
+    if (item.engineVersion === 'v2') {
+      setDraft({});
+      return;
+    }
     // Initialize draft from headers (file, mode) and directives
     const nextDraft: Partial<Record<EditableKey, string>> = {
       FILE: item.file ?? '',
@@ -92,7 +96,7 @@ export function ReviewDirectivePopover({
     [draft],
   );
 
-  if (!isOpen || !item || !position) {
+  if (!isOpen || !item || !position || item.engineVersion === 'v2') {
     return null;
   }
 

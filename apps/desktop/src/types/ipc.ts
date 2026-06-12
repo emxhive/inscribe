@@ -11,6 +11,7 @@ import type {
   ValidationError,
   HistoryEntry,
 } from '@inscribe/shared';
+import type { PreviewV2IpcArgs, PreviewV2WorkerResponse } from '../ipc/previewV2Types';
 
 export interface RepoInitResult {
   topLevelFolders: string[];
@@ -116,4 +117,5 @@ export interface InscribeAPI {
   onTerminalData: (callback: (event: TerminalDataEvent) => void) => () => void;
   onTerminalRunExit: (callback: (event: TerminalRunExitEvent) => void) => () => void;
   onTerminalSessionExit: (callback: (event: TerminalSessionExitEvent) => void) => () => void;
+  previewV2: (args: PreviewV2IpcArgs) => Promise<PreviewV2WorkerResponse>;
 }

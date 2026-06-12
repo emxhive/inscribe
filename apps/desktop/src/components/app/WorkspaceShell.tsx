@@ -442,8 +442,9 @@ function WorkspaceBottomBar() {
   const canUndoSelected =
     Boolean(selectedItem) &&
     selectedIsApplied &&
+    selectedItem.engineVersion !== 'v2' &&
     state.historyItems.some(
-      (item) => item.file === selectedItem?.file && item.blockIndex === selectedItem?.blockIndex && !item.restoredAt,
+      (item) => item.file === selectedItem.file && item.blockIndex === selectedItem.blockIndex && !item.restoredAt,
     );
   const selectedHunkIndex = state.selectedHunkId
     ? Math.max(0, state.reviewItems.findIndex((item) => item.id === state.selectedItemId))
@@ -679,12 +680,14 @@ function SelectionSection({
           ? 'blocked by preflight'
           : itemState.kind === 'pending-preflight'
             ? 'awaiting preflight'
-            : 'applied';
+            : itemState.kind === 'blocked-v2-apply'
+              ? 'preview only'
+              : 'applied';
 
   return (
     <dl className="space-y-2 text-xs">
       <InspectorRow label="File" value={selectedItem.file} mono />
-      <InspectorRow label="Mode" value={selectedItem.mode} />
+      <InspectorRow label="Mode" value={selectedItem.engineVersion === 'v2' ? selectedItem.strategy : selectedItem.mode} />
       <InspectorRow label="Status" value={status} />
       <InspectorRow label="Language" value={selectedItem.language} />
       <InspectorRow label="Lines" value={String(selectedItem.lineCount)} />
@@ -703,6 +706,7 @@ function ReviewDirectiveEditor({
   const [draft, setDraft] = useState<Partial<Record<HeaderKey | DirectiveKey, string>>>({});
 
   useEffect(() => {
+    if (item.engineVersion === 'v2') return;
     const nextDraft: Partial<Record<HeaderKey | DirectiveKey, string>> = {
       FILE: item.file,
       MODE: item.mode,
@@ -716,10 +720,12 @@ function ReviewDirectiveEditor({
   const presentDirectiveKeys = DIRECTIVE_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(draft, key));
   const missingDirectiveKeys = DIRECTIVE_KEYS.filter((key) => !Object.prototype.hasOwnProperty.call(draft, key));
 
-  if (item.status === 'applied') {
+  if (item.engineVersion === 'v2' || item.status === 'applied') {
     return (
       <div>
-        <p className="text-xs text-muted-foreground">Applied changes cannot be edited.</p>
+        <p className="text-xs text-muted-foreground">
+          {item.engineVersion === 'v2' ? 'V2 preview items cannot be edited.' : 'Applied changes cannot be edited.'}
+        </p>
       </div>
     );
   }

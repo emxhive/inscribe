@@ -88,7 +88,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     item: ReviewItem,
     event: React.MouseEvent<HTMLLIElement>,
   ) => {
-    if (item.status === 'applied') {
+    if (item.status === 'applied' || item.engineVersion === 'v2') {
       return;
     }
     event.stopPropagation();
@@ -169,7 +169,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                 file={item.file}
                 lineCount={item.lineCount}
                 language={item.language}
-                mode={item.mode}
+                mode={item.engineVersion === 'v2' ? item.strategy : item.mode}
                 status={getReviewSidebarStatus(item, state.reviewPreflightByItem)}
                 validationError={getReviewSidebarError(item, state.reviewPreflightByItem)}
                 isSelected={state.selectedItemId === item.id}

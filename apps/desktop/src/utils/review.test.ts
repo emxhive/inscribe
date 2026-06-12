@@ -10,9 +10,13 @@ import {
   getReviewSidebarStatus,
   getUnresolvedPreflightReviewItems,
   summarizeSkippedReviewItems,
+  buildApplyPlanFromItems,
+  V2_APPLY_BLOCKER,
 } from './review';
 
-const buildItem = (overrides: Partial<ReviewItem> = {}): ReviewItem => ({
+import type { V1ReviewItem } from '@/types';
+
+const buildItem = (overrides: Partial<V1ReviewItem> = {}): V1ReviewItem => ({
   id: '0-src/app.ts',
   file: 'src/app.ts',
   mode: 'replace_file',
@@ -110,5 +114,57 @@ describe('review item state selectors', () => {
     expect(item.status).toBe('pending');
     expect(getReviewSidebarStatus(item, preflightByItem)).toBe('invalid');
     expect(getReviewSidebarError(item, preflightByItem)).toBe('Boundary selector failed');
+  });
+
+  it('blocks V2 items from being applied and rejects plans containing them', () => {
+    const v2Item: ReviewItem = {
+      engineVersion: 'v2',
+      comparisonSource: 'canonical-v2',
+      id: '0-src/new.ts',
+      file: 'src/new.ts',
+      strategy: 'replace_text',
+      executionId: 'exec-1',
+      operationIndex: 0,
+      filePath: 'src/new.ts',
+      beforeFileHash: 'hash-before',
+      afterFileHash: 'hash-after',
+      targetScope: { filePath: 'src/new.ts', strategy: 'replace_text' },
+      beforeExists: false,
+      afterExists: true,
+      language: 'typescript',
+      lineCount: 0,
+      status: 'pending',
+      originalContent: '',
+      editedContent: '',
+    };
+
+    const v1Item = buildItem({ id: '1-src/app.ts', file: 'src/app.ts' });
+
+    // V2 item apply state -> kind === 'blocked-v2-apply', applyable === false, blocker === V2_APPLY_BLOCKER
+    const state = getReviewItemApplyState(v2Item, {});
+    expect(state.kind).toBe('blocked-v2-apply');
+    expect(state.applyable).toBe(false);
+    expect(state.blocker).toBe(V2_APPLY_BLOCKER);
+
+    // V2 sidebar status -> 'pending'
+    expect(getReviewSidebarStatus(v2Item, {})).toBe('pending');
+
+    // V2 sidebar error -> undefined
+    expect(getReviewSidebarError(v2Item, {})).toBeUndefined();
+
+    // V2 summary -> v2BlockedItems contains V2 item, canApplyAll false, canApplyValid false
+    const v2Summary = getReviewApplySummary([v2Item], {});
+    expect(v2Summary.v2BlockedItems).toEqual([v2Item]);
+    expect(v2Summary.canApplyAll).toBe(false);
+    expect(v2Summary.canApplyValid).toBe(false);
+
+    // mixed [V1, V2] summary -> canApplyValid false, buildApplyPlanFromItems still throws V2_APPLY_BLOCKER
+    const preflightByItem = {
+      [v1Item.id]: passedPreflight(v1Item),
+    };
+    const mixedSummary = getReviewApplySummary([v1Item, v2Item], preflightByItem);
+    expect(mixedSummary.canApplyValid).toBe(false);
+    expect(() => buildApplyPlanFromItems([v2Item])).toThrow(V2_APPLY_BLOCKER);
+    expect(() => buildApplyPlanFromItems([v1Item, v2Item])).toThrow(V2_APPLY_BLOCKER);
   });
 });

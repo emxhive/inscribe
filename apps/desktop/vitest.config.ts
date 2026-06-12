@@ -9,6 +9,9 @@ export default defineConfig({
     },
   },
   test: {
+    root: path.resolve(__dirname, '../..'),
     environment: 'node',
+    include: ['apps/desktop/src/**/*.test.ts'],
+    exclude: ['legacy/**', '**/node_modules/**'],
   },
 });

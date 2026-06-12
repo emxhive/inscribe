@@ -59,6 +59,10 @@ export async function updateDirectivesAndRebuild({
     return { error: 'Unable to locate review item.' };
   }
 
+  if (targetItem.engineVersion === 'v2') {
+    return { error: 'V2 preview items cannot be edited.' };
+  }
+
   let nextInput = aiInput;
   for (const [key, value] of Object.entries(updates)) {
     const intake = parseIntakeStructure(nextInput);

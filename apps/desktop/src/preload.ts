@@ -131,6 +131,9 @@ const api = {
     return () => ipcRenderer.removeListener('terminal:session-exit', subscription);
   },
 
+  previewV2: (args: import('./ipc/previewV2Types').PreviewV2IpcArgs): Promise<import('./ipc/previewV2Types').PreviewV2WorkerResponse> =>
+    ipcRenderer.invoke('preview-v2', args),
+
 };
 
 contextBridge.exposeInMainWorld('inscribeAPI', api);

@@ -9,6 +9,8 @@ import type {
   HistoryEntry,
   CliCommandSuggestion,
   ParseWarning,
+  V2OperationStrategy,
+  V2TargetScope,
 } from '@inscribe/shared';
 
 /**
@@ -29,19 +31,39 @@ export type PipelineStatus =
   | 'apply-success'
   | 'apply-failure';
 
-export interface ReviewItem {
+interface ReviewItemBase {
   id: string;
   file: string;
-  mode: OperationMode;
   language: string;
   lineCount: number;
   status: 'pending' | 'applied' | 'invalid';
   originalContent: string;
   editedContent: string;
   validationError?: string;
+}
+
+export interface V1ReviewItem extends ReviewItemBase {
+  engineVersion?: undefined;
+  mode: OperationMode;
   blockIndex: number;
   directives: Record<string, string>;
 }
+
+export interface V2ReviewItem extends ReviewItemBase {
+  engineVersion: 'v2';
+  comparisonSource: 'canonical-v2';
+  strategy: V2OperationStrategy;
+  executionId: string;
+  operationIndex: number;
+  filePath: string;
+  beforeFileHash: string;
+  afterFileHash: string;
+  targetScope: V2TargetScope;
+  beforeExists: boolean;
+  afterExists: boolean;
+}
+
+export type ReviewItem = V1ReviewItem | V2ReviewItem;
 
 export type ReviewPreflightStatus = 'checking' | 'passed' | 'failed';
 
@@ -51,9 +73,14 @@ export interface ReviewPreflightResult {
   error?: string;
 }
 
+export type ReviewComparison =
+  Omit<OperationComparison, 'type'> & {
+    type: OperationComparison['type'] | V2OperationStrategy;
+  };
+
 export interface ReviewComparisonSnapshot {
   fingerprint: string;
-  comparison: OperationComparison;
+  comparison: ReviewComparison;
 }
 
 export type RestoreStatus =

@@ -1,6 +1,6 @@
 import type { ParseResult } from '@inscribe/shared';
-import { buildReviewItems } from '@/utils';
-import { normalizeInscribeInput } from '@/utils/intake';
+import { buildReviewItems, prepareInscribeInput } from '@/utils';
+import { adaptV2Executions } from '@/utils/v2ReviewAdapter';
 import { useAppStateContext } from './useAppStateContext';
 
 /**
@@ -57,8 +57,108 @@ export function useParsingActions() {
       return;
     }
 
-    const normalization = normalizeInscribeInput(state.aiInput);
-    const parseInput = normalization.text;
+    const rawInput = state.aiInput;
+    const prepared = prepareInscribeInput(rawInput);
+
+    if (prepared.protocol === 'v2') {
+      try {
+        updateState({
+          isParsingInProgress: true,
+          pipelineStatus: 'parsing',
+          reviewComparisonError: null,
+          reviewPreflightByItem: {},
+          statusMessage: 'Previewing V2 changes...',
+        });
+
+        const response = await window.inscribeAPI.previewV2({
+          repoRoot: state.repoRoot,
+          rawInput: prepared.parseInput,
+        });
+
+        if (!response.ok) {
+          const errors = response.errors.map((err) => {
+            if (err.type === 'protocol') {
+              return `Protocol Error [${err.code}]: ${err.message} (Block ${err.blockIndex ?? 'unknown'}, Line ${err.line ?? 'unknown'})${err.context ? ` - Context: ${err.context}` : ''}`;
+            } else if (err.type === 'workspace' || err.type === 'resolution') {
+              return `Workspace/Resolution Error [${err.code}] in file ${err.filePath ?? 'unknown'} (Strategy: ${err.strategy ?? 'unknown'}, Operation: ${err.operationIndex ?? 'unknown'}): ${err.message}`;
+            } else {
+              return `System Error [${err.code}]: ${err.message}`;
+            }
+          });
+
+          updateState({
+            parsedBlocks: [],
+            validationErrors: [],
+            reviewItems: [],
+            reviewComparisonByItem: {},
+            reviewPreflightByItem: {},
+            selectedItemId: null,
+            selectedHunkId: null,
+            collapsedHunkIdsByItem: {},
+            collapsedDiffGroupIdsByItem: {},
+            parseErrors: errors,
+            parseWarnings: [],
+            reviewComparisonError: null,
+            isEditing: false,
+            reviewView: 'unified',
+            statusMessage: `Preview V2 failed: ${response.errors.length} error(s)`,
+            pipelineStatus: 'parse-failure',
+            isParsingInProgress: false,
+            mode: 'intake',
+          });
+          return;
+        }
+
+        const adapted = adaptV2Executions(response.executions);
+
+        updateState({
+          parsedBlocks: [],
+          validationErrors: [],
+          reviewItems: adapted.reviewItems,
+          reviewComparisonByItem: adapted.reviewComparisonByItem,
+          reviewPreflightByItem: adapted.reviewPreflightByItem,
+          parseErrors: [],
+          parseWarnings: [],
+          selectedItemId: adapted.reviewItems.length > 0 ? adapted.reviewItems[0].id : null,
+          selectedHunkId: null,
+          collapsedHunkIdsByItem: {},
+          collapsedDiffGroupIdsByItem: {},
+          isEditing: false,
+          reviewView: 'unified',
+          reviewComparisonError: null,
+          mode: 'review',
+          pipelineStatus: 'parse-success',
+          isParsingInProgress: false,
+          statusMessage: `Ready to review: ${adapted.reviewItems.length} V2 operations`,
+        });
+      } catch (error) {
+        console.error('Failed V2 preview:', error);
+        updateState({
+          parsedBlocks: [],
+          validationErrors: [],
+          reviewItems: [],
+          reviewComparisonByItem: {},
+          reviewPreflightByItem: {},
+          selectedItemId: null,
+          selectedHunkId: null,
+          collapsedHunkIdsByItem: {},
+          collapsedDiffGroupIdsByItem: {},
+          parseErrors: ['V2 preview request failed.'],
+          parseWarnings: [],
+          reviewComparisonError: null,
+          isEditing: false,
+          reviewView: 'unified',
+          statusMessage: 'Failed V2 preview',
+          pipelineStatus: 'parse-failure',
+          isParsingInProgress: false,
+          mode: 'intake',
+        });
+      }
+      return;
+    }
+
+    const parseInput = prepared.parseInput;
+    const normalization = prepared.normalization!;
 
     if (!(await confirmPreviouslyAppliedInput(parseInput))) {
       return;

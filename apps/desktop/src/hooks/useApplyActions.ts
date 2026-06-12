@@ -4,30 +4,31 @@ import {
     getReviewApplySummary,
     getReviewItemApplyState,
     summarizeSkippedReviewItems,
+    V2_APPLY_BLOCKER,
 } from '@/utils';
-import type {ReviewItem} from '@/types';
+import type { ReviewItem } from '@/types';
 import { extractCliCommandSuggestions } from '@inscribe/shared';
-import {useAppStateContext} from './useAppStateContext';
-import {initRepositoryState} from './useRepositoryActions';
-import {useHistoryActions} from './useHistoryActions';
+import { useAppStateContext } from './useAppStateContext';
+import { initRepositoryState } from './useRepositoryActions';
+import { useHistoryActions } from './useHistoryActions';
 
 /**
  * Hook for apply/undo operations
  */
 export function useApplyActions() {
-    const {state, updateState, setLastAppliedPlan} = useAppStateContext();
-    const {restoreItem, restoreGroup} = useHistoryActions();
-//     const {state, updateState, setLastAppliedPlan, clearRedo} = useAppStateContext();
+    const { state, updateState, setLastAppliedPlan } = useAppStateContext();
+    const { restoreItem, restoreGroup } = useHistoryActions();
    
     const refreshRepo = async (repoRoot: string) => {
         await initRepositoryState(repoRoot, updateState);
     };
+
     const markItemsApplied = (ids: string[]) => {
         const appliedStatus: ReviewItem['status'] = 'applied';
         const appliedIds = new Set(ids);
         updateState((prev) => {
             const nextReviewItems = prev.reviewItems.map((item) =>
-                appliedIds.has(item.id) ? {...item, status: appliedStatus} : item
+                appliedIds.has(item.id) ? { ...item, status: appliedStatus } : item
             );
             const selectedWasApplied = prev.selectedItemId ? appliedIds.has(prev.selectedItemId) : false;
             const reviewPreflightByItem = Object.fromEntries(
@@ -36,7 +37,7 @@ export function useApplyActions() {
             return {
                 reviewItems: nextReviewItems,
                 reviewPreflightByItem,
-                ...(selectedWasApplied ? {isEditing: false, reviewComparisonError: null} : {}),
+                ...(selectedWasApplied ? { isEditing: false, reviewComparisonError: null } : {}),
             };
         });
     };
@@ -57,6 +58,13 @@ export function useApplyActions() {
 
         const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
         if (!selectedItem) return;
+
+        if (selectedItem.engineVersion === 'v2') {
+            updateState({
+                statusMessage: `Cannot apply: ${V2_APPLY_BLOCKER}`,
+            });
+            return;
+        }
 
         const selectedItemState = getReviewItemApplyState(selectedItem, state.reviewPreflightByItem);
         if (!selectedItemState.applyable) {
@@ -115,38 +123,44 @@ export function useApplyActions() {
                 statusMessage: `Failed to apply: ${error}`
             });
         } finally {
-            updateState({isApplyingInProgress: false});
+            updateState({ isApplyingInProgress: false });
         }
     };
 
     const handleApplyAll = async () => {
         if (!state.repoRoot) return;
 
+        const hasAnyV2 = state.reviewItems.some(item => item.engineVersion === 'v2');
+        if (hasAnyV2) {
+            updateState({ statusMessage: `Cannot apply: ${V2_APPLY_BLOCKER}` });
+            return;
+        }
+
         const hasAnyApplied = state.reviewItems.some(item => item.status === 'applied');
         if (hasAnyApplied) {
-            updateState({statusMessage: 'Some files have already been applied'});
+            updateState({ statusMessage: 'Some files have already been applied' });
             return;
         }
 
         const applySummary = getReviewApplySummary(state.reviewItems, state.reviewPreflightByItem);
         if (applySummary.staticBlockedItems.length > 0) {
-            updateState({statusMessage: `Cannot apply: ${applySummary.staticBlockedItems.length} file(s) have validation errors`});
+            updateState({ statusMessage: `Cannot apply: ${applySummary.staticBlockedItems.length} file(s) have validation errors` });
             return;
         }
 
         if (applySummary.preflightBlockedItems.length > 0) {
-            updateState({statusMessage: `Cannot apply all: ${applySummary.preflightBlockedItems.length} file(s) have comparison/preflight blockers`});
+            updateState({ statusMessage: `Cannot apply all: ${applySummary.preflightBlockedItems.length} file(s) have comparison/preflight blockers` });
             return;
         }
 
         if (applySummary.unresolvedPreflightItems.length > 0) {
-            updateState({statusMessage: `Cannot apply all: ${applySummary.unresolvedPreflightItems.length} file(s) are still awaiting comparison/preflight checks`});
+            updateState({ statusMessage: `Cannot apply all: ${applySummary.unresolvedPreflightItems.length} file(s) are still awaiting comparison/preflight checks` });
             return;
         }
 
         const pendingItems = applySummary.pendingItems;
         if (pendingItems.length === 0) {
-            updateState({statusMessage: 'No pending files to apply'});
+            updateState({ statusMessage: 'No pending files to apply' });
             return;
         }
 
@@ -197,12 +211,21 @@ export function useApplyActions() {
                 statusMessage: `Failed to apply all: ${error}`
             });
         } finally {
-            updateState({isApplyingInProgress: false});
+            updateState({ isApplyingInProgress: false });
         }
     };
 
     const handleApplyValidBlocks = async () => {
         if (!state.repoRoot) return;
+
+        const hasAnyV2 = state.reviewItems.some(item => item.engineVersion === 'v2');
+        if (hasAnyV2) {
+            updateState({
+                statusMessage: `Cannot apply: ${V2_APPLY_BLOCKER}`,
+                pipelineStatus: 'idle'
+            });
+            return;
+        }
 
         const applySummary = getReviewApplySummary(state.reviewItems, state.reviewPreflightByItem);
         const pendingItems = applySummary.applyablePendingItems;
@@ -269,7 +292,7 @@ export function useApplyActions() {
                 statusMessage: `Failed to apply valid blocks: ${error}`
             });
         } finally {
-            updateState({isApplyingInProgress: false});
+            updateState({ isApplyingInProgress: false });
         }
     };
 
@@ -280,6 +303,11 @@ export function useApplyActions() {
         const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId);
         if (!selectedItem) return;
 
+        // Since V2 review items can't be applied/restored, we check blockIndex/directives for V1:
+        if (selectedItem.engineVersion === 'v2') {
+            return;
+        }
+
         const matchingHistoryItem = state.historyItems.find(
             (item) =>
                 item.file === selectedItem.file &&
@@ -288,7 +316,7 @@ export function useApplyActions() {
         );
 
         if (!matchingHistoryItem) {
-            updateState({statusMessage: 'No applied changes found for this selection.'});
+            updateState({ statusMessage: 'No applied changes found for this selection.' });
             return;
         }
 
@@ -296,7 +324,7 @@ export function useApplyActions() {
         if (result?.status === 'success') {
             updateState((prev) => ({
                 reviewItems: prev.reviewItems.map((item) =>
-                    item.id === selectedItem.id ? {...item, status: 'pending'} : item
+                    item.id === selectedItem.id ? { ...item, status: 'pending' } : item
                 ),
             }));
         }
@@ -322,11 +350,14 @@ export function useApplyActions() {
         if (restoredKeys.size > 0) {
             updateState((prev) => ({
                 reviewItems: prev.reviewItems.map((item) => {
+                    if (item.engineVersion === 'v2') {
+                        return item;
+                    }
                     const key = `${item.file}::${item.blockIndex ?? 'unknown'}`;
                     if (!restoredKeys.has(key)) {
                         return item;
                     }
-                    return {...item, status: 'pending'};
+                    return { ...item, status: 'pending' };
                 }),
             }));
         }

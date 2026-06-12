@@ -32,6 +32,7 @@ vi.mock('worker_threads', () => ({
 import {
   compareOperation,
   applyChangesOnWorker,
+  previewV2OnWorker,
   dispose,
 } from './engineWorkerClient';
 
@@ -128,5 +129,34 @@ describe('engineWorkerClient', () => {
 
     // Restore original state
     process.env.INSCRIBE_USER_DATA = originalUserData;
+  });
+
+  it('worker client remains usable after a failed preview DTO', async () => {
+    let messageHandler: any;
+    mockOn.mockImplementation((event, handler) => {
+      if (event === 'message') {
+        messageHandler = handler;
+      }
+    });
+
+    const payloadFail = { rawInput: 'invalid', trustedRepoRoot: '/repo', assetPaths: {} as any };
+    const pFail = previewV2OnWorker(payloadFail);
+
+    const call1 = mockPostMessage.mock.calls[0][0];
+    expect(call1.action).toBe('preview_v2');
+
+    // Simulate worker returning a failed DTO response without throwing/exiting
+    messageHandler({ id: call1.id, success: true, result: { ok: false, errors: [] } });
+    const resFail = await pFail;
+    expect(resFail.ok).toBe(false);
+
+    // Verify it is still usable for subsequent valid requests
+    const payloadOk = { rawInput: 'valid', trustedRepoRoot: '/repo', assetPaths: {} as any };
+    const pOk = previewV2OnWorker(payloadOk);
+
+    const call2 = mockPostMessage.mock.calls[1][0];
+    messageHandler({ id: call2.id, success: true, result: { ok: true, executions: [] } });
+    const resOk = await pOk;
+    expect(resOk.ok).toBe(true);
   });
 });

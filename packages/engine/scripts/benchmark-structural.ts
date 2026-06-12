@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { performance } from 'perf_hooks';
 import { initTreeSitter, loadLanguage, createParser } from '../src/v2/structural/treeSitterRuntime';
-import { resolveNodeRange } from '../src/v2/structural/resolveNodeRange';
+import { createStructuralResolver } from '../src/v2/structural/resolveStructuralTarget';
 import { parseSelector } from '../src/v2/structural/selectorParser';
 
 const CORE_WASM = path.resolve(__dirname, '../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -83,15 +83,23 @@ async function runBenchmark() {
   parser.setLanguage(tsLanguage);
   const selector = parseSelector(
     'class:UserService > method:save > if_statement',
-    `
-    if (!user.name) {
+    `if (!user.name) {
       throw new Error('Missing name');
-    }
-    `
+    }`
   );
 
+  const resolver = createStructuralResolver({
+    coreWasmPath: CORE_WASM,
+    typescriptWasmPath: TS_WASM,
+    tsxWasmPath: TSX_WASM,
+  });
+
   const t14 = performance.now();
-  const match = resolveNodeRange(tsSource, tsTree, selector);
+  const match = await resolver({
+    source: tsSource,
+    filePath: 'test.ts',
+    selector,
+  });
   const t15 = performance.now();
   console.log(`Selector resolution & STARTS_WITH filtering: ${(t15 - t14).toFixed(2)}ms`);
   console.log(`Resolved Node Range: start=${match.start}, end=${match.end}`);

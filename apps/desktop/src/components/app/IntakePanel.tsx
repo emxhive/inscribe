@@ -14,13 +14,16 @@ export function IntakePanel() {
       return cn(
         'whitespace-pre-wrap',
         line.blockId === state.selectedIntakeBlockId && 'bg-primary/10',
-        line.type === 'begin' && 'text-sky-800 bg-sky-100/70',
-        line.type === 'end' && 'text-sky-800 bg-sky-100/70',
-        line.type === 'header' && 'text-indigo-800 bg-indigo-100/60',
-        line.type === 'directive' && 'text-emerald-800 bg-emerald-100/60',
-        line.type === 'unknown-directive' && 'text-amber-800 bg-amber-100/70',
-        line.status === 'warning' && 'bg-amber-200/70 text-amber-900',
-        line.status === 'error' && 'bg-red-200/70 text-red-900',
+        line.type === 'begin' && 'bg-sky-100/70',
+        line.type === 'end' && 'bg-sky-100/70',
+        line.type === 'header' && 'bg-indigo-100/60',
+        line.type === 'directive' && 'bg-emerald-100/60',
+        line.type === 'unknown-directive' && 'bg-amber-100/70',
+        line.type === 'section-open' && 'bg-teal-100/70',
+        line.type === 'section-close' && 'bg-teal-100/70',
+        line.status === 'warning' && 'bg-amber-200/70',
+        line.status === 'error' && 'bg-red-200/70',
+        line.status === 'incomplete' && 'bg-orange-100/70 dark:bg-orange-950/40',
       );
     });
   }, [lines, state.selectedIntakeBlockId]);
@@ -103,7 +106,7 @@ export function IntakePanel() {
       <textarea
         ref={textAreaRef}
         className="relative z-10 w-full h-full resize-none bg-transparent p-3 text-sm leading-relaxed font-mono text-foreground focus:outline-none"
-        placeholder="Paste the AI response here. Must contain $inscribe BEGIN / END blocks."
+        placeholder="Paste the AI response here. Must contain $inscribe BEGIN / END blocks or <<<INSCRIBE / INSCRIBE>>> blocks."
         value={state.aiInput}
         onChange={(e) => updateState({ aiInput: e.target.value })}
         onKeyDown={handleKeyDown}

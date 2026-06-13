@@ -6,6 +6,7 @@ import { buildDiagnosticGroups, formatDiagnosticGroupForClipboard } from './diag
 import { buildReviewItemPreflightFingerprint } from './review';
 
 const block: IntakeBlock = {
+  protocol: 'v1',
   id: 'block-1',
   index: 0,
   startLine: 0,

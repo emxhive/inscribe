@@ -16,7 +16,7 @@ export type DiagnosticMode = AppState['mode'] | 'all';
 export function buildDiagnosticGroups(
   state: AppState,
   blocks: IntakeBlock[],
-  options: { mode?: DiagnosticMode } = {},
+  options: { mode?: DiagnosticMode; globalWarnings?: string[] } = {},
 ): DiagnosticGroup[] {
   const groups: DiagnosticGroup[] = [];
   const mode = options.mode ?? 'all';
@@ -38,7 +38,10 @@ export function buildDiagnosticGroups(
       'parse-warnings',
       'Parse Warnings',
       'warning',
-      state.parseWarnings?.map(w => w.message) ?? []
+      [
+        ...(state.parseWarnings?.map(w => w.message) ?? []),
+        ...(options.globalWarnings ?? []),
+      ]
     );
 
     addGroup(

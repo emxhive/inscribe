@@ -13,9 +13,12 @@ import {
   PARSE_FIELD_KEYS,
   HEADER_KEYS,
   normalizeRelativePath,
+  type V2SectionName,
 } from '@inscribe/shared';
 
 export type IntakeDirectiveKey = FieldKey | LegacyDirectiveKey;
+
+export type IntakeProtocol = 'v1' | 'v2';
 
 export interface IntakeDirective {
   key: IntakeDirectiveKey;
@@ -25,6 +28,7 @@ export interface IntakeDirective {
 }
 
 export interface IntakeBlock {
+  protocol: IntakeProtocol;
   id: string;
   index: number;
   startLine: number;
@@ -32,16 +36,35 @@ export interface IntakeBlock {
   directives: Partial<Record<IntakeDirectiveKey, IntakeDirective>>;
   warnings: string[];
   errors: string[];
-  status: 'valid' | 'warning' | 'error';
+  status: 'valid' | 'incomplete' | 'warning' | 'error';
   label: string;
+  filePath?: string;
+  mode?: string;
+  selectorText?: string;
+  sections?: Partial<Record<V2SectionName, {
+    openLine: number;
+    closeLine?: number;
+    contentStartLine?: number;
+    contentEndLine?: number;
+    isEmpty?: boolean;
+  }>>;
 }
 
 export interface IntakeLineMeta {
   text: string;
   lineIndex: number;
   blockId?: string;
-  type: 'text' | 'begin' | 'end' | 'header' | 'directive' | 'unknown-directive';
-  status?: 'warning' | 'error';
+  type:
+    | 'text'
+    | 'begin'
+    | 'end'
+    | 'header'
+    | 'directive'
+    | 'unknown-directive'
+    | 'section-open'
+    | 'section-close'
+    | 'payload';
+  status?: 'incomplete' | 'warning' | 'error';
 }
 
 const isFenceLine = (line: string) => line.trim().startsWith('` ` `'.replace(/ /g, ''));
@@ -246,6 +269,7 @@ export function parseIntakeStructure(
       }
 
       current = {
+        protocol: 'v1',
         id: `block-${blocks.length + 1}-${lineIndex}`,
         index: blocks.length,
         startLine: lineIndex,
@@ -279,6 +303,7 @@ export function parseIntakeStructure(
         current = null;
       } else {
         const orphanBlock: IntakeBlock = {
+          protocol: 'v1',
           id: `orphan-end-${lineIndex}`,
           index: blocks.length,
           startLine: lineIndex,

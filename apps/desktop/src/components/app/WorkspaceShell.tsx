@@ -550,11 +550,11 @@ function WorkspaceBottomBar() {
 
 function RightPanel() {
   const { state, updateState } = useAppStateContext();
-  const { blocks } = useIntakeBlocks();
+  const { blocks, warnings: globalWarnings } = useIntakeBlocks();
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
   const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId) ?? null;
   const reviewActions = useReviewActions();
-  const diagnostics = buildDiagnosticGroups(state, blocks, { mode: state.mode });
+  const diagnostics = buildDiagnosticGroups(state, blocks, { mode: state.mode, globalWarnings });
   const sections: RightPanelSectionId[] = ['history', 'selection', 'directives', 'diagnostics'];
   const visibleSections = sections.filter((section) => !state.hiddenRightPanelSections.includes(section));
   const isOpen = (section: RightPanelSectionId) => state.openRightPanelSections.includes(section);
@@ -611,6 +611,53 @@ function RightPanel() {
   );
 }
 
+function V2IntakeInspector({ selectedBlock }: { selectedBlock: NonNullable<ReturnType<typeof useIntakeBlocks>['blocks'][number]> }) {
+  const sectionsList = selectedBlock.sections ? Object.keys(selectedBlock.sections).join(', ') : '';
+
+  return (
+    <div className="space-y-3 text-xs">
+      <div className="rounded-md border border-sky-200 bg-sky-50/50 p-2.5 dark:border-sky-950 dark:bg-sky-950/20">
+        <span className="font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wider text-[10px]">V2 Protocol Block</span>
+      </div>
+      <dl className="space-y-2">
+        <InspectorRow label="Protocol" value="V2" />
+        <InspectorRow label="File" value={selectedBlock.filePath || '(none)'} mono />
+        <InspectorRow label="Mode" value={selectedBlock.mode || '(none)'} />
+        {selectedBlock.selectorText && (
+          <InspectorRow label="Selector" value={selectedBlock.selectorText} mono />
+        )}
+        {sectionsList && (
+          <InspectorRow label="Sections" value={sectionsList} />
+        )}
+        <InspectorRow label="Status" value={selectedBlock.status} />
+        <InspectorRow label="Line Range" value={`Lines ${selectedBlock.startLine + 1}–${selectedBlock.endLine + 1}`} />
+      </dl>
+
+      {selectedBlock.errors.length > 0 && (
+        <div className="space-y-1 mt-2">
+          <h4 className="font-semibold text-destructive text-[11px]">Errors</h4>
+          <ul className="list-disc pl-4 space-y-1 text-destructive/90">
+            {selectedBlock.errors.map((err, idx) => (
+              <li key={idx} className="break-all">{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {selectedBlock.warnings.length > 0 && (
+        <div className="space-y-1 mt-2">
+          <h4 className="font-semibold text-amber-600 dark:text-amber-400 text-[11px]">Warnings</h4>
+          <ul className="list-disc pl-4 space-y-1 text-amber-600/90 dark:text-amber-400/90">
+            {selectedBlock.warnings.map((warn, idx) => (
+              <li key={idx} className="break-all">{warn}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IntakeDirectiveSection({ selectedBlock }: { selectedBlock: ReturnType<typeof useIntakeBlocks>['blocks'][number] | null }) {
   const { state, updateState } = useAppStateContext();
 
@@ -634,6 +681,12 @@ function IntakeDirectiveSection({ selectedBlock }: { selectedBlock: ReturnType<t
       aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, '', { allowEmptyInsert: true }),
     }));
   };
+
+  if (!selectedBlock) return null;
+
+  if (selectedBlock.protocol === 'v2') {
+    return <V2IntakeInspector selectedBlock={selectedBlock} />;
+  }
 
   return (
     <HeaderDirectiveEditor

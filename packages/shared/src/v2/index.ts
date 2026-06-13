@@ -3,3 +3,4 @@ export * from './operations';
 export * from './targets';
 export * from './comparisons';
 export * from './history';
+export * from './protocol';

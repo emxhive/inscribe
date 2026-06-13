@@ -209,6 +209,7 @@ function useReplaceIntakeFromClipboard() {
         canRedo: false,
         lastApplyId: null,
         canUndoApply: false,
+        v2PreviewSession: null,
         statusMessage: `Replaced intake with ${clipboardText.length} clipboard character${clipboardText.length === 1 ? '' : 's'}.`,
       });
     } catch (error) {
@@ -446,6 +447,18 @@ function WorkspaceBottomBar() {
     state.historyItems.some(
       (item) => item.file === selectedItem.file && item.blockIndex === selectedItem.blockIndex && !item.restoredAt,
     );
+
+  const hasOnlyPendingV2Items =
+    state.reviewItems.length > 0 &&
+    state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
+
+  const canApplyV2Session =
+    Boolean(state.repoRoot) &&
+    Boolean(state.v2PreviewSession) &&
+    hasOnlyPendingV2Items;
+
+  const enableApplyAll = applySummary.canApplyAll || canApplyV2Session;
+  const applyAllButtonLabel = canApplyV2Session ? 'Apply V2 Preview' : 'Apply All';
   const selectedHunkIndex = state.selectedHunkId
     ? Math.max(0, state.reviewItems.findIndex((item) => item.id === state.selectedItemId))
     : -1;
@@ -533,9 +546,9 @@ function WorkspaceBottomBar() {
             type="button"
             size="sm"
             onClick={applyActions.handleApplyAll}
-            disabled={!applySummary.canApplyAll || state.isApplyingInProgress}
+            disabled={!enableApplyAll || state.isApplyingInProgress}
           >
-            Apply All
+            {applyAllButtonLabel}
           </Button>
           {state.reviewItems.length > 0 && state.reviewItems.every((item) => item.status === 'applied') && (
             <Button variant="outline" size="sm" type="button" onClick={() => updateState({ mode: 'intake' })}>

@@ -11,6 +11,7 @@ import { extractCliCommandSuggestions } from '@inscribe/shared';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
 import { useHistoryActions } from './useHistoryActions';
+import type { ApplyV2ErrorDTO } from '../ipc/applyV2Types';
 
 /**
  * Hook for apply/undo operations
@@ -61,7 +62,7 @@ export function useApplyActions() {
 
         if (selectedItem.engineVersion === 'v2') {
             updateState({
-                statusMessage: `Cannot apply: ${V2_APPLY_BLOCKER}`,
+                statusMessage: 'V2 preview applies as one session. Use Apply All.',
             });
             return;
         }
@@ -132,7 +133,95 @@ export function useApplyActions() {
 
         const hasAnyV2 = state.reviewItems.some(item => item.engineVersion === 'v2');
         if (hasAnyV2) {
-            updateState({ statusMessage: `Cannot apply: ${V2_APPLY_BLOCKER}` });
+            const hasAnyV1 = state.reviewItems.some((item) => item.engineVersion !== 'v2');
+            if (hasAnyV1) {
+                updateState({
+                    statusMessage: 'Cannot apply mixed V1 and V2 review items in one operation.',
+                });
+                return;
+            }
+
+            const hasOnlyPendingV2Items =
+                state.reviewItems.length > 0 &&
+                state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
+
+            const canApplyV2Session =
+                Boolean(state.repoRoot) &&
+                Boolean(state.v2PreviewSession) &&
+                hasOnlyPendingV2Items;
+
+            if (!canApplyV2Session) {
+                if (!state.v2PreviewSession) {
+                    updateState({
+                        statusMessage: 'V2 preview session token is missing. Please parse/preview again.',
+                    });
+                } else if (state.reviewItems.length === 0 || !hasOnlyPendingV2Items) {
+                    const pendingV2 = state.reviewItems.filter((item) => item.status === 'pending' && item.engineVersion === 'v2');
+                    if (pendingV2.length === 0) {
+                        updateState({
+                            statusMessage: 'No pending files to apply',
+                        });
+                    } else {
+                        updateState({
+                            statusMessage: 'V2 preview session has already been partially applied or modified. Please parse/preview again.',
+                        });
+                    }
+                }
+                return;
+            }
+
+            try {
+                updateState({
+                    isApplyingInProgress: true,
+                    pipelineStatus: 'applying',
+                    statusMessage: 'Applying V2 preview session...',
+                    canUndoApply: false,
+                    lastApplyId: null,
+                });
+
+                const result = await window.inscribeAPI.applyV2({
+                    repoRoot: state.repoRoot,
+                    previewToken: state.v2PreviewSession!.previewToken,
+                });
+
+                if (result.ok) {
+                    if (result.historyEntries?.length) {
+                        updateState((prev) => ({
+                            historyItems: [
+                                ...decorateHistoryEntries(result.historyEntries),
+                                ...prev.historyItems,
+                            ],
+                        }));
+                    }
+                    const pendingV2 = state.reviewItems.filter((item) => item.status === 'pending' && item.engineVersion === 'v2');
+                    markItemsApplied(pendingV2.map((item) => item.id));
+                    updateState({
+                        v2PreviewSession: null,
+                        pipelineStatus: 'apply-success',
+                        statusMessage: `✓ Applied V2 preview: ${result.appliedFileCount} file(s).`,
+                        canUndoApply: false,
+                        lastApplyId: null,
+                        canRedo: false,
+                    });
+                    stageTerminalSuggestions(null);
+                    await refreshRepo(state.repoRoot);
+                } else {
+                    updateState({
+                        v2PreviewSession: null,
+                        pipelineStatus: 'apply-failure',
+                        statusMessage: formatApplyV2Errors(result.errors),
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to apply V2 preview:', error);
+                updateState({
+                    v2PreviewSession: null,
+                    pipelineStatus: 'apply-failure',
+                    statusMessage: 'Failed to apply V2 preview.',
+                });
+            } finally {
+                updateState({ isApplyingInProgress: false });
+            }
             return;
         }
 
@@ -220,8 +309,11 @@ export function useApplyActions() {
 
         const hasAnyV2 = state.reviewItems.some(item => item.engineVersion === 'v2');
         if (hasAnyV2) {
+            const hasAnyV1 = state.reviewItems.some((item) => item.engineVersion !== 'v2');
             updateState({
-                statusMessage: `Cannot apply: ${V2_APPLY_BLOCKER}`,
+                statusMessage: hasAnyV1
+                    ? 'Cannot apply mixed V1 and V2 review items in one operation.'
+                    : 'Use Apply V2 Preview to apply this reviewed V2 session.',
                 pipelineStatus: 'idle'
             });
             return;
@@ -375,4 +467,10 @@ export function useApplyActions() {
         handleUndoSelected,
         handleUndoAll,
     };
+}
+
+function formatApplyV2Errors(errors: ApplyV2ErrorDTO[]): string {
+  return errors
+    .map((err) => err.filePath ? `${err.code} in ${err.filePath}: ${err.message}` : `${err.code}: ${err.message}`)
+    .join('; ');
 }

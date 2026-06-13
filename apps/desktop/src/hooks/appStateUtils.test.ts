@@ -241,4 +241,71 @@ describe('applyAppStateUpdates', () => {
     expect(nextState.isEditing).toBe(false);
     expect(nextState.reviewView).toBe('unified');
   });
+
+  it('starts with v2PreviewSession as null', () => {
+    expect(initialState.v2PreviewSession).toBe(null);
+  });
+
+  it('stores token and expiresAt when V2 preview succeeds', () => {
+    const updated = applyAppStateUpdates(initialState, {
+      v2PreviewSession: {
+        previewToken: 'tok-123',
+        expiresAt: '2026-06-13T23:59:59Z',
+      },
+    });
+    expect(updated.v2PreviewSession).toEqual({
+      previewToken: 'tok-123',
+      expiresAt: '2026-06-13T23:59:59Z',
+    });
+  });
+
+  it('clears v2PreviewSession when leaving review mode', () => {
+    const stateWithToken = applyAppStateUpdates(initialState, {
+      mode: 'review',
+      v2PreviewSession: {
+        previewToken: 'tok-123',
+        expiresAt: '2026-06-13T23:59:59Z',
+      },
+    });
+    const next = applyAppStateUpdates(stateWithToken, { mode: 'intake' });
+    expect(next.v2PreviewSession).toBe(null);
+  });
+
+  it('clears v2PreviewSession when switching repositories', () => {
+    const stateWithToken = applyAppStateUpdates(initialState, {
+      repoRoot: 'C:/repo-a',
+      v2PreviewSession: {
+        previewToken: 'tok-123',
+        expiresAt: '2026-06-13T23:59:59Z',
+      },
+    });
+    const next = applyAppStateUpdates(stateWithToken, { repoRoot: 'C:/repo-b' });
+    expect(next.v2PreviewSession).toBe(null);
+  });
+
+  it('clears v2PreviewSession when reviewItems are replaced without explicitly supplying v2PreviewSession', () => {
+    const stateWithToken = applyAppStateUpdates(initialState, {
+      reviewItems: [],
+      v2PreviewSession: {
+        previewToken: 'tok-123',
+        expiresAt: '2026-06-13T23:59:59Z',
+      },
+    });
+    const next = applyAppStateUpdates(stateWithToken, { reviewItems: [{ id: '1', file: 'a.txt', status: 'pending', language: 'txt', lineCount: 1, originalContent: '', editedContent: '' } as any] });
+    expect(next.v2PreviewSession).toBe(null);
+  });
+
+  it('does NOT clear v2PreviewSession when reviewItems and v2PreviewSession are updated atomically', () => {
+    const updated = applyAppStateUpdates(initialState, {
+      reviewItems: [{ id: '1', file: 'a.txt', status: 'pending', language: 'txt', lineCount: 1, originalContent: '', editedContent: '' } as any],
+      v2PreviewSession: {
+        previewToken: 'tok-123',
+        expiresAt: '2026-06-13T23:59:59Z',
+      },
+    });
+    expect(updated.v2PreviewSession).toEqual({
+      previewToken: 'tok-123',
+      expiresAt: '2026-06-13T23:59:59Z',
+    });
+  });
 });

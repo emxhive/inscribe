@@ -50,6 +50,7 @@ export const initialState: AppState = {
   canRedo: false,
   lastApplyId: null,
   canUndoApply: false,
+  v2PreviewSession: null,
   historyItems: [],
 };
 

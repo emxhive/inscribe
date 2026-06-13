@@ -105,6 +105,7 @@ export function useParsingActions() {
             pipelineStatus: 'parse-failure',
             isParsingInProgress: false,
             mode: 'intake',
+            v2PreviewSession: null,
           });
           return;
         }
@@ -130,6 +131,10 @@ export function useParsingActions() {
           pipelineStatus: 'parse-success',
           isParsingInProgress: false,
           statusMessage: `Ready to review: ${adapted.reviewItems.length} V2 operations`,
+          v2PreviewSession: {
+            previewToken: response.previewToken,
+            expiresAt: response.expiresAt,
+          },
         });
       } catch (error) {
         console.error('Failed V2 preview:', error);
@@ -152,6 +157,7 @@ export function useParsingActions() {
           pipelineStatus: 'parse-failure',
           isParsingInProgress: false,
           mode: 'intake',
+          v2PreviewSession: null,
         });
       }
       return;
@@ -159,6 +165,8 @@ export function useParsingActions() {
 
     const parseInput = prepared.parseInput;
     const normalization = prepared.normalization!;
+
+    updateState({ v2PreviewSession: null });
 
     if (!(await confirmPreviouslyAppliedInput(parseInput))) {
       return;

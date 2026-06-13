@@ -12,6 +12,7 @@ import type {
   HistoryEntry,
 } from '@inscribe/shared';
 import type { PreviewV2IpcArgs, PreviewV2WorkerResponse } from '../ipc/previewV2Types';
+import type { ApplyV2IpcArgs, ApplyV2WorkerResponse } from '../ipc/applyV2Types';
 
 export interface RepoInitResult {
   topLevelFolders: string[];
@@ -118,4 +119,5 @@ export interface InscribeAPI {
   onTerminalRunExit: (callback: (event: TerminalRunExitEvent) => void) => () => void;
   onTerminalSessionExit: (callback: (event: TerminalSessionExitEvent) => void) => () => void;
   previewV2: (args: PreviewV2IpcArgs) => Promise<PreviewV2WorkerResponse>;
+  applyV2: (args: ApplyV2IpcArgs) => Promise<ApplyV2WorkerResponse>;
 }

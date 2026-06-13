@@ -11,12 +11,17 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
     next.reviewComparisonError = null;
     next.reviewPreflightByItem = {};
     next.reviewComparisonByItem = {};
+    next.v2PreviewSession = null;
   }
 
   if ('reviewItems' in updates && updates.reviewItems !== prev.reviewItems && !('reviewPreflightByItem' in updates)) {
     next.reviewComparisonError = null;
     next.reviewPreflightByItem = {};
     next.reviewComparisonByItem = {};
+  }
+
+  if ('reviewItems' in updates && updates.reviewItems !== prev.reviewItems && !('v2PreviewSession' in updates)) {
+    next.v2PreviewSession = null;
   }
 
   if ('repoRoot' in updates && updates.repoRoot !== prev.repoRoot) {
@@ -32,6 +37,7 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
     next.terminalCommandSuggestions = [];
     next.terminalSuggestionSourceApplyId = null;
     next.terminalCommandHistory = [];
+    next.v2PreviewSession = null;
   }
 
   return next;

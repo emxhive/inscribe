@@ -4,7 +4,7 @@ import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
 import { cn } from '@/lib/utils';
 import type { ReviewItem } from '@/types';
 import { ReviewDirectivePopover } from './ReviewDirectivePopover';
-import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, XCircle, CircleDot } from 'lucide-react';
 import { getReviewSidebarError, getReviewSidebarStatus } from '@/utils';
 
 export const MIN_SIDEBAR_WIDTH = 240;
@@ -25,6 +25,11 @@ const intakeStatusConfig = {
     icon: XCircle,
     className: 'text-destructive',
     label: 'error',
+  },
+  incomplete: {
+    icon: CircleDot,
+    className: 'text-amber-500 animate-pulse',
+    label: 'incomplete',
   },
 } as const;
 
@@ -134,28 +139,86 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
       {state.mode === 'intake' && blocks.length > 0 && (
         <div className="flex flex-col min-h-0 flex-1">
           <ul className="flex-1 min-h-0 overflow-y-auto list-none p-0 m-0">
-            {blocks.map((block) => (
-              <li key={block.id}>
-                <button
-                  type="button"
-                  onClick={() => updateState({ selectedIntakeBlockId: block.id })}
-                  className={cn(
-                    'w-full text-left border-b border-border px-3 py-2 transition',
-                    block.id === state.selectedIntakeBlockId
-                      ? 'bg-primary/10'
-                      : 'hover:bg-secondary/70',
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-foreground truncate">{block.label}</span>
-                    {renderIntakeStatus(block.status)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Lines {block.startLine + 1}–{block.endLine + 1}
-                  </p>
-                </button>
-              </li>
-            ))}
+            {blocks.map((block) => {
+              const isV2 = block.protocol === 'v2';
+              const riskLabels: Record<string, string> = {
+                delete_file: 'delete',
+                replace_file: 'whole file',
+                replace_node: 'structural',
+                replace_text: 'text',
+                create_file: 'create',
+              };
+
+              if (isV2) {
+                return (
+                  <li key={block.id}>
+                    <button
+                      type="button"
+                      onClick={() => updateState({ selectedIntakeBlockId: block.id })}
+                      className={cn(
+                        'w-full text-left border-b border-border px-3 py-2 transition',
+                        block.id === state.selectedIntakeBlockId
+                          ? 'bg-primary/10'
+                          : 'hover:bg-secondary/70',
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="rounded bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 text-[10px] font-bold px-1.5 py-0.5 uppercase">V2</span>
+                            {block.mode && (
+                              <span className="rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 text-[10px] font-medium px-1.5 py-0.5 lowercase">
+                                {block.mode}
+                              </span>
+                            )}
+                            {block.mode && riskLabels[block.mode] && (
+                              <span className="text-[10px] text-muted-foreground bg-secondary px-1 py-0.5 rounded font-medium">
+                                {riskLabels[block.mode]}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-sm font-semibold text-foreground truncate mt-1 block" title={block.label}>
+                            {block.label}
+                          </span>
+                          {block.mode === 'replace_node' && block.selectorText && (
+                            <div className="text-[10px] font-mono text-muted-foreground mt-0.5 truncate" title={block.selectorText}>
+                              {block.selectorText}
+                            </div>
+                          )}
+                        </div>
+                        {renderIntakeStatus(block.status)}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Lines {block.startLine + 1}–{block.endLine + 1}
+                      </p>
+                    </button>
+                  </li>
+                );
+              }
+
+              return (
+                <li key={block.id}>
+                  <button
+                    type="button"
+                    onClick={() => updateState({ selectedIntakeBlockId: block.id })}
+                    className={cn(
+                      'w-full text-left border-b border-border px-3 py-2 transition',
+                      block.id === state.selectedIntakeBlockId
+                        ? 'bg-primary/10'
+                        : 'hover:bg-secondary/70',
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-foreground truncate">{block.label}</span>
+                      {renderIntakeStatus(block.status)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Lines {block.startLine + 1}–{block.endLine + 1}
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

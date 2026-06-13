@@ -24,3 +24,6 @@ export {
 } from './review';
 export { decorateHistoryEntries } from './history';
 export { prepareInscribeInput } from './prepareInscribeInput';
+export { parseLiveIntakeStructure, type LiveIntakeStructure } from './liveIntake';
+export { scanV2IntakeStructure } from './intakeV2';
+export { detectInscribeProtocol } from './detectInscribeProtocol';

@@ -1,15 +1,6 @@
-export type InscribeProtocol = 'v1' | 'v2';
+import { isExactV2MarkerLine } from '@inscribe/shared';
 
-const V2_MARKERS = new Set([
-  '<<<INSCRIBE',
-  'INSCRIBE>>>',
-  '<<<CONTENT',
-  'CONTENT>>>',
-  '<<<SEARCH',
-  'SEARCH>>>',
-  '<<<STARTS_WITH',
-  'STARTS_WITH>>>',
-]);
+export type InscribeProtocol = 'v1' | 'v2';
 
 /**
  * Detects whether the raw input uses the V1 or V2 Inscribe protocol format.
@@ -18,7 +9,7 @@ const V2_MARKERS = new Set([
 export function detectInscribeProtocol(rawInput: string): InscribeProtocol {
   const lines = rawInput.split(/\r\n|\n|\r/);
   for (const line of lines) {
-    if (V2_MARKERS.has(line.trim())) {
+    if (isExactV2MarkerLine(line)) {
       return 'v2';
     }
   }

@@ -1,4 +1,14 @@
 import type { V2Operation, StructuralSelector } from '@inscribe/shared';
+import {
+  V2_BLOCK_OPEN,
+  V2_BLOCK_CLOSE,
+  V2_SECTION_NAMES,
+  V2_SECTION_OPEN_MARKERS,
+  V2_SECTION_CLOSE_MARKERS,
+  V2_DIRECTIVE_KEYS,
+  V2_OPERATION_MODES,
+  validateV2RelativeFilePath
+} from '@inscribe/shared';
 import { V2ProtocolError } from './protocolErrors';
 import { parseSelector } from '../structural/selectorParser';
 
@@ -10,67 +20,6 @@ interface LineInfo {
   newline: string;
 }
 
-function validateFilePath(filePath: string): string | null {
-  const trimmed = filePath.trim();
-  if (!trimmed) {
-    return 'empty path';
-  }
-  // Check for NUL bytes or control characters
-  for (let idx = 0; idx < trimmed.length; idx++) {
-    const code = trimmed.charCodeAt(idx);
-    if (code === 0 || (code >= 1 && code <= 31) || code === 127) {
-      return 'path contains control characters';
-    }
-  }
-
-  // Check UNC paths before the generic leading-slash condition
-  if (trimmed.startsWith('//')) {
-    return 'UNC path';
-  }
-
-  // Reject absolute paths starting with /
-  if (trimmed.startsWith('/')) {
-    return 'absolute path';
-  }
-  // Reject drive-letter paths (e.g. C:\ or C:/ or just C:)
-  if (/^[a-zA-Z]:/.test(trimmed)) {
-    return 'drive-letter path';
-  }
-  // Reject backslashes
-  if (trimmed.includes('\\')) {
-    return 'path contains backslashes';
-  }
-
-  // Reject Windows-invalid characters anywhere in the path
-  const invalidChars = [':', '*', '?', '"', '<', '>', '|'];
-  for (const char of invalidChars) {
-    if (trimmed.includes(char)) {
-      return `path contains invalid character: ${char}`;
-    }
-  }
-
-  // Split by slashes to check segments
-  const segments = trimmed.split('/');
-  for (const segment of segments) {
-    if (segment === '.') {
-      return 'path contains . segment';
-    }
-    if (segment === '..') {
-      return 'path contains .. segment';
-    }
-    if (segment === '') {
-      return 'path contains empty segment or repeated slashes';
-    }
-    if (segment.endsWith('.') || segment.endsWith(' ')) {
-      return 'path segment ends with dot or space';
-    }
-  }
-  // Reject trailing slash
-  if (trimmed.endsWith('/')) {
-    return 'path contains trailing slash';
-  }
-  return null;
-}
 
 export function parseInscribeBlocks(rawInput: string): V2Operation[] {
   const lines: LineInfo[] = [];
@@ -141,7 +90,7 @@ export function parseInscribeBlocks(rawInput: string): V2Operation[] {
     const line = lines[lineIdx];
     const trimmed = line.text.trim();
 
-    if (trimmed === '<<<INSCRIBE') {
+    if (trimmed === V2_BLOCK_OPEN) {
       foundAnyBlock = true;
       const startLineNum = line.lineNum;
       lineIdx++;
@@ -155,15 +104,15 @@ export function parseInscribeBlocks(rawInput: string): V2Operation[] {
         const currentLine = lines[lineIdx];
         const currentTrimmed = currentLine.text.trim();
 
-        if (currentTrimmed === 'INSCRIBE>>>') {
+        if (currentTrimmed === V2_BLOCK_CLOSE) {
           blockTerminated = true;
           lineIdx++;
           break;
         }
 
-        if (currentTrimmed.startsWith('<<<') && currentTrimmed !== '<<<INSCRIBE') {
+        if (currentTrimmed.startsWith('<<<') && currentTrimmed !== V2_BLOCK_OPEN) {
           const possibleSection = currentTrimmed.slice(3);
-          const validSections = ['CONTENT', 'SEARCH', 'STARTS_WITH'];
+          const validSections = V2_SECTION_NAMES as readonly string[];
           if (!validSections.includes(possibleSection)) {
             throw new V2ProtocolError('UNKNOWN_SECTION', blockIndex, currentLine.lineNum, possibleSection);
           }
@@ -183,15 +132,15 @@ export function parseInscribeBlocks(rawInput: string): V2Operation[] {
             const scanLine = lines[lineIdx];
             const scanTrimmed = scanLine.text.trim();
 
-            const reservedOpeners = ['<<<CONTENT', '<<<SEARCH', '<<<STARTS_WITH'];
-            const reservedClosers = ['CONTENT>>>', 'SEARCH>>>', 'STARTS_WITH>>>'];
+            const reservedOpeners = V2_SECTION_OPEN_MARKERS;
+            const reservedClosers = V2_SECTION_CLOSE_MARKERS;
 
             if (scanTrimmed === closerMarker) {
               closeLineIdx = lineIdx;
               break;
             }
 
-            if (scanTrimmed === 'INSCRIBE>>>' || scanTrimmed === '<<<INSCRIBE') {
+            if (scanTrimmed === V2_BLOCK_CLOSE || scanTrimmed === V2_BLOCK_OPEN) {
               throw new V2ProtocolError('UNTERMINATED_SECTION', blockIndex, scanLine.lineNum, sectionName);
             }
 
@@ -222,7 +171,7 @@ export function parseInscribeBlocks(rawInput: string): V2Operation[] {
           continue;
         }
 
-        if (currentTrimmed.includes('>>>') && currentTrimmed !== 'INSCRIBE>>>') {
+        if (currentTrimmed.includes('>>>') && currentTrimmed !== V2_BLOCK_CLOSE) {
           throw new V2ProtocolError('MALFORMED_MARKER', blockIndex, currentLine.lineNum, currentTrimmed);
         }
         if (currentTrimmed.startsWith('<<<')) {
@@ -234,7 +183,7 @@ export function parseInscribeBlocks(rawInput: string): V2Operation[] {
           const key = currentLine.text.slice(0, colonIndex).trim();
           const value = currentLine.text.slice(colonIndex + 1);
 
-          const validDirectives = ['FILE', 'MODE', 'SELECTOR'];
+          const validDirectives = V2_DIRECTIVE_KEYS as readonly string[];
           if (!validDirectives.includes(key)) {
             throw new V2ProtocolError('UNKNOWN_DIRECTIVE', blockIndex, currentLine.lineNum, key);
           }
@@ -275,13 +224,13 @@ export function parseInscribeBlocks(rawInput: string): V2Operation[] {
         throw new V2ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, 'MODE directive is required');
       }
 
-      const filePathErr = validateFilePath(fileEntry.value);
+      const filePathErr = validateV2RelativeFilePath(fileEntry.value);
       if (filePathErr) {
         throw new V2ProtocolError('INVALID_FILE_PATH', blockIndex, fileEntry.lineNum, filePathErr);
       }
 
       const mode = modeEntry.value;
-      const validModes = ['create_file', 'replace_file', 'delete_file', 'replace_text', 'replace_node'];
+      const validModes = V2_OPERATION_MODES as readonly string[];
       if (!validModes.includes(mode)) {
         throw new V2ProtocolError('INVALID_MODE', blockIndex, modeEntry.lineNum, mode);
       }

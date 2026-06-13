@@ -1,775 +1,522 @@
-# Inscribe LLM Guide
+# Inscribe V2 LLM Authoring Guide
 
-## 0. Execution Dependency Map
+This guide is a binding contract for generating Inscribe V2 blocks. Every rule inside this guide is active and non-negotiable.
 
-This guide is a binding execution contract.
+## 1. Non-negotiable mental model
 
-Do not proceed from memory.
+The engine is precise, not smart.
 
-Examples are illustrative only. The Active Contract and mode rules override examples.
+The LLM is responsible for producing the complete final text for every payload. The engine is responsible only for locating the target and applying that payload.
 
-For every Inscribe response, the following sections are always active:
+- Inscribe V2 is not a code generator.
+- Inscribe V2 does not infer missing code.
+- Inscribe V2 does not complete payloads.
+- Inscribe V2 does not synthesize imports, formatting, wrappers, or omitted logic.
+- Inscribe V2 applies exact text payloads to exact files.
+- Every CONTENT payload must be full and precise for the target being written.
+- If code is omitted from a replacement payload, it is deleted.
+- Placeholders are literal text unless the user explicitly wants placeholders in the final file.
 
-* Section 1: Emission Gate
-* Section 2: Active Contract
-* Section 3: Mode Decision Table
-* Section 4: Output Format Rules
-* Section 5: Per-Block Change List Rules
-* Section 6: Block Shape Rules
-* Section 18: Hard Prohibitions
+- CONTENT is not a patch.
+- CONTENT is not pseudo-code.
+- CONTENT is not “the important part.”
+- CONTENT is the exact replacement text.
 
-Mode-specific active rules:
+## 2. When to use Inscribe V2
 
-| Mode              | Required rule sections        |
-| ----------------- | ----------------------------- |
-| `create_file`     | Section 16                    |
-| `replace_file`    | Section 16                    |
-| `append_file`     | Section 16                    |
-| `delete_file`     | Section 16                    |
-| `replace_line`    | Sections 7, 11                |
-| `replace_range`   | Sections 8, 9, 10, 11, 12, 13 |
-| `replace_between` | Sections 8, 9, 10, 11, 12, 13 |
-| `replace_symbol`  | Section 14                    |
-| `replace_block`   | Section 15                    |
+Use Inscribe V2 only when you have current source truth and can produce complete, exact edits.
 
-Failure-specific active rules:
+Allowed cases:
+- Create a new file with complete content.
+- Replace an entire file with complete content.
+- Delete a file intentionally.
+- Replace exact text using SEARCH + CONTENT.
+- Replace a TypeScript or TSX structural node using SELECTOR + CONTENT.
 
-| Failure type       | Required rule section |
-| ------------------ | --------------------- |
-| Ambiguous target   | Section 17            |
-| Parse error        | Section 17            |
-| Target not found   | Section 17            |
-| Invalid directive  | Section 17            |
-| Unsupported symbol | Section 17            |
+## 3. When not to use Inscribe V2
 
-If all active rules cannot be satisfied, do not emit Inscribe blocks.
+Do not emit Inscribe V2 blocks in any of these situations:
+- The source file content is unknown.
+- The target text or selector cannot be uniquely identified.
+- The replacement payload would require guessing omitted code.
+- You have only a vague description of the target code or repository state.
+- You want the engine to “figure out” where or how to apply a change.
+- The user requested analysis, planning, or explanation only.
+- You cannot write the full final payload.
 
----
+If you cannot produce exact payloads, do not emit Inscribe blocks. Ask for source truth or provide a plan instead.
 
-## 1. Emission Gate
+## 4. V2 block grammar
 
-An Inscribe block may be emitted only if every gate passes:
+Every Inscribe V2 block must match this grammar exactly:
 
-* The user requested implementation.
-* The request is not discussion, review, planning, or diagnosis only.
-* Every mode, header, and directive used appears in Section 2.
-* The needed file context is current and visible.
-* The chosen mode follows Section 3.
-* The selected anchors are safe.
-* `START_*` is unique, or repeated starts are intentionally disambiguated with strong range filters.
-* `END_*` is understood as first/Nth matching end after each matching start.
-* Any widened replacement is local.
-* Any widened replacement preserves unrelated content.
-* `replace_file` is used only with full current file content.
-* Payloads contain repository content only.
-* Each block has a valid change list immediately above it.
+```
+<<<INSCRIBE
+FILE: relative/path/from/repo/root
+MODE: operation_mode
 
-If any gate fails, do not emit Inscribe blocks.
-
----
-
-## 2. Active Contract
-
-### Headers
-
-Valid headers:
-
-* `FILE`
-* `MODE`
-
-### Modes
-
-Valid modes:
-
-* `create_file`
-* `replace_file`
-* `append_file`
-* `delete_file`
-* `replace_line`
-* `replace_range`
-* `replace_between`
-* `replace_block`
-* `replace_symbol`
-
-### Directives
-
-Valid directives:
-
-* `START_LINE_CONTAINS`
-* `START_LINE_EQUALS`
-* `END_LINE_CONTAINS`
-* `END_LINE_EQUALS`
-* `END_OCCURRENCE`
-* `RANGE_CONTAINS`
-* `RANGE_LINE_CONTAINS_ALL`
-* `NAME`
-
-Only these items are valid.
-
-Unlisted modes, headers, and directives are forbidden.
-
-Aliases, shorthand names, alternate spellings, and invented directives are forbidden.
-
----
-
-## 3. Mode Decision Table
-
-Choose the safest mode that expresses the requested change.
-
-| Situation                                                | Mode              |
-| -------------------------------------------------------- | ----------------- |
-| Create a new file                                        | `create_file`     |
-| Delete a file                                            | `delete_file`     |
-| Append content only to file end                          | `append_file`     |
-| Replace a complete supported declaration                 | `replace_symbol`  |
-| Replace exactly one unique line                          | `replace_line`    |
-| Replace whole lines including boundaries                 | `replace_range`   |
-| Replace only content between preserved boundaries        | `replace_between` |
-| Replace first brace-delimited block after a unique start | `replace_block`   |
-| Replace entire file when no safe partial target exists   | `replace_file`    |
-
-Binding mode rules:
-
-* Use `replace_symbol` for a complete supported declaration.
-* Use `replace_line` for one unique target line.
-* Use `replace_range` when payload includes selected boundary lines.
-* Use `replace_between` only when payload excludes selected boundary lines.
-* Use `replace_file` only as final fallback with full current file content.
-* Do not choose a wider mode when a narrower safe mode exists.
-
----
-
-## 4. Output Format Rules
-
-Using Inscribe does not change the normal assistant response outside blocks.
-
-Outside Inscribe blocks, explanations, warnings, assumptions, and testing notes are allowed.
-
-Inside Inscribe blocks, only valid Inscribe syntax and repository payload content are allowed.
-
-Explanations inside payloads are forbidden unless the explanation is actual intended file content.
-
-Each operation must be one block.
-
-Each block must be preceded by one short change list.
-
----
-
-## 5. Per-Block Change List Rules
-
-Every Inscribe block must be preceded by a short bullet list.
-
-Hard limits:
-
-* Maximum 3 bullets.
-* Maximum 18 words per bullet.
-* No paragraphs.
-* No labels such as `Target`, `Scope`, `Preserved`, or `Reason`.
-* No vague summary bullets.
-* No commentary.
-
-Each bullet must describe one concrete addition, removal, replacement, or behavior change.
-
-When removing code, name what is removed.
-
-When replacing behavior, state old behavior and new behavior.
-
-Valid example:
-
-* Adds `END_OCCURRENCE` parsing.
-* Rejects invalid occurrence values during validation.
-* Replaces all-start/end pairing with first/Nth end per start.
-
-The change list must describe the block immediately below it.
-
----
-
-## 6. Block Shape Rules
-
-A valid Inscribe block has this line order:
-
-1. `$inscribe BEGIN`
-2. `FILE: repo-relative/path.ext`
-3. `MODE: valid_mode`
-4. optional directive lines
-5. optional blank line
-6. one fenced payload, only when the mode requires payload
-7. `$inscribe END`
-
-Only `BEGIN` and `END` use the `$inscribe` prefix.
-
-Headers and directives are plain unprefixed lines.
-
-Marker lines must be exactly `$inscribe BEGIN` and `$inscribe END`.
-
-Audits, explanations, and commentary must never appear on a marker line.
-
-Headers and directives must use this exact key-value shape:
-
-`KEY: VALUE`
+<<<CONTENT
+exact payload here
+CONTENT>>>
+INSCRIBE>>>
+```
 
 Rules:
+- Opening marker must be exactly `<<<INSCRIBE` on its own line.
+- Closing marker must be exactly `INSCRIBE>>>` on its own line.
+- Section openers must be exact:
+  - `<<<CONTENT`
+  - `<<<SEARCH`
+  - `<<<STARTS_WITH`
+- Section closers must be exact:
+  - `CONTENT>>>`
+  - `SEARCH>>>`
+  - `STARTS_WITH>>>`
+- Directives are `FILE`, `MODE`, and optionally `SELECTOR`.
+- Do not use Markdown code fences around Inscribe blocks.
+- Do not indent outer Inscribe markers.
 
-* exactly one colon after the key
-* exactly one space after the colon
-* value begins immediately after that space
-* no missing space after the colon
-* no extra spaces before the colon
-* no prefixed keys
+## 5. Operation modes
 
-Payload modes must contain exactly one fenced payload.
+Inscribe V2 supports only these five operation modes. Unlisted modes are forbidden.
 
-`delete_file` must not contain a payload fence.
+### create_file
+Requires:
+- `FILE`
+- `MODE: create_file`
+- `CONTENT`
+`CONTENT` must be the complete file content.
+Forbidden:
+- `SEARCH`
+- `SELECTOR`
+- `STARTS_WITH`
 
-Fence language is only for readability.
+### replace_file
+Requires:
+- `FILE`
+- `MODE: replace_file`
+- `CONTENT`
+`CONTENT` must be the complete new file content.
+Forbidden:
+- `SEARCH`
+- `SELECTOR`
+- `STARTS_WITH`
 
-File validation is determined by `FILE`, not by fence language.
+### delete_file
+Requires:
+- `FILE`
+- `MODE: delete_file`
+Forbidden:
+- `CONTENT`
+- `SEARCH`
+- `SELECTOR`
+- `STARTS_WITH`
 
----
+### replace_text
+Requires:
+- `FILE`
+- `MODE: replace_text`
+- `SEARCH`
+- `CONTENT`
+`SEARCH` must exactly match existing text in the current virtual file state.
+`CONTENT` must be the exact replacement text.
+Forbidden:
+- `SELECTOR`
+- `STARTS_WITH`
 
-## 7. `replace_line`
+### replace_node
+Requires:
+- `FILE`
+- `MODE: replace_node`
+- `SELECTOR`
+- `CONTENT`
+`CONTENT` must be the complete replacement text for the selected structural node.
+Optional:
+- `STARTS_WITH`
+Forbidden:
+- `SEARCH`
 
-Use `replace_line` when replacing exactly one line.
+## 6. Payload rules
+
+- `CONTENT` must be exact final text.
+- Never write “rest of file unchanged.”
+- Never write “existing code here.”
+- Never write “...”
+- Never omit imports, braces, function bodies, class members, or JSX children unless deletion is intended.
+- Never rely on the engine to preserve omitted parts inside a replaced node or replaced file.
+
+Payload requirements by mode:
+- `create_file`: `CONTENT` = entire new file
+- `replace_file`: `CONTENT` = entire new file version
+- `replace_text`: `CONTENT` = exact replacement for `SEARCH`
+- `replace_node`: `CONTENT` = entire replacement node, including its signature, wrapper, braces, and JSX.
+
+For `replace_node`:
+- If replacing a function, `CONTENT` must include the full function declaration/expression.
+- If replacing an `if_statement`, `CONTENT` must include the full if statement.
+- If replacing a class, `CONTENT` must include the full class.
+
+## 7. File path rules
+
+- `FILE` must be a repository-relative path.
+- Use forward slashes.
+- Do not use absolute paths.
+- Do not use drive-letter paths.
+- Do not use backslashes.
+- Do not use `./` or `../` segments.
+- Do not use repeated slashes.
+- Do not use trailing slashes.
+- Do not use control characters.
+
+Valid:
+- `src/app.ts`
+- `apps/desktop/src/preload.ts`
+- `packages/engine/src/v2/index.ts`
+
+Invalid:
+- `C:/repo/src/app.ts`
+- `/src/app.ts`
+- `../src/app.ts`
+- `./src/app.ts`
+- `src\app.ts`
+- `src//app.ts`
+- `src/app.ts/`
+
+## 8. replace_text rules
+
+- `replace_text` is for exact textual replacement, not fuzzy search.
+- `SEARCH` must be copied from the current source truth exactly.
+- `SEARCH` should be as small as safely unique, but large enough to avoid ambiguity.
+- `CONTENT` replaces the whole `SEARCH` block.
+
+Forbidden:
+- Approximate search text.
+- Invented search text.
+- Using `SEARCH` as a regex.
+- Using `SEARCH` as a description of what to find.
+- Using `CONTENT` as a diff hunk (e.g. including `+` or `-` prefixes).
+
+Example:
+<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_text
+
+<<<SEARCH
+const value = 1;
+SEARCH>>>
+
+<<<CONTENT
+const value = 2;
+CONTENT>>>
+INSCRIBE>>>
+
+## 9. replace_node rules
+
+- `replace_node` uses Tree-sitter to locate a syntax node boundary.
+- Tree-sitter only locates the node; it does not generate the replacement, validate business logic, or complete incomplete code.
+- Supported languages: `.ts`, `.tsx`. No `.js` or `.jsx` support is claimed.
+- `replace_node` is safest when replacing a whole named function, class, method, or a specific `if_statement` qualified by `STARTS_WITH`.
+
+Example:
+<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_node
+SELECTOR: function:buildValue
+
+<<<CONTENT
+export function buildValue() {
+  return 2;
+}
+CONTENT>>>
+INSCRIBE>>>
+
+## 10. SELECTOR rules
+
+Example selectors:
+- `function:buildValue`
+- `class:UserService`
+- `class:UserService > method:save`
+- `function:resolvePlan > if_statement`
 
 Rules:
+- Named selectors must use the exact symbol name from source.
+- Do not invent function, class, or method names.
+- `if_statement` selectors usually need `STARTS_WITH` to disambiguate.
+- The selector must resolve to exactly one node.
+- If selector uniqueness is uncertain, do not emit the block.
 
-* Requires one `START_*` selector.
-* `START_*` must resolve to exactly one line.
-* Replaces the whole matched line.
-* `END_*` is forbidden.
-* `RANGE_CONTAINS` is forbidden.
-* `RANGE_LINE_CONTAINS_ALL` is forbidden.
-* `END_OCCURRENCE` is forbidden.
+Supported selector kinds:
+- `class`
+- `method`
+- `function`
+- `if_statement`
 
-Use `replace_line` when the exact target line is unique.
+## 11. STARTS_WITH rules
 
-If the exact target line is repeated, `replace_line` is forbidden.
-
----
-
-## 8. Range and Between Operations
-
-This section applies to `replace_range` and `replace_between`.
-
-Range candidate model:
-
-1. Find all matching `START_*` lines.
-2. For each matching start, find matching `END_*` lines after that start.
-3. Select the first/Nth end after each start using `END_OCCURRENCE`.
-4. Each start creates at most one candidate.
-5. Apply all `RANGE_CONTAINS` and `RANGE_LINE_CONTAINS_ALL` filters.
-6. Succeed only if exactly one candidate remains.
-
-Binding rules:
-
-* `START_*` should be unique when possible.
-* Repeated starts are allowed only as intentional candidate regions.
-* `END_*` does not need global uniqueness.
-* `END_*` is literal, not structural.
-* `END_*` does not understand braces, callbacks, JSX, tests, or nesting.
-* `END_*` means first/Nth matching end line after each matching start.
-
-### `replace_range`
-
-Use `replace_range` when replacing whole lines including selected boundary lines.
-
-Payload must include the full replacement range.
-
-Payload must include the selected start and end boundary lines.
-
-### `replace_between`
-
-Use `replace_between` when preserving selected boundary lines.
-
-`replace_between` preserves both anchor lines.
-
-Payload must contain only the interior replacement.
-
-Payload must not include the selected start boundary line.
-
-Payload must not include the selected end boundary line.
-
-If payload includes either boundary line, use `replace_range`.
-
----
-
-## 9. `END_OCCURRENCE`
-
-`END_OCCURRENCE` selects which matching end to use after each matching start.
+- `STARTS_WITH` is a qualifier for `replace_node` to disambiguate repeating structural targets.
+- It is not a replacement payload.
+- It narrows matching nodes by requiring the target node text to start with the exact `STARTS_WITH` text.
 
 Rules:
-
-* Optional.
-* One-based.
-* Defaults to `1`.
-* Must be a positive integer.
-* `END_OCCURRENCE: 1` means first matching end after each start.
-* `END_OCCURRENCE: 2` means second matching end after each start.
-
-Invalid values:
-
-* `0`
-* negative numbers
-* decimals
-* words
-* empty values
-
-Use `END_OCCURRENCE` only when the first matching end is not the intended boundary.
-
-The occurrence count must be verified from current context.
-
-`RANGE_CONTAINS` must not be used as a substitute for `END_OCCURRENCE`.
-
----
-
-## 10. Range Filters
-
-### `RANGE_CONTAINS`
-
-`RANGE_CONTAINS` filters candidate ranges after start/end selection.
-
-Multiple `RANGE_CONTAINS` values are AND conditions.
-
-A candidate must contain every listed value as an exact substring anywhere in the candidate.
-
-Use `RANGE_CONTAINS` to select among repeated candidate regions.
-
-Valid `RANGE_CONTAINS` values must be:
-
-* real text inside the intended candidate
-* specific
-* intention-bearing
-* unlikely to appear in sibling candidates
-
-Generic filter text is forbidden.
-
-`RANGE_CONTAINS` does not choose another end occurrence.
-
-If selected end occurrence is wrong, set `END_OCCURRENCE`.
-
-### `RANGE_LINE_CONTAINS_ALL`
-
-`RANGE_LINE_CONTAINS_ALL` is valid only for `replace_range` and `replace_between`.
-
-Its value is a comma-separated list of tokens or fragments.
-
-Each fragment is trimmed.
-
-Empty lists and empty fragments are invalid.
-
-A candidate must contain at least one line that contains every listed fragment.
-
-Fragments on different lines do not satisfy one directive.
-
-Multiple `RANGE_LINE_CONTAINS_ALL` directives are AND conditions.
-
----
-
-## 11. Anchor Discipline
-
-`START_*` anchors must be unique unless repeated starts are intentional candidate regions.
-
-A non-unique `START_*` is allowed only when all conditions are true:
-
-* repeated starts intentionally represent candidate regions
-* each candidate has a predictable selected end
-* range filters reduce candidates to exactly one
-* current context includes the possible candidate regions
-
-Generic `START_*` anchors are forbidden unless intentionally disambiguated.
-
-Generic `END_*` anchors are forbidden unless the first/Nth occurrence is verified.
-
-In nested code, test files, JSX, callback-heavy TypeScript, and repeated fixtures, generic anchors are unsafe by default.
-
-`END_*` does not mean “the closing boundary of the thing intended.”
-
-It means literal first/Nth matching end after each matching start.
-
----
-
-## 12. Local Widening Strategy
-
-Narrowness is not safety.
-
-A narrow edit with weak anchors is unsafe.
-
-A wider local edit with strong anchors is safer.
-
-When the exact target is not safely selectable:
-
-1. Use `replace_line` if the exact target line is unique.
-2. If the target line is not unique, widen to the nearest local candidate region.
-3. Use meaningful range filters to select the intended candidate.
-4. Preserve unrelated lines inside the widened region.
-5. Use file boundaries only for real edge-of-file regions.
-6. Use `replace_file` only when no safe partial operation exists.
-
-Widen only as far as needed.
-
-The target is the nearest safe local boundary, not the largest convenient boundary.
-
-### File boundaries
-
-File boundaries are allowed only when the target naturally touches the start or end of the file.
-
-Allowed patterns:
-
-* file start to real local boundary
-* real local boundary to file end
-* edge-of-file region with no nearer real boundary
-
-If both boundaries are file boundaries, use `replace_file`.
-
-Using file boundaries to avoid finding local anchors is forbidden.
-
----
-
-## 13. Range Examples
-
-Examples do not override rules.
-
-Line numbers in examples are illustrative only.
-
-Real Inscribe payloads must never include example line numbers unless those numbers are actual file content.
-
-### Example A: Use `replace_line` when target line is unique
-
-Current region:
-
-`01  A`
-
-`02  B`
-
-`03  C`
-
-Requested change:
-
-Change `C` to `Z`.
-
-Correct mode:
-
-`replace_line`
-
-Reason:
-
-`C` appears once.
-
-Do not widen when the exact target line is safely selectable.
-
-### Example B: Widen only when `replace_line` is unsafe
-
-Current region:
-
-`01  P`
-
-`02    A`
-
-`03    B`
-
-`04    C`
-
-`05    B`
-
-`06    A`
-
-`07  Q`
-
-`08  P`
-
-`09    A`
-
-`10    B`
-
-`11    C`
-
-`12    M`
-
-`13    A`
-
-`14  Q`
-
-Requested change:
-
-Change the `C` inside the region containing `M` to `Z`.
-
-`replace_line` is forbidden here:
-
-`START_LINE_EQUALS: C`
-
-Reason:
-
-`C` appears twice:
-
-* line `04`
-* line `11`
-
-Correct strategy:
-
-Use local candidate boundaries:
-
-`START_LINE_EQUALS: P`
-
-`END_LINE_EQUALS: Q`
-
-Because `END_OCCURRENCE` is omitted, each `P` pairs with the first `Q` after it.
-
-Candidate ranges:
-
-* Candidate 1: lines `01–07`
-* Candidate 2: lines `08–14`
-
-Use:
-
-`RANGE_CONTAINS: M`
-
-Only Candidate 2 remains.
-
-Replacement for Candidate 2:
-
-`P`
-
-`  A`
-
-`  B`
-
-`  Z`
-
-`  M`
-
-`  A`
-
-`Q`
-
-This is correct because the edit widened to the nearest local selectable region.
-
-### Example C: Generic end anchor trap
-
-Current test:
-
-`01  it('works', () => {`
-
-`02    expect(run()).toEqual({`
-
-`03      ok: true,`
-
-`04    });`
-
-`05  });`
-
-Requested change:
-
-Replace the whole test body.
-
-This end selector selects line `04` by default:
-
-`END_LINE_CONTAINS: });`
-
-It does not select line `05`.
-
-If line `05` is intended, use one valid strategy:
-
-* set `END_OCCURRENCE: 2` after verifying the count
-* use a stronger boundary such as the next test declaration
-* replace a larger local `describe` block
-* use `replace_file` only with full current file content
-
----
-
-## 14. `replace_symbol`
-
-Use `replace_symbol` for complete supported declarations.
-
-Supported targets include:
-
-* top-level functions
-* top-level classes
-* TypeScript interfaces and enums
-* class methods selected as `ClassName::method`
-* JS/TS class methods selected as `ClassName.method`
-* top-level arrow-function helpers
-* top-level React components assigned to variables
-* supported exported declarations
-* supported PHP class-like declarations: `class`, `interface`, `trait`, and `enum`
-* supported PHP functions and methods
-
-Unsupported targets require another mode.
-
-Unsupported targets include:
-
-* imports
-* type aliases
-* object literal methods
-* class properties
-* nested declarations
-* JSX subtrees
-* arbitrary blocks inside functions
-
-Use `replace_symbol` over textual ranges when replacing a complete supported declaration.
-
----
-
-## 15. `replace_block`
-
-Use `replace_block` when replacing the first brace-delimited block after a selected start line.
-
-Rules:
-
-* Requires exactly one `START_*`.
-* Replacement includes braces and everything inside them.
-* Replacement does not include the declaration header before the opening brace.
-* Payload must begin with `{`.
-* Payload must end with `}`.
-
-`replace_block` is forbidden when `START_*` is non-unique.
-
-Use `replace_symbol` instead when replacing a full supported declaration.
-
----
-
-## 16. File-Level Modes
-
-### `create_file`
-
-Rules:
-
-* File must not already exist.
-* Payload is required.
-* Existing files must not be overwritten with `create_file`.
-
-### `replace_file`
-
-Rules:
-
-* File must exist.
-* Payload is required.
-* Full current file content must be available.
-* Payload must preserve the current full file except intended changes.
-* Reconstruction from memory is forbidden.
-
-Use only when no safe partial operation exists.
-
-### `append_file`
-
-Rules:
-
-* File must exist.
-* Payload is required.
-* Content is added only at the end of the file.
-* Middle insertion with `append_file` is forbidden.
-
-### `delete_file`
-
-Rules:
-
-* File must exist.
-* Payload fence is forbidden.
-* Payload content is forbidden.
-
-Valid shape:
-
-$inscribe BEGIN
-FILE: path/to/file.ext
+- Use `STARTS_WITH` for repeated `if_statement` targets.
+- `STARTS_WITH` must be copied from source truth.
+- `STARTS_WITH` must not be blank.
+- `STARTS_WITH` must not be a summary.
+- `STARTS_WITH` must match the start of the node.
+
+Example:
+<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_node
+SELECTOR: function:buildValue > if_statement
+
+<<<STARTS_WITH
+if (!value) {
+  throw new Error('Missing value');
+}
+STARTS_WITH>>>
+
+<<<CONTENT
+if (!value) {
+  throw new Error('Value required');
+}
+CONTENT>>>
+INSCRIBE>>>
+
+## 12. Multi-block sequencing rules
+
+- Blocks execute in order.
+- Later blocks see the virtual file state produced by earlier blocks.
+- `SEARCH` and `SELECTOR` resolution happen against the current virtual state, not always the original disk file.
+- Examples of allowed sequences:
+  - `create_file` -> `replace_text` on the same file.
+  - `replace_text` -> `replace_node` on the same file.
+  - `replace_node` -> `replace_text` on the same file.
+- If a previous block changes a target, later `SEARCH`/`SELECTOR` anchors must be written against the changed virtual content.
+
+## 13. Preview and apply model
+
+- Preview parses blocks, resolves targets, builds exact candidate content, and shows diffs.
+- Apply writes the frozen preview result only if the live workspace has not drifted.
+- The apply engine does not re-interpret the user’s natural language.
+- A successful preview is not permission to change payload meaning later. If source changes after preview, re-preview.
+
+## 14. Error-prevention checklist
+
+Verify each item before emitting any V2 block:
+- I have current source truth.
+- I know the exact target file path.
+- I know the exact operation mode.
+- I can write the complete final `CONTENT` payload.
+- I am not using placeholders unless literal placeholders are desired.
+- For `replace_text`, `SEARCH` is exact and uniquely identifies the intended text.
+- For `replace_node`, `SELECTOR` is supported and uniquely identifies the intended node.
+- For repeated structural nodes, `STARTS_WITH` is exact and non-blank.
+- I did not mix V1 and V2 syntax.
+- I did not wrap the Inscribe block in Markdown fences.
+
+## 15. Examples
+
+### create_file
+<<<INSCRIBE
+FILE: src/math.ts
+MODE: create_file
+
+<<<CONTENT
+export function add(a: number, b: number): number {
+  return a + b;
+}
+CONTENT>>>
+INSCRIBE>>>
+
+### replace_file
+<<<INSCRIBE
+FILE: src/math.ts
+MODE: replace_file
+
+<<<CONTENT
+export function add(a: number, b: number): number {
+  return a + b;
+}
+
+export function subtract(a: number, b: number): number {
+  return a - b;
+}
+CONTENT>>>
+INSCRIBE>>>
+
+### delete_file
+<<<INSCRIBE
+FILE: src/stale.ts
 MODE: delete_file
-$inscribe END
+INSCRIBE>>>
 
----
+### replace_text
+<<<INSCRIBE
+FILE: src/math.ts
+MODE: replace_text
 
-## 17. Failure and Retry Protocol
+<<<SEARCH
+export function add(a: number, b: number): number {
+  return a + b;
+}
+SEARCH>>>
 
-Fix the actual failure cause.
+<<<CONTENT
+export function add(a: number, b: number): number {
+  console.log('Adding', a, b);
+  return a + b;
+}
+CONTENT>>>
+INSCRIBE>>>
 
-Do not blindly tweak anchors.
+### replace_node named function
+<<<INSCRIBE
+FILE: src/math.ts
+MODE: replace_node
+SELECTOR: function:subtract
 
-### Ambiguous range
+<<<CONTENT
+export function subtract(a: number, b: number): number {
+  console.log('Subtracting', a, b);
+  return a - b;
+}
+CONTENT>>>
+INSCRIBE>>>
 
-Check:
+### replace_node class method
+<<<INSCRIBE
+FILE: src/calculator.ts
+MODE: replace_node
+SELECTOR: class:Calculator > method:multiply
 
-* repeated `START_*`
-* missing `RANGE_CONTAINS`
-* weak `RANGE_CONTAINS`
-* missing or weak `RANGE_LINE_CONTAINS_ALL`
-* generic `END_*`
-* missing `END_OCCURRENCE`
-* unsafe scope
+<<<CONTENT
+  multiply(a: number, b: number): number {
+    return a * b;
+  }
+CONTENT>>>
+INSCRIBE>>>
 
-### Parse error
+### replace_node repeated if_statement with STARTS_WITH
+<<<INSCRIBE
+FILE: src/auth.ts
+MODE: replace_node
+SELECTOR: function:login > if_statement
 
-The candidate file became syntactically invalid.
+<<<STARTS_WITH
+if (!username) {
+  throw new Error('Username empty');
+}
+STARTS_WITH>>>
 
-Check:
+<<<CONTENT
+if (!username) {
+  throw new Error('Username must not be empty');
+}
+CONTENT>>>
+INSCRIBE>>>
 
-* `replace_between` preserved anchors unexpectedly
-* payload included preserved boundary lines
-* generic `END_*` selected an inner close
-* replacement unbalanced braces, JSX, parentheses, or callbacks
+### TSX function component replacement
+<<<INSCRIBE
+FILE: src/components/Button.tsx
+MODE: replace_node
+SELECTOR: function:Button
 
-### Target not found
+<<<CONTENT
+export function Button({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button className="px-4 py-2 bg-blue-500 text-white rounded" onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+CONTENT>>>
+INSCRIBE>>>
 
-Assume stale context or wrong anchor text.
+### multi-block sequence
+<<<INSCRIBE
+FILE: src/temp.ts
+MODE: create_file
 
-Use current context before retrying.
+<<<CONTENT
+export const version = '1.0.0';
+CONTENT>>>
+INSCRIBE>>>
 
-### Invalid directive
+<<<INSCRIBE
+FILE: src/temp.ts
+MODE: replace_text
 
-Use only Section 2.
+<<<SEARCH
+export const version = '1.0.0';
+SEARCH>>>
 
-### Invalid `END_OCCURRENCE`
+<<<CONTENT
+export const version = '2.0.0';
+CONTENT>>>
+INSCRIBE>>>
 
-Use a positive integer.
+## 16. Forbidden patterns
 
-### Unsupported symbol
+### Forbidden: Omitting code / placeholder comments in payload
+```
+<<<CONTENT
+// keep existing imports
+...
+CONTENT>>>
+```
+*Why:* The engine does not parse placeholders. The literal characters `// keep existing imports` and `...` will replace the code, corrupting the file or deleting imports.
 
-Use another valid mode.
+### Forbidden: Placeholder code in node replacements
+```
+<<<CONTENT
+function buildValue() {
+  // existing logic
+}
+CONTENT>>>
+```
+*Why:* The engine will replace the entire target function with this exact body, deleting the actual existing logic.
 
----
+### Forbidden: Invented selectors
+```
+SELECTOR: function:theFunctionThatHandlesIt
+```
+*Why:* Selectors are exact. There must be a function named `theFunctionThatHandlesIt` in the source code; the engine cannot look up files by conceptual descriptions.
 
-## 18. Hard Prohibitions
+### Forbidden: Prose in SEARCH
+```
+<<<SEARCH
+the old code around here
+SEARCH>>>
+```
+*Why:* SEARCH must be copy-pasted byte-for-byte from current code, or the engine will fail to locate the block.
 
-The following are forbidden:
+### Forbidden: Action instructions instead of code
+```
+<<<CONTENT
+Apply the fix from above
+CONTENT>>>
+```
+*Why:* The engine will literally write the string "Apply the fix from above" into the codebase.
 
-* unlisted modes
-* unlisted headers
-* unlisted directives
-* prefixed headers
-* prefixed directives
-* blocks during discussion-only requests
-* blocks without a valid change list
-* prose inside payload
-* multiple payload fences in one block
-* non-unique `START_*` without intentional disambiguation
-* generic `END_*` without verified first/Nth occurrence
-* `replace_line` with a repeated target line
-* `replace_between` payloads containing preserved boundary lines
-* destructive edits from stale context
-* destructive edits from partial context
-* `replace_file` from memory
-* editing generated/vendor/build files unless explicitly requested
+### Forbidden: Wrapping Inscribe blocks in markdown code blocks
+````
+```
+<<<INSCRIBE
+FILE: src/app.ts
+MODE: delete_file
+INSCRIBE>>>
+```
+````
+*Why:* Markdown fences must never wrap the outer `<<<INSCRIBE` block. Fences cause the parser to fail.
 
----
+## 17. Final response checklist
 
-## 19. Guide Maintenance Rule
-
-This guide intentionally contains real Inscribe block examples.
-
-Full-guide replacement should be done manually by copy-paste, not through Inscribe.
-
-Using Inscribe to replace this guide can cause embedded example blocks to interfere with parsing.
-
----
-
-## 20. Final Rule
-
-Use the safest operation, not the smallest-looking operation.
-
-First use direct safe targeting.
-
-If direct targeting is unsafe, widen to the nearest safe local region.
-
-If local targeting is unsafe, use `replace_file` only with full current file content.
-
-Every block must have a short list of actual changes immediately above it.
-
-Explanations belong outside blocks.
-
-Payloads contain repository content only.
+Before returning Inscribe V2 output:
+1. Emit only valid V2 blocks and short necessary explanation.
+2. Do not include V1 syntax.
+3. Do not include Markdown fences around V2 blocks.
+4. Ensure every CONTENT payload is complete and exact.
+5. Ensure every SEARCH / STARTS_WITH payload is copied from source truth.
+6. Ensure paths are repository-relative.
+7. Ensure no omitted code is accidentally deleted.

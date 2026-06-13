@@ -134,6 +134,8 @@ const api = {
   previewV2: (args: import('./ipc/previewV2Types').PreviewV2IpcArgs): Promise<import('./ipc/previewV2Types').PreviewV2WorkerResponse> =>
     ipcRenderer.invoke('preview-v2', args),
 
+  applyV2: (args: import('./ipc/applyV2Types').ApplyV2IpcArgs): Promise<import('./ipc/applyV2Types').ApplyV2WorkerResponse> =>
+    ipcRenderer.invoke('apply-v2', args),
 };
 
 contextBridge.exposeInMainWorld('inscribeAPI', api);

@@ -45,7 +45,7 @@ export function buildReviewItems(
   });
 }
 
-export const V2_APPLY_BLOCKER = 'V2 preview items cannot be applied yet.';
+export const V2_APPLY_BLOCKER = 'V2 preview applies as one session. Use Apply All.';
 
 /**
  * Build an apply plan from review items

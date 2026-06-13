@@ -154,6 +154,11 @@ export interface AppState {
   lastApplyId: string | null;
   canUndoApply: boolean;
 
+  v2PreviewSession: {
+    previewToken: string;
+    expiresAt: string;
+  } | null;
+
   // Restore history
   historyItems: HistoryItem[];
 }

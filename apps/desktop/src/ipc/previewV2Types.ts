@@ -49,6 +49,8 @@ export type PreviewV2WorkerResponse =
   | {
       ok: true;
       executions: PreviewV2ExecutionDTO[];
+      previewToken: string;
+      expiresAt: string;
     }
   | {
       ok: false;

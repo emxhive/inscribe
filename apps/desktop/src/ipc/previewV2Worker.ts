@@ -7,6 +7,10 @@ import type {
   PreviewV2ExecutionDTO,
   PreviewV2ErrorDTO,
 } from './previewV2Types';
+import { ApplyV2SessionStore, PreviewV2InitialFileSnapshot } from './applyV2SessionStore';
+import { createHash } from 'crypto';
+
+export const defaultSessionStore = new ApplyV2SessionStore();
 
 function mapResolutionError(msg: string): string {
   const exactCodes = [
@@ -41,7 +45,8 @@ function mapResolutionError(msg: string): string {
  * responses will contain at most one resolution error.
  */
 export async function runPreviewV2Worker(
-  payload: PreviewV2WorkerPayload
+  payload: PreviewV2WorkerPayload,
+  sessionStore: ApplyV2SessionStore = defaultSessionStore
 ): Promise<PreviewV2WorkerResponse> {
   // Narrow runtime validation of the internal worker payload before destructuring
   if (
@@ -161,9 +166,54 @@ export async function runPreviewV2Worker(
         afterFileHash: exec.afterFileHash,
       })
     );
+
+    let sessionSummary;
+    try {
+      const snapshotMap = new Map<string, PreviewV2InitialFileSnapshot>();
+      for (const [filePath, fileState] of initialFiles.entries()) {
+        const hash = createHash('sha256').update(fileState.content).digest('hex');
+        snapshotMap.set(filePath, {
+          exists: fileState.exists,
+          content: fileState.content,
+          hash,
+        });
+      }
+
+      sessionSummary = sessionStore.createSession(trustedRepoRoot, snapshotMap, executions);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      let code = 'PREVIEW_SESSION_FAILED';
+      let message = 'Failed to create preview session.';
+
+      if (errMsg === 'INVALID_REPO_ROOT') {
+        code = 'INVALID_REPO_ROOT';
+        message = 'Invalid repository root.';
+      } else if (errMsg === 'PREVIEW_SESSION_CAPACITY_EXCEEDED') {
+        code = 'PREVIEW_SESSION_CAPACITY_EXCEEDED';
+        message = 'Preview session capacity exceeded.';
+      } else if (errMsg === 'PREVIEW_SESSION_INVALID_PLAN') {
+        code = 'PREVIEW_SESSION_INVALID_PLAN';
+        message = 'Preview plan is invalid.';
+      }
+
+      return {
+        ok: false,
+        errors: [
+          {
+            type: 'system',
+            code,
+            message,
+          },
+        ],
+      };
+    }
+
+
     return {
       ok: true,
       executions,
+      previewToken: sessionSummary.previewToken,
+      expiresAt: sessionSummary.expiresAt,
     };
   } catch (err: unknown) {
     return {

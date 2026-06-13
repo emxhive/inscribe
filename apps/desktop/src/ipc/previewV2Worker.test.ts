@@ -2,23 +2,32 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { runPreviewV2Worker } from './previewV2Worker';
+import { runPreviewV2Worker as realRunPreviewV2Worker } from './previewV2Worker';
 import { getTreeSitterAssetPaths } from './treeSitterAssets';
+import { ApplyV2SessionStore, canonicalizeRepoRoot } from './applyV2SessionStore';
+
 
 describe('runPreviewV2Worker Integration Tests', () => {
   let tempDir: string;
   let repoRoot: string;
+  let testSessionStore: ApplyV2SessionStore;
   const assets = getTreeSitterAssetPaths();
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inscribe-worker-test-'));
     repoRoot = path.join(tempDir, 'repo');
     fs.mkdirSync(repoRoot);
+    testSessionStore = new ApplyV2SessionStore();
   });
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  async function runPreviewV2Worker(payload: any, store: ApplyV2SessionStore = testSessionStore) {
+    return realRunPreviewV2Worker(payload, store);
+  }
+
 
   it('preview create_file', async () => {
     const payload = {
@@ -508,6 +517,73 @@ INSCRIBE>>>`,
       if (!response.ok) {
         expect(response.errors[0].code).toBe('INVALID_WORKER_PAYLOAD');
       }
+    });
+  });
+
+  describe('Preview Session Issuance', () => {
+    it('preview_v2 success returns previewToken and expiresAt', async () => {
+      const store = new ApplyV2SessionStore();
+      const payload = {
+        rawInput: `<<<INSCRIBE
+FILE: newfile.txt
+MODE: create_file
+<<<CONTENT
+Created content
+CONTENT>>>
+INSCRIBE>>>`,
+        trustedRepoRoot: repoRoot,
+        assetPaths: assets,
+      };
+
+      const response = await runPreviewV2Worker(payload, store);
+      expect(response.ok).toBe(true);
+      if (response.ok) {
+        expect(response.previewToken).toBeDefined();
+        expect(response.previewToken).toHaveLength(64);
+        expect(response.expiresAt).toBeDefined();
+
+        // Verify it was saved in the store
+        const session = store.consumeSession(response.previewToken, repoRoot);
+        expect(session.canonicalRepoRoot).toBe(canonicalizeRepoRoot(repoRoot));
+        expect(session.executions).toHaveLength(1);
+      }
+    });
+
+
+
+    it('preview_v2 failure creates no session', async () => {
+      const store = new ApplyV2SessionStore();
+      const payload = {
+        rawInput: `<<<INSCRIBE
+INVALID_MODE: abc
+INSCRIBE>>>`,
+        trustedRepoRoot: repoRoot,
+        assetPaths: assets,
+      };
+
+      const response = await runPreviewV2Worker(payload, store);
+      expect(response.ok).toBe(false);
+      expect(store.getStoreSize()).toBe(0);
+    });
+
+    it('preview remains disk-write-free', async () => {
+      const store = new ApplyV2SessionStore();
+      const targetFile = path.join(repoRoot, 'newfile.txt');
+      const payload = {
+        rawInput: `<<<INSCRIBE
+FILE: newfile.txt
+MODE: create_file
+<<<CONTENT
+Created content
+CONTENT>>>
+INSCRIBE>>>`,
+        trustedRepoRoot: repoRoot,
+        assetPaths: assets,
+      };
+
+      const response = await runPreviewV2Worker(payload, store);
+      expect(response.ok).toBe(true);
+      expect(fs.existsSync(targetFile)).toBe(false);
     });
   });
 });

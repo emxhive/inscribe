@@ -2,6 +2,12 @@ export { parseBlocks } from './parse/parseBlocks';
 export { validateBlocks } from './contract/validateBlocks';
 export { buildApplyPlan } from './plan/buildApplyPlan';
 export { applyChanges } from './apply/applyChanges';
+export {
+  applyPreparedFileMutations,
+  PreparedFileMutation,
+  PreparedMutationApplyErrorCode,
+  PreparedMutationApplyResult,
+} from './apply/applyPreparedFileMutations';
 export { buildOperationComparison } from './preview/operationComparison';
 export { buildOperationPreview } from './preview/operationPreview';
 

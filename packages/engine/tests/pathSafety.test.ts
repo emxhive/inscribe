@@ -111,6 +111,24 @@ describe('path safety', () => {
     expect(executions[1].afterContent).toBe('second\n');
     expect(executions[0].canonicalPath).toBe(executions[1].canonicalPath);
   });
+
+  it('allows missing target beneath existing directory', () => {
+    fs.mkdirSync(path.join(repoRoot, 'parent-dir'), { recursive: true });
+    const result = applyChanges({
+      operations: [createFile('parent-dir/new-file.txt', 'content\n')],
+    }, repoRoot);
+    expect(result.success).toBe(true);
+    expect(fs.existsSync(path.join(repoRoot, 'parent-dir/new-file.txt'))).toBe(true);
+  });
+
+  it('rejects missing target beneath existing regular file', () => {
+    fs.writeFileSync(path.join(repoRoot, 'regular-file.txt'), 'file content');
+    const result = applyChanges({
+      operations: [createFile('regular-file.txt/nested-file.txt', 'nested content\n')],
+    }, repoRoot);
+    expect(result.success).toBe(false);
+    expect(result.errors?.join('\n')).toContain('Existing path ancestor is not a directory');
+  });
 });
 
 function createFile(file: string, content: string): Operation {

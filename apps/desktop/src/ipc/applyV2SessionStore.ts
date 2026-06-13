@@ -2,17 +2,7 @@ import * as crypto from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
 import type { PreviewV2ExecutionDTO } from './previewV2Types';
-
-export interface ApplyV2PreparedMutation {
-  filePath: string;
-  type: 'create' | 'replace' | 'delete';
-  beforeExists: boolean;
-  afterExists: boolean;
-  beforeContent: string;
-  afterContent: string;
-  beforeFileHash: string;
-  afterFileHash: string;
-}
+import type { PreparedFileMutation } from '@inscribe/engine';
 
 export interface PreviewV2InitialFileSnapshot {
   exists: boolean;
@@ -27,7 +17,7 @@ export interface PreviewV2Session {
   expiresAt: string;
   initialFiles: Map<string, PreviewV2InitialFileSnapshot>;
   executions: PreviewV2ExecutionDTO[];
-  finalMutations: ApplyV2PreparedMutation[];
+  finalMutations: PreparedFileMutation[];
 }
 
 export interface StoreSessionEntry {
@@ -128,7 +118,7 @@ export function cloneExecutions(execs: PreviewV2ExecutionDTO[]): PreviewV2Execut
 export function collapseExecutions(
   initialFiles: Map<string, PreviewV2InitialFileSnapshot>,
   executions: PreviewV2ExecutionDTO[]
-): ApplyV2PreparedMutation[] {
+): PreparedFileMutation[] {
   // Hash verification
   for (const snapshot of initialFiles.values()) {
     if (snapshot.hash !== sha256(snapshot.content)) {
@@ -168,7 +158,7 @@ export function collapseExecutions(
     fileToExecs.get(exec.filePath)!.push(exec);
   }
 
-  const collapsed: ApplyV2PreparedMutation[] = [];
+  const collapsed: PreparedFileMutation[] = [];
 
   for (const [filePath, fileExecs] of fileToExecs.entries()) {
     const snapshot = initialFiles.get(filePath);
@@ -359,3 +349,5 @@ export class ApplyV2SessionStore {
     return this.entries.size;
   }
 }
+
+export const defaultApplyV2SessionStore = new ApplyV2SessionStore();

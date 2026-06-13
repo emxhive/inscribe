@@ -7,10 +7,8 @@ import type {
   PreviewV2ExecutionDTO,
   PreviewV2ErrorDTO,
 } from './previewV2Types';
-import { ApplyV2SessionStore, PreviewV2InitialFileSnapshot } from './applyV2SessionStore';
+import { ApplyV2SessionStore, PreviewV2InitialFileSnapshot, defaultApplyV2SessionStore } from './applyV2SessionStore';
 import { createHash } from 'crypto';
-
-export const defaultSessionStore = new ApplyV2SessionStore();
 
 function mapResolutionError(msg: string): string {
   const exactCodes = [
@@ -46,7 +44,7 @@ function mapResolutionError(msg: string): string {
  */
 export async function runPreviewV2Worker(
   payload: PreviewV2WorkerPayload,
-  sessionStore: ApplyV2SessionStore = defaultSessionStore
+  sessionStore: ApplyV2SessionStore = defaultApplyV2SessionStore
 ): Promise<PreviewV2WorkerResponse> {
   // Narrow runtime validation of the internal worker payload before destructuring
   if (

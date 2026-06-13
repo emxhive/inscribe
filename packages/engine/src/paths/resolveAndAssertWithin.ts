@@ -61,6 +61,9 @@ function resolveExistingPathOrAncestor(resolvedTarget: string): {
   }
 
   const realExistingPath = realpath(current);
+  if (missingSegments.length > 0 && !fs.statSync(current).isDirectory()) {
+    throw new Error('Existing path ancestor is not a directory');
+  }
   const canonicalTarget = missingSegments.length > 0
     ? path.resolve(realExistingPath, ...missingSegments)
     : realExistingPath;

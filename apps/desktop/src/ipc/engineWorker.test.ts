@@ -33,6 +33,7 @@ import {
   compareOperation,
   applyChangesOnWorker,
   previewV2OnWorker,
+  applyV2OnWorker,
   dispose,
 } from './engineWorkerClient';
 
@@ -157,6 +158,34 @@ describe('engineWorkerClient', () => {
     const call2 = mockPostMessage.mock.calls[1][0];
     messageHandler({ id: call2.id, success: true, result: { ok: true, executions: [] } });
     const resOk = await pOk;
+    expect(resOk.ok).toBe(true);
+  });
+
+  it('proves apply_v2 dispatch action, payload forwarding, and failure resilience', async () => {
+    let messageHandler: any;
+    mockOn.mockImplementation((event, handler) => {
+      if (event === 'message') {
+        messageHandler = handler;
+      }
+    });
+
+    const payload = { trustedRepoRoot: '/repo', previewToken: 'token-123' };
+    const pApply = applyV2OnWorker(payload);
+
+    const call1 = mockPostMessage.mock.calls[0][0];
+    expect(call1.action).toBe('apply_v2');
+    expect(call1.payload).toEqual(payload);
+
+    // Simulate worker returning a failed DTO response
+    messageHandler({ id: call1.id, success: true, result: { ok: false, errors: [{ type: 'session', code: 'PREVIEW_SESSION_NOT_FOUND', message: 'Fail' }] } });
+    const resFail = await pApply;
+    expect(resFail.ok).toBe(false);
+
+    // Verify worker client is still usable for subsequent requests
+    const pApply2 = applyV2OnWorker(payload);
+    const call2 = mockPostMessage.mock.calls[1][0];
+    messageHandler({ id: call2.id, success: true, result: { ok: true, appliedFileCount: 1, historyEntries: [] } });
+    const resOk = await pApply2;
     expect(resOk.ok).toBe(true);
   });
 });

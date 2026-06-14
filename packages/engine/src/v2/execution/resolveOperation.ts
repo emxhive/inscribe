@@ -1,4 +1,4 @@
-import { V2Operation, V2TargetScope, V2RawPayload, V2NormalizedPayload } from '@inscribe/shared';
+import { V2Operation, V2TargetScope, V2RawPayload, V2NormalizedPayload, V2MatchMetadata } from '@inscribe/shared';
 import { CanonicalExecution } from '../protocol';
 import { VirtualFileState, hashContent } from './virtualFileState';
 import { detectDestinationEOL, normalizeLineEndings } from './normalizeLineEndings';
@@ -42,6 +42,8 @@ export async function resolveOperation(
   const rawDirectives: Record<string, string> = {};
   const normalizedDirectives: Record<string, string> = {};
 
+  let matchMetadata: V2MatchMetadata | undefined = undefined;
+
   if (operation.strategy === 'create_file') {
     if (beforeExists) {
       throw new Error(`File already exists: ${filePath}`);
@@ -81,6 +83,7 @@ export async function resolveOperation(
     afterContent = replaceResult.afterContent;
     beforeRange = replaceResult.beforeRange;
     afterRange = replaceResult.afterRange;
+    matchMetadata = replaceResult.matchMetadata;
   } else if (operation.strategy === 'replace_node') {
     if (!beforeExists) {
       throw new Error(`File does not exist: ${filePath}`);
@@ -111,8 +114,10 @@ export async function resolveOperation(
     selector: (operation.strategy === 'replace_node') ? operation.selector : undefined,
     selectorText: undefined,
     beforeRange,
-    afterRange
+    afterRange,
+    matchMetadata
   };
+
 
   const diffHunks = computeDiffHunks(beforeContentRaw, afterContent);
   const afterFileHash = afterExists ? hashContent(afterContent) : hashContent('');

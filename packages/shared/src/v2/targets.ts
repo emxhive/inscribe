@@ -21,6 +21,14 @@ export interface StructuralRange {
   end: number;
 }
 
+export interface V2MatchMetadata {
+  kind: 'exact' | 'fallback';
+  score?: number;
+  resolvedRange: { start: number; end: number };
+  fallbackReason?: 'exact_not_found';
+  unmatchedSoftTokens?: string[];
+}
+
 export interface V2TargetScope {
   filePath: string;
   strategy: V2OperationStrategy;
@@ -29,4 +37,6 @@ export interface V2TargetScope {
   lineRange?: { startLine: number; endLine: number };
   beforeRange?: StructuralRange;
   afterRange?: StructuralRange;
+  matchMetadata?: V2MatchMetadata;
 }
+

@@ -22,9 +22,20 @@ function mapResolutionError(msg: string): string {
     'PARSER_DIAGNOSTICS_PRESENT',
     'INVALID_SELECTOR',
     'UNSUPPORTED_NODE_SHAPE',
+    'MUTABLE_TARGET_AMBIGUOUS',
+    'FALLBACK_TARGET_AMBIGUOUS',
   ];
   if (exactCodes.includes(msg)) {
     return msg;
+  }
+  if (msg.startsWith('TARGET_NOT_FOUND')) {
+    return 'TARGET_NOT_FOUND';
+  }
+  if (msg.startsWith('MUTABLE_TARGET_AMBIGUOUS')) {
+    return 'MUTABLE_TARGET_AMBIGUOUS';
+  }
+  if (msg.startsWith('FALLBACK_TARGET_AMBIGUOUS')) {
+    return 'FALLBACK_TARGET_AMBIGUOUS';
   }
   if (msg.startsWith('File already exists')) {
     return 'FILE_ALREADY_EXISTS';

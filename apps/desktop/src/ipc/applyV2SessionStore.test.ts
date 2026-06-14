@@ -427,6 +427,37 @@ describe('ApplyV2SessionStore', () => {
       expect(session.executions[0].actualDiffHunks[0].oldRange.start).toBe(0);
     });
 
+    it('stored session matchMetadata is isolated from caller mutation', () => {
+      const store = new ApplyV2SessionStore();
+      const initial = new Map<string, PreviewV2InitialFileSnapshot>([
+        ['test.txt', { exists: true, content: 'original', hash: sha256('original') }],
+      ]);
+      const exec = dummyExec(0, 'test.txt', 'replace_text', true, true, 'original', 'modified');
+      exec.targetScope.matchMetadata = {
+        kind: 'fallback',
+        score: 0.95,
+        resolvedRange: { start: 0, end: 8 },
+        fallbackReason: 'exact_not_found',
+        unmatchedSoftTokens: ['\'']
+      };
+
+      const s = store.createSession(mockRoot, initial, [exec]);
+
+      // Mutate
+      exec.targetScope.matchMetadata.score = 0.5;
+      exec.targetScope.matchMetadata.resolvedRange.start = 999;
+      exec.targetScope.matchMetadata.unmatchedSoftTokens![0] = '"';
+
+      // Consume
+      const session = store.consumeSession(s.previewToken, mockRoot);
+      const metadata = session.executions[0].targetScope.matchMetadata;
+      expect(metadata).toBeDefined();
+      expect(metadata?.kind).toBe('fallback');
+      expect(metadata?.score).toBe(0.95);
+      expect(metadata?.resolvedRange.start).toBe(0);
+      expect(metadata?.unmatchedSoftTokens).toEqual(['\'']);
+    });
+
     it('store A creates token, store B is new instance and cannot consume', () => {
       const storeA = new ApplyV2SessionStore();
       const storeB = new ApplyV2SessionStore();

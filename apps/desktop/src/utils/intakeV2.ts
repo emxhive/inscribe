@@ -10,7 +10,8 @@ import {
   type V2SectionName,
   type V2DirectiveKey,
   type V2OperationMode,
-  normalizeRelativePath
+  normalizeRelativePath,
+  parseSectionFenceWrapper
 } from '@inscribe/shared';
 import type { IntakeBlock, IntakeLineMeta } from './intake';
 
@@ -62,6 +63,52 @@ export function scanV2IntakeStructure(
     return text.trim().length === 0;
   };
 
+  const getSectionMeta = (
+    openLine: number,
+    closeLine: number | undefined,
+    contentLines: number[],
+    activeBlock: ActiveBlock
+  ) => {
+    const sectionLines = contentLines.map(lineIdx => ({
+      text: rawLines[lineIdx],
+      lineNum: lineIdx + 1,
+    }));
+
+    const parseResult = parseSectionFenceWrapper(sectionLines);
+    if (parseResult.type === 'error') {
+      activeBlock.errors.push(`malformed section wrapper fence: ${parseResult.message}`);
+      const openerLineNum = parseResult.lineNum;
+      if (linesMeta[openerLineNum - 1]) {
+        linesMeta[openerLineNum - 1].status = 'error';
+      }
+      return {
+        openLine,
+        closeLine,
+        isEmpty: isSectionEmpty(contentLines),
+        contentStartLine: contentLines.length > 0 ? contentLines[0] : undefined,
+        contentEndLine: contentLines.length > 0 ? contentLines[contentLines.length - 1] : undefined,
+      };
+    } else if (parseResult.type === 'unwrapped') {
+      const bodyLines = contentLines.slice(parseResult.bodyStartIdx, parseResult.bodyEndIdx + 1);
+      const isBodyEmpty = bodyLines.length === 0 || bodyLines.every(lineIdx => rawLines[lineIdx].trim() === '');
+      return {
+        openLine,
+        closeLine,
+        isEmpty: isBodyEmpty,
+        contentStartLine: bodyLines.length > 0 ? bodyLines[0] : undefined,
+        contentEndLine: bodyLines.length > 0 ? bodyLines[bodyLines.length - 1] : undefined,
+      };
+    } else {
+      return {
+        openLine,
+        closeLine,
+        isEmpty: isSectionEmpty(contentLines),
+        contentStartLine: contentLines.length > 0 ? contentLines[0] : undefined,
+        contentEndLine: contentLines.length > 0 ? contentLines[contentLines.length - 1] : undefined,
+      };
+    }
+  };
+
   interface ActiveSection {
     name: V2SectionName;
     openLine: number;
@@ -103,14 +150,12 @@ export function scanV2IntakeStructure(
 
     if (active.activeSection) {
       errors.push('missing section close');
-      active.sections[active.activeSection.name] = {
-        openLine: active.activeSection.openLine,
-        isEmpty: isSectionEmpty(active.activeSection.contentLines),
-      };
-      if (active.activeSection.contentLines.length > 0) {
-        active.sections[active.activeSection.name]!.contentStartLine = active.activeSection.contentLines[0];
-        active.sections[active.activeSection.name]!.contentEndLine = active.activeSection.contentLines[active.activeSection.contentLines.length - 1];
-      }
+      active.sections[active.activeSection.name] = getSectionMeta(
+        active.activeSection.openLine,
+        undefined,
+        active.activeSection.contentLines,
+        active
+      );
     }
 
     // Directives and sections warnings/errors compiled
@@ -365,13 +410,12 @@ export function scanV2IntakeStructure(
         if (trimmed === expectedCloser) {
           // close section
           const active = currentBlock.activeSection;
-          currentBlock.sections[active.name] = {
-            openLine: active.openLine,
-            closeLine: lineIndex,
-            isEmpty: isSectionEmpty(active.contentLines),
-            contentStartLine: active.contentLines.length > 0 ? active.contentLines[0] : undefined,
-            contentEndLine: active.contentLines.length > 0 ? active.contentLines[active.contentLines.length - 1] : undefined,
-          };
+          currentBlock.sections[active.name] = getSectionMeta(
+            active.openLine,
+            lineIndex,
+            active.contentLines,
+            currentBlock
+          );
           linesMeta[lineIndex].type = 'section-close';
           currentBlock.activeSection = null;
           return;
@@ -414,12 +458,12 @@ export function scanV2IntakeStructure(
           linesMeta[lineIndex].type = 'section-open';
           // Recover: close current active section as unterminated, start new section
           const prevSec = currentBlock.activeSection;
-          currentBlock.sections[prevSec.name] = {
-            openLine: prevSec.openLine,
-            isEmpty: isSectionEmpty(prevSec.contentLines),
-            contentStartLine: prevSec.contentLines.length > 0 ? prevSec.contentLines[0] : undefined,
-            contentEndLine: prevSec.contentLines.length > 0 ? prevSec.contentLines[prevSec.contentLines.length - 1] : undefined,
-          };
+          currentBlock.sections[prevSec.name] = getSectionMeta(
+            prevSec.openLine,
+            undefined,
+            prevSec.contentLines,
+            currentBlock
+          );
           const secName = trimmed.slice(3) as V2SectionName;
           if (currentBlock.sections[secName]) {
             currentBlock.duplicateSections.add(secName);
@@ -437,12 +481,12 @@ export function scanV2IntakeStructure(
           linesMeta[lineIndex].status = 'error';
           // Recover: close current section as unterminated
           const prevSec = currentBlock.activeSection;
-          currentBlock.sections[prevSec.name] = {
-            openLine: prevSec.openLine,
-            isEmpty: isSectionEmpty(prevSec.contentLines),
-            contentStartLine: prevSec.contentLines.length > 0 ? prevSec.contentLines[0] : undefined,
-            contentEndLine: prevSec.contentLines.length > 0 ? prevSec.contentLines[prevSec.contentLines.length - 1] : undefined,
-          };
+          currentBlock.sections[prevSec.name] = getSectionMeta(
+            prevSec.openLine,
+            undefined,
+            prevSec.contentLines,
+            currentBlock
+          );
           currentBlock.activeSection = null;
           return;
         }

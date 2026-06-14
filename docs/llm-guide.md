@@ -48,7 +48,7 @@ If you cannot produce exact payloads, do not emit Inscribe blocks. Ask for sourc
 
 ## 4. V2 block grammar
 
-Every Inscribe V2 block must match this grammar exactly:
+Every Inscribe V2 block must match this grammar exactly. Code or structured payloads inside payload sections should be wrapped in Markdown code fences as the preferred default style for clean chat formatting:
 
 ```
 <<<INSCRIBE
@@ -56,7 +56,9 @@ FILE: relative/path/from/repo/root
 MODE: operation_mode
 
 <<<CONTENT
+```language
 exact payload here
+```
 CONTENT>>>
 INSCRIBE>>>
 ```
@@ -73,8 +75,9 @@ Rules:
   - `SEARCH>>>`
   - `STARTS_WITH>>>`
 - Directives are `FILE`, `MODE`, and optionally `SELECTOR`.
-- Do not use Markdown code fences around Inscribe blocks.
+- Do not wrap the outer `<<<INSCRIBE ... INSCRIBE>>>` block in Markdown fences.
 - Do not indent outer Inscribe markers.
+- **Preferred Section Wrappers:** Payload sections containing code or structured data should be wrapped in Markdown code fences (backticks or tildes of length >= 3, with 0-3 leading spaces). The parser automatically strips these wrapper fences, so they are not written to disk or treated as literal payload.
 
 ## 5. Operation modes
 
@@ -145,6 +148,21 @@ Forbidden:
 - Never omit imports, braces, function bodies, class members, or JSX children unless deletion is intended.
 - Never rely on the engine to preserve omitted parts inside a replaced node or replaced file.
 
+### Preferred: section wrapper fences
+
+To ensure Inscribe blocks are rendered with correct syntax highlighting in chat interfaces, all code or structured payloads inside the sections (`CONTENT`, `SEARCH`, `STARTS_WITH`) should be wrapped in Markdown code fences (backticks or tildes of length >= 3) with 0-3 leading spaces as the default authoring style.
+
+Example:
+```
+<<<CONTENT
+```ts
+export const value = 1;
+\`\`\`
+CONTENT>>>
+```
+
+The parser automatically strips only the wrapper fence lines (and their optional language tags) along with any optional surrounding blank lines, leaving `export const value = 1;` as the actual payload written to the file (which means these wrapper fences are not written to disk). Any malformed wrappers (e.g. missing closer or trailing text) will raise a `MALFORMED_WRAPPER_FENCE` validation error.
+
 Payload requirements by mode:
 - `create_file`: `CONTENT` = entire new file
 - `replace_file`: `CONTENT` = entire new file version
@@ -202,11 +220,15 @@ FILE: src/example.ts
 MODE: replace_text
 
 <<<SEARCH
+```ts
 const value = 1;
+\`\`\`
 SEARCH>>>
 
 <<<CONTENT
+```ts
 const value = 2;
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -224,9 +246,11 @@ MODE: replace_node
 SELECTOR: function:buildValue
 
 <<<CONTENT
+```ts
 export function buildValue() {
   return 2;
 }
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -271,15 +295,19 @@ MODE: replace_node
 SELECTOR: function:buildValue > if_statement
 
 <<<STARTS_WITH
+```ts
 if (!value) {
   throw new Error('Missing value');
 }
+\`\`\`
 STARTS_WITH>>>
 
 <<<CONTENT
+```ts
 if (!value) {
   throw new Error('Value required');
 }
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -323,9 +351,11 @@ FILE: src/math.ts
 MODE: create_file
 
 <<<CONTENT
+```ts
 export function add(a: number, b: number): number {
   return a + b;
 }
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -335,6 +365,7 @@ FILE: src/math.ts
 MODE: replace_file
 
 <<<CONTENT
+```ts
 export function add(a: number, b: number): number {
   return a + b;
 }
@@ -342,6 +373,7 @@ export function add(a: number, b: number): number {
 export function subtract(a: number, b: number): number {
   return a - b;
 }
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -357,16 +389,20 @@ FILE: src/math.ts
 MODE: replace_text
 
 <<<SEARCH
+```ts
 export function add(a: number, b: number): number {
   return a + b;
 }
+\`\`\`
 SEARCH>>>
 
 <<<CONTENT
+```ts
 export function add(a: number, b: number): number {
   console.log('Adding', a, b);
   return a + b;
 }
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -377,10 +413,12 @@ MODE: replace_node
 SELECTOR: function:subtract
 
 <<<CONTENT
+```ts
 export function subtract(a: number, b: number): number {
   console.log('Subtracting', a, b);
   return a - b;
 }
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -391,9 +429,11 @@ MODE: replace_node
 SELECTOR: class:Calculator > method:multiply
 
 <<<CONTENT
+```ts
   multiply(a: number, b: number): number {
     return a * b;
   }
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -404,15 +444,19 @@ MODE: replace_node
 SELECTOR: function:login > if_statement
 
 <<<STARTS_WITH
+```ts
 if (!username) {
   throw new Error('Username empty');
 }
+\`\`\`
 STARTS_WITH>>>
 
 <<<CONTENT
+```ts
 if (!username) {
   throw new Error('Username must not be empty');
 }
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -423,6 +467,7 @@ MODE: replace_node
 SELECTOR: function:Button
 
 <<<CONTENT
+```tsx
 export function Button({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button className="px-4 py-2 bg-blue-500 text-white rounded" onClick={onClick}>
@@ -430,6 +475,7 @@ export function Button({ label, onClick }: { label: string; onClick: () => void 
     </button>
   );
 }
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -439,7 +485,9 @@ FILE: src/temp.ts
 MODE: create_file
 
 <<<CONTENT
+```ts
 export const version = '1.0.0';
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -448,11 +496,15 @@ FILE: src/temp.ts
 MODE: replace_text
 
 <<<SEARCH
+```ts
 export const version = '1.0.0';
+\`\`\`
 SEARCH>>>
 
 <<<CONTENT
+```ts
 export const version = '2.0.0';
+\`\`\`
 CONTENT>>>
 INSCRIBE>>>
 
@@ -515,7 +567,7 @@ INSCRIBE>>>
 Before returning Inscribe V2 output:
 1. Emit only valid V2 blocks and short necessary explanation.
 2. Do not include V1 syntax.
-3. Do not include Markdown fences around V2 blocks.
+3. Do not wrap the outer Inscribe block in Markdown fences. Prefer inner section fence wrappers for code payloads.
 4. Ensure every CONTENT payload is complete and exact.
 5. Ensure every SEARCH / STARTS_WITH payload is copied from source truth.
 6. Ensure paths are repository-relative.

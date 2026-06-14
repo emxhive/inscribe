@@ -601,4 +601,146 @@ INSCRIBE>>>`;
       expect(() => parseInscribeBlocks(input)).toThrowError(/EMPTY_CONTENT/);
     });
   });
+
+  describe('Section-Level Markdown Fence Wrapper Support', () => {
+    it('unwraps valid code fences inside sections', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: replace_text
+
+<<<SEARCH
+\`\`\`php
+echo "old";
+\`\`\`
+SEARCH>>>
+
+<<<CONTENT
+\`\`\`php
+echo "new";
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>`;
+
+      const ops = parseInscribeBlocks(input);
+      expect(ops).toHaveLength(1);
+      expect(ops[0]).toEqual({
+        strategy: 'replace_text',
+        filePath: 'src/example.php',
+        search: 'echo "old";',
+        content: 'echo "new";',
+      });
+    });
+
+    it('unwraps tilde code fences with leading whitespace up to 3 spaces', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: replace_text
+
+<<<SEARCH
+   ~~~php
+   echo "old";
+   ~~~
+SEARCH>>>
+
+<<<CONTENT
+~~~
+echo "new";
+~~~
+CONTENT>>>
+INSCRIBE>>>`;
+
+      const ops = parseInscribeBlocks(input);
+      expect(ops[0]).toEqual({
+        strategy: 'replace_text',
+        filePath: 'src/example.php',
+        search: '   echo "old";',
+        content: 'echo "new";',
+      });
+    });
+
+    it('throws MALFORMED_WRAPPER_FENCE when section starts with fence but lacks closing fence', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: create_file
+
+<<<CONTENT
+\`\`\`php
+echo "hello";
+CONTENT>>>
+INSCRIBE>>>`;
+
+      expect(() => parseInscribeBlocks(input)).toThrowError(/MALFORMED_WRAPPER_FENCE/);
+    });
+
+    it('throws MALFORMED_WRAPPER_FENCE when closing fence is shorter than opening fence', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: create_file
+
+<<<CONTENT
+\`\`\`\`php
+echo "hello";
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>`;
+
+      expect(() => parseInscribeBlocks(input)).toThrowError(/MALFORMED_WRAPPER_FENCE/);
+    });
+
+    it('throws MALFORMED_WRAPPER_FENCE when non-blank text appears after the closing fence', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: create_file
+
+<<<CONTENT
+\`\`\`php
+echo "hello";
+\`\`\`
+some explanation prose
+CONTENT>>>
+INSCRIBE>>>`;
+
+      expect(() => parseInscribeBlocks(input)).toThrowError(/MALFORMED_WRAPPER_FENCE/);
+    });
+
+    it('does not unwrap and treats as literal when opening fence has 4+ leading spaces', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: create_file
+
+<<<CONTENT
+    \`\`\`php
+    echo "hello";
+    \`\`\`
+CONTENT>>>
+INSCRIBE>>>`;
+
+      const ops = parseInscribeBlocks(input);
+      expect(ops[0]).toEqual({
+        strategy: 'create_file',
+        filePath: 'src/example.php',
+        content: '    ```php\n    echo "hello";\n    ```',
+      });
+    });
+
+    it('preserves internal fences inside body but unwraps wrapper fences', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: create_file
+
+<<<CONTENT
+\`\`\`markdown
+Here is code:
+\`\`\`javascript
+const x = 1;
+\`\`\`
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>`;
+
+      const ops = parseInscribeBlocks(input);
+      expect(ops[0].content).toBe('Here is code:\n```javascript\nconst x = 1;\n```');
+    });
+  });
 });
+

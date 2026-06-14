@@ -16,7 +16,8 @@ export type V2ProtocolErrorCode =
   | 'INVALID_SELECTOR'
   | 'UNTERMINATED_SECTION'
   | 'UNEXPECTED_CONTENT'
-  | 'MALFORMED_MARKER';
+  | 'MALFORMED_MARKER'
+  | 'MALFORMED_WRAPPER_FENCE';
 
 export class V2ProtocolError extends Error {
   constructor(

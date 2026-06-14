@@ -634,4 +634,58 @@ INSCRIBE>>>`
       expect(parseResult.length).toBe(1);
     }
   });
+
+  describe('Section-Level Markdown Fence Wrapper scanner integration', () => {
+    it('scans blocks with valid wrappers as valid', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: replace_text
+<<<SEARCH
+\`\`\`php
+echo "old";
+\`\`\`
+SEARCH>>>
+<<<CONTENT
+\`\`\`php
+echo "new";
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>`;
+
+      const { blocks } = scanV2IntakeStructure(input);
+      expect(blocks[0].status).toBe('valid');
+      expect(blocks[0].errors).toHaveLength(0);
+    });
+
+    it('scans blocks with malformed wrappers as error', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: create_file
+<<<CONTENT
+\`\`\`php
+echo "hello";
+CONTENT>>>
+INSCRIBE>>>`;
+
+      const { blocks } = scanV2IntakeStructure(input);
+      expect(blocks[0].status).toBe('error');
+      expect(blocks[0].errors).toContain('malformed section wrapper fence: missing closing fence or trailing text after closer');
+    });
+
+    it('scans blocks with empty wrappers as empty', () => {
+      const input = `<<<INSCRIBE
+FILE: src/example.php
+MODE: create_file
+<<<CONTENT
+\`\`\`php
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>`;
+
+      const { blocks } = scanV2IntakeStructure(input);
+      expect(blocks[0].errors).toHaveLength(0);
+      expect(blocks[0].sections?.CONTENT?.isEmpty).toBe(true);
+    });
+  });
 });
+

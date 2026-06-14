@@ -7,7 +7,8 @@ import {
   V2_SECTION_CLOSE_MARKERS,
   V2_DIRECTIVE_KEYS,
   V2_OPERATION_MODES,
-  validateV2RelativeFilePath
+  validateV2RelativeFilePath,
+  parseSectionFenceWrapper
 } from '@inscribe/shared';
 import { V2ProtocolError } from './protocolErrors';
 import { parseSelector } from '../structural/selectorParser';
@@ -161,9 +162,23 @@ export function parseInscribeBlocks(rawInput: string): V2Operation[] {
 
           let sectionContent = '';
           if (closeLineIdx > openLineIdx + 1) {
-            const contentStartOffset = lines[openLineIdx + 1].startIndex;
-            const contentEndOffset = lines[closeLineIdx - 1].endIndex;
-            sectionContent = rawInput.slice(contentStartOffset, contentEndOffset);
+            const sectionLines = lines.slice(openLineIdx + 1, closeLineIdx);
+            const parseResult = parseSectionFenceWrapper(sectionLines);
+            if (parseResult.type === 'error') {
+              throw new V2ProtocolError('MALFORMED_WRAPPER_FENCE', blockIndex, parseResult.lineNum, parseResult.message);
+            } else if (parseResult.type === 'unwrapped') {
+              if (parseResult.bodyStartIdx <= parseResult.bodyEndIdx) {
+                const contentStartOffset = sectionLines[parseResult.bodyStartIdx].startIndex;
+                const contentEndOffset = sectionLines[parseResult.bodyEndIdx].endIndex;
+                sectionContent = rawInput.slice(contentStartOffset, contentEndOffset);
+              } else {
+                sectionContent = '';
+              }
+            } else {
+              const contentStartOffset = sectionLines[0].startIndex;
+              const contentEndOffset = sectionLines[sectionLines.length - 1].endIndex;
+              sectionContent = rawInput.slice(contentStartOffset, contentEndOffset);
+            }
           }
 
           sections.set(sectionName, { content: sectionContent, lineNum: currentLine.lineNum });

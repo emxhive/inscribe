@@ -171,6 +171,33 @@ describe('v2ReviewAdapter', () => {
     }
   });
 
+  it('preserves targetScope matchMetadata when adapting executions', () => {
+    const execWithMeta: PreviewV2ExecutionDTO = {
+      ...mockReplaceExecution,
+      targetScope: {
+        filePath: 'src/main.ts',
+        strategy: 'replace_text',
+        matchMetadata: {
+          kind: 'fallback',
+          score: 0.98,
+          resolvedRange: { start: 10, end: 20 },
+          fallbackReason: 'exact_not_found',
+          unmatchedSoftTokens: [';']
+        }
+      }
+    };
+    const result = adaptV2Executions([execWithMeta]);
+    const item = result.reviewItems[0];
+    expect(item.engineVersion).toBe('v2');
+    if (item.engineVersion === 'v2') {
+      expect(item.targetScope.matchMetadata).toBeDefined();
+      expect(item.targetScope.matchMetadata?.kind).toBe('fallback');
+      expect(item.targetScope.matchMetadata?.score).toBe(0.98);
+      expect(item.targetScope.matchMetadata?.resolvedRange).toEqual({ start: 10, end: 20 });
+      expect(item.targetScope.matchMetadata?.unmatchedSoftTokens).toEqual([';']);
+    }
+  });
+
   it('verifies that comparison and preflight fingerprints match', () => {
     const result = adaptV2Executions([mockReplaceExecution]);
     const item = result.reviewItems[0];

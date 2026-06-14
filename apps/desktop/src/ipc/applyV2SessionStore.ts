@@ -93,6 +93,17 @@ export function cloneExecutions(execs: PreviewV2ExecutionDTO[]): PreviewV2Execut
       afterRange: e.targetScope.afterRange
         ? { ...e.targetScope.afterRange }
         : undefined,
+      matchMetadata: e.targetScope.matchMetadata
+        ? {
+            kind: e.targetScope.matchMetadata.kind,
+            score: e.targetScope.matchMetadata.score,
+            resolvedRange: { ...e.targetScope.matchMetadata.resolvedRange },
+            fallbackReason: e.targetScope.matchMetadata.fallbackReason,
+            unmatchedSoftTokens: e.targetScope.matchMetadata.unmatchedSoftTokens
+              ? [...e.targetScope.matchMetadata.unmatchedSoftTokens]
+              : undefined,
+          }
+        : undefined,
     },
     beforeExists: e.beforeExists,
     afterExists: e.afterExists,

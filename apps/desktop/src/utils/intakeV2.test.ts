@@ -393,9 +393,9 @@ INSCRIBE>>>`;
     expect(blocks[0].errors).not.toContain('blank CONTENT');
     expect(blocks[0].errors.filter(e => e.includes('CONTENT'))).toEqual(['blank replace_node CONTENT']);
   });
-
-  it('appends indexed file warnings', () => {
-    const input = `<<<INSCRIBE
+  it('ignores indexedFileSet in V2 and does not generate warnings', () => {
+    // Case 1: create_file with target in indexedFileSet (previously generated warning)
+    const inputCreate = `<<<INSCRIBE
 FILE: src/a.ts
 MODE: create_file
 <<<CONTENT
@@ -403,9 +403,21 @@ content
 CONTENT>>>
 INSCRIBE>>>`;
     const indexedFileSet = new Set(['src/a.ts']);
-    const { blocks } = scanV2IntakeStructure(input, { indexedFileSet });
-    expect(blocks[0].status).toBe('warning');
-    expect(blocks[0].warnings[0]).toContain('create_file targets indexed file');
+    const { blocks: blocksCreate } = scanV2IntakeStructure(inputCreate, { indexedFileSet });
+    expect(blocksCreate[0].status).toBe('valid');
+    expect(blocksCreate[0].warnings).toHaveLength(0);
+
+    // Case 2: non-create operation targeting non-indexed file (previously generated warning)
+    const inputReplace = `<<<INSCRIBE
+FILE: src/b.ts
+MODE: replace_file
+<<<CONTENT
+content
+CONTENT>>>
+INSCRIBE>>>`;
+    const { blocks: blocksReplace } = scanV2IntakeStructure(inputReplace, { indexedFileSet });
+    expect(blocksReplace[0].status).toBe('valid');
+    expect(blocksReplace[0].warnings).toHaveLength(0);
   });
 
   it('bare marker words are treated as payload', () => {

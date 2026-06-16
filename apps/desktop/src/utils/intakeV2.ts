@@ -259,18 +259,6 @@ export function scanV2IntakeStructure(
       }
     }
 
-    // Indexed file warnings (lightweight warnings, not errors)
-    const fileVal = fileDirective?.value?.trim() || '';
-    const modeVal = modeDirective?.value?.trim() || '';
-    if (options?.indexedFileSet && fileVal && modeVal && (V2_OPERATION_MODES as readonly string[]).includes(modeVal)) {
-      const normalizedFile = normalizeRelativePath(fileVal);
-      const isIndexed = options.indexedFileSet.has(normalizedFile);
-      if (modeVal === 'create_file' && isIndexed) {
-        warnings.push(`create_file targets indexed file: ${normalizedFile}`);
-      } else if (modeVal !== 'create_file' && !isIndexed) {
-        warnings.push(`non-create operation targets non-indexed file: ${normalizedFile}`);
-      }
-    }
 
     // Determine status
     let status: IntakeBlock['status'] = 'valid';

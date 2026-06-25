@@ -16,7 +16,7 @@ export class WindowManager {
   createWindow(repoRoot?: string): BrowserWindow {
     const isDev = !app.isPackaged;
     const devServerUrl = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_RENDERER_URL;
-    
+
     // In production, __dirname is where main.js is. renderer/index.html is relative to it.
     // Based on main.ts: const startUrl = isDev ? ... : `file://${path.join(__dirname, 'renderer/index.html')}`;
     
@@ -31,9 +31,16 @@ export class WindowManager {
       },
     });
 
-    const startUrl = isDev
-      ? (devServerUrl ?? 'http://127.0.0.1:5173')
-      : `file://${path.join(__dirname, 'renderer/index.html')}`;
+    let startUrl: string;
+    if (isDev) {
+      if (!devServerUrl) {
+        throw new Error('Missing VITE_DEV_SERVER_URL for Electron development startup.');
+      }
+
+      startUrl = devServerUrl;
+    } else {
+      startUrl = `file://${path.join(__dirname, 'renderer/index.html')}`;
+    }
 
     win.loadURL(startUrl);
  

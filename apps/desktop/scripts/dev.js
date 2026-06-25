@@ -1,5 +1,5 @@
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const appRoot = path.resolve(__dirname, '..');
 const preferredPort = Number(process.env.VITE_DEV_SERVER_PORT ?? process.env.PORT ?? 5173);
@@ -25,7 +25,7 @@ function spawnChild(command, args, options = {}) {
     cwd: appRoot,
     env: { ...process.env, ...options.env },
     stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
+    windowsHide: options.windowsHide ?? true,
   });
 
   children.add(child);
@@ -52,6 +52,22 @@ function runOnce(command, args, options = {}) {
   });
 }
 
+function killProcessTree(child) {
+  if (child.exitCode !== null || child.killed) {
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    spawnSync('taskkill.exe', ['/pid', String(child.pid), '/t', '/f'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    return;
+  }
+
+  child.kill();
+}
+
 async function shutdown(exitCode = 0) {
   if (shuttingDown) {
     return;
@@ -60,7 +76,7 @@ async function shutdown(exitCode = 0) {
   shuttingDown = true;
 
   for (const child of children) {
-    child.kill();
+    killProcessTree(child);
   }
 
   if (viteServer) {
@@ -105,6 +121,7 @@ async function start() {
   const electronBinary = require(require.resolve('electron', { paths: [appRoot] }));
   const electronApp = spawnChild(electronBinary, ['.'], {
     name: 'electron',
+    windowsHide: false,
     env: {
       VITE_DEV_SERVER_URL: devServerUrl,
       ELECTRON_RENDERER_URL: devServerUrl,

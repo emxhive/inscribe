@@ -1,39 +1,35 @@
 {
-    "version": 4,
+    "version": 5,
     "$schema": "https://raw.githubusercontent.com/emxhive/prodex/main/schema/prodex.schema.json",
     "output": {
         "dir": ".prodex@inscribe",
         "versioned": true,
         "format": "md"
     },
-    "entry": [],
-    "include": [],
     "exclude": [
-        "node_modules/**",
+        "**/node_modules/**",
         "vendor/**",
         "dist/**",
         "@shadcn/**",
         "**/components/ui/**"
     ],
-    "resolve": {
-        "aliases": {
-            "@engine": "packages/engine/src",
-            "@shared": "packages/shared/src",
-            "@app": "apps/desktop/src",
-            "@": "apps/desktop/src"
-        },
-        "maxDepth": 10,
-        "maxFiles": 200
+    "aliases": {
+        "@engine": "packages/engine/src",
+        "@shared": "packages/shared/src",
+        "@app": "apps/desktop/src",
+        "@": "apps/desktop/src"
     },
-    "profiles": {
+    "depth": 10,
+    "maxFiles": 200,
+    "scopes": {
         "config": {
             "include": [
-            "**/package.json",
-            "**/tsconfig*.json",
-            "**/vite.config*.ts",
-            "docs/**",
-            "prodex.json"
-        ]
+                "**/package.json",
+                "**/tsconfig*.json",
+                "**/vite.config*.ts",
+                "docs/**",
+                "prodex.json"
+            ]
         },
         "packages": {
             "include": [

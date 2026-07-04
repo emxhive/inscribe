@@ -1,66 +1,76 @@
 # Inscribe
 
-Inscribe is a desktop app that turns explicitly tagged LLM output into reviewable repository changes.
+A desktop app that turns explicitly tagged LLM output into reviewable repository changes.
 
-It only applies `$inscribe BEGIN` / `$inscribe END` blocks, validates the active contract, preflights changes, writes files, and persists restore history.
+Inscribe parses `<<<INSCRIBE` blocks from LLM responses, validates the operation contract, shows diffs, and applies changes with restore history.
 
-## Active Block Format
+## Block Format
 
-````
-$inscribe BEGIN
+```
+<<<INSCRIBE
 FILE: relative/path/from/repo/root.ext
-MODE: create_file
+MODE: operation_mode
 
+<<<CONTENT
 ```ts
-export const example = true;
+exact payload here
+```
+CONTENT>>>
+INSCRIBE>>>
 ```
 
-$inscribe END
-````
+- `<<<INSCRIBE` and `INSCRIBE>>>` must appear on their own lines, unindented, and must never be wrapped in Markdown fences.
+- Section openers: `<<<CONTENT`, `<<<SEARCH`, `<<<STARTS_WITH`
+- Section closers: `CONTENT>>>`, `SEARCH>>>`, `STARTS_WITH>>>`
+- Code payloads inside sections should be wrapped in Markdown code fences — the parser strips the fence wrappers before writing to disk.
 
-`$inscribe` is valid only on `BEGIN` and `END` marker lines. `FILE`, `MODE`, `START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `END_OCCURRENCE`, `RANGE_CONTAINS`, `RANGE_LINE_CONTAINS_ALL`, and `NAME` must not be prefixed.
+## Operation Modes
 
-## Active Modes
+| Mode | Requires | Description |
+|---|---|---|
+| `create_file` | `CONTENT` | Create a new file with complete content |
+| `replace_file` | `CONTENT` | Replace an entire file with complete content |
+| `delete_file` | — | Delete a file |
+| `replace_text` | `SEARCH` + `CONTENT` | Replace an exact text match |
+| `replace_node` | `SELECTOR` + `CONTENT` | Replace a structural node via Tree-sitter (`.ts`, `.tsx`) |
 
-The supported mode names are exact:
+`replace_node` optionally accepts `STARTS_WITH` to disambiguate repeated structural targets (e.g. multiple `if_statement` nodes inside a function).
 
-- `create_file`
-- `replace_file`
-- `append_file`
-- `delete_file`
-- `replace_line`
-- `replace_range`
-- `replace_between`
-- `replace_block`
-- `replace_symbol`
+## Selectors (`replace_node`)
 
-Old aliases such as `create`, `replace`, `append`, `delete`, and `range` are invalid.
+Selectors use exact symbol names from source:
 
-## Directive Summary
+```
+SELECTOR: function:buildValue
+SELECTOR: class:UserService
+SELECTOR: class:UserService > method:save
+SELECTOR: function:resolvePlan > if_statement
+```
 
-Active directives are `START_LINE_CONTAINS`, `START_LINE_EQUALS`, `END_LINE_CONTAINS`, `END_LINE_EQUALS`, `END_OCCURRENCE`, `RANGE_CONTAINS`, `RANGE_LINE_CONTAINS_ALL`, and `NAME`.
+Supported kinds: `class`, `method`, `function`, `if_statement`.
 
-- `replace_line` requires one `START_*` selector.
-- `replace_range` requires one `START_*` and one `END_*` selector; `END_OCCURRENCE`, `RANGE_CONTAINS`, and `RANGE_LINE_CONTAINS_ALL` are optional.
-- `replace_between` requires one `START_*` and one `END_*` selector; `END_OCCURRENCE`, `RANGE_CONTAINS`, and `RANGE_LINE_CONTAINS_ALL` are optional.
-- `replace_block` requires one `START_*` selector.
-- `replace_symbol` requires `NAME`; JS/TS and PHP support bare unique symbols plus scoped method selectors such as `ClassName::method`.
+## Payload Rules
 
-For the full LLM authoring contract, use [docs/llm-guide.md](docs/llm-guide.md).
+- `CONTENT` is the exact final text — not a patch, not pseudo-code, not a summary.
+- Omitting code from a replacement payload deletes that code.
+- `SEARCH` must be copied byte-for-byte from the current source.
+- Placeholders are literal unless the user explicitly wants them in the output file.
 
 ## Workflow
 
 1. Select a repository.
-2. Paste an LLM response containing explicit Inscribe blocks.
+2. Paste an LLM response containing Inscribe blocks.
 3. Review parsed operations and diffs.
 4. Apply selected, valid, or all pending changes.
-5. Restore applied changes from persisted history when needed.
+5. Restore from persisted history when needed.
 
-## Safety Notes
+## Safety
 
-- `FILE` must be repo-relative.
-- Absolute paths and `../` traversal are rejected.
-- Ignored paths are blocked.
-- Non-create operations must be inside configured scope.
-- Supported JS/TS and PHP candidates are syntax-validated before write; PHP validation lints the in-memory candidate with `php -l`.
+- `FILE` must be repository-relative. Absolute paths and `../` traversal are rejected.
+- Ignored paths are blocked. Non-create operations must be within configured scope.
+- Blocks execute in order; later blocks resolve against the virtual state produced by earlier blocks.
 - If disk writes succeed but history persistence fails, writes are rolled back.
+
+## LLM Authoring Guide
+
+For the full authoring contract, see [docs/llm-guide.md](docs/llm-guide.md).

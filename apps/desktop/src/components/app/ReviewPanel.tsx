@@ -322,10 +322,16 @@ export function ReviewPanel() {
     () => (comparisonData ? buildUnifiedDiffModel(comparisonData) : null),
     [comparisonData],
   );
+  const selectedDisplayHunkId = useMemo(
+    () => unifiedModel?.hunks.find((hunk) => (
+      state.selectedHunkId ? hunk.sourceHunkIds.includes(state.selectedHunkId) : false
+    ))?.id ?? null,
+    [state.selectedHunkId, unifiedModel],
+  );
 
   useEffect(() => {
     if (!state.selectedHunkId && unifiedModel?.hunks.length) {
-      updateState({ selectedHunkId: unifiedModel.hunks[0].id });
+      updateState({ selectedHunkId: unifiedModel.hunks[0].sourceHunkIds[0] ?? null });
     }
   }, [state.selectedHunkId, unifiedModel, updateState]);
 
@@ -451,10 +457,12 @@ export function ReviewPanel() {
       if (key !== 'n' && event.key !== 'F7') return;
 
       const direction = event.shiftKey ? -1 : 1;
-      const current = unifiedModel.hunks.findIndex((hunk) => hunk.id === state.selectedHunkId);
+      const current = unifiedModel.hunks.findIndex((hunk) => (
+        state.selectedHunkId ? hunk.sourceHunkIds.includes(state.selectedHunkId) : false
+      ));
       const base = current === -1 ? (direction > 0 ? -1 : 0) : current;
       const next = (base + direction + unifiedModel.hunks.length) % unifiedModel.hunks.length;
-      updateState({ selectedHunkId: unifiedModel.hunks[next].id });
+      updateState({ selectedHunkId: unifiedModel.hunks[next].sourceHunkIds[0] ?? null });
       event.preventDefault();
     };
 
@@ -464,12 +472,12 @@ export function ReviewPanel() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Enter' || activeReviewView !== 'unified' || !selectedItemId || !state.selectedHunkId) return;
-      if (!collapsedHunkIds.includes(state.selectedHunkId)) return;
+      if (event.key !== 'Enter' || activeReviewView !== 'unified' || !selectedItemId || !selectedDisplayHunkId) return;
+      if (!collapsedHunkIds.includes(selectedDisplayHunkId)) return;
       updateState((prev) => ({
         collapsedHunkIdsByItem: {
           ...prev.collapsedHunkIdsByItem,
-          [selectedItemId]: collapsedHunkIds.filter((id) => id !== state.selectedHunkId),
+          [selectedItemId]: collapsedHunkIds.filter((id) => id !== selectedDisplayHunkId),
         },
       }));
       event.preventDefault();
@@ -477,7 +485,7 @@ export function ReviewPanel() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeReviewView, collapsedHunkIds, selectedItemId, state.selectedHunkId, updateState]);
+  }, [activeReviewView, collapsedHunkIds, selectedDisplayHunkId, selectedItemId, updateState]);
 
   if (!selectedItem) {
     return (
@@ -615,7 +623,6 @@ export function ReviewPanel() {
                   ? current.filter((id) => id !== hunkId)
                   : [...current, hunkId];
                 return {
-                  selectedHunkId: hunkId,
                   collapsedHunkIdsByItem: {
                     ...prev.collapsedHunkIdsByItem,
                     [selectedItemId]: next,
@@ -683,20 +690,18 @@ function UnifiedDiffView({
       <div className="min-w-max py-2">
         {model.hunks.map((hunk) => {
           const isCollapsed = collapsedHunkIds.includes(hunk.id);
-          const isSelected = selectedHunkId === hunk.id;
-          const beforeContextGroupId = `${hunk.id}:context-before`;
-          const removedGroupId = `${hunk.id}:removed`;
-          const addedGroupId = `${hunk.id}:added`;
-          const afterContextGroupId = `${hunk.id}:context-after`;
-          const isBeforeContextCollapsed = collapsedDiffGroupIds.includes(beforeContextGroupId);
-          const isRemovedCollapsed = collapsedDiffGroupIds.includes(removedGroupId);
-          const isAddedCollapsed = collapsedDiffGroupIds.includes(addedGroupId);
-          const isAfterContextCollapsed = collapsedDiffGroupIds.includes(afterContextGroupId);
+          const isSelected = selectedHunkId ? hunk.sourceHunkIds.includes(selectedHunkId) : false;
           return (
             <div key={hunk.id}>
               <button
                 type="button"
-                onClick={() => onToggleHunk(hunk.id)}
+                onClick={() => {
+                  const firstSourceHunkId = hunk.sourceHunkIds[0];
+                  if (firstSourceHunkId) {
+                    onSelectHunk(firstSourceHunkId);
+                  }
+                  onToggleHunk(hunk.id);
+                }}
                 className={cn(
                   'grid w-full grid-cols-[2rem_4rem_4rem_minmax(12rem,1fr)_10rem] items-center bg-slate-800/90 text-left leading-7 text-sky-200 hover:bg-slate-700/90',
                   isSelected && 'outline outline-1 outline-inset outline-sky-500/70',
@@ -714,44 +719,37 @@ function UnifiedDiffView({
               </button>
               {!isCollapsed && (
                 <>
-                  <ContextLineGroup
-                    groupId={beforeContextGroupId}
-                    label="context before"
-                    rows={hunk.beforeContextRows}
-                    isCollapsed={isBeforeContextCollapsed}
-                    selectedHunkId={selectedHunkId}
-                    onSelectHunk={onSelectHunk}
-                    onToggleGroup={onToggleGroup}
-                  />
-                  <DiffLineGroup
-                    groupId={removedGroupId}
-                    label="removed"
-                    count={hunk.removedCount}
-                    rows={hunk.removedRows}
-                    isCollapsed={isRemovedCollapsed}
-                    selectedHunkId={selectedHunkId}
-                    onSelectHunk={onSelectHunk}
-                    onToggleGroup={onToggleGroup}
-                  />
-                  <DiffLineGroup
-                    groupId={addedGroupId}
-                    label="added"
-                    count={hunk.addedCount}
-                    rows={hunk.addedRows}
-                    isCollapsed={isAddedCollapsed}
-                    selectedHunkId={selectedHunkId}
-                    onSelectHunk={onSelectHunk}
-                    onToggleGroup={onToggleGroup}
-                  />
-                  <ContextLineGroup
-                    groupId={afterContextGroupId}
-                    label="context after"
-                    rows={hunk.afterContextRows}
-                    isCollapsed={isAfterContextCollapsed}
-                    selectedHunkId={selectedHunkId}
-                    onSelectHunk={onSelectHunk}
-                    onToggleGroup={onToggleGroup}
-                  />
+                  {hunk.segments.map((segment) => {
+                    const isSegmentCollapsed = collapsedDiffGroupIds.includes(segment.id);
+                    if (segment.kind === 'context') {
+                      return (
+                        <ContextLineGroup
+                          key={segment.id}
+                          groupId={segment.id}
+                          label={segment.label}
+                          rows={segment.rows}
+                          isCollapsed={isSegmentCollapsed}
+                          selectedHunkId={selectedHunkId}
+                          onSelectHunk={onSelectHunk}
+                          onToggleGroup={onToggleGroup}
+                        />
+                      );
+                    }
+
+                    return (
+                      <DiffLineGroup
+                        key={segment.id}
+                        groupId={segment.id}
+                        label={segment.kind === 'remove' ? 'removed' : 'added'}
+                        count={segment.rows.length}
+                        rows={segment.rows}
+                        isCollapsed={isSegmentCollapsed}
+                        selectedHunkId={selectedHunkId}
+                        onSelectHunk={onSelectHunk}
+                        onToggleGroup={onToggleGroup}
+                      />
+                    );
+                  })}
                 </>
               )}
             </div>
@@ -772,7 +770,7 @@ function ContextLineGroup({
   onToggleGroup,
 }: {
   groupId: string;
-  label: 'context before' | 'context after';
+  label: string;
   rows: ReturnType<typeof buildUnifiedDiffModel>['hunks'][number]['rows'];
   isCollapsed: boolean;
   selectedHunkId: string | null;

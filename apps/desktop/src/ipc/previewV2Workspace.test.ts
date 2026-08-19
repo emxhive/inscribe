@@ -13,7 +13,11 @@ vi.mock('fs', async (importOriginal) => {
   };
 });
 
-import { isPathContained, loadInitialFiles } from './previewV2Workspace';
+import {
+  isPathContained,
+  loadInitialFiles,
+  loadInitialFilesRecovering,
+} from './previewV2Workspace';
 
 describe('V2 Workspace Containment and Loader Tests', () => {
   const root = process.platform === 'win32' ? 'C:\\repo' : '/repo';
@@ -32,6 +36,16 @@ describe('V2 Workspace Containment and Loader Tests', () => {
     vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from('hello', 'utf8'));
     const res = loadInitialFiles(root, ['src/index.ts']);
     expect(res.get('src/index.ts')).toEqual({ exists: true, content: 'hello' });
+  });
+
+  it('recoverable loading keeps valid files and reports invalid paths', () => {
+    vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from('hello', 'utf8'));
+
+    const result = loadInitialFilesRecovering(root, ['src/index.ts', 'src//bad.ts']);
+
+    expect(result.fatalError).toBeUndefined();
+    expect(result.initialFiles.get('src/index.ts')).toEqual({ exists: true, content: 'hello' });
+    expect(result.errors).toMatchObject([{ code: 'INVALID_WORKSPACE_PATH', filePath: 'src//bad.ts' }]);
   });
 
   it('missing file represented as exists false', () => {

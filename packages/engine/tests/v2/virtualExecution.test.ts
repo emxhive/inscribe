@@ -46,7 +46,7 @@ describe('V2 virtual sequential execution plan', () => {
     expect(plan.executions[2].afterContent).toBe('final file content');
   });
 
-  it('halts execution on the first error in the sequence', async () => {
+  it('continues diagnosing after an error without promoting later same-file work', async () => {
     const initialFiles = new Map();
     const payloads = [
       {
@@ -74,7 +74,15 @@ describe('V2 virtual sequential execution plan', () => {
     expect(plan.errors[0].stepIndex).toBe(1);
     expect(plan.errors[0].message).toContain('TARGET_NOT_FOUND');
     expect(plan.executions.length).toBe(1);
+    expect(plan.executionStepIndices).toEqual([0]);
     expect(plan.executions[0].afterContent).toBe('first');
+    expect(plan.exclusions).toEqual([
+      expect.objectContaining({
+        stepIndex: 2,
+        filePath: 'test.ts',
+        blockedByStepIndex: 1,
+      }),
+    ]);
   });
 
   it('succeeds in create_file -> replace_text -> delete_file sequence', async () => {
@@ -174,5 +182,103 @@ describe('V2 virtual sequential execution plan', () => {
     expect(plan.errors[0].stepIndex).toBe(1);
     expect(plan.errors[0].message).toContain('File already exists');
     expect(plan.executions.length).toBe(1);
+  });
+
+  it('does not suppress an unaffected file after a resolution failure', async () => {
+    const initialFiles = new Map();
+    const payloads = [
+      {
+        strategy: 'create_file' as const,
+        filePath: 'a.ts',
+        content: 'first',
+      },
+      {
+        strategy: 'replace_text' as const,
+        filePath: 'a.ts',
+        content: 'failed',
+        search: 'missing',
+      },
+      {
+        strategy: 'replace_file' as const,
+        filePath: 'a.ts',
+        content: 'excluded',
+      },
+      {
+        strategy: 'create_file' as const,
+        filePath: 'b.ts',
+        content: 'independent',
+      },
+    ];
+
+    const plan = await resolvePlan(payloads, initialFiles);
+
+    expect(plan.errors).toEqual([
+      expect.objectContaining({ stepIndex: 1, filePath: 'a.ts' }),
+    ]);
+    expect(plan.exclusions).toEqual([
+      expect.objectContaining({ stepIndex: 2, blockedByStepIndex: 1 }),
+    ]);
+    expect(plan.executionStepIndices).toEqual([0, 3]);
+    expect(plan.executions.map((execution) => execution.filePath)).toEqual(['a.ts', 'b.ts']);
+  });
+
+  it('keeps multiple downstream same-file operations diagnosable but excluded', async () => {
+    const initialFiles = new Map([
+      ['a.ts', { content: 'original', exists: true }],
+    ]);
+    const payloads = [
+      {
+        strategy: 'replace_text' as const,
+        filePath: 'a.ts',
+        content: 'failed',
+        search: 'missing',
+      },
+      {
+        strategy: 'replace_file' as const,
+        filePath: 'a.ts',
+        content: 'second',
+      },
+      {
+        strategy: 'delete_file' as const,
+        filePath: 'a.ts',
+      },
+    ];
+
+    const plan = await resolvePlan(payloads, initialFiles);
+
+    expect(plan.errors).toHaveLength(1);
+    expect(plan.exclusions.map((exclusion) => exclusion.stepIndex)).toEqual([1, 2]);
+    expect(plan.exclusions.every((exclusion) => exclusion.blockedByStepIndex === 0)).toBe(true);
+    expect(plan.executions).toHaveLength(0);
+  });
+
+  it('never includes an execution whose same-file predecessor failed', async () => {
+    const initialFiles = new Map([
+      ['a.ts', { content: 'original', exists: true }],
+    ]);
+    const payloads = [
+      {
+        strategy: 'replace_text' as const,
+        filePath: 'a.ts',
+        content: 'failed',
+        search: 'missing',
+      },
+      {
+        strategy: 'replace_file' as const,
+        filePath: 'a.ts',
+        content: 'would use stale state',
+      },
+      {
+        strategy: 'create_file' as const,
+        filePath: 'b.ts',
+        content: 'safe',
+      },
+    ];
+
+    const plan = await resolvePlan(payloads, initialFiles);
+
+    expect(plan.executionStepIndices).toEqual([2]);
+    expect(plan.executions[0].filePath).toBe('b.ts');
+    expect(plan.exclusions.map((exclusion) => exclusion.stepIndex)).toEqual([1]);
   });
 });

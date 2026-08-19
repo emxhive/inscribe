@@ -35,6 +35,7 @@ describe('runApplyV2Worker', () => {
   ): PreviewV2ExecutionDTO {
     return {
       operationIndex: index,
+      blockIndex: index,
       executionId: `exec-${index}`,
       filePath,
       strategy,

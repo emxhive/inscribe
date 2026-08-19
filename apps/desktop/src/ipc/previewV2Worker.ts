@@ -1,6 +1,5 @@
 import { v2 } from '@inscribe/engine';
-import { loadInitialFiles, WorkspacePreviewError } from './previewV2Workspace';
-import type { V2Operation } from '@inscribe/shared';
+import { loadInitialFilesRecovering } from './previewV2Workspace';
 import type {
   PreviewV2WorkerPayload,
   PreviewV2WorkerResponse,
@@ -48,10 +47,8 @@ function mapResolutionError(msg: string): string {
 
 /**
  * Orchestrates rawInscribeBlocks parsing, safe file loading, structural resolver binding,
- * and sequential plan resolution on the worker.
- *
- * NOTE: resolvePlan() is currently fail-fast. Thus, the returned resolution
- * responses will contain at most one resolution error.
+ * and sequential plan resolution on the worker. Attributable failures are
+ * collected while independent and later operations continue to preview.
  */
 export async function runPreviewV2Worker(
   payload: PreviewV2WorkerPayload,
@@ -83,56 +80,86 @@ export async function runPreviewV2Worker(
 
   const { rawInput, trustedRepoRoot, assetPaths } = payload;
   try {
-    let operations: V2Operation[];
-    try {
-      operations = v2.parseInscribeBlocks(rawInput);
-    } catch (err: unknown) {
-      if (err instanceof v2.V2ProtocolError) {
-        return {
-          ok: false,
-          errors: [
-            {
-              type: 'protocol',
-              code: err.code,
-              message: err.message,
-              blockIndex: err.blockIndex,
-              line: err.line,
-              context: err.context,
-            },
-          ],
-        };
-      }
-      throw err;
-    }
+    const parsed = v2.parseInscribeBlocksRecovering(rawInput);
+    const errors: PreviewV2ErrorDTO[] = parsed.diagnostics.map((diagnostic) => ({
+      type: 'protocol',
+      code: diagnostic.code,
+      message: diagnostic.message,
+      blockIndex: diagnostic.blockIndex,
+      line: diagnostic.line,
+      lineKind: typeof diagnostic.line === 'number' ? 'exact' : undefined,
+      context: diagnostic.context,
+      filePath: diagnostic.filePath,
+    }));
 
-    const filePaths = Array.from(new Set(operations.map((op) => op.filePath)));
-
-    let initialFiles: Map<string, { content: string; exists: boolean }>;
-    try {
-      initialFiles = loadInitialFiles(trustedRepoRoot, filePaths);
-    } catch (err: unknown) {
-      if (err instanceof WorkspacePreviewError) {
-        return {
-          ok: false,
-          errors: [
-            {
-              type: 'workspace',
-              code: err.code,
-              message: err.message,
-              filePath: err.filePath,
-            },
-          ],
-        };
-      }
+    const filePaths = Array.from(new Set(parsed.operations.map(({ operation }) => operation.filePath)));
+    const workspace = loadInitialFilesRecovering(trustedRepoRoot, filePaths);
+    if (workspace.fatalError) {
       return {
         ok: false,
-        errors: [
-          {
-            type: 'workspace',
-            code: 'FILE_READ_FAILED',
-            message: 'Workspace file loading failed.',
-          },
-        ],
+        errors: [{
+          type: 'workspace',
+          code: workspace.fatalError.code,
+          message: workspace.fatalError.message,
+          filePath: workspace.fatalError.filePath,
+        }],
+      };
+    }
+
+        const failedPaths = new Set(workspace.errors.map((error) => error.filePath).filter(Boolean) as string[]);
+    const previewable = parsed.operations.filter(({ operation }) => !failedPaths.has(operation.filePath));
+    const protocolBlockerByStepIndex = new Map<number, (typeof parsed.diagnostics)[number]>();
+    for (let stepIndex = 0; stepIndex < previewable.length; stepIndex++) {
+      const source = previewable[stepIndex];
+      const blocker = parsed.diagnostics.find(
+        (diagnostic) =>
+          diagnostic.filePath === source.operation.filePath &&
+          typeof diagnostic.blockIndex === 'number' &&
+          diagnostic.blockIndex < source.blockIndex,
+      );
+      if (blocker) {
+        protocolBlockerByStepIndex.set(stepIndex, blocker);
+      }
+    }
+
+    for (const workspaceError of workspace.errors) {
+      const affected = parsed.operations.filter(({ operation }) => operation.filePath === workspaceError.filePath);
+      if (affected.length === 0) {
+        errors.push({
+          type: 'workspace',
+          code: workspaceError.code,
+          message: workspaceError.message,
+          filePath: workspaceError.filePath,
+        });
+        continue;
+      }
+      for (const source of affected) {
+        const operationIndex = previewable.indexOf(source);
+        errors.push({
+          type: 'workspace',
+          code: workspaceError.code,
+          message: workspaceError.message,
+          filePath: workspaceError.filePath,
+          strategy: source.operation.strategy,
+          operationIndex: operationIndex >= 0 ? operationIndex : undefined,
+          blockIndex: source.blockIndex,
+          line: source.startLine,
+          lineKind: 'block',
+        });
+      }
+    }
+
+    const operations = previewable.map(({ operation }) => operation);
+    const initialFiles = workspace.initialFiles;
+
+    if (operations.length === 0) {
+      return {
+        ok: false,
+        errors: errors.length > 0 ? errors : [{
+          type: 'system',
+          code: 'NO_PREVIEWABLE_OPERATIONS',
+          message: 'No V2 operations could be previewed.',
+        }],
       };
     }
 
@@ -141,40 +168,120 @@ export async function runPreviewV2Worker(
       structuralResolver,
     });
 
-    if (resolvedPlan.errors && resolvedPlan.errors.length > 0) {
-      const errors: PreviewV2ErrorDTO[] = resolvedPlan.errors.map((err) => {
-        const op = operations[err.stepIndex];
-        return {
-          type: 'resolution',
-          code: mapResolutionError(err.message),
-          message: err.message,
-          filePath: op?.filePath,
-          strategy: op?.strategy,
-          operationIndex: err.stepIndex,
-        };
+        const addProtocolDependencyBlocked = (
+      stepIndex: number,
+      attemptedResolutionMessage?: string,
+    ): boolean => {
+      const source = previewable[stepIndex];
+      const blocker = protocolBlockerByStepIndex.get(stepIndex);
+      if (!source || !blocker || typeof blocker.blockIndex !== 'number') {
+        return false;
+      }
+
+      const dependencyMessage = `Excluded because earlier protocol-invalid block ${blocker.blockIndex + 1} for ${source.operation.filePath} made the expected virtual file state uncertain.`;
+      errors.push({
+        type: 'resolution',
+        code: 'DEPENDENCY_BLOCKED',
+        message: attemptedResolutionMessage
+          ? `${dependencyMessage} Best-effort resolution also reported: ${attemptedResolutionMessage}`
+          : dependencyMessage,
+        filePath: source.operation.filePath,
+        strategy: source.operation.strategy,
+        operationIndex: stepIndex,
+        blockIndex: source.blockIndex,
+        line: source.startLine,
+        lineKind: 'uncertain',
+        blockedByBlockIndex: blocker.blockIndex,
+        context: blocker.message,
       });
-      return {
-        ok: false,
-        errors,
-      };
+      return true;
+    };
+
+    for (const resolutionError of resolvedPlan.errors) {
+      if (addProtocolDependencyBlocked(resolutionError.stepIndex, resolutionError.message)) {
+        continue;
+      }
+
+      const source = previewable[resolutionError.stepIndex];
+      errors.push({
+        type: 'resolution',
+        code: mapResolutionError(resolutionError.message),
+        message: resolutionError.message,
+        filePath: source?.operation.filePath,
+        strategy: source?.operation.strategy,
+        operationIndex: resolutionError.stepIndex,
+        blockIndex: source?.blockIndex,
+        line: source?.startLine,
+        lineKind: source ? 'block' : undefined,
+      });
     }
 
-    const executions: PreviewV2ExecutionDTO[] = resolvedPlan.executions.map(
-      (exec, idx) => ({
-        operationIndex: idx,
-        executionId: exec.executionId,
-        filePath: exec.filePath,
-        strategy: exec.strategy,
-        targetScope: exec.targetScope,
-        beforeExists: exec.beforeExists,
-        afterExists: exec.afterExists,
-        beforeContent: exec.beforeContent,
-        afterContent: exec.afterContent,
-        actualDiffHunks: exec.actualDiffHunks,
-        beforeFileHash: exec.beforeFileHash,
-        afterFileHash: exec.afterFileHash,
-      })
+    for (const exclusion of resolvedPlan.exclusions) {
+      const source = previewable[exclusion.stepIndex];
+      const blockingSource = previewable[exclusion.blockedByStepIndex];
+      const protocolBlocker = protocolBlockerByStepIndex.get(exclusion.stepIndex);
+      if (
+        protocolBlocker &&
+        typeof protocolBlocker.blockIndex === 'number' &&
+        (!blockingSource || protocolBlocker.blockIndex < blockingSource.blockIndex)
+      ) {
+        addProtocolDependencyBlocked(exclusion.stepIndex, exclusion.attemptedResolutionMessage);
+        continue;
+      }
+
+      errors.push({
+        type: 'resolution',
+        code: 'DEPENDENCY_BLOCKED',
+        message: exclusion.attemptedResolutionMessage
+          ? `${exclusion.message} Best-effort resolution also reported: ${exclusion.attemptedResolutionMessage}`
+          : exclusion.message,
+        filePath: source?.operation.filePath ?? exclusion.filePath,
+        strategy: source?.operation.strategy,
+        operationIndex: exclusion.stepIndex,
+        blockIndex: source?.blockIndex,
+        line: source?.startLine,
+        lineKind: source ? 'uncertain' : undefined,
+        blockedByOperationIndex: exclusion.blockedByStepIndex,
+        blockedByBlockIndex: blockingSource?.blockIndex,
+        context: exclusion.blockedByMessage,
+      });
+    }
+
+    const executions: PreviewV2ExecutionDTO[] = resolvedPlan.executions.flatMap(
+      (exec, idx) => {
+        const stepIndex = resolvedPlan.executionStepIndices[idx];
+        if (addProtocolDependencyBlocked(stepIndex)) {
+          return [];
+        }
+
+        return [{
+          operationIndex: stepIndex,
+          blockIndex: previewable[stepIndex]?.blockIndex ?? idx,
+          executionId: exec.executionId,
+          filePath: exec.filePath,
+          strategy: exec.strategy,
+          targetScope: exec.targetScope,
+          beforeExists: exec.beforeExists,
+          afterExists: exec.afterExists,
+          beforeContent: exec.beforeContent,
+          afterContent: exec.afterContent,
+          actualDiffHunks: exec.actualDiffHunks,
+          beforeFileHash: exec.beforeFileHash,
+          afterFileHash: exec.afterFileHash,
+        }];
+      },
     );
+
+    if (executions.length === 0) {
+      return {
+        ok: false,
+        errors: errors.length > 0 ? errors : [{
+          type: 'system',
+          code: 'NO_PREVIEWABLE_OPERATIONS',
+          message: 'No V2 operations could be previewed.',
+        }],
+      };
+    }
 
     let sessionSummary;
     try {
@@ -220,7 +327,9 @@ export async function runPreviewV2Worker(
 
     return {
       ok: true,
+      partial: errors.length > 0,
       executions,
+      errors,
       previewToken: sessionSummary.previewToken,
       expiresAt: sessionSummary.expiresAt,
     };

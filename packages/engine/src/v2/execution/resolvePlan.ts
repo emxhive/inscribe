@@ -5,7 +5,29 @@ import { resolveOperation, V2ExecutionContext } from './resolveOperation';
 
 export interface ResolvedPlan {
   executions: CanonicalExecution[];
-  errors: Array<{ stepIndex: number; message: string }>;
+  executionStepIndices: number[];
+  errors: ResolutionFailure[];
+  exclusions: ResolutionExclusion[];
+}
+
+export interface ResolutionFailure {
+  stepIndex: number;
+  filePath: string;
+  message: string;
+}
+
+export interface ResolutionExclusion {
+  stepIndex: number;
+  filePath: string;
+  message: string;
+  blockedByStepIndex: number;
+  blockedByMessage: string;
+  /**
+   * A best-effort diagnostic attempt for the excluded operation. This is not
+   * an authoritative failure because it was evaluated against a tainted
+   * virtual file state.
+   */
+  attemptedResolutionMessage?: string;
 }
 
 export async function resolvePlan(
@@ -14,7 +36,10 @@ export async function resolvePlan(
   context: V2ExecutionContext = {}
 ): Promise<ResolvedPlan> {
   const executions: CanonicalExecution[] = [];
-  const errors: Array<{ stepIndex: number; message: string }> = [];
+  const executionStepIndices: number[] = [];
+  const errors: ResolutionFailure[] = [];
+  const exclusions: ResolutionExclusion[] = [];
+  const taintedFiles = new Map<string, ResolutionFailure>();
 
   const virtualState: VirtualFileState = new Map();
   for (const [filePath, item] of initialFiles.entries()) {
@@ -36,22 +61,54 @@ export async function resolvePlan(
 
     try {
       const execution = await resolveOperation(payload, virtualState, context);
+
+      const blockingFailure = taintedFiles.get(payload.filePath);
+      if (blockingFailure) {
+        exclusions.push({
+          stepIndex: i,
+          filePath: payload.filePath,
+          message: `Excluded because an earlier operation for ${payload.filePath} failed.`,
+          blockedByStepIndex: blockingFailure.stepIndex,
+          blockedByMessage: blockingFailure.message,
+        });
+        continue;
+      }
+
       executions.push(execution);
+      executionStepIndices.push(i);
 
       virtualState.set(payload.filePath, {
         content: execution.afterContent,
         exists: execution.afterExists
       });
     } catch (err: any) {
-      errors.push({
+      const failure: ResolutionFailure = {
         stepIndex: i,
+        filePath: payload.filePath,
         message: err.message || 'Unknown execution error'
-      });
-      break;
+      };
+
+      const blockingFailure = taintedFiles.get(payload.filePath);
+      if (blockingFailure) {
+        exclusions.push({
+          stepIndex: i,
+          filePath: payload.filePath,
+          message: `Excluded because an earlier operation for ${payload.filePath} failed.`,
+          blockedByStepIndex: blockingFailure.stepIndex,
+          blockedByMessage: blockingFailure.message,
+          attemptedResolutionMessage: failure.message,
+        });
+        continue;
+      }
+
+      errors.push(failure);
+      taintedFiles.set(payload.filePath, failure);
     }
   }
   return {
     executions,
-    errors
+    executionStepIndices,
+    errors,
+    exclusions,
   };
 }

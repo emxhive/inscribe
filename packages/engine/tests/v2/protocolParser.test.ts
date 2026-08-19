@@ -1,9 +1,102 @@
 import { describe, it, expect } from 'vitest';
-import { parseInscribeBlocks } from '../../src/v2/protocol/parseInscribeBlocks';
+import {
+  parseInscribeBlocks,
+  parseInscribeBlocksRecovering,
+} from '../../src/v2/protocol/parseInscribeBlocks';
 import { V2ProtocolError } from '../../src/v2/protocol/protocolErrors';
 import { resolvePlan } from '../../src/v2/execution/resolvePlan';
 
 describe('V2 Inscribe Block Parser', () => {
+  it('recovers valid blocks before and after an invalid block', () => {
+    const input = `<<<INSCRIBE
+FILE: first.ts
+MODE: create_file
+<<<CONTENT
+first
+CONTENT>>>
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: broken.ts
+MODE: unsupported
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: last.ts
+MODE: create_file
+<<<CONTENT
+last
+CONTENT>>>
+INSCRIBE>>>`;
+
+    const result = parseInscribeBlocksRecovering(input);
+
+    expect(result.operations.map((item) => item.blockIndex)).toEqual([0, 2]);
+    expect(result.operations.map((item) => item.operation.filePath)).toEqual(['first.ts', 'last.ts']);
+    expect(result.diagnostics).toMatchObject([
+      { code: 'INVALID_MODE', blockIndex: 1, filePath: 'broken.ts' },
+    ]);
+    expect(() => parseInscribeBlocks(input)).toThrowError(/INVALID_MODE/);
+  });
+
+  it('resynchronizes at the next block opener after an unterminated block', () => {
+    const input = `<<<INSCRIBE
+FILE: broken.ts
+MODE: delete_file
+<<<INSCRIBE
+FILE: valid.ts
+MODE: create_file
+<<<CONTENT
+valid
+CONTENT>>>
+INSCRIBE>>>`;
+
+    const result = parseInscribeBlocksRecovering(input);
+
+    expect(result.diagnostics).toMatchObject([
+      { code: 'UNTERMINATED_INSCRIBE_BLOCK', blockIndex: 0, filePath: 'broken.ts' },
+    ]);
+    expect(result.operations).toMatchObject([
+      { blockIndex: 1, operation: { filePath: 'valid.ts' } },
+    ]);
+  });
+
+  it('reports orphan markers while preserving valid operations', () => {
+    const input = `SEARCH>>>
+<<<INSCRIBE
+FILE: valid.ts
+MODE: create_file
+<<<CONTENT
+valid
+CONTENT>>>
+INSCRIBE>>>`;
+
+    const result = parseInscribeBlocksRecovering(input);
+
+    expect(result.operations).toHaveLength(1);
+    expect(result.diagnostics).toMatchObject([
+      { code: 'MALFORMED_MARKER', line: 1 },
+    ]);
+    expect(() => parseInscribeBlocks(input)).toThrowError(V2ProtocolError);
+  });
+
+  it('keeps strict parser diagnostics source-attributed', () => {
+    const input = `<<<INSCRIBE
+FILE: valid.ts
+MODE: delete_file
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: broken.ts
+MODE: unsupported
+INSCRIBE>>>`;
+
+    try {
+      parseInscribeBlocks(input);
+      throw new Error('Expected strict parsing to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(V2ProtocolError);
+      expect(error).toMatchObject({ code: 'INVALID_MODE', blockIndex: 1, line: 7 });
+    }
+  });
+
   it('parses a single create_file block', () => {
     const input = `<<<INSCRIBE
 FILE: src/example.ts

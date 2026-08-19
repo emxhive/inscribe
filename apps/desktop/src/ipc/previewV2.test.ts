@@ -64,7 +64,14 @@ describe('preview-v2 IPC Route Validation', () => {
     const handler = vi.mocked(ipcMain.handle).mock.calls[0][1] as any;
 
     mockRequireTrustedRepoRoot.mockReturnValue('/trusted-root-path');
-    mockPreviewV2OnWorker.mockResolvedValue({ ok: true, executions: [] });
+    mockPreviewV2OnWorker.mockResolvedValue({
+      ok: true,
+      partial: false,
+      executions: [],
+      errors: [],
+      previewToken: 'token',
+      expiresAt: '2026-01-01T00:00:00.000Z',
+    });
 
     const args = {
       repoRoot: '/renderer-supplied-path',

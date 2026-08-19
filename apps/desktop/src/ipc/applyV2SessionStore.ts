@@ -71,6 +71,7 @@ export function cloneSnapshotMap(
 export function cloneExecutions(execs: PreviewV2ExecutionDTO[]): PreviewV2ExecutionDTO[] {
   return execs.map((e) => ({
     operationIndex: e.operationIndex,
+    blockIndex: e.blockIndex,
     executionId: e.executionId,
     filePath: e.filePath,
     strategy: e.strategy,

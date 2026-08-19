@@ -27,6 +27,7 @@ describe('ApplyV2SessionStore', () => {
     afterContent: string
   ): PreviewV2ExecutionDTO => ({
     operationIndex: index,
+    blockIndex: index,
     executionId: `exec-${index}`,
     filePath,
     strategy,

@@ -29,6 +29,12 @@ export interface VirtualFile {
   exists: boolean;
 }
 
+export interface RecoverableWorkspaceLoadResult {
+  initialFiles: Map<string, VirtualFile>;
+  errors: WorkspacePreviewError[];
+  fatalError?: WorkspacePreviewError;
+}
+
 export function isPathContained(realRoot: string, absPath: string): boolean {
   let relative = path.relative(realRoot, absPath);
   if (process.platform === 'win32') {
@@ -237,4 +243,41 @@ export function loadInitialFiles(
   }
 
   return initialFiles;
+}
+
+/**
+ * Loads each target independently so a bad path does not suppress previewable
+ * operations for other files. Repository-root failures remain global/fatal.
+ */
+export function loadInitialFilesRecovering(
+  trustedRepoRoot: string,
+  filePaths: string[],
+): RecoverableWorkspaceLoadResult {
+  try {
+    loadInitialFiles(trustedRepoRoot, []);
+  } catch (error: unknown) {
+    const fatalError = error instanceof WorkspacePreviewError
+      ? error
+      : new WorkspacePreviewError('INVALID_WORKSPACE_ROOT', 'Failed to access workspace root');
+    return { initialFiles: new Map(), errors: [], fatalError };
+  }
+
+  const initialFiles = new Map<string, VirtualFile>();
+  const errors: WorkspacePreviewError[] = [];
+
+  for (const filePath of Array.from(new Set(filePaths))) {
+    try {
+      const loaded = loadInitialFiles(trustedRepoRoot, [filePath]);
+      const file = loaded.get(filePath);
+      if (file) {
+        initialFiles.set(filePath, file);
+      }
+    } catch (error: unknown) {
+      errors.push(error instanceof WorkspacePreviewError
+        ? error
+        : new WorkspacePreviewError('FILE_READ_FAILED', 'Workspace file loading failed', filePath));
+    }
+  }
+
+  return { initialFiles, errors };
 }

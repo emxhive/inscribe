@@ -2,8 +2,11 @@ import type {
   V2OperationStrategy,
   V2TargetScope,
   V2DiffHunk,
+  PreviewV2ErrorDTO,
 } from '@inscribe/shared';
 import type { v2 } from '@inscribe/engine';
+
+export type { PreviewV2ErrorDTO, PreviewV2ErrorType } from '@inscribe/shared';
 
 export interface PreviewV2IpcArgs {
   repoRoot: string;
@@ -18,6 +21,7 @@ export interface PreviewV2WorkerPayload {
 
 export interface PreviewV2ExecutionDTO {
   operationIndex: number;
+  blockIndex: number;
   executionId: string;
   filePath: string;
   strategy: V2OperationStrategy;
@@ -31,24 +35,12 @@ export interface PreviewV2ExecutionDTO {
   afterFileHash: string;
 }
 
-export type PreviewV2ErrorType = 'protocol' | 'workspace' | 'resolution' | 'system';
-
-export interface PreviewV2ErrorDTO {
-  type: PreviewV2ErrorType;
-  code: string;
-  message: string;
-  filePath?: string;
-  strategy?: string;
-  operationIndex?: number;
-  blockIndex?: number;
-  line?: number;
-  context?: string;
-}
-
 export type PreviewV2WorkerResponse =
   | {
       ok: true;
+      partial: boolean;
       executions: PreviewV2ExecutionDTO[];
+      errors: PreviewV2ErrorDTO[];
       previewToken: string;
       expiresAt: string;
     }

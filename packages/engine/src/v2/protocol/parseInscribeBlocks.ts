@@ -8,9 +8,10 @@ import {
   V2_DIRECTIVE_KEYS,
   V2_OPERATION_MODES,
   validateV2RelativeFilePath,
-  parseSectionFenceWrapper
+  parseSectionFenceWrapper,
+  isExactV2MarkerLine,
 } from '@inscribe/shared';
-import { V2ProtocolError } from './protocolErrors';
+import { V2ProtocolError, type V2ProtocolErrorCode } from './protocolErrors';
 import { parseSelector } from '../structural/selectorParser';
 
 interface LineInfo {
@@ -22,7 +23,7 @@ interface LineInfo {
 }
 
 
-export function parseInscribeBlocks(rawInput: string): V2Operation[] {
+function parseStrictV2Source(rawInput: string): V2Operation[] {
   const lines: LineInfo[] = [];
   let currentStart = 0;
   let lineNum = 1;
@@ -368,4 +369,193 @@ export function parseInscribeBlocks(rawInput: string): V2Operation[] {
   }
 
   return operations;
+}
+
+export interface RecoverableV2Operation {
+  operation: V2Operation;
+  blockIndex: number;
+  startLine: number;
+  endLine: number;
+}
+
+export interface V2ProtocolDiagnostic {
+  code: V2ProtocolErrorCode;
+  message: string;
+  blockIndex?: number;
+  line?: number;
+  context?: string;
+  filePath?: string;
+}
+
+export interface RecoverableV2ParseResult {
+  operations: RecoverableV2Operation[];
+  diagnostics: V2ProtocolDiagnostic[];
+}
+
+interface RecoverableSourceLine {
+  text: string;
+  line: number;
+  startIndex: number;
+  endIndex: number;
+}
+
+function splitRecoverableSourceLines(rawInput: string): RecoverableSourceLine[] {
+  const lines: RecoverableSourceLine[] = [];
+  let currentStart = 0;
+  let line = 1;
+  let index = 0;
+
+  while (index < rawInput.length) {
+    const char = rawInput[index];
+    if (char !== '\n' && char !== '\r') {
+      index++;
+      continue;
+    }
+
+    const newlineLength = char === '\r' && rawInput[index + 1] === '\n' ? 2 : 1;
+    lines.push({
+      text: rawInput.slice(currentStart, index),
+      line,
+      startIndex: currentStart,
+      endIndex: index + newlineLength,
+    });
+    index += newlineLength;
+    currentStart = index;
+    line++;
+  }
+
+  lines.push({
+    text: rawInput.slice(currentStart),
+    line,
+    startIndex: currentStart,
+    endIndex: rawInput.length,
+  });
+  return lines;
+}
+
+function findRecoverableFilePath(lines: RecoverableSourceLine[], startIndex: number, endIndex: number): string | undefined {
+  for (let index = startIndex + 1; index <= endIndex; index++) {
+    const match = lines[index]?.text.match(/^\s*FILE\s*:\s*(.*?)\s*$/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+  return undefined;
+}
+
+function formatRecoverableProtocolMessage(code: V2ProtocolErrorCode, context?: string): string {
+  return context?.trim() ? `${code}: ${context}` : code;
+}
+
+/**
+ * Parses every top-level V2 block independently so one malformed block does not
+ * prevent later blocks from being previewed. The strict parseInscribeBlocks API
+ * remains unchanged for callers that require all-or-nothing parsing.
+ */
+export function parseInscribeBlocksRecovering(rawInput: string): RecoverableV2ParseResult {
+  const lines = splitRecoverableSourceLines(rawInput);
+  const operations: RecoverableV2Operation[] = [];
+  const diagnostics: V2ProtocolDiagnostic[] = [];
+  let blockIndex = 0;
+  let foundBlock = false;
+  let lineIndex = 0;
+
+  while (lineIndex < lines.length) {
+    const trimmed = lines[lineIndex].text.trim();
+    if (trimmed !== V2_BLOCK_OPEN) {
+      if (isExactV2MarkerLine(lines[lineIndex].text)) {
+        diagnostics.push({
+          code: 'MALFORMED_MARKER',
+          message: `MALFORMED_MARKER: marker appears outside an INSCRIBE block`,
+          line: lines[lineIndex].line,
+          context: trimmed,
+        });
+      }
+      lineIndex++;
+      continue;
+    }
+
+    foundBlock = true;
+    const startLineIndex = lineIndex;
+    let endLineIndex = lineIndex;
+    let nextBlockLineIndex: number | undefined;
+    let hasClose = false;
+    while (endLineIndex + 1 < lines.length) {
+      endLineIndex++;
+      const candidate = lines[endLineIndex].text.trim();
+      if (candidate === V2_BLOCK_OPEN) {
+        nextBlockLineIndex = endLineIndex;
+        endLineIndex--;
+        break;
+      }
+      if (candidate === V2_BLOCK_CLOSE) {
+        hasClose = true;
+        break;
+      }
+    }
+
+    if (!hasClose && nextBlockLineIndex === undefined) {
+      endLineIndex = lines.length - 1;
+    }
+
+    const source = rawInput.slice(lines[startLineIndex].startIndex, lines[endLineIndex].endIndex);
+    const filePath = findRecoverableFilePath(lines, startLineIndex, endLineIndex);
+
+    try {
+      const parsed = parseStrictV2Source(source);
+      if (parsed[0]) {
+        operations.push({
+          operation: parsed[0],
+          blockIndex,
+          startLine: lines[startLineIndex].line,
+          endLine: lines[endLineIndex].line,
+        });
+      }
+    } catch (error: unknown) {
+      if (error instanceof V2ProtocolError) {
+        const globalLine = lines[startLineIndex].line + Math.max(0, error.line - 1);
+        diagnostics.push({
+          code: error.code,
+          message: formatRecoverableProtocolMessage(error.code, error.context),
+          blockIndex,
+          line: globalLine,
+          context: error.context,
+          filePath,
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    blockIndex++;
+    lineIndex = nextBlockLineIndex ?? endLineIndex + 1;
+  }
+
+  if (!foundBlock) {
+    diagnostics.push({
+      code: 'NO_INSCRIBE_BLOCKS',
+      message: 'NO_INSCRIBE_BLOCKS: no V2 INSCRIBE blocks were found',
+    });
+  }
+
+  return { operations, diagnostics };
+}
+
+/**
+ * Compatibility entry point for callers that require all-or-nothing parsing.
+ * Recoverable parsing remains canonical, while this wrapper throws its first
+ * structured diagnostic using the existing V2ProtocolError contract.
+ */
+export function parseInscribeBlocks(rawInput: string): V2Operation[] {
+  const result = parseInscribeBlocksRecovering(rawInput);
+  const firstDiagnostic = result.diagnostics[0];
+  if (firstDiagnostic) {
+    throw new V2ProtocolError(
+      firstDiagnostic.code,
+      firstDiagnostic.blockIndex ?? 0,
+      firstDiagnostic.line ?? 1,
+      firstDiagnostic.context,
+    );
+  }
+  return result.operations.map(({ operation }) => operation);
 }

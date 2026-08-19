@@ -301,6 +301,239 @@ INSCRIBE>>>`,
     }
   });
 
+  it('returns a partial session for valid-invalid-valid V2 input', async () => {
+    const payload = {
+      rawInput: `<<<INSCRIBE
+FILE: first.txt
+MODE: create_file
+<<<CONTENT
+first
+CONTENT>>>
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: broken.txt
+MODE: unsupported
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: last.txt
+MODE: create_file
+<<<CONTENT
+last
+CONTENT>>>
+INSCRIBE>>>`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewV2Worker(payload);
+
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.partial).toBe(true);
+      expect(response.executions.map((execution) => execution.blockIndex)).toEqual([0, 2]);
+      expect(response.errors).toMatchObject([
+        { type: 'protocol', code: 'INVALID_MODE', blockIndex: 1 },
+      ]);
+      expect(response.previewToken).toBeDefined();
+      const session = testSessionStore.consumeSession(response.previewToken, repoRoot);
+      expect(session.executions.map((execution) => execution.blockIndex)).toEqual([0, 2]);
+    }
+  });
+
+  it('excludes downstream same-file operations while preserving source attribution and independent work', async () => {
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), 'original');
+
+    const payload = {
+      rawInput: `<<<INSCRIBE
+FILE: malformed.txt
+MODE: unsupported
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: a.txt
+MODE: replace_text
+<<<SEARCH
+missing
+SEARCH>>>
+<<<CONTENT
+failed
+CONTENT>>>
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: a.txt
+MODE: replace_file
+<<<CONTENT
+excluded
+CONTENT>>>
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: a.txt
+MODE: delete_file
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: b.txt
+MODE: create_file
+<<<CONTENT
+independent
+CONTENT>>>
+INSCRIBE>>>`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewV2Worker(payload);
+
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.executions.map((execution) => execution.blockIndex)).toEqual([4]);
+      expect(response.executions[0].operationIndex).toBe(3);
+      expect(response.errors).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_NOT_FOUND',
+          operationIndex: 0,
+          blockIndex: 1,
+          lineKind: 'block',
+        }),
+        expect.objectContaining({
+          code: 'DEPENDENCY_BLOCKED',
+          operationIndex: 1,
+          blockIndex: 2,
+          blockedByOperationIndex: 0,
+          blockedByBlockIndex: 1,
+          lineKind: 'uncertain',
+        }),
+        expect.objectContaining({
+          code: 'DEPENDENCY_BLOCKED',
+          operationIndex: 2,
+          blockIndex: 3,
+          blockedByOperationIndex: 0,
+          blockedByBlockIndex: 1,
+        }),
+      ]));
+
+      expect(response.errors).toEqual(expect.arrayContaining([
+        expect.objectContaining({ type: 'protocol', code: 'INVALID_MODE', blockIndex: 0 }),
+      ]));
+
+      const session = testSessionStore.consumeSession(response.previewToken, repoRoot);
+      expect(session.executions.map((execution) => execution.blockIndex)).toEqual([4]);
+    }
+  });
+
+  it('protocol-invalid same-file blocks taint later operations without suppressing independent work', async () => {
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), 'original');
+
+    const blockOpen = '<<<' + 'INSCRIBE';
+    const blockClose = 'INSCRIBE' + '>>>';
+    const contentOpen = '<<<' + 'CONTENT';
+    const contentClose = 'CONTENT' + '>>>';
+    const searchOpen = '<<<' + 'SEARCH';
+    const searchClose = 'SEARCH' + '>>>';
+
+    const payload = {
+      rawInput: `${blockOpen}
+FILE: a.txt
+MODE: replace_file
+${contentOpen}
+first
+${contentClose}
+${blockClose}
+${blockOpen}
+FILE: a.txt
+MODE: unsupported
+${blockClose}
+${blockOpen}
+FILE: a.txt
+MODE: replace_file
+${contentOpen}
+best-effort
+${contentClose}
+${blockClose}
+${blockOpen}
+FILE: a.txt
+MODE: replace_text
+${searchOpen}
+best-effort
+${searchClose}
+${contentOpen}
+later
+${contentClose}
+${blockClose}
+${blockOpen}
+FILE: b.txt
+MODE: create_file
+${contentOpen}
+independent
+${contentClose}
+${blockClose}`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewV2Worker(payload);
+
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.executions.map((execution) => execution.blockIndex)).toEqual([0, 4]);
+      expect(response.errors).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'protocol',
+          code: 'INVALID_MODE',
+          blockIndex: 1,
+        }),
+        expect.objectContaining({
+          type: 'resolution',
+          code: 'DEPENDENCY_BLOCKED',
+          blockIndex: 2,
+          blockedByBlockIndex: 1,
+          lineKind: 'uncertain',
+        }),
+        expect.objectContaining({
+          type: 'resolution',
+          code: 'DEPENDENCY_BLOCKED',
+          blockIndex: 3,
+          blockedByBlockIndex: 1,
+          lineKind: 'uncertain',
+        }),
+      ]));
+
+      const session = testSessionStore.consumeSession(response.previewToken, repoRoot);
+      expect(session.executions.map((execution) => execution.blockIndex)).toEqual([0, 4]);
+    }
+  });
+
+  it('keeps previewing other files when one workspace target cannot be loaded', async () => {
+    fs.mkdirSync(path.join(repoRoot, 'not-a-file'));
+    const payload = {
+      rawInput: `<<<INSCRIBE
+FILE: not-a-file
+MODE: delete_file
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: valid.txt
+MODE: create_file
+<<<CONTENT
+valid
+CONTENT>>>
+INSCRIBE>>>`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewV2Worker(payload);
+
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.partial).toBe(true);
+      expect(response.executions).toMatchObject([{ blockIndex: 1, filePath: 'valid.txt' }]);
+      expect(response.errors).toMatchObject([{
+        type: 'workspace',
+        code: 'DIRECTORY_PASSED_AS_FILE',
+        blockIndex: 0,
+        filePath: 'not-a-file',
+      }]);
+    }
+  });
+
   it('protocol error serialized', async () => {
     const payload = {
       rawInput: `<<<INSCRIBE
@@ -420,7 +653,7 @@ INSCRIBE>>>`,
     }
   });
 
-  it('resolution error has no blockIndex', async () => {
+  it('resolution error retains its source blockIndex', async () => {
     const payload = {
       rawInput: `<<<INSCRIBE
 FILE: missing.ts
@@ -436,7 +669,7 @@ INSCRIBE>>>`,
     const response = await runPreviewV2Worker(payload);
     expect(response.ok).toBe(false);
     if (!response.ok) {
-      expect((response.errors[0] as any).blockIndex).toBeUndefined();
+      expect(response.errors[0].blockIndex).toBe(0);
       expect(response.errors[0].operationIndex).toBe(0);
     }
   });

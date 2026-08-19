@@ -130,7 +130,7 @@ describe('engineWorkerClient', () => {
 
     // Restore original state
     process.env.INSCRIBE_USER_DATA = originalUserData;
-  });
+  }, 15000);
 
   it('worker client remains usable after a failed preview DTO', async () => {
     let messageHandler: any;

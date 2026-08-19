@@ -39,6 +39,7 @@ import { FileSidebar, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from './FileSidebar
 import { IntakePanel } from './IntakePanel';
 import { ReviewPanel } from './ReviewPanel';
 import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
+
 import { TerminalPanel } from './TerminalPanel';
 import { cn } from '@/lib/utils';
 import type { AppState } from '@/types';
@@ -93,8 +94,34 @@ export function WorkspaceShell({
     window.localStorage.setItem(PANEL_STORAGE_KEYS.rightCollapsed, String(state.isRightPanelCollapsed));
   }, [state.isLeftPanelCollapsed, state.isRightPanelCollapsed]);
 
+  const [hasMountedTerminal, setHasMountedTerminal] = useState(false);
+
+  useEffect(() => {
+    if (state.isTerminalOpen && !hasMountedTerminal) {
+      setHasMountedTerminal(true);
+    }
+  }, [state.isTerminalOpen, hasMountedTerminal]);
+
+  useEffect(() => {
+    if (!state.isTerminalOpen) {
+      setHasMountedTerminal(false);
+    }
+  }, [state.repoRoot]);
+
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
+      const isTerminalToggleShortcut =
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        !event.altKey &&
+        (event.key === '`' || event.code === 'Backquote');
+
+      if (isTerminalToggleShortcut) {
+        event.preventDefault();
+        updateState((prev) => ({ isTerminalOpen: !prev.isTerminalOpen }));
+        return;
+      }
+
       const isPasteIntakeShortcut =
         (event.ctrlKey || event.metaKey) &&
         event.shiftKey &&
@@ -110,7 +137,7 @@ export function WorkspaceShell({
 
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
-  }, [replaceIntakeFromClipboard]);
+  }, [replaceIntakeFromClipboard, updateState]);
 
   const handleSidebarResize = (width: number, options?: { persist?: boolean }) => {
     const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
@@ -154,22 +181,15 @@ export function WorkspaceShell({
         </main>
         {!state.isRightPanelCollapsed && <RightPanel />}
       </div>
-      {state.isTerminalOpen && (
-        <TerminalPanel
-          repoRoot={state.repoRoot}
-          suggestions={state.terminalCommandSuggestions}
-          commandHistory={state.terminalCommandHistory}
-          onCommandRun={(command) => {
-            updateState((prev) => {
-              const nextHistory = [
-                ...prev.terminalCommandHistory.filter((entry) => entry !== command),
-                command,
-              ].slice(-50);
-              return { terminalCommandHistory: nextHistory };
-            });
-          }}
-          onClose={() => updateState({ isTerminalOpen: false })}
-        />
+      {Boolean(state.repoRoot) && (state.isTerminalOpen || hasMountedTerminal) && (
+        <div className={cn(state.isTerminalOpen ? 'block' : 'hidden')}>
+          <TerminalPanel
+            repoRoot={state.repoRoot}
+            suggestions={state.terminalCommandSuggestions}
+            isOpen={state.isTerminalOpen}
+            onClose={() => updateState({ isTerminalOpen: false })}
+          />
+        </div>
       )}
       <WorkspaceBottomBar />
     </div>
@@ -869,7 +889,6 @@ function IntakeDirectiveSection({ selectedBlock }: { selectedBlock: ReturnType<t
       aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, value, { keepEmpty: true }),
     }));
   };
-
   const handleDirectiveChange = (key: DirectiveKey, value: string) => {
     if (!selectedBlock) return;
     updateState((prev) => ({
@@ -946,7 +965,7 @@ function ReviewProperties({ selectedItem }: { selectedItem: AppState['reviewItem
     : undefined;
   const resolution = matchMetadata
     ? matchMetadata.kind === 'fallback'
-      ? `Fallback · ${Math.round(matchMetadata.score * 100)}%`
+      ? `Fallback · ${Math.round((matchMetadata.score ?? 0) * 100)}%`
       : `${toSentenceCase(matchMetadata.kind)}${typeof matchMetadata.score === 'number' ? ` · ${Math.round(matchMetadata.score * 100)}%` : ''}`
     : null;
 

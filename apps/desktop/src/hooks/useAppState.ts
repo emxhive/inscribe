@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import type {ApplyPlan, IgnoreRules, IndexStatus, ParsedBlock, ValidationError} from '@inscribe/shared';
-import type { AppMode, AppState, ReviewItem, PipelineStatus } from '@/types';
+import type { ApplyPlan } from '@inscribe/shared';
+import type { AppState, ReviewItem } from '@/types';
 import { applyAppStateUpdates } from './appStateUtils';
 
 export const initialState: AppState = {
@@ -46,7 +46,6 @@ export const initialState: AppState = {
   isTerminalOpen: false,
   terminalCommandSuggestions: [],
   terminalSuggestionSourceApplyId: null,
-  terminalCommandHistory: [],
 
   lastAppliedPlan: null,
   canRedo: false,

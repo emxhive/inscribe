@@ -95,20 +95,11 @@ const api = {
   terminalCreate: (options: import('./types').TerminalCreateOptions) =>
     ipcRenderer.invoke('terminal-create', options),
 
-  terminalRunCommand: (sessionId: string, runId: string, command: string) =>
-    ipcRenderer.invoke('terminal-run-command', sessionId, runId, command),
-
   terminalWrite: (sessionId: string, data: string) =>
     ipcRenderer.invoke('terminal-write', sessionId, data),
 
   terminalResize: (sessionId: string, cols: number, rows: number) =>
     ipcRenderer.invoke('terminal-resize', sessionId, cols, rows),
-
-  terminalSignal: (sessionId: string, kind: import('./types').TerminalSignalKind) =>
-    ipcRenderer.invoke('terminal-signal', sessionId, kind),
-
-  terminalInterrupt: (sessionId: string) =>
-    ipcRenderer.invoke('terminal-interrupt', sessionId),
 
   terminalDispose: (sessionId: string) =>
     ipcRenderer.invoke('terminal-dispose', sessionId),
@@ -117,12 +108,6 @@ const api = {
     const subscription = (_event: any, payload: import('./types').TerminalDataEvent) => callback(payload);
     ipcRenderer.on('terminal:data', subscription);
     return () => ipcRenderer.removeListener('terminal:data', subscription);
-  },
-
-  onTerminalRunExit: (callback: (event: import('./types').TerminalRunExitEvent) => void) => {
-    const subscription = (_event: any, payload: import('./types').TerminalRunExitEvent) => callback(payload);
-    ipcRenderer.on('terminal:run-exit', subscription);
-    return () => ipcRenderer.removeListener('terminal:run-exit', subscription);
   },
 
   onTerminalSessionExit: (callback: (event: import('./types').TerminalSessionExitEvent) => void) => {

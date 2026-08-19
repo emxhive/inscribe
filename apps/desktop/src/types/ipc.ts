@@ -48,10 +48,13 @@ export interface TerminalCreateOptions {
   shellPreference?: TerminalShellPreference;
 }
 
+export type TerminalShellKind = 'powershell' | 'cmd' | 'posix';
+
 export interface TerminalSessionInfo {
   sessionId: string;
   cwd: string;
   shell: string;
+  shellKind: TerminalShellKind;
   shellPreference: TerminalShellPreference;
 }
 
@@ -61,18 +64,7 @@ export type OpenRepositoryTarget = 'auto' | 'same-window' | 'new-window';
 
 export interface TerminalDataEvent {
   sessionId: string;
-  runId: string | null;
   data: string;
-}
-
-export type TerminalRunExitReason = 'exited' | 'interrupted' | 'terminated' | 'session-exit' | 'disposed';
-
-export interface TerminalRunExitEvent {
-  sessionId: string;
-  runId: string;
-  exitCode: number | null;
-  cwd?: string;
-  reason?: TerminalRunExitReason;
 }
 
 export interface TerminalSessionExitEvent {
@@ -80,8 +72,6 @@ export interface TerminalSessionExitEvent {
   exitCode: number | null;
   reason: 'exited' | 'terminated' | 'disposed';
 }
-
-export type TerminalSignalKind = 'interrupt' | 'eof' | 'terminate';
 
 export interface InscribeAPI {
   selectRepository: (defaultPath?: string) => Promise<string | null>;
@@ -109,14 +99,10 @@ export interface InscribeAPI {
   getHistoryEntries: (repoRoot: string) => Promise<HistoryEntry[]>;
   markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) => Promise<boolean>;
   terminalCreate: (options: TerminalCreateOptions) => Promise<TerminalSessionInfo>;
-  terminalRunCommand: (sessionId: string, runId: string, command: string) => Promise<boolean>;
   terminalWrite: (sessionId: string, data: string) => Promise<boolean>;
   terminalResize: (sessionId: string, cols: number, rows: number) => Promise<boolean>;
-  terminalSignal: (sessionId: string, kind: TerminalSignalKind) => Promise<boolean>;
-  terminalInterrupt: (sessionId: string) => Promise<boolean>;
   terminalDispose: (sessionId: string) => Promise<boolean>;
   onTerminalData: (callback: (event: TerminalDataEvent) => void) => () => void;
-  onTerminalRunExit: (callback: (event: TerminalRunExitEvent) => void) => () => void;
   onTerminalSessionExit: (callback: (event: TerminalSessionExitEvent) => void) => () => void;
   previewV2: (args: PreviewV2IpcArgs) => Promise<PreviewV2WorkerResponse>;
   applyV2: (args: ApplyV2IpcArgs) => Promise<ApplyV2WorkerResponse>;

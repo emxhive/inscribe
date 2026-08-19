@@ -384,7 +384,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                             className="flex-shrink-0 text-[9px] text-amber-600 dark:text-amber-400"
                             title={matchMetadata.fallbackReason}
                           >
-                            fallback {Math.round(matchMetadata.score * 100)}%
+                            fallback {Math.round((matchMetadata.score ?? 0) * 100)}%
                           </span>
                         </>
                       )}

@@ -1,21 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
-  ChevronDown,
+  AlertTriangle,
   CheckCircle2,
   Clock,
   ClipboardPaste,
   Copy,
   Folder,
+  FileCode2,
   History,
   Info,
   Loader2,
   PanelLeft,
   PanelRight,
   RotateCcw,
+  Save,
   Settings,
   SquareTerminal,
-  X,
+  Trash2,
 } from 'lucide-react';
 import { DIRECTIVE_KEYS, HEADER_KEYS, OPERATION_MODES, type DirectiveKey, type HeaderKey } from '@inscribe/shared';
 import { Button } from '@/components/ui/button';
@@ -28,6 +30,8 @@ import {
   getPathBasename,
   getReviewApplySummary,
   getReviewItemApplyState,
+  parseLiveIntakeStructure,
+  removeIntakeBlockFromText,
   toSentenceCase,
 } from '@/utils';
 import { updateDirectiveInText } from '@/utils/intake';
@@ -37,10 +41,10 @@ import { ReviewPanel } from './ReviewPanel';
 import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
 import { TerminalPanel } from './TerminalPanel';
 import { cn } from '@/lib/utils';
-import type { AppState, RightPanelSectionId } from '@/types';
+import type { AppState } from '@/types';
 import { buildDiagnosticGroups, formatDiagnosticGroupForClipboard, type DiagnosticGroup } from '@/utils/diagnostics';
 
-const RIGHT_PANEL_WIDTH = 336;
+const RIGHT_PANEL_WIDTH = 360;
 const PANEL_STORAGE_KEYS = {
   leftCollapsed: 'inscribe:ui:leftCollapsed',
   rightCollapsed: 'inscribe:ui:rightCollapsed',
@@ -191,11 +195,15 @@ function useReplaceIntakeFromClipboard() {
         aiInput: clipboardText,
         parseErrors: [],
         parseWarnings: [],
+        v2PreviewDiagnostics: [],
         parsedBlocks: [],
         validationErrors: [],
         reviewItems: [],
         selectedItemId: null,
         selectedIntakeBlockId: null,
+        selectedIntakeLineIndex: null,
+        rightPanelOwner: 'inspector',
+        rightPanelView: 'properties',
         isEditing: false,
         pipelineStatus: 'idle',
         reviewComparisonError: null,
@@ -357,13 +365,8 @@ function WorkspaceTopBar({
         </ChromeButton>
         <ChromeButton onClick={onOpenIndexedList}>Indexed {state.indexedCount}</ChromeButton>
         <ChromeButton
-          onClick={() =>
-            updateState((prev) => ({
-              isRightPanelCollapsed: false,
-              hiddenRightPanelSections: prev.hiddenRightPanelSections.filter((section) => section !== 'history'),
-              openRightPanelSections: Array.from(new Set([...prev.openRightPanelSections, 'history'])),
-            }))
-          }
+          active={state.rightPanelOwner === 'history' && !state.isRightPanelCollapsed}
+          onClick={() => updateState({ isRightPanelCollapsed: false, rightPanelOwner: 'history' })}
           title="History"
         >
           <History className="h-3.5 w-3.5" />
@@ -456,6 +459,19 @@ function WorkspaceBottomBar() {
     Boolean(state.repoRoot) &&
     Boolean(state.v2PreviewSession) &&
     hasOnlyPendingV2Items;
+  const hasPartialV2Preview =
+    state.mode === 'intake' &&
+    state.pipelineStatus === 'parse-partial' &&
+    Boolean(state.v2PreviewSession) &&
+    state.reviewItems.length > 0;
+  const excludedV2BlockCount = new Set(
+    state.v2PreviewDiagnostics.map((diagnostic) => diagnostic.blockIndex ?? `global:${diagnostic.code}:${diagnostic.line ?? ''}`),
+  ).size;
+  const canReturnToPartialIntake =
+    state.mode === 'review' &&
+    Boolean(state.v2PreviewSession) &&
+    state.v2PreviewDiagnostics.length > 0 &&
+    hasOnlyPendingV2Items;
 
   const enableApplyAll = applySummary.canApplyAll || canApplyV2Session;
   const applyAllButtonLabel = canApplyV2Session ? 'Apply V2 Preview' : 'Apply All';
@@ -471,6 +487,8 @@ function WorkspaceBottomBar() {
       case 'parse-success':
       case 'apply-success':
         return <CheckCircle2 className="h-3.5 w-3.5" />;
+      case 'parse-partial':
+        return <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />;
       case 'parse-failure':
       case 'apply-failure':
         return <AlertCircle className="h-3.5 w-3.5 text-destructive" />;
@@ -490,19 +508,48 @@ function WorkspaceBottomBar() {
       </div>
 
       {state.mode === 'intake' && (
-        <Button
-          type="button"
-          size="sm"
-          onClick={handleParseBlocks}
-          disabled={!state.repoRoot || state.isParsingInProgress}
-          title={!state.repoRoot ? 'Select a repository first' : state.isParsingInProgress ? 'Parsing in progress...' : ''}
-        >
-          {state.isParsingInProgress ? 'Parsing...' : 'Parse Code Blocks'}
-        </Button>
+        <>
+          {hasPartialV2Preview && (
+            <Button
+              variant="outline"
+              type="button"
+              size="sm"
+              onClick={() => updateState({
+                mode: 'review',
+                statusMessage: `Reviewing ${state.reviewItems.length} valid V2 operation${state.reviewItems.length === 1 ? '' : 's'}; excluded blocks remain unapplied.`,
+              })}
+            >
+              Review {state.reviewItems.length} Valid · {excludedV2BlockCount} Excluded
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleParseBlocks}
+            disabled={!state.repoRoot || state.isParsingInProgress}
+            title={!state.repoRoot ? 'Select a repository first' : state.isParsingInProgress ? 'Parsing in progress...' : ''}
+          >
+            {state.isParsingInProgress ? 'Parsing...' : 'Parse Code Blocks'}
+          </Button>
+        </>
       )}
 
       {state.mode === 'review' && (
         <>
+          {canReturnToPartialIntake && (
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => updateState({
+                mode: 'intake',
+                pipelineStatus: 'parse-partial',
+                statusMessage: 'Partial V2 preview preserved. Select Review valid blocks to return.',
+              })}
+            >
+              Back to Intake
+            </Button>
+          )}
           <span className="text-xs text-muted-foreground">
             {selectedHunkIndex >= 0 ? 'Hunk selected' : 'N / Shift+N navigates hunks'}
           </span>
@@ -562,65 +609,234 @@ function WorkspaceBottomBar() {
 }
 
 function RightPanel() {
+  const { state } = useAppStateContext();
+  return state.rightPanelOwner === 'history' ? <HistoryRightPanel /> : <InspectorRightPanel />;
+}
+
+function HistoryRightPanel() {
+  const { updateState } = useAppStateContext();
+  return (
+    <aside className="flex min-h-0 flex-col border-l border-border bg-card">
+      <div className="flex h-10 flex-shrink-0 items-center justify-between border-b border-border px-3">
+        <p className="text-xs font-semibold text-foreground">History</p>
+        <button
+          type="button"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          onClick={() => updateState({ rightPanelOwner: 'inspector' })}
+          aria-label="Show inspector"
+          title="Show inspector"
+        >
+          <FileCode2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3">
+        <HistoryPanelContent />
+      </div>
+    </aside>
+  );
+}
+
+function InspectorRightPanel() {
   const { state, updateState } = useAppStateContext();
   const { blocks, warnings: globalWarnings } = useIntakeBlocks();
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
   const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId) ?? null;
+  const [blockPendingRemoval, setBlockPendingRemoval] = useState<typeof selectedBlock>(null);
   const reviewActions = useReviewActions();
   const diagnostics = buildDiagnosticGroups(state, blocks, { mode: state.mode, globalWarnings });
-  const sections: RightPanelSectionId[] = ['history', 'selection', 'directives', 'diagnostics'];
-  const visibleSections = sections.filter((section) => !state.hiddenRightPanelSections.includes(section));
-  const isOpen = (section: RightPanelSectionId) => state.openRightPanelSections.includes(section);
-  const toggleSection = (section: RightPanelSectionId) => {
-    updateState((prev) => ({
-      openRightPanelSections: prev.openRightPanelSections.includes(section)
-        ? prev.openRightPanelSections.filter((item) => item !== section)
-        : [...prev.openRightPanelSections, section],
-    }));
+  const diagnosticCount = diagnostics.reduce((sum, group) => sum + group.messages.length, 0);
+  const selectionLabel = state.mode === 'intake'
+    ? selectedBlock?.label ?? 'No block selected'
+    : selectedItem?.file ?? 'No change selected';
+  const selectionStatus = state.mode === 'intake' ? selectedBlock?.status : selectedItem?.status;
+  const selectionMeta = state.mode === 'intake'
+    ? selectedBlock
+      ? `${toSentenceCase(selectedBlock.status)} · Block ${selectedBlock.index + 1}`
+      : 'Select a block from the sidebar'
+    : selectedItem
+      ? `${toSentenceCase(selectedItem.status)} · Change ${state.reviewItems.findIndex((item) => item.id === selectedItem.id) + 1}`
+      : 'Select a change from the sidebar';
+  const tabs = [
+    { id: 'properties' as const, label: 'Properties' },
+    { id: 'diagnostics' as const, label: 'Diagnostics', count: diagnosticCount },
+  ];
+
+  const handleNavigateDiagnostic = (target: { blockId: string; line?: number }) => {
+    updateState({
+      mode: 'intake',
+      selectedIntakeBlockId: target.blockId,
+      selectedIntakeLineIndex: typeof target.line === 'number' ? Math.max(0, target.line - 1) : null,
+      statusMessage: target.line
+        ? `Selected diagnostic at line ${target.line}.`
+        : 'Selected block diagnostic.',
+    });
   };
 
-  const handleHideHistory = () => {
-    updateState((prev) => ({
-      hiddenRightPanelSections: Array.from(new Set([...prev.hiddenRightPanelSections, 'history'])),
-      openRightPanelSections: prev.openRightPanelSections.filter((section) => section !== 'history'),
-    }));
+  const handleConfirmRemoveBlock = () => {
+    if (!blockPendingRemoval) {
+      return;
+    }
+
+    const removedIndex = blocks.findIndex((block) => block.id === blockPendingRemoval.id);
+    const nextInput = removeIntakeBlockFromText(state.aiInput, blockPendingRemoval);
+    const nextStructure = parseLiveIntakeStructure(nextInput, { indexedFileSet: state.indexedFileSet });
+    const nextSelection = nextStructure.blocks.length > 0
+      ? nextStructure.blocks[Math.min(Math.max(removedIndex, 0), nextStructure.blocks.length - 1)].id
+      : null;
+
+    updateState({
+      aiInput: nextInput,
+      mode: 'intake',
+      parseErrors: [],
+      parseWarnings: [],
+      v2PreviewDiagnostics: [],
+      parsedBlocks: [],
+      validationErrors: [],
+      reviewItems: [],
+      selectedItemId: null,
+      selectedIntakeBlockId: nextSelection,
+      selectedIntakeLineIndex: null,
+      rightPanelOwner: 'inspector',
+      rightPanelView: 'properties',
+      selectedHunkId: null,
+      reviewComparisonError: null,
+      reviewPreflightByItem: {},
+      reviewComparisonByItem: {},
+      collapsedHunkIdsByItem: {},
+      collapsedDiffGroupIdsByItem: {},
+      v2PreviewSession: null,
+      pipelineStatus: 'idle',
+      statusMessage: `Removed ${blockPendingRemoval.label}. Preview the remaining blocks again.`,
+    });
+    setBlockPendingRemoval(null);
   };
+
+  const removalIssueCount = blockPendingRemoval
+    ? new Set([...blockPendingRemoval.errors, ...blockPendingRemoval.warnings]).size
+    : 0;
 
   return (
-    <aside className="flex min-h-0 flex-col border-l border-border bg-card">
-      <div className="h-10 flex-shrink-0 border-b border-border px-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Panel</span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {visibleSections.map((section) => (
-          <RightAccordion
-            key={section}
-            id={section}
-            title={getSectionTitle(section)}
-            isOpen={isOpen(section)}
-            count={section === 'diagnostics' ? diagnostics.reduce((sum, group) => sum + group.messages.length, 0) : undefined}
-            onToggle={() => toggleSection(section)}
-            onRemove={section === 'history' ? handleHideHistory : undefined}
-          >
-            {section === 'selection' && <SelectionSection selectedItem={selectedItem} selectedBlock={selectedBlock} />}
-            {section === 'directives' && (
-              state.mode === 'intake' ? (
-                <IntakeDirectiveSection selectedBlock={selectedBlock} />
-              ) : selectedItem ? (
-                <ReviewDirectiveEditor
-                  item={selectedItem}
-                  onSave={(updates) => reviewActions.handleUpdateDirectives(selectedItem.id, updates)}
-                />
-              ) : (
-                <p className="text-xs text-muted-foreground">Select a change to edit directives.</p>
-              )
+    <>
+      <aside className="flex min-h-0 flex-col border-l border-border bg-card">
+        <div className="flex h-10 flex-shrink-0 items-center justify-between border-b border-border px-3">
+          <p className="text-xs font-semibold text-foreground">Inspector</p>
+          <span className="text-[10px] capitalize text-muted-foreground">{state.mode}</span>
+        </div>
+
+        <div className="flex-shrink-0 border-b border-border px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <FileCode2 className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+            <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground" title={selectionLabel}>
+              {selectionLabel}
+            </p>
+            {state.mode === 'intake' && selectedBlock?.protocol === 'v2' && (
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setBlockPendingRemoval(selectedBlock)}
+                aria-label={`Remove ${selectedBlock.label}`}
+                title="Remove block"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             )}
-            {section === 'diagnostics' && <DiagnosticsSection groups={diagnostics} />}
-            {section === 'history' && <HistoryInspector />}
-          </RightAccordion>
-        ))}
-      </div>
-    </aside>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 pl-5 text-[10px] text-muted-foreground">
+            {selectionStatus && (
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full',
+                  selectionStatus === 'error' || selectionStatus === 'invalid'
+                    ? 'bg-destructive'
+                    : selectionStatus === 'warning' || selectionStatus === 'incomplete'
+                      ? 'bg-amber-500'
+                      : selectionStatus === 'applied'
+                        ? 'bg-primary'
+                        : 'bg-emerald-500',
+                )}
+              />
+            )}
+            <span className="truncate" title={selectionMeta}>{selectionMeta}</span>
+          </div>
+        </div>
+
+        <div className="grid h-9 flex-shrink-0 grid-cols-2 border-b border-border px-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => updateState({ rightPanelView: tab.id })}
+              className={cn(
+                'relative flex items-center justify-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground',
+                state.rightPanelView === tab.id && 'text-foreground after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-primary',
+              )}
+            >
+              {tab.label}
+              {tab.count ? <span className="text-[9px] text-destructive">{tab.count}</span> : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {state.rightPanelView === 'properties' && (
+            <div className="px-3 py-3">
+              {state.mode === 'intake' ? (
+                selectedBlock ? <IntakeDirectiveSection selectedBlock={selectedBlock} /> : <InspectorEmptyState message="Select a block to inspect its properties." />
+              ) : selectedItem ? (
+                <div className="space-y-4">
+                  <ReviewProperties selectedItem={selectedItem} />
+                  {selectedItem.engineVersion !== 'v2' && (
+                    <ReviewDirectiveEditor
+                      item={selectedItem}
+                      onSave={(updates) => reviewActions.handleUpdateDirectives(selectedItem.id, updates)}
+                    />
+                  )}
+                </div>
+              ) : (
+                <InspectorEmptyState message="Select a change to inspect its properties." />
+              )}
+            </div>
+          )}
+          {state.rightPanelView === 'diagnostics' && (
+            <div className="px-3 py-3">
+              <DiagnosticsSection groups={diagnostics} onNavigate={handleNavigateDiagnostic} />
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <Modal
+        isOpen={Boolean(blockPendingRemoval)}
+        onClose={() => setBlockPendingRemoval(null)}
+        title="Remove block?"
+        footer={
+          <>
+            <Button variant="outline" type="button" onClick={() => setBlockPendingRemoval(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" type="button" onClick={handleConfirmRemoveBlock}>
+              <Trash2 className="h-4 w-4" />
+              Remove block
+            </Button>
+          </>
+        }
+      >
+        {blockPendingRemoval && (
+          <div className="space-y-3 text-sm">
+            <p className="text-foreground">
+              This removes the complete V2 block from the intake text. The remaining blocks will need to be previewed again.
+            </p>
+            <div className="rounded-md border border-border bg-secondary/50 p-3">
+              <p className="break-all text-xs font-medium text-foreground">{blockPendingRemoval.label}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {blockPendingRemoval.mode || 'Unknown mode'} · Lines {blockPendingRemoval.startLine + 1}–{blockPendingRemoval.endLine + 1}
+                {removalIssueCount > 0 ? ` · ${removalIssueCount} issue${removalIssueCount === 1 ? '' : 's'}` : ''}
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }
 
@@ -628,13 +844,9 @@ function V2IntakeInspector({ selectedBlock }: { selectedBlock: NonNullable<Retur
   const sectionsList = selectedBlock.sections ? Object.keys(selectedBlock.sections).join(', ') : '';
 
   return (
-    <div className="space-y-3 text-xs">
-      <div className="rounded-md border border-sky-200 bg-sky-50/50 p-2.5 dark:border-sky-950 dark:bg-sky-950/20">
-        <span className="font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wider text-[10px]">V2 Protocol Block</span>
-      </div>
-      <dl className="space-y-2">
+    <InspectorPropertyGroup title="Block">
+      <dl className="divide-y divide-border text-xs">
         <InspectorRow label="Protocol" value="V2" />
-        <InspectorRow label="File" value={selectedBlock.filePath || '(none)'} mono />
         <InspectorRow label="Mode" value={selectedBlock.mode || '(none)'} />
         {selectedBlock.selectorText && (
           <InspectorRow label="Selector" value={selectedBlock.selectorText} mono />
@@ -642,32 +854,9 @@ function V2IntakeInspector({ selectedBlock }: { selectedBlock: NonNullable<Retur
         {sectionsList && (
           <InspectorRow label="Sections" value={sectionsList} />
         )}
-        <InspectorRow label="Status" value={selectedBlock.status} />
-        <InspectorRow label="Line Range" value={`Lines ${selectedBlock.startLine + 1}–${selectedBlock.endLine + 1}`} />
+        <InspectorRow label="Lines" value={`${selectedBlock.startLine + 1}–${selectedBlock.endLine + 1}`} />
       </dl>
-
-      {selectedBlock.errors.length > 0 && (
-        <div className="space-y-1 mt-2">
-          <h4 className="font-semibold text-destructive text-[11px]">Errors</h4>
-          <ul className="list-disc pl-4 space-y-1 text-destructive/90">
-            {selectedBlock.errors.map((err, idx) => (
-              <li key={idx} className="break-all">{err}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {selectedBlock.warnings.length > 0 && (
-        <div className="space-y-1 mt-2">
-          <h4 className="font-semibold text-amber-600 dark:text-amber-400 text-[11px]">Warnings</h4>
-          <ul className="list-disc pl-4 space-y-1 text-amber-600/90 dark:text-amber-400/90">
-            {selectedBlock.warnings.map((warn, idx) => (
-              <li key={idx} className="break-all">{warn}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+    </InspectorPropertyGroup>
   );
 }
 
@@ -711,54 +900,98 @@ function IntakeDirectiveSection({ selectedBlock }: { selectedBlock: ReturnType<t
   );
 }
 
-function SelectionSection({
-  selectedItem,
-  selectedBlock,
-}: {
-  selectedItem: AppState['reviewItems'][number] | null;
-  selectedBlock: ReturnType<typeof useIntakeBlocks>['blocks'][number] | null;
-}) {
+function ReviewProperties({ selectedItem }: { selectedItem: AppState['reviewItems'][number] }) {
   const { state } = useAppStateContext();
-  if (state.mode === 'intake') {
-    if (!selectedBlock) {
-      return <p className="text-xs text-muted-foreground">Select a block to inspect.</p>;
-    }
-    return (
-      <dl className="space-y-2 text-xs">
-        <InspectorRow label="Block" value={selectedBlock.label} mono />
-        <InspectorRow label="Status" value={selectedBlock.status} />
-        <InspectorRow label="Lines" value={`${selectedBlock.startLine + 1}-${selectedBlock.endLine + 1}`} />
-      </dl>
-    );
-  }
-
-  if (!selectedItem) {
-    return <p className="text-xs text-muted-foreground">Select a change to inspect.</p>;
-  }
-
   const itemState = getReviewItemApplyState(selectedItem, state.reviewPreflightByItem);
+  const comparison = state.reviewComparisonByItem[selectedItem.id]?.comparison;
+  const diffHunks = comparison?.diffHunks ?? [];
+  const countChangedLines = (text: string) => {
+    if (!text) return 0;
+    const withoutTrailingNewline = text.endsWith('\n') ? text.slice(0, -1) : text;
+    return withoutTrailingNewline.length === 0 ? 1 : withoutTrailingNewline.split('\n').length;
+  };
+  const addedCount = diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.newText), 0);
+  const removedCount = diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.oldText), 0);
   const status =
     itemState.kind === 'pending-applyable'
-      ? 'pending and applyable'
+      ? 'Ready to apply'
       : itemState.kind === 'blocked-static-validation'
-        ? 'blocked by validation'
+        ? 'Blocked by validation'
         : itemState.kind === 'blocked-preflight'
-          ? 'blocked by preflight'
+          ? 'Blocked by preflight'
           : itemState.kind === 'pending-preflight'
-            ? 'awaiting preflight'
+            ? 'Awaiting preflight'
             : itemState.kind === 'blocked-v2-apply'
-              ? 'preview only'
-              : 'applied';
+              ? 'Preview only'
+              : 'Applied';
+
+  const mode = selectedItem.engineVersion === 'v2' ? selectedItem.strategy : selectedItem.mode;
+  const target = selectedItem.engineVersion === 'v2'
+    ? selectedItem.targetScope.selectorText
+      ?? (selectedItem.targetScope.lineRange
+        ? `Lines ${selectedItem.targetScope.lineRange.startLine}–${selectedItem.targetScope.lineRange.endLine}`
+        : mode === 'replace_file' || mode === 'create_file' || mode === 'delete_file'
+          ? 'Whole file'
+          : null)
+    : null;
+  const fileState = selectedItem.engineVersion === 'v2'
+    ? !selectedItem.beforeExists && selectedItem.afterExists
+      ? 'New file'
+      : selectedItem.beforeExists && !selectedItem.afterExists
+        ? 'Deleted file'
+        : 'Existing file'
+    : null;
+  const matchMetadata = selectedItem.engineVersion === 'v2'
+    ? selectedItem.targetScope.matchMetadata
+    : undefined;
+  const resolution = matchMetadata
+    ? matchMetadata.kind === 'fallback'
+      ? `Fallback · ${Math.round(matchMetadata.score * 100)}%`
+      : `${toSentenceCase(matchMetadata.kind)}${typeof matchMetadata.score === 'number' ? ` · ${Math.round(matchMetadata.score * 100)}%` : ''}`
+    : null;
 
   return (
-    <dl className="space-y-2 text-xs">
-      <InspectorRow label="File" value={selectedItem.file} mono />
-      <InspectorRow label="Mode" value={selectedItem.engineVersion === 'v2' ? selectedItem.strategy : selectedItem.mode} />
-      <InspectorRow label="Status" value={status} />
-      <InspectorRow label="Language" value={selectedItem.language} />
-      <InspectorRow label="Lines" value={String(selectedItem.lineCount)} />
-      {state.selectedHunkId && <InspectorRow label="Hunk" value={state.selectedHunkId} />}
-    </dl>
+    <div className="space-y-5">
+      <InspectorPropertyGroup title="Change">
+        <dl className="divide-y divide-border text-xs">
+          <InspectorRow label="Status" value={status} />
+          <InspectorRow label="File" value={selectedItem.file} mono />
+          <InspectorRow label="Mode" value={mode} />
+          <div className="grid min-h-8 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1.5">
+            <dt className="text-muted-foreground">Change</dt>
+            <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">
+                +{addedCount}
+              </span>
+              <span className="font-mono font-semibold text-destructive">
+                −{removedCount}
+              </span>
+              <span className="text-muted-foreground">
+                {diffHunks.length} hunk{diffHunks.length === 1 ? '' : 's'}
+              </span>
+            </dd>
+          </div>
+          {target && <InspectorRow label="Target" value={target} mono />}
+          {fileState && <InspectorRow label="File state" value={fileState} />}
+          {resolution && <InspectorRow label="Resolution" value={resolution} />}
+          <InspectorRow label="Source block" value={String(selectedItem.blockIndex + 1)} />
+          {state.selectedHunkId && <InspectorRow label="Hunk" value={state.selectedHunkId} mono />}
+        </dl>
+      </InspectorPropertyGroup>
+
+      {matchMetadata?.kind === 'fallback' && (
+        <InspectorPropertyGroup title="Match">
+          <dl className="divide-y divide-border text-xs">
+            {matchMetadata.fallbackReason && (
+              <InspectorRow label="Reason" value={toSentenceCase(matchMetadata.fallbackReason)} />
+            )}
+            {matchMetadata.unmatchedSoftTokens && matchMetadata.unmatchedSoftTokens.length > 0 && (
+              <InspectorRow label="Unmatched" value={matchMetadata.unmatchedSoftTokens.join(', ')} mono />
+            )}
+          </dl>
+        </InspectorPropertyGroup>
+      )}
+    </div>
   );
 }
 
@@ -797,16 +1030,16 @@ function ReviewDirectiveEditor({
   }
 
   return (
-    <div>
-      <div className="space-y-3">
+    <InspectorPropertyGroup title="Editable">
+      <div className="divide-y divide-border border-y border-border">
         {HEADER_KEYS.map((key) => (
-          <label key={key} className="block text-xs text-muted-foreground">
-            <span className="text-[11px] font-semibold text-foreground">{key}</span>
+          <label key={key} className="grid min-h-9 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1">
+            <span className="text-xs text-muted-foreground">{key === 'FILE' ? 'File' : 'Mode'}</span>
             {key === 'MODE' ? (
               <Select
-                className="mt-1 font-mono"
+                className="h-7 font-mono text-xs"
                 value={draft.MODE ?? ''}
-                placeholder="MODE:"
+                placeholder="Select mode"
                 options={OPERATION_MODES.map((mode) => ({ value: mode, label: mode }))}
                 onChange={(event) => setDraft((prev) => ({ ...prev, MODE: event.target.value }))}
               />
@@ -814,27 +1047,27 @@ function ReviewDirectiveEditor({
               <input
                 value={draft[key] ?? ''}
                 onChange={(event) => setDraft((prev) => ({ ...prev, [key]: event.target.value }))}
-                className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder={`${key}:`}
+                className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Relative path"
               />
             )}
           </label>
         ))}
         {presentDirectiveKeys.map((key) => (
-          <label key={key} className="block text-xs text-muted-foreground">
-            <span className="text-[11px] font-semibold text-foreground">{key}</span>
+          <label key={key} className="grid min-h-9 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1">
+            <span className="text-xs text-muted-foreground">{key}</span>
             <input
               value={draft[key] ?? ''}
               onChange={(event) => setDraft((prev) => ({ ...prev, [key]: event.target.value }))}
-              className="mt-1 w-full rounded-md border border-border bg-secondary/60 px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder={`${key}:`}
+              className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder={key}
             />
           </label>
         ))}
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-foreground">Add</span>
+        {missingDirectiveKeys.length > 0 && <label className="grid min-h-9 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1">
+          <span className="text-xs text-muted-foreground">Add</span>
           <Select
-            className="flex-1"
+            className="h-7 text-xs"
             value=""
             placeholder="Directive"
             options={missingDirectiveKeys.map((key) => ({ value: key, label: key }))}
@@ -845,16 +1078,25 @@ function ReviewDirectiveEditor({
               }
             }}
           />
+        </label>}
+        <div className="flex justify-end py-1.5">
+          <Button
+            size="icon"
+            type="button"
+            className="h-7 w-7"
+            onClick={() => onSave(draft)}
+            aria-label="Save directives"
+            title="Save directives"
+          >
+            <Save className="h-3.5 w-3.5" />
+          </Button>
         </div>
-        <Button size="sm" type="button" className="w-full" onClick={() => onSave(draft)}>
-          Save Directives
-        </Button>
       </div>
-    </div>
+    </InspectorPropertyGroup>
   );
 }
 
-function HistoryInspector() {
+function HistoryPanelContent() {
   const { state } = useAppStateContext();
   const { restoreItem, restoreGroup } = useHistoryActions();
   const activeItems = state.historyItems.filter((item) => !item.restoredAt);
@@ -897,14 +1139,15 @@ function HistoryInspector() {
             {group.items.length > 1 && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 type="button"
                 onClick={() => restoreGroup(group.applyId)}
                 disabled={state.isRestoringInProgress}
-                className="h-7 gap-1 px-2 text-[10px]"
+                className="h-7 w-7"
+                aria-label="Restore all changes in this apply"
+                title="Restore all"
               >
                 <RotateCcw className="h-3 w-3" />
-                Restore All
               </Button>
             )}
           </div>
@@ -980,7 +1223,13 @@ function HistoryInspector() {
   );
 }
 
-function DiagnosticsSection({ groups }: { groups: DiagnosticGroup[] }) {
+function DiagnosticsSection({
+  groups,
+  onNavigate,
+}: {
+  groups: DiagnosticGroup[];
+  onNavigate: (target: { blockId: string; line?: number }) => void;
+}) {
   const { updateState } = useAppStateContext();
   const handleCopy = async (group: DiagnosticGroup) => {
     const text = formatDiagnosticGroupForClipboard(group);
@@ -993,19 +1242,16 @@ function DiagnosticsSection({ groups }: { groups: DiagnosticGroup[] }) {
   };
 
   if (groups.length === 0) {
-    return <p className="text-xs text-muted-foreground">No diagnostics.</p>;
+    return <InspectorEmptyState message="No diagnostics." />;
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-5">
       {groups.map((group) => (
-        <div key={group.id} className="rounded-md border border-border bg-secondary/40">
-          <div className="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5">
+        <section key={group.id}>
+          <div className="mb-1 flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-foreground">{group.title}</p>
-              <p className={cn('text-[11px]', group.severity === 'error' ? 'text-destructive' : 'text-amber-700')}>
-                {group.messages.length} {group.messages.length === 1 ? 'message' : 'messages'}
-              </p>
+              <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.title}</p>
             </div>
             <Button
               variant="ghost"
@@ -1019,84 +1265,56 @@ function DiagnosticsSection({ groups }: { groups: DiagnosticGroup[] }) {
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <ul className="space-y-1 p-2 text-xs text-muted-foreground">
-            {group.messages.map((message, index) => (
-              <li key={`${group.id}-${index}`} className="break-words">{message}</li>
-            ))}
+          <ul className="divide-y divide-border border-y border-border text-xs">
+            {group.messages.map((message, index) => {
+              const target = group.targetsByMessage?.[message];
+              return (
+                <li key={`${group.id}-${index}`} className="flex items-start gap-2 py-2">
+                  {group.severity === 'error' ? (
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-destructive" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
+                  )}
+                  {target ? (
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 break-words text-left leading-relaxed text-foreground transition-colors hover:text-primary"
+                      onClick={() => onNavigate(target)}
+                      title={target.line ? `Go to line ${target.line}` : 'Go to block'}
+                    >
+                      {message}
+                    </button>
+                  ) : (
+                    <p className="min-w-0 flex-1 break-words leading-relaxed text-foreground">{message}</p>
+                  )}
+                </li>
+              );
+            })}
           </ul>
-        </div>
+        </section>
       ))}
     </div>
   );
 }
 
-function RightAccordion({
-  title,
-  isOpen,
-  count,
-  onToggle,
-  onRemove,
-  children,
-}: {
-  id: RightPanelSectionId;
-  title: string;
-  isOpen: boolean;
-  count?: number;
-  onToggle: () => void;
-  onRemove?: () => void;
-  children: React.ReactNode;
-}) {
+function InspectorPropertyGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-b border-border">
-      <div className="flex h-9 items-center gap-1 px-2">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-        >
-          <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !isOpen && '-rotate-90')} />
-          <span className="truncate">{title}</span>
-          {typeof count === 'number' && count > 0 && (
-            <span className="ml-auto rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] text-destructive">{count}</span>
-          )}
-        </button>
-        {onRemove && (
-          <button
-            type="button"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-            onClick={onRemove}
-            aria-label={`Hide ${title}`}
-            title={`Hide ${title}`}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
-      {isOpen && <div className="px-3 pb-3 pt-1">{children}</div>}
+    <section>
+      <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+      {children}
     </section>
   );
 }
 
-function getSectionTitle(section: RightPanelSectionId): string {
-  switch (section) {
-    case 'selection':
-      return 'Selection';
-    case 'directives':
-      return 'Directives';
-    case 'diagnostics':
-      return 'Diagnostics';
-    case 'history':
-      return 'History';
-    default:
-      return section;
-  }
+function InspectorEmptyState({ message }: { message: string }) {
+  return <p className="py-4 text-center text-xs text-muted-foreground">{message}</p>;
 }
 
 function InspectorRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2">
+    <div className="grid min-h-8 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1.5">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className={cn('truncate text-foreground', mono && 'font-mono')} title={value}>{value}</dd>
+      <dd className={cn('min-w-0 break-words text-foreground', mono && 'font-mono text-[11px]')} title={value}>{value}</dd>
     </div>
   );
 }

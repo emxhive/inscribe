@@ -11,6 +11,7 @@ import type {
   ParseWarning,
   V2OperationStrategy,
   V2TargetScope,
+  PreviewV2ErrorDTO,
 } from '@inscribe/shared';
 
 /**
@@ -20,12 +21,14 @@ import type {
  */
 export type AppMode = 'intake' | 'review';
 export type ReviewView = 'result' | 'unified' | 'edit';
-export type RightPanelSectionId = 'selection' | 'directives' | 'diagnostics' | 'history';
+export type RightPanelOwner = 'inspector' | 'history';
+export type RightPanelView = 'properties' | 'diagnostics';
 
 export type PipelineStatus = 
   | 'idle'
   | 'parsing'
   | 'parse-success'
+  | 'parse-partial'
   | 'parse-failure'
   | 'applying'
   | 'apply-success'
@@ -55,6 +58,7 @@ export interface V2ReviewItem extends ReviewItemBase {
   strategy: V2OperationStrategy;
   executionId: string;
   operationIndex: number;
+  blockIndex: number;
   filePath: string;
   beforeFileHash: string;
   afterFileHash: string;
@@ -118,11 +122,13 @@ export interface AppState {
   aiInput: string;
   parseErrors: string[];
   parseWarnings: ParseWarning[];
+  v2PreviewDiagnostics: PreviewV2ErrorDTO[];
   parsedBlocks: ParsedBlock[];
   validationErrors: ValidationError[];
   reviewItems: ReviewItem[];
   selectedItemId: string | null;
   selectedIntakeBlockId: string | null;
+  selectedIntakeLineIndex: number | null;
 
   // UI state
   isEditing: boolean;
@@ -139,8 +145,8 @@ export interface AppState {
   reviewComparisonByItem: Record<string, ReviewComparisonSnapshot>;
   isLeftPanelCollapsed: boolean;
   isRightPanelCollapsed: boolean;
-  hiddenRightPanelSections: RightPanelSectionId[];
-  openRightPanelSections: RightPanelSectionId[];
+  rightPanelOwner: RightPanelOwner;
+  rightPanelView: RightPanelView;
   collapsedHunkIdsByItem: Record<string, string[]>;
   collapsedDiffGroupIdsByItem: Record<string, string[]>;
   isTerminalOpen: boolean;

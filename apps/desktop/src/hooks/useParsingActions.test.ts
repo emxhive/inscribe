@@ -4,6 +4,7 @@ const mockUpdateState = vi.fn();
 let mockState: any = {
   repoRoot: '/repo',
   aiInput: '',
+  indexedFileSet: new Set(),
 };
 
 vi.mock('./useAppStateContext', () => ({
@@ -21,6 +22,7 @@ describe('useParsingActions V2 & V1 parsing', () => {
     mockState = {
       repoRoot: '/repo',
       aiInput: '',
+      indexedFileSet: new Set(),
     };
     (global as any).window = {
       inscribeAPI: {
@@ -37,6 +39,8 @@ describe('useParsingActions V2 & V1 parsing', () => {
     mockState.aiInput = '<<<INSCRIBE\nFILE: src/a.ts\nINSCRIBE>>>';
     vi.mocked(window.inscribeAPI.previewV2).mockResolvedValue({
       ok: true,
+      partial: false,
+      errors: [],
       previewToken: 'tok-123',
       expiresAt: '2026-06-13T23:59:59Z',
       executions: [],
@@ -76,6 +80,59 @@ describe('useParsingActions V2 & V1 parsing', () => {
     }));
   });
 
+  it('partial V2 preview stays in intake and retains valid review items', async () => {
+    mockState.aiInput = `<<<INSCRIBE
+FILE: valid.ts
+MODE: create_file
+<<<CONTENT
+valid
+CONTENT>>>
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: broken.ts
+MODE: unsupported
+INSCRIBE>>>`;
+    vi.mocked(window.inscribeAPI.previewV2).mockResolvedValue({
+      ok: true,
+      partial: true,
+      errors: [{
+        type: 'protocol',
+        code: 'INVALID_MODE',
+        message: 'Invalid mode',
+        blockIndex: 1,
+        line: 10,
+      }],
+      previewToken: 'tok-partial',
+      expiresAt: '2026-06-13T23:59:59Z',
+      executions: [{
+        operationIndex: 0,
+        blockIndex: 0,
+        executionId: 'exec-0',
+        filePath: 'valid.ts',
+        strategy: 'create_file',
+        targetScope: { filePath: 'valid.ts', strategy: 'create_file' },
+        beforeExists: false,
+        afterExists: true,
+        beforeContent: '',
+        afterContent: 'valid',
+        actualDiffHunks: [],
+        beforeFileHash: 'before',
+        afterFileHash: 'after',
+      }],
+    });
+
+    const { handleParseBlocks } = useParsingActions();
+    await handleParseBlocks();
+
+    expect(mockUpdateState).toHaveBeenLastCalledWith(expect.objectContaining({
+      mode: 'intake',
+      pipelineStatus: 'parse-partial',
+      v2PreviewDiagnostics: [expect.objectContaining({ blockIndex: 1 })],
+      reviewItems: [expect.objectContaining({ blockIndex: 0 })],
+      v2PreviewSession: expect.objectContaining({ previewToken: 'tok-partial' }),
+    }));
+  });
+
   it('V1 parse start clears v2PreviewSession', async () => {
     mockState.aiInput = 'V1 input block';
     vi.mocked(window.inscribeAPI.getAppliedAiInput).mockResolvedValue(null);
@@ -85,6 +142,6 @@ describe('useParsingActions V2 & V1 parsing', () => {
     const { handleParseBlocks } = useParsingActions();
     await handleParseBlocks();
 
-    expect(mockUpdateState).toHaveBeenCalledWith({ v2PreviewSession: null });
+    expect(mockUpdateState).toHaveBeenCalledWith({ v2PreviewSession: null, v2PreviewDiagnostics: [] });
   });
 });

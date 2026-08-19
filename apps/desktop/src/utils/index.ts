@@ -26,4 +26,10 @@ export { decorateHistoryEntries } from './history';
 export { prepareInscribeInput } from './prepareInscribeInput';
 export { parseLiveIntakeStructure, type LiveIntakeStructure } from './liveIntake';
 export { scanV2IntakeStructure } from './intakeV2';
+export {
+  attributeV2PreviewDiagnostics,
+  findV2DiagnosticBlock,
+  type AttributedV2IntakeStructure,
+} from './v2IntakeDiagnostics';
 export { detectInscribeProtocol } from './detectInscribeProtocol';
+export { removeIntakeBlockFromText } from './intakeEditing';

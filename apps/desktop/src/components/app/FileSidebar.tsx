@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { EmptyState, FileListEntry } from '../common';
+import { EmptyState } from '../common';
 import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
 import { cn } from '@/lib/utils';
 import type { ReviewItem } from '@/types';
@@ -42,6 +42,11 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   const { state, updateState } = useAppStateContext();
   const { handleSelectItem, handleUpdateDirectives } = useReviewActions();
   const { blocks } = useIntakeBlocks();
+  const invalidBlockCount = blocks.filter((block) => block.status === 'error' || block.status === 'incomplete').length;
+  const intakeIssueCount = blocks.reduce(
+    (sum, block) => sum + new Set([...block.errors, ...block.warnings]).size,
+    0,
+  );
   const [dragging, setDragging] = useState(false);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const directiveAnchorRef = useRef<HTMLElement | null>(null);
@@ -52,12 +57,12 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
       return;
     }
     if (blocks.length === 0 && state.selectedIntakeBlockId !== null) {
-      updateState({ selectedIntakeBlockId: null });
+      updateState({ selectedIntakeBlockId: null, selectedIntakeLineIndex: null });
       return;
     }
     const hasSelectedBlock = blocks.some((block) => block.id === state.selectedIntakeBlockId);
     if (blocks.length > 0 && !hasSelectedBlock) {
-      updateState({ selectedIntakeBlockId: blocks[0].id });
+      updateState({ selectedIntakeBlockId: blocks[0].id, selectedIntakeLineIndex: null });
     }
   }, [blocks, state.mode, state.selectedIntakeBlockId, updateState]);
 
@@ -115,6 +120,14 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     );
   };
 
+  const reviewPathsByBasename = new Map<string, Set<string>>();
+  state.reviewItems.forEach((item) => {
+    const fileName = item.file.split('/').pop() ?? item.file;
+    const paths = reviewPathsByBasename.get(fileName) ?? new Set<string>();
+    paths.add(item.file);
+    reviewPathsByBasename.set(fileName, paths);
+  });
+
   return (
     <aside
       ref={sidebarRef}
@@ -125,9 +138,24 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {state.mode === 'intake' ? 'Blocks' : 'Changes'}
         </span>
-        <span className="text-xs font-semibold text-foreground">
-          {state.mode === 'intake' ? blocks.length : state.reviewItems.length}
-        </span>
+        <div className="flex items-center gap-2 text-xs font-semibold">
+          {state.mode === 'intake' && intakeIssueCount > 0 && (
+            <span
+              className={cn(
+                'whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px]',
+                invalidBlockCount > 0
+                  ? 'bg-destructive/10 text-destructive'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+              )}
+              title={`${invalidBlockCount} invalid blocks, ${intakeIssueCount} intake issues`}
+            >
+              {invalidBlockCount} invalid · {intakeIssueCount} issue{intakeIssueCount === 1 ? '' : 's'}
+            </span>
+          )}
+          <span className="text-foreground">
+            {state.mode === 'intake' ? blocks.length : state.reviewItems.length}
+          </span>
+        </div>
       </div>
 
       {state.mode === 'intake' && blocks.length === 0 && (
@@ -141,6 +169,8 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
           <ul className="flex-1 min-h-0 overflow-y-auto list-none p-0 m-0">
             {blocks.map((block) => {
               const isV2 = block.protocol === 'v2';
+              const issueCount = new Set([...block.errors, ...block.warnings]).size;
+              const firstIssue = block.errors[0] ?? block.warnings[0];
               const riskLabels: Record<string, string> = {
                 delete_file: 'delete',
                 replace_file: 'whole file',
@@ -154,9 +184,15 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                   <li key={block.id}>
                     <button
                       type="button"
-                      onClick={() => updateState({ selectedIntakeBlockId: block.id })}
+                      onClick={() => updateState({
+                        selectedIntakeBlockId: block.id,
+                        selectedIntakeLineIndex: null,
+                        rightPanelOwner: 'inspector',
+                      })}
                       className={cn(
-                        'w-full text-left border-b border-border px-3 py-2 transition',
+                        'w-full border-b border-border px-3 py-2 text-left transition',
+                        block.status === 'error' && 'border-l-2 border-l-destructive',
+                        block.status === 'incomplete' && 'border-l-2 border-l-amber-500',
                         block.id === state.selectedIntakeBlockId
                           ? 'bg-primary/10'
                           : 'hover:bg-secondary/70',
@@ -177,7 +213,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                               </span>
                             )}
                           </div>
-                          <span className="text-sm font-semibold text-foreground truncate mt-1 block" title={block.label}>
+                          <span className="mt-1 block truncate text-xs font-medium text-foreground" title={block.label}>
                             {block.label}
                           </span>
                           {block.mode === 'replace_node' && block.selectorText && (
@@ -186,11 +222,31 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                             </div>
                           )}
                         </div>
-                        {renderIntakeStatus(block.status)}
+                        <div className="flex flex-shrink-0 items-center gap-1.5">
+                          {issueCount > 0 && (
+                            <span className={cn(
+                              'rounded-full px-1.5 py-0.5 text-[9px] font-semibold',
+                              block.status === 'error'
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+                            )}>
+                              {issueCount}
+                            </span>
+                          )}
+                          {renderIntakeStatus(block.status)}
+                        </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
                         Lines {block.startLine + 1}–{block.endLine + 1}
                       </p>
+                      {firstIssue && (
+                        <p className={cn(
+                          'mt-1 truncate text-[10px] leading-snug',
+                          block.status === 'error' ? 'text-destructive/90' : 'text-amber-700 dark:text-amber-300',
+                        )} title={firstIssue}>
+                          {firstIssue}
+                        </p>
+                      )}
                     </button>
                   </li>
                 );
@@ -200,7 +256,11 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                 <li key={block.id}>
                   <button
                     type="button"
-                    onClick={() => updateState({ selectedIntakeBlockId: block.id })}
+                    onClick={() => updateState({
+                      selectedIntakeBlockId: block.id,
+                      selectedIntakeLineIndex: null,
+                      rightPanelOwner: 'inspector',
+                    })}
                     className={cn(
                       'w-full text-left border-b border-border px-3 py-2 transition',
                       block.id === state.selectedIntakeBlockId
@@ -209,7 +269,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-foreground truncate">{block.label}</span>
+                      <span className="truncate text-xs font-medium text-foreground">{block.label}</span>
                       {renderIntakeStatus(block.status)}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -226,20 +286,119 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
       {state.mode === 'review' && (
         <>
           <ul className="flex flex-col overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">
-            {state.reviewItems.map((item) => (
-              <FileListEntry
-                key={item.id}
-                file={item.file}
-                lineCount={item.lineCount}
-                language={item.language}
-                mode={item.engineVersion === 'v2' ? item.strategy : item.mode}
-                status={getReviewSidebarStatus(item, state.reviewPreflightByItem)}
-                validationError={getReviewSidebarError(item, state.reviewPreflightByItem)}
-                isSelected={state.selectedItemId === item.id}
-                onClick={() => handleSelectItem(item.id)}
-                onDoubleClick={(event) => handleOpenDirectiveEditor(item, event)}
-              />
-            ))}
+            {state.reviewItems.map((item) => {
+              const comparison = state.reviewComparisonByItem[item.id]?.comparison;
+              const diffHunks = comparison?.diffHunks ?? [];
+              const countChangedLines = (text: string) => {
+                if (!text) return 0;
+                const withoutTrailingNewline = text.endsWith('\n') ? text.slice(0, -1) : text;
+                return withoutTrailingNewline.length === 0 ? 1 : withoutTrailingNewline.split('\n').length;
+              };
+              const addedCount = diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.newText), 0);
+              const removedCount = diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.oldText), 0);
+              const sidebarStatus = getReviewSidebarStatus(item, state.reviewPreflightByItem);
+              const sidebarError = getReviewSidebarError(item, state.reviewPreflightByItem);
+              const StatusIcon = sidebarStatus === 'applied'
+                ? CheckCircle2
+                : sidebarStatus === 'invalid'
+                  ? XCircle
+                  : CircleDot;
+              const pathParts = item.file.split('/');
+              const fileName = pathParts.pop() ?? item.file;
+              const parentPath = pathParts.join('/');
+              const showParentPath = (reviewPathsByBasename.get(fileName)?.size ?? 0) > 1;
+              const mode = item.engineVersion === 'v2' ? item.strategy : item.mode;
+              const targetLabel = item.engineVersion === 'v2'
+                ? item.targetScope.selectorText
+                  ?? (item.targetScope.lineRange
+                    ? `Lines ${item.targetScope.lineRange.startLine}–${item.targetScope.lineRange.endLine}`
+                    : null)
+                : null;
+              const matchMetadata = item.engineVersion === 'v2' ? item.targetScope.matchMetadata : undefined;
+
+              return (
+                <li
+                  key={item.id}
+                  onDoubleClick={(event) => handleOpenDirectiveEditor(item, event)}
+                  className="border-b border-border"
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSelectItem(item.id)}
+                    className={cn(
+                      'w-full px-3 py-2 text-left transition-colors',
+                      state.selectedItemId === item.id
+                        ? 'bg-primary/10'
+                        : 'hover:bg-secondary/70',
+                    )}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <StatusIcon
+                        className={cn(
+                          'h-3.5 w-3.5 flex-shrink-0',
+                          sidebarStatus === 'applied'
+                            ? 'text-emerald-600'
+                            : sidebarStatus === 'invalid'
+                              ? 'text-destructive'
+                              : 'text-muted-foreground',
+                        )}
+                        aria-label={sidebarStatus}
+                      />
+
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground" title={item.file}>
+                        {fileName}
+                      </span>
+
+                      <div className="flex flex-shrink-0 items-center gap-1.5 font-mono text-[10px] font-semibold">
+                        <span className="text-emerald-700 dark:text-emerald-400">+{addedCount}</span>
+                        <span className="text-destructive">−{removedCount}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 pl-5 text-[10px] text-muted-foreground">
+                      {showParentPath && parentPath && (
+                        <>
+                          <span className="max-w-[7rem] flex-shrink truncate font-mono" title={parentPath}>
+                            {parentPath}
+                          </span>
+                          <span aria-hidden>·</span>
+                        </>
+                      )}
+                      <span className="flex-shrink-0 font-medium text-foreground/80">{mode}</span>
+                      <span aria-hidden>·</span>
+                      <span className="flex-shrink-0">
+                        {diffHunks.length} hunk{diffHunks.length === 1 ? '' : 's'}
+                      </span>
+                      {targetLabel && (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span className="min-w-0 flex-1 truncate font-mono" title={targetLabel}>
+                            {targetLabel}
+                          </span>
+                        </>
+                      )}
+                      {matchMetadata?.kind === 'fallback' && (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span
+                            className="flex-shrink-0 text-[9px] text-amber-600 dark:text-amber-400"
+                            title={matchMetadata.fallbackReason}
+                          >
+                            fallback {Math.round(matchMetadata.score * 100)}%
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {sidebarError && (
+                      <p className="mt-0.5 truncate pl-5 text-[10px] leading-snug text-destructive" title={sidebarError}>
+                        {sidebarError}
+                      </p>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
           <ReviewDirectivePopover
             isOpen={Boolean(directiveEditorItemId)}

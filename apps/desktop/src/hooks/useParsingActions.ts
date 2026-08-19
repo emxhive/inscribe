@@ -1,7 +1,31 @@
 import type { ParseResult } from '@inscribe/shared';
-import { buildReviewItems, prepareInscribeInput } from '@/utils';
+import {
+  buildReviewItems,
+  findV2DiagnosticBlock,
+  parseLiveIntakeStructure,
+  prepareInscribeInput,
+} from '@/utils';
+import type { PreviewV2ErrorDTO } from '@/ipc/previewV2Types';
 import { adaptV2Executions } from '@/utils/v2ReviewAdapter';
 import { useAppStateContext } from './useAppStateContext';
+
+function getFirstDiagnosticTarget(
+  input: string,
+  indexedFileSet: Set<string>,
+  diagnostics: PreviewV2ErrorDTO[],
+): { blockId: string; lineIndex: number | null } | null {
+  const structure = parseLiveIntakeStructure(input, { indexedFileSet });
+  for (const diagnostic of diagnostics) {
+    const block = findV2DiagnosticBlock(structure.blocks, diagnostic);
+    if (block) {
+      return {
+        blockId: block.id,
+        lineIndex: typeof diagnostic.line === 'number' ? Math.max(0, diagnostic.line - 1) : block.startLine,
+      };
+    }
+  }
+  return null;
+}
 
 /**
  * Hook for parsing-related operations
@@ -67,6 +91,7 @@ export function useParsingActions() {
           pipelineStatus: 'parsing',
           reviewComparisonError: null,
           reviewPreflightByItem: {},
+          v2PreviewDiagnostics: [],
           statusMessage: 'Previewing V2 changes...',
         });
 
@@ -76,16 +101,11 @@ export function useParsingActions() {
         });
 
         if (!response.ok) {
-          const errors = response.errors.map((err) => {
-            if (err.type === 'protocol') {
-              return `Protocol Error [${err.code}]: ${err.message} (Block ${err.blockIndex ?? 'unknown'}, Line ${err.line ?? 'unknown'})${err.context ? ` - Context: ${err.context}` : ''}`;
-            } else if (err.type === 'workspace' || err.type === 'resolution') {
-              return `Workspace/Resolution Error [${err.code}] in file ${err.filePath ?? 'unknown'} (Strategy: ${err.strategy ?? 'unknown'}, Operation: ${err.operationIndex ?? 'unknown'}): ${err.message}`;
-            } else {
-              return `System Error [${err.code}]: ${err.message}`;
-            }
-          });
-
+          const firstDiagnosticTarget = getFirstDiagnosticTarget(
+            prepared.parseInput,
+            state.indexedFileSet,
+            response.errors,
+          );
           updateState({
             parsedBlocks: [],
             validationErrors: [],
@@ -96,8 +116,13 @@ export function useParsingActions() {
             selectedHunkId: null,
             collapsedHunkIdsByItem: {},
             collapsedDiffGroupIdsByItem: {},
-            parseErrors: errors,
+            parseErrors: [],
             parseWarnings: [],
+            v2PreviewDiagnostics: response.errors,
+            selectedIntakeBlockId: firstDiagnosticTarget?.blockId ?? null,
+            selectedIntakeLineIndex: firstDiagnosticTarget?.lineIndex ?? null,
+            rightPanelOwner: 'inspector',
+            rightPanelView: 'diagnostics',
             reviewComparisonError: null,
             isEditing: false,
             reviewView: 'unified',
@@ -112,6 +137,17 @@ export function useParsingActions() {
 
         const adapted = adaptV2Executions(response.executions);
 
+        const firstFaultyTarget = getFirstDiagnosticTarget(
+          prepared.parseInput,
+          state.indexedFileSet,
+          response.errors,
+        );
+        const excludedBlockCount = new Set(
+          response.errors
+            .filter((error) => typeof error.blockIndex === 'number')
+            .map((error) => error.blockIndex),
+        ).size;
+
         updateState({
           parsedBlocks: [],
           validationErrors: [],
@@ -120,17 +156,24 @@ export function useParsingActions() {
           reviewPreflightByItem: adapted.reviewPreflightByItem,
           parseErrors: [],
           parseWarnings: [],
+          v2PreviewDiagnostics: response.errors,
           selectedItemId: adapted.reviewItems.length > 0 ? adapted.reviewItems[0].id : null,
+          selectedIntakeBlockId: response.partial ? firstFaultyTarget?.blockId ?? null : state.selectedIntakeBlockId,
+          selectedIntakeLineIndex: response.partial ? firstFaultyTarget?.lineIndex ?? null : null,
+          rightPanelOwner: 'inspector',
+          rightPanelView: response.partial ? 'diagnostics' : 'properties',
           selectedHunkId: null,
           collapsedHunkIdsByItem: {},
           collapsedDiffGroupIdsByItem: {},
           isEditing: false,
           reviewView: 'unified',
           reviewComparisonError: null,
-          mode: 'review',
-          pipelineStatus: 'parse-success',
+          mode: response.partial ? 'intake' : 'review',
+          pipelineStatus: response.partial ? 'parse-partial' : 'parse-success',
           isParsingInProgress: false,
-          statusMessage: `Ready to review: ${adapted.reviewItems.length} V2 operations`,
+          statusMessage: response.partial
+            ? `Previewed ${adapted.reviewItems.length} valid V2 operation${adapted.reviewItems.length === 1 ? '' : 's'}; ${excludedBlockCount || response.errors.length} block${(excludedBlockCount || response.errors.length) === 1 ? '' : 's'} excluded.`
+            : `Ready to review: ${adapted.reviewItems.length} V2 operations`,
           v2PreviewSession: {
             previewToken: response.previewToken,
             expiresAt: response.expiresAt,
@@ -145,11 +188,19 @@ export function useParsingActions() {
           reviewComparisonByItem: {},
           reviewPreflightByItem: {},
           selectedItemId: null,
+          selectedIntakeLineIndex: null,
+          rightPanelOwner: 'inspector',
+          rightPanelView: 'diagnostics',
           selectedHunkId: null,
           collapsedHunkIdsByItem: {},
           collapsedDiffGroupIdsByItem: {},
-          parseErrors: ['V2 preview request failed.'],
+          parseErrors: [],
           parseWarnings: [],
+          v2PreviewDiagnostics: [{
+            type: 'system',
+            code: 'PREVIEW_REQUEST_FAILED',
+            message: 'V2 preview request failed.',
+          }],
           reviewComparisonError: null,
           isEditing: false,
           reviewView: 'unified',
@@ -166,7 +217,7 @@ export function useParsingActions() {
     const parseInput = prepared.parseInput;
     const normalization = prepared.normalization!;
 
-    updateState({ v2PreviewSession: null });
+    updateState({ v2PreviewSession: null, v2PreviewDiagnostics: [] });
 
     if (!(await confirmPreviouslyAppliedInput(parseInput))) {
       return;

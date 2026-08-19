@@ -6,6 +6,7 @@ import type { PreviewV2ExecutionDTO } from '@/ipc/previewV2Types';
 describe('v2ReviewAdapter', () => {
   const mockReplaceExecution: PreviewV2ExecutionDTO = {
     operationIndex: 0,
+    blockIndex: 0,
     executionId: 'exec-replace',
     filePath: 'src/main.ts',
     strategy: 'replace_text',
@@ -34,6 +35,7 @@ describe('v2ReviewAdapter', () => {
 
   const mockInsertExecution: PreviewV2ExecutionDTO = {
     operationIndex: 1,
+    blockIndex: 1,
     executionId: 'exec-insert',
     filePath: 'src/insert.ts',
     strategy: 'replace_text',
@@ -62,6 +64,7 @@ describe('v2ReviewAdapter', () => {
 
   const mockDeleteExecution: PreviewV2ExecutionDTO = {
     operationIndex: 2,
+    blockIndex: 2,
     executionId: 'exec-delete',
     filePath: 'src/delete.ts',
     strategy: 'replace_text',
@@ -90,6 +93,7 @@ describe('v2ReviewAdapter', () => {
 
   const mockZeroWidthInsertExecution: PreviewV2ExecutionDTO = {
     operationIndex: 3,
+    blockIndex: 3,
     executionId: 'exec-zero-insert',
     filePath: 'src/zero-insert.ts',
     strategy: 'replace_text',
@@ -118,6 +122,7 @@ describe('v2ReviewAdapter', () => {
 
   const mockZeroWidthDeleteExecution: PreviewV2ExecutionDTO = {
     operationIndex: 4,
+    blockIndex: 4,
     executionId: 'exec-zero-delete',
     filePath: 'src/zero-delete.ts',
     strategy: 'replace_text',

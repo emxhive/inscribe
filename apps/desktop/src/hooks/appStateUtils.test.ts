@@ -103,6 +103,7 @@ describe('applyAppStateUpdates', () => {
           strategy: 'replace_text' as const,
           executionId: 'exec-1',
           operationIndex: 0,
+          blockIndex: 0,
           filePath: 'src/new.ts',
           beforeFileHash: 'hash-before',
           afterFileHash: 'hash-after',
@@ -164,6 +165,7 @@ describe('applyAppStateUpdates', () => {
           strategy: 'replace_text' as const,
           executionId: 'exec-1',
           operationIndex: 0,
+          blockIndex: 0,
           filePath: 'src/new.ts',
           beforeFileHash: 'hash-before',
           afterFileHash: 'hash-after',
@@ -259,7 +261,7 @@ describe('applyAppStateUpdates', () => {
     });
   });
 
-  it('clears v2PreviewSession when leaving review mode', () => {
+  it('preserves v2PreviewSession when only toggling back to intake', () => {
     const stateWithToken = applyAppStateUpdates(initialState, {
       mode: 'review',
       v2PreviewSession: {
@@ -268,7 +270,51 @@ describe('applyAppStateUpdates', () => {
       },
     });
     const next = applyAppStateUpdates(stateWithToken, { mode: 'intake' });
+    expect(next.v2PreviewSession).toEqual({
+      previewToken: 'tok-123',
+      expiresAt: '2026-06-13T23:59:59Z',
+    });
+  });
+
+  it('invalidates V2 preview state when intake text changes', () => {
+    const stateWithPreview = applyAppStateUpdates(initialState, {
+      aiInput: 'old input',
+      v2PreviewDiagnostics: [{
+        type: 'protocol',
+        code: 'INVALID_MODE',
+        message: 'Invalid mode',
+        blockIndex: 0,
+      }],
+      reviewItems: [{
+        engineVersion: 'v2',
+        id: 'item-1',
+        file: 'a.ts',
+        status: 'pending',
+      } as any],
+      v2PreviewSession: {
+        previewToken: 'tok-123',
+        expiresAt: '2026-06-13T23:59:59Z',
+      },
+    });
+
+    const next = applyAppStateUpdates(stateWithPreview, { aiInput: 'new input' });
+
     expect(next.v2PreviewSession).toBe(null);
+    expect(next.v2PreviewDiagnostics).toEqual([]);
+    expect(next.reviewItems).toEqual([]);
+    expect(next.pipelineStatus).toBe('idle');
+  });
+
+  it('clears diagnostic line navigation when intake text changes', () => {
+    const stateWithLine = applyAppStateUpdates(initialState, {
+      aiInput: 'old input',
+      selectedIntakeBlockId: 'v2-0',
+      selectedIntakeLineIndex: 4,
+    });
+
+    const next = applyAppStateUpdates(stateWithLine, { aiInput: 'new input' });
+
+    expect(next.selectedIntakeLineIndex).toBe(null);
   });
 
   it('clears v2PreviewSession when switching repositories', () => {

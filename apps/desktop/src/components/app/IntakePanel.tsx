@@ -14,6 +14,7 @@ export function IntakePanel() {
       return cn(
         'whitespace-pre-wrap',
         line.blockId === state.selectedIntakeBlockId && 'bg-primary/10',
+        line.lineIndex === state.selectedIntakeLineIndex && 'bg-destructive/15 outline outline-1 outline-destructive/30',
         line.type === 'begin' && 'bg-sky-100/70',
         line.type === 'end' && 'bg-sky-100/70',
         line.type === 'header' && 'bg-indigo-100/60',
@@ -26,7 +27,7 @@ export function IntakePanel() {
         line.status === 'incomplete' && 'bg-orange-100/70 dark:bg-orange-950/40',
       );
     });
-  }, [lines, state.selectedIntakeBlockId]);
+  }, [lines, state.selectedIntakeBlockId, state.selectedIntakeLineIndex]);
 
   useEffect(() => {
     const textarea = textAreaRef.current;
@@ -45,7 +46,8 @@ export function IntakePanel() {
     if (!textarea || !state.selectedIntakeBlockId) {
       return;
     }
-    const selectedLineIndex = lines.find((line) => line.blockId === state.selectedIntakeBlockId)?.lineIndex;
+    const selectedLineIndex = state.selectedIntakeLineIndex
+      ?? lines.find((line) => line.blockId === state.selectedIntakeBlockId)?.lineIndex;
     if (selectedLineIndex === undefined) {
       return;
     }
@@ -57,7 +59,7 @@ export function IntakePanel() {
     if (overlayRef.current) {
       overlayRef.current.scrollTop = textarea.scrollTop;
     }
-  }, [lines, state.selectedIntakeBlockId]);
+  }, [lines, state.selectedIntakeBlockId, state.selectedIntakeLineIndex]);
 
   const handleScroll = () => {
     if (!overlayRef.current || !textAreaRef.current) {

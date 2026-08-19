@@ -1,6 +1,7 @@
 import type { AppState } from '@/types';
 import type { IntakeBlock } from './intake';
 import { getReviewItemApplyState } from './review';
+import { findV2DiagnosticBlock } from './v2IntakeDiagnostics';
 
 export type DiagnosticSeverity = 'error' | 'warning';
 
@@ -9,6 +10,7 @@ export interface DiagnosticGroup {
   title: string;
   severity: DiagnosticSeverity;
   messages: string[];
+  targetsByMessage?: Record<string, { blockId: string; line?: number }>;
 }
 
 export type DiagnosticMode = AppState['mode'] | 'all';
@@ -25,10 +27,11 @@ export function buildDiagnosticGroups(
     title: string,
     severity: DiagnosticSeverity,
     messages: Array<string | null | undefined>,
+    targetsByMessage?: Record<string, { blockId: string; line?: number }>,
   ) => {
     const uniqueMessages = Array.from(new Set(messages.filter(Boolean) as string[]));
     if (uniqueMessages.length === 0) return;
-    groups.push({ id, title, severity, messages: uniqueMessages });
+    groups.push({ id, title, severity, messages: uniqueMessages, targetsByMessage });
   };
 
   if (mode === 'intake' || mode === 'all') {
@@ -52,10 +55,30 @@ export function buildDiagnosticGroups(
         ...block.errors.map((message) => formatDiagnosticMessage(block.label, message)),
         ...block.warnings.map((message) => formatDiagnosticMessage(block.label, message)),
       ]),
+      Object.fromEntries(blocks.flatMap((block) => [
+        ...block.errors.map((message) => [
+          formatDiagnosticMessage(block.label, message),
+          { blockId: block.id },
+        ] as const),
+        ...block.warnings.map((message) => [
+          formatDiagnosticMessage(block.label, message),
+          { blockId: block.id },
+        ] as const),
+      ])),
+    );
+
+    const globalV2Diagnostics = state.v2PreviewDiagnostics.filter(
+      (diagnostic) => !findV2DiagnosticBlock(blocks, diagnostic),
+    );
+    addGroup(
+      'v2-preview-global',
+      'V2 Preview Errors',
+      'error',
+      globalV2Diagnostics.map((diagnostic) => `[${diagnostic.code}] ${diagnostic.message}`),
     );
   }
 
-  if (mode === 'review' || mode === 'all') {
+    if (mode === 'review' || mode === 'all') {
     addGroup(
       'validation',
       'Validation Errors',

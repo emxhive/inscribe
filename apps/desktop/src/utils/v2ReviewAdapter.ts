@@ -37,6 +37,7 @@ export function adaptV2Executions(
       strategy: exec.strategy,
       executionId: exec.executionId,
       operationIndex: exec.operationIndex,
+      blockIndex: exec.blockIndex,
       filePath: exec.filePath,
       beforeFileHash: exec.beforeFileHash,
       afterFileHash: exec.afterFileHash,

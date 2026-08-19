@@ -125,6 +125,7 @@ describe('review item state selectors', () => {
       strategy: 'replace_text',
       executionId: 'exec-1',
       operationIndex: 0,
+      blockIndex: 0,
       filePath: 'src/new.ts',
       beforeFileHash: 'hash-before',
       afterFileHash: 'hash-after',

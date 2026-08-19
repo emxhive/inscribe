@@ -169,12 +169,12 @@ export function extractCliCommandSuggestions(text: string): CliCommandSuggestion
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
 
-    if (matchesMarker(line, INSCRIBE_BEGIN)) {
+    if (matchesMarker(line, INSCRIBE_BEGIN) || line.trim() === '<<<INSCRIBE') {
       inInscribeBlock = true;
       continue;
     }
 
-    if (matchesMarker(line, INSCRIBE_END)) {
+    if (matchesMarker(line, INSCRIBE_END) || line.trim() === 'INSCRIBE>>>') {
       inInscribeBlock = false;
       continue;
     }

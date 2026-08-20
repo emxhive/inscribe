@@ -101,6 +101,43 @@ function shouldIgnoreCommandLine(line: string): boolean {
   return trimmed.length === 0 || trimmed.startsWith('#') || trimmed.startsWith('//');
 }
 
+function normalizeExtractedCommand(lines: string[], language: string): string | null {
+  if (lines.length === 0) return null;
+
+  const lastLine = lines[lines.length - 1];
+  if (hasLineContinuation(lastLine, language)) {
+    return null;
+  }
+
+  for (let index = 0; index < lines.length - 1; index++) {
+    if (!hasLineContinuation(lines[index], language)) {
+      return null;
+    }
+  }
+
+  const isPowerShell = language === 'powershell' || language === 'ps1' || language === 'pwsh';
+  const parts = lines.map((line, index) => {
+    const trimmed = line.trim();
+
+    if (index === lines.length - 1) {
+      return trimmed;
+    }
+
+    if (isPowerShell && trimmed.endsWith('`')) {
+      return trimmed.slice(0, -1).trimEnd();
+    }
+
+    if (!isPowerShell && trimmed.endsWith('\\')) {
+      return trimmed.slice(0, -1).trimEnd();
+    }
+
+    return trimmed;
+  });
+
+  const command = parts.join(' ').trim();
+  return command.length > 0 ? command : null;
+}
+
 function buildCommandId(command: string, startLine: number): string {
   let hash = 0;
   for (let index = 0; index < command.length; index++) {
@@ -119,8 +156,8 @@ function splitFenceCommands(
   let pendingStartLine = firstContentLine;
 
   const flush = (endLine: number) => {
-    const command = pending.join('\n').trim();
-    if (command.length > 0) {
+    const command = normalizeExtractedCommand(pending, language);
+    if (command) {
       suggestions.push({
         id: buildCommandId(command, pendingStartLine),
         command,

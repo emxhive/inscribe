@@ -1,0 +1,34 @@
+# Repository and Inscribe metadata
+.git/
+.hg/
+.svn/
+.inscribe/
+.prodex@inscribe/
+
+# Dependencies and generated build output
+node_modules/
+**/node_modules/
+**/.dart_tool/
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+coverage/
+**/coverage/
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+
+# Project-only debug workspace
+packages/engine/debug_playground/
+
+# Local-only configuration and machine artifacts
+.env
+.env.local
+.idea/
+.DS_Store
+*.log
+# --- Suggested (commented) ---
+# apps/
+# packages/

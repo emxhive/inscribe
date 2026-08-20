@@ -5,7 +5,7 @@ import { resolveOperation, V2ExecutionContext } from '../../src/v2/execution/res
 import { createStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
 import { initTreeSitter } from '../../src/v2/structural/treeSitterRuntime';
 
-const CORE_WASM = path.resolve(__dirname, '../../node_modules/web-tree-sitter/tree-sitter.wasm');
+const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
 const TS_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm');
 const TSX_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-tsx.wasm');
 

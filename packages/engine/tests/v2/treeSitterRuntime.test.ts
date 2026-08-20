@@ -3,7 +3,7 @@ import * as path from 'path';
 import Parser from 'web-tree-sitter';
 import { initTreeSitter, loadLanguage, resetRuntimeForTesting } from '../../src/v2/structural/treeSitterRuntime';
 
-const CORE_WASM = path.resolve(__dirname, '../../node_modules/web-tree-sitter/tree-sitter.wasm');
+const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
 const TS_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm');
 
 const ASSETS = {
@@ -27,7 +27,7 @@ describe('Tree-sitter runtime caching and safety', () => {
     await initTreeSitter(ASSETS);
     const conflictingAssets = {
       ...ASSETS,
-      coreWasmPath: path.resolve(__dirname, '../../node_modules/web-tree-sitter/tree-sitter-other.wasm'),
+      coreWasmPath: path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter-other.wasm'),
     };
     await expect(initTreeSitter(conflictingAssets)).rejects.toThrow(
       'TreeSitter initialized with conflicting core WASM path'

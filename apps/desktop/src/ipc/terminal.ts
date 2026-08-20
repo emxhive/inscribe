@@ -123,6 +123,38 @@ export function getShellCandidates(shellPreference: TerminalShellPreference = 'a
   }];
 }
 
+function isBashShell(shell: ShellConfig): boolean {
+  const normalized = shell.file.replace(/\\/g, '/').toLowerCase();
+  return (
+    normalized === 'bash' ||
+    normalized === 'bash.exe' ||
+    normalized.endsWith('/bash') ||
+    normalized.endsWith('/bash.exe')
+  );
+}
+
+function getShellEnvironment(shell: ShellConfig): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (!isBashShell(shell)) return env;
+
+  const existingPromptCommand = env.PROMPT_COMMAND?.trim();
+  const commandFinished =
+    `__inscribe_exit=$?; printf '\\033]133;D;%s\\007' "$__inscribe_exit"; (exit "$__inscribe_exit")`;
+  const promptStart =
+    `__inscribe_prompt_status=$?; printf '\\033]133;A\\007'; (exit "$__inscribe_prompt_status")`;
+
+  env.PROMPT_COMMAND = existingPromptCommand
+    ? `${commandFinished}; ${existingPromptCommand}; ${promptStart}`
+    : `${commandFinished}; ${promptStart}`;
+
+  // Bash expands PS0 after it has accepted a complete command and immediately
+  // before execution, giving the terminal an authoritative execution boundary.
+  env.PS0 = `\u001b]133;C\u0007${env.PS0 ?? ''}`;
+  env.TERM_PROGRAM = 'inscribe';
+
+  return env;
+}
+
 function sendToOwner(session: TerminalSession, channel: 'terminal:data', payload: TerminalDataEvent) {
   if (session.owner.isDestroyed()) return;
   session.owner.send(channel, payload);
@@ -201,7 +233,7 @@ export function registerTerminalHandlers() {
           cols: options.cols || 80,
           rows: options.rows || 24,
           cwd,
-          env: process.env,
+          env: getShellEnvironment(shell),
         });
         selectedShell = shell;
         break;

@@ -41,6 +41,9 @@ const api = {
   readClipboardText: (): Promise<string> =>
     ipcRenderer.invoke('clipboard-read-text'),
 
+  selectMarkdownFile: (): Promise<{ path: string; content: string } | null> =>
+    ipcRenderer.invoke('select-markdown-file'),
+
   onOpenRepo: (callback: (repoRoot: string) => void) => {
     const subscription = (_event: any, repoRoot: string) => callback(repoRoot);
     ipcRenderer.on('open-repo', subscription);

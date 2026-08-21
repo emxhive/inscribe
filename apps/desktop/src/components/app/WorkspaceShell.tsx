@@ -18,6 +18,7 @@ import {
   Settings,
   SquareTerminal,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import { DIRECTIVE_KEYS, HEADER_KEYS, OPERATION_MODES, type DirectiveKey, type HeaderKey } from '@inscribe/shared';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,7 @@ type WorkspaceShellProps = {
 
 type WorkspaceTopBarProps = WorkspaceShellProps & {
   onReplaceIntakeFromClipboard: () => void;
+  onUploadIntake: () => void;
 };
 
 export function WorkspaceShell({
@@ -67,6 +69,7 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const { state, updateState } = useAppStateContext();
   const replaceIntakeFromClipboard = useReplaceIntakeFromClipboard();
+  const uploadIntake = useUploadIntake();
   const panelPersistenceReady = useRef(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === 'undefined') return 280;
@@ -159,6 +162,7 @@ export function WorkspaceShell({
         onOpenIgnore={onOpenIgnore}
         onOpenIndexedList={onOpenIndexedList}
         onReplaceIntakeFromClipboard={replaceIntakeFromClipboard}
+        onUploadIntake={uploadIntake}
       />
       <div
         className="grid min-h-0 flex-1 overflow-hidden"
@@ -210,36 +214,7 @@ function useReplaceIntakeFromClipboard() {
         return;
       }
 
-      updateState({
-        mode: 'intake',
-        aiInput: clipboardText,
-        parseErrors: [],
-        parseWarnings: [],
-        v2PreviewDiagnostics: [],
-        parsedBlocks: [],
-        validationErrors: [],
-        reviewItems: [],
-        selectedItemId: null,
-        selectedIntakeBlockId: null,
-        selectedIntakeLineIndex: null,
-        rightPanelOwner: 'inspector',
-        rightPanelView: 'properties',
-        isEditing: false,
-        pipelineStatus: 'idle',
-        reviewComparisonError: null,
-        reviewPreflightByItem: {},
-        reviewComparisonByItem: {},
-        collapsedHunkIdsByItem: {},
-        collapsedDiffGroupIdsByItem: {},
-        terminalCommandSuggestions: [],
-        terminalSuggestionSourceApplyId: null,
-        lastAppliedPlan: null,
-        canRedo: false,
-        lastApplyId: null,
-        canUndoApply: false,
-        v2PreviewSession: null,
-        statusMessage: `Replaced intake with ${clipboardText.length} clipboard character${clipboardText.length === 1 ? '' : 's'}.`,
-      });
+      replaceIntake(updateState, clipboardText, `Replaced intake with ${clipboardText.length} clipboard character${clipboardText.length === 1 ? '' : 's'}.`);
     } catch (error) {
       updateState({
         mode: 'intake',
@@ -249,10 +224,71 @@ function useReplaceIntakeFromClipboard() {
   }, [updateState]);
 }
 
+function replaceIntake(
+  updateState: ReturnType<typeof useAppStateContext>['updateState'],
+  content: string,
+  statusMessage: string,
+) {
+  updateState({
+    mode: 'intake',
+    aiInput: content,
+    parseErrors: [],
+    parseWarnings: [],
+    v2PreviewDiagnostics: [],
+    parsedBlocks: [],
+    validationErrors: [],
+    reviewItems: [],
+    selectedItemId: null,
+    selectedIntakeBlockId: null,
+    selectedIntakeLineIndex: null,
+    rightPanelOwner: 'inspector',
+    rightPanelView: 'properties',
+    isEditing: false,
+    pipelineStatus: 'idle',
+    reviewComparisonError: null,
+    reviewPreflightByItem: {},
+    reviewComparisonByItem: {},
+    collapsedHunkIdsByItem: {},
+    collapsedDiffGroupIdsByItem: {},
+    terminalCommandSuggestions: [],
+    terminalSuggestionSourceApplyId: null,
+    lastAppliedPlan: null,
+    canRedo: false,
+    lastApplyId: null,
+    canUndoApply: false,
+    v2PreviewSession: null,
+    statusMessage,
+  });
+}
+
+function useUploadIntake() {
+  const { updateState } = useAppStateContext();
+
+  return useCallback(async () => {
+    try {
+      const selectedFile = await window.inscribeAPI.selectMarkdownFile();
+      if (!selectedFile) return;
+
+      if (!selectedFile.content.trim()) {
+        updateState({ mode: 'intake', statusMessage: 'Selected Markdown document is empty.' });
+        return;
+      }
+
+      replaceIntake(updateState, selectedFile.content, `Loaded ${getPathBasename(selectedFile.path)} into intake.`);
+    } catch (error) {
+      updateState({
+        mode: 'intake',
+        statusMessage: `Unable to upload Markdown document: ${error}`,
+      });
+    }
+  }, [updateState]);
+}
+
 function WorkspaceTopBar({
   onOpenIgnore,
   onOpenIndexedList,
   onReplaceIntakeFromClipboard,
+  onUploadIntake,
 }: WorkspaceTopBarProps) {
   const { state, updateState } = useAppStateContext();
   const repositoryActions = useRepositoryActions();
@@ -371,6 +407,13 @@ function WorkspaceTopBar({
           aria-label="Replace intake from clipboard"
         >
           <ClipboardPaste className="h-3.5 w-3.5" />
+        </ChromeButton>
+        <ChromeButton
+          onClick={onUploadIntake}
+          title="Upload Markdown document"
+          aria-label="Upload Markdown document"
+        >
+          <Upload className="h-3.5 w-3.5" />
         </ChromeButton>
         <ChromeButton
           active={state.mode === 'review'}

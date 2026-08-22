@@ -43,7 +43,31 @@ describe('useParsingActions V2 & V1 parsing', () => {
       errors: [],
       previewToken: 'tok-123',
       expiresAt: '2026-06-13T23:59:59Z',
-      executions: [],
+      executions: [{
+        operationIndex: 0,
+        blockIndex: 0,
+        executionId: 'exec-0',
+        filePath: 'src/a.ts',
+        strategy: 'create_file',
+        targetScope: { filePath: 'src/a.ts', strategy: 'create_file' },
+        beforeExists: false,
+        afterExists: true,
+        beforeContent: '',
+        afterContent: 'created',
+        actualDiffHunks: [],
+        beforeFileHash: 'before',
+        afterFileHash: 'after',
+      }],
+      finalFiles: [{
+        filePath: 'src/a.ts',
+        beforeExists: false,
+        afterExists: true,
+        beforeContent: '',
+        afterContent: 'created',
+        beforeFileHash: 'before',
+        afterFileHash: 'after',
+        actualDiffHunks: [],
+      }],
     });
 
     const { handleParseBlocks } = useParsingActions();
@@ -77,6 +101,47 @@ describe('useParsingActions V2 & V1 parsing', () => {
       mode: 'intake',
       pipelineStatus: 'parse-failure',
       v2PreviewSession: null,
+    }));
+  });
+
+  it('keeps net-zero V2 previews out of Review and Apply', async () => {
+    mockState.aiInput = '<<<INSCRIBE\nFILE: src/a.ts\nINSCRIBE>>>';
+    vi.mocked(window.inscribeAPI.previewV2).mockResolvedValue({
+      ok: true,
+      partial: false,
+      errors: [],
+      previewToken: 'tok-noop',
+      expiresAt: '2026-06-13T23:59:59Z',
+      executions: [{
+        operationIndex: 0,
+        blockIndex: 0,
+        executionId: 'exec-noop',
+        filePath: 'src/a.ts',
+        strategy: 'replace_text',
+        targetScope: { filePath: 'src/a.ts', strategy: 'replace_text' },
+        beforeExists: true,
+        afterExists: true,
+        beforeContent: 'same',
+        afterContent: 'same',
+        actualDiffHunks: [],
+        beforeFileHash: 'before',
+        afterFileHash: 'after',
+      }],
+      finalFiles: [],
+    });
+
+    const { handleParseBlocks } = useParsingActions();
+    await handleParseBlocks();
+
+    expect(mockUpdateState).toHaveBeenLastCalledWith(expect.objectContaining({
+      mode: 'intake',
+      pipelineStatus: 'parse-success',
+      reviewItems: [],
+      v2ReviewFiles: [],
+      selectedItemId: null,
+      selectedV2FileId: null,
+      v2PreviewSession: null,
+      statusMessage: 'No net changes to review.',
     }));
   });
 
@@ -118,6 +183,16 @@ INSCRIBE>>>`;
         actualDiffHunks: [],
         beforeFileHash: 'before',
         afterFileHash: 'after',
+      }],
+      finalFiles: [{
+        filePath: 'valid.ts',
+        beforeExists: false,
+        afterExists: true,
+        beforeContent: '',
+        afterContent: 'valid',
+        beforeFileHash: 'before',
+        afterFileHash: 'after',
+        actualDiffHunks: [],
       }],
     });
 

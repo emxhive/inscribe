@@ -55,7 +55,16 @@ export function useApplyActions() {
     };
 
     const handleApplySelected = async () => {
-        if (!state.repoRoot || !state.selectedItemId) return;
+        if (!state.repoRoot) return;
+
+        if (state.selectedV2FileId) {
+            updateState({
+                statusMessage: 'V2 file selection is for navigation only. Use Apply V2 Preview.',
+            });
+            return;
+        }
+
+        if (!state.selectedItemId) return;
 
         const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
         if (!selectedItem) return;
@@ -131,7 +140,7 @@ export function useApplyActions() {
     const handleApplyAll = async () => {
         if (!state.repoRoot) return;
 
-        const hasAnyV2 = state.reviewItems.some(item => item.engineVersion === 'v2');
+            const hasAnyV2 = state.v2ReviewFiles.length > 0;
         if (hasAnyV2) {
             const hasAnyV1 = state.reviewItems.some((item) => item.engineVersion !== 'v2');
             if (hasAnyV1) {
@@ -142,6 +151,7 @@ export function useApplyActions() {
             }
 
             const hasOnlyPendingV2Items =
+                state.v2ReviewFiles.length > 0 &&
                 state.reviewItems.length > 0 &&
                 state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
 
@@ -171,10 +181,11 @@ export function useApplyActions() {
             }
 
             try {
+                const v2FileCount = state.v2ReviewFiles.length;
                 updateState({
                     isApplyingInProgress: true,
                     pipelineStatus: 'applying',
-                    statusMessage: 'Applying V2 preview session...',
+                    statusMessage: `Applying V2 preview session (${v2FileCount} file${v2FileCount === 1 ? '' : 's'})...`,
                     canUndoApply: false,
                     lastApplyId: null,
                 });
@@ -307,7 +318,7 @@ export function useApplyActions() {
     const handleApplyValidBlocks = async () => {
         if (!state.repoRoot) return;
 
-        const hasAnyV2 = state.reviewItems.some(item => item.engineVersion === 'v2');
+        const hasAnyV2 = state.v2ReviewFiles.length > 0;
         if (hasAnyV2) {
             const hasAnyV1 = state.reviewItems.some((item) => item.engineVersion !== 'v2');
             updateState({

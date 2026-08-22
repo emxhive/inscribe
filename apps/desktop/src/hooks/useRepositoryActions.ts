@@ -66,7 +66,9 @@ export function useRepositoryActions() {
       parsedBlocks: [],
       validationErrors: [],
       reviewItems: [],
+      v2ReviewFiles: [],
       selectedItemId: null,
+      selectedV2FileId: null,
       selectedIntakeBlockId: null,
       selectedIntakeLineIndex: null,
       rightPanelOwner: 'inspector',
@@ -84,7 +86,9 @@ export function useRepositoryActions() {
       canUndoApply: false,
       historyItems: [],
       collapsedHunkIdsByItem: {},
+      collapsedHunkIdsByFile: {},
       collapsedDiffGroupIdsByItem: {},
+      collapsedDiffGroupIdsByFile: {},
       statusMessage,
     });
   };

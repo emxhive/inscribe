@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
@@ -19,6 +19,7 @@ import { useAppStateContext, useReviewActions } from '@/hooks';
 import { buildResultReviewModel, buildUnifiedDiffModel } from '@/utils/reviewComparison';
 import { buildReviewItemPreflightFingerprint, getCurrentReviewPreflight } from '@/utils';
 import { cn } from '@/lib/utils';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import type { Operation } from '@inscribe/shared';
 import type { ReviewItem, V1ReviewItem, ReviewPreflightResult, ReviewView, ReviewComparison } from '@/types';
 
@@ -64,27 +65,41 @@ export function ReviewPanel() {
   const { state, updateState } = useAppStateContext();
   const reviewActions = useReviewActions();
   const { selectedItem, editorValue } = reviewActions;
+  const selectedV2File = state.v2ReviewFiles.find((file) => file.id === state.selectedV2FileId) ?? null;
+  const isV2Review = state.v2ReviewFiles.length > 0;
   const [previewEditorView, setPreviewEditorView] = useState<EditorView | null>(null);
   const selectedIsApplied = selectedItem?.status === 'applied';
-  const canEditSelection = Boolean(selectedItem) && !selectedIsApplied && selectedItem?.engineVersion !== 'v2';
+  const canEditSelection = Boolean(selectedItem) && !selectedIsApplied;
   const activeReviewView = canEditSelection ? state.reviewView : state.reviewView === 'edit' ? 'unified' : state.reviewView;
   const isEditing = activeReviewView === 'edit';
   const selectedItemId = selectedItem?.id ?? null;
   const selectedFingerprint = selectedItem ? buildReviewItemPreflightFingerprint(selectedItem) : null;
   const selectedComparisonSnapshot = selectedItemId ? state.reviewComparisonByItem[selectedItemId] : null;
   const comparisonData =
-    selectedComparisonSnapshot && selectedComparisonSnapshot.fingerprint === selectedFingerprint
+    selectedV2File?.comparison
+      ?? (selectedComparisonSnapshot && selectedComparisonSnapshot.fingerprint === selectedFingerprint
       ? selectedComparisonSnapshot.comparison
-      : null;
-  const collapsedHunkIds = selectedItemId ? state.collapsedHunkIdsByItem[selectedItemId] ?? [] : [];
-  const collapsedDiffGroupIds = selectedItemId ? state.collapsedDiffGroupIdsByItem[selectedItemId] ?? [] : [];
+      : null);
+  const selectionKey = selectedV2File?.id ?? selectedItemId;
+  const collapsedHunkIds = selectedV2File
+    ? state.collapsedHunkIdsByFile[selectedV2File.id] ?? []
+    : selectedItemId
+      ? state.collapsedHunkIdsByItem[selectedItemId] ?? []
+      : [];
+  const collapsedDiffGroupIds = selectedV2File
+    ? state.collapsedDiffGroupIdsByFile[selectedV2File.id] ?? []
+    : selectedItemId
+      ? state.collapsedDiffGroupIdsByItem[selectedItemId] ?? []
+      : [];
 
   const setItemPreflightResult = (
-    item: ReviewItem,
+    item: V1ReviewItem,
     result: ReviewPreflightResult,
   ) => {
     updateState((prev) => {
-      const currentItem = prev.reviewItems.find((candidate) => candidate.id === item.id);
+      const currentItem = prev.reviewItems.find(
+        (candidate): candidate is V1ReviewItem => candidate.id === item.id && isV1ReviewItem(candidate),
+      );
       if (!currentItem || buildReviewItemPreflightFingerprint(currentItem) !== result.fingerprint) {
         return {};
       }
@@ -115,12 +130,14 @@ export function ReviewPanel() {
   };
 
   const setItemComparisonSnapshot = (
-    item: ReviewItem,
+    item: V1ReviewItem,
     comparison: ReviewComparison,
   ) => {
     const fingerprint = buildReviewItemPreflightFingerprint(item);
     updateState((prev) => {
-      const currentItem = prev.reviewItems.find((candidate) => candidate.id === item.id);
+      const currentItem = prev.reviewItems.find(
+        (candidate): candidate is V1ReviewItem => candidate.id === item.id && isV1ReviewItem(candidate),
+      );
       if (!currentItem || buildReviewItemPreflightFingerprint(currentItem) !== fingerprint) {
         return {};
       }
@@ -146,7 +163,7 @@ export function ReviewPanel() {
     );
     const stalePreflightIds = Object.keys(state.reviewPreflightByItem).filter((itemId) => {
       const item = reviewItemsById.get(itemId);
-      return !item || (item.engineVersion !== 'v2' && (item.status !== 'pending' || !getCurrentReviewPreflight(item, state.reviewPreflightByItem)));
+      return !item || (isV1ReviewItem(item) && (item.status !== 'pending' || !getCurrentReviewPreflight(item, state.reviewPreflightByItem)));
     });
 
     if (pendingItemsNeedingPreflight.length === 0 && stalePreflightIds.length === 0) {
@@ -192,7 +209,7 @@ export function ReviewPanel() {
   }, [state.mode, state.repoRoot, state.reviewItems, state.reviewPreflightByItem, updateState]);
 
   const languageExtension = useMemo(() => {
-    const fileName = selectedItem?.file;
+    const fileName = selectedV2File?.filePath ?? selectedItem?.file;
     if (!fileName) return null;
     const extension = fileName.split('.').pop()?.toLowerCase() ?? 'txt';
     const shouldPreferPhp = editorValue.includes('<?php');
@@ -230,7 +247,7 @@ export function ReviewPanel() {
       default:
         return shouldPreferPhp ? php() : javascript();
     }
-  }, [editorValue, selectedItem?.file]);
+  }, [editorValue, selectedItem?.file, selectedV2File?.filePath]);
 
   const editorExtensions = useMemo(() => {
     const baseExtensions = [indentUnit.of('\t'), keymap.of([indentWithTab])];
@@ -244,7 +261,17 @@ export function ReviewPanel() {
     const loadComparison = async () => {
       updateState({ selectedHunkId: null });
 
-      if (!state.repoRoot || !selectedItem || isEditing) {
+      if (!state.repoRoot || (!selectedItem && !selectedV2File) || isEditing) {
+        updateState({ reviewComparisonError: null });
+        return;
+      }
+
+      if (selectedV2File) {
+        updateState({ reviewComparisonError: null });
+        return;
+      }
+
+      if (!selectedItem) {
         updateState({ reviewComparisonError: null });
         return;
       }
@@ -255,15 +282,6 @@ export function ReviewPanel() {
             ? null
             : 'Applied comparison snapshot is unavailable for this change.',
         });
-        return;
-      }
-
-      if (selectedItem.engineVersion === 'v2') {
-        if (comparisonData) {
-          updateState({ reviewComparisonError: null });
-        } else {
-          updateState({ reviewComparisonError: 'Canonical V2 comparison snapshot is missing.' });
-        }
         return;
       }
 
@@ -305,13 +323,13 @@ export function ReviewPanel() {
     return () => {
       cancelled = true;
     };
-  }, [comparisonData, editorValue, isEditing, selectedIsApplied, selectedItem, state.repoRoot, state.reviewPreflightByItem, updateState]);
+  }, [comparisonData, editorValue, isEditing, selectedIsApplied, selectedItem, selectedV2File, state.repoRoot, state.reviewPreflightByItem, updateState]);
 
   useEffect(() => {
-    if (selectedItem?.engineVersion === 'v2' && state.reviewView === 'edit') {
+    if (isV2Review && state.reviewView === 'edit') {
       updateState({ reviewView: 'result', isEditing: false });
     }
-  }, [selectedItem, state.reviewView, updateState]);
+  }, [isV2Review, state.reviewView, updateState]);
 
   const resultModel = useMemo(
     () => (comparisonData ? buildResultReviewModel(comparisonData) : null),
@@ -472,22 +490,31 @@ export function ReviewPanel() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Enter' || activeReviewView !== 'unified' || !selectedItemId || !selectedDisplayHunkId) return;
+      if (event.key !== 'Enter' || activeReviewView !== 'unified' || !selectionKey || !selectedDisplayHunkId) return;
       if (!collapsedHunkIds.includes(selectedDisplayHunkId)) return;
       updateState((prev) => ({
-        collapsedHunkIdsByItem: {
-          ...prev.collapsedHunkIdsByItem,
-          [selectedItemId]: collapsedHunkIds.filter((id) => id !== selectedDisplayHunkId),
-        },
+        ...(selectedV2File
+          ? {
+              collapsedHunkIdsByFile: {
+                ...prev.collapsedHunkIdsByFile,
+                [selectedV2File.id]: collapsedHunkIds.filter((id) => id !== selectedDisplayHunkId),
+              },
+            }
+          : {
+              collapsedHunkIdsByItem: {
+                ...prev.collapsedHunkIdsByItem,
+                [selectedItemId!]: collapsedHunkIds.filter((id) => id !== selectedDisplayHunkId),
+              },
+            }),
       }));
       event.preventDefault();
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeReviewView, collapsedHunkIds, selectedDisplayHunkId, selectedItemId, updateState]);
+  }, [activeReviewView, collapsedHunkIds, selectedDisplayHunkId, selectedItemId, selectedV2File, selectionKey, updateState]);
 
-  if (!selectedItem) {
+  if (!selectedItem && !selectedV2File) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center text-sm text-muted-foreground">
         Select a change from the left pane.
@@ -501,39 +528,38 @@ export function ReviewPanel() {
     <section className="flex h-full min-h-0 flex-col bg-background">
       <div className="h-10 flex items-center justify-between gap-3 border-b border-border bg-card px-3">
         <div className="min-w-0 flex items-center gap-2">
-          <span className="inline-code max-w-[60vw] truncate" title={selectedItem.file}>
-            {selectedItem.file}
+          <span className="inline-code max-w-[60vw] truncate" title={selectedV2File?.filePath ?? selectedItem?.file}>
+            {selectedV2File?.filePath ?? selectedItem?.file}
           </span>
         </div>
-        <div className="flex items-center rounded-md border border-border bg-secondary/60 p-0.5">
-          {reviewViewOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              disabled={option.id === 'edit' && !canEditSelection}
-              onClick={() => updateState({ reviewView: option.id, isEditing: option.id === 'edit' })}
-              className={cn(
-                'h-7 rounded px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
-                activeReviewView === option.id
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        {activeReviewView === 'unified' && unifiedModel && unifiedModel.hunks.length > 0 && selectedItemId && (
+        <SegmentedControl
+          options={reviewViewOptions.map((option) => ({
+            ...option,
+            disabled: option.id === 'edit' && !canEditSelection,
+          }))}
+          value={activeReviewView}
+          onChange={(value) => updateState({ reviewView: value, isEditing: value === 'edit' })}
+        />
+        {activeReviewView === 'unified' && unifiedModel && unifiedModel.hunks.length > 0 && selectionKey && (
           <div className="flex items-center gap-1">
             <button
               type="button"
               className="h-7 rounded-md px-2 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
               onClick={() =>
                 updateState((prev) => ({
-                  collapsedHunkIdsByItem: {
-                    ...prev.collapsedHunkIdsByItem,
-                    [selectedItemId]: unifiedModel.hunks.map((hunk) => hunk.id),
-                  },
+                  ...(selectedV2File
+                    ? {
+                        collapsedHunkIdsByFile: {
+                          ...prev.collapsedHunkIdsByFile,
+                          [selectedV2File.id]: unifiedModel.hunks.map((hunk) => hunk.id),
+                        },
+                      }
+                    : {
+                        collapsedHunkIdsByItem: {
+                          ...prev.collapsedHunkIdsByItem,
+                          [selectedItemId!]: unifiedModel.hunks.map((hunk) => hunk.id),
+                        },
+                      }),
                 }))
               }
             >
@@ -544,10 +570,19 @@ export function ReviewPanel() {
               className="h-7 rounded-md px-2 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
               onClick={() =>
                 updateState((prev) => ({
-                  collapsedHunkIdsByItem: {
-                    ...prev.collapsedHunkIdsByItem,
-                    [selectedItemId]: [],
-                  },
+                  ...(selectedV2File
+                    ? {
+                        collapsedHunkIdsByFile: {
+                          ...prev.collapsedHunkIdsByFile,
+                          [selectedV2File.id]: [],
+                        },
+                      }
+                    : {
+                        collapsedHunkIdsByItem: {
+                          ...prev.collapsedHunkIdsByItem,
+                          [selectedItemId!]: [],
+                        },
+                      }),
                 }))
               }
             >
@@ -556,20 +591,6 @@ export function ReviewPanel() {
           </div>
         )}
       </div>
-
-      {selectedItem.engineVersion === 'v2' && selectedItem.targetScope.matchMetadata?.kind === 'fallback' && (
-        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-xs text-amber-500 flex items-center justify-between flex-shrink-0">
-          <span className="flex items-center gap-1.5">
-            <span className="font-semibold">⚠️ Fallback Matching Used:</span>
-            <span>Matched with score {Math.round(selectedItem.targetScope.matchMetadata.score! * 100)}% (Exact match failed).</span>
-          </span>
-          {selectedItem.targetScope.matchMetadata.unmatchedSoftTokens && selectedItem.targetScope.matchMetadata.unmatchedSoftTokens.length > 0 && (
-            <span className="text-muted-foreground">
-              Unmatched soft tokens: {selectedItem.targetScope.matchMetadata.unmatchedSoftTokens.map(t => `'${t}'`).join(', ')}
-            </span>
-          )}
-        </div>
-      )}
 
       <div className="min-h-0 flex-1 overflow-hidden">
         {!isEditing && state.reviewComparisonError && (
@@ -616,32 +637,54 @@ export function ReviewPanel() {
             collapsedDiffGroupIds={collapsedDiffGroupIds}
             onSelectHunk={(hunkId) => updateState({ selectedHunkId: hunkId })}
             onToggleHunk={(hunkId) => {
-              if (!selectedItemId) return;
+              if (!selectionKey) return;
               updateState((prev) => {
-                const current = prev.collapsedHunkIdsByItem[selectedItemId] ?? [];
+                const current = selectedV2File
+                  ? prev.collapsedHunkIdsByFile[selectedV2File.id] ?? []
+                  : prev.collapsedHunkIdsByItem[selectedItemId!] ?? [];
                 const next = current.includes(hunkId)
                   ? current.filter((id) => id !== hunkId)
                   : [...current, hunkId];
                 return {
-                  collapsedHunkIdsByItem: {
-                    ...prev.collapsedHunkIdsByItem,
-                    [selectedItemId]: next,
-                  },
+                  ...(selectedV2File
+                    ? {
+                        collapsedHunkIdsByFile: {
+                          ...prev.collapsedHunkIdsByFile,
+                          [selectedV2File.id]: next,
+                        },
+                      }
+                    : {
+                        collapsedHunkIdsByItem: {
+                          ...prev.collapsedHunkIdsByItem,
+                          [selectedItemId!]: next,
+                        },
+                      }),
                 };
               });
             }}
             onToggleGroup={(groupId) => {
-              if (!selectedItemId) return;
+              if (!selectionKey) return;
               updateState((prev) => {
-                const current = prev.collapsedDiffGroupIdsByItem[selectedItemId] ?? [];
+                const current = selectedV2File
+                  ? prev.collapsedDiffGroupIdsByFile[selectedV2File.id] ?? []
+                  : prev.collapsedDiffGroupIdsByItem[selectedItemId!] ?? [];
                 const next = current.includes(groupId)
                   ? current.filter((id) => id !== groupId)
                   : [...current, groupId];
                 return {
-                  collapsedDiffGroupIdsByItem: {
-                    ...prev.collapsedDiffGroupIdsByItem,
-                    [selectedItemId]: next,
-                  },
+                  ...(selectedV2File
+                    ? {
+                        collapsedDiffGroupIdsByFile: {
+                          ...prev.collapsedDiffGroupIdsByFile,
+                          [selectedV2File.id]: next,
+                        },
+                      }
+                    : {
+                        collapsedDiffGroupIdsByItem: {
+                          ...prev.collapsedDiffGroupIdsByItem,
+                          [selectedItemId!]: next,
+                        },
+                      }),
                 };
               });
             }}

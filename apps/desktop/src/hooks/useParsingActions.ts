@@ -6,7 +6,7 @@ import {
   prepareInscribeInput,
 } from '@/utils';
 import type { PreviewV2ErrorDTO } from '@/ipc/previewV2Types';
-import { adaptV2Executions } from '@/utils/v2ReviewAdapter';
+import { adaptV2Preview } from '@/utils/v2ReviewAdapter';
 import { useAppStateContext } from './useAppStateContext';
 
 function getFirstDiagnosticTarget(
@@ -110,12 +110,16 @@ export function useParsingActions() {
             parsedBlocks: [],
             validationErrors: [],
             reviewItems: [],
+            v2ReviewFiles: [],
             reviewComparisonByItem: {},
             reviewPreflightByItem: {},
             selectedItemId: null,
+            selectedV2FileId: null,
             selectedHunkId: null,
             collapsedHunkIdsByItem: {},
+            collapsedHunkIdsByFile: {},
             collapsedDiffGroupIdsByItem: {},
+            collapsedDiffGroupIdsByFile: {},
             parseErrors: [],
             parseWarnings: [],
             v2PreviewDiagnostics: response.errors,
@@ -135,7 +139,7 @@ export function useParsingActions() {
           return;
         }
 
-        const adapted = adaptV2Executions(response.executions);
+        const adapted = adaptV2Preview(response.executions, response.finalFiles);
 
         const firstFaultyTarget = getFirstDiagnosticTarget(
           prepared.parseInput,
@@ -148,23 +152,63 @@ export function useParsingActions() {
             .map((error) => error.blockIndex),
         ).size;
 
+        if (adapted.v2ReviewFiles.length === 0) {
+          updateState({
+            parsedBlocks: [],
+            validationErrors: [],
+            reviewItems: [],
+            v2ReviewFiles: [],
+            reviewComparisonByItem: {},
+            reviewPreflightByItem: {},
+            parseErrors: [],
+            parseWarnings: [],
+            v2PreviewDiagnostics: response.errors,
+            selectedItemId: null,
+            selectedV2FileId: null,
+            selectedIntakeBlockId: firstFaultyTarget?.blockId ?? null,
+            selectedIntakeLineIndex: firstFaultyTarget?.lineIndex ?? null,
+            rightPanelOwner: 'inspector',
+            rightPanelView: response.errors.length > 0 ? 'diagnostics' : 'properties',
+            selectedHunkId: null,
+            collapsedHunkIdsByItem: {},
+            collapsedHunkIdsByFile: {},
+            collapsedDiffGroupIdsByItem: {},
+            collapsedDiffGroupIdsByFile: {},
+            isEditing: false,
+            reviewView: 'unified',
+            reviewComparisonError: null,
+            mode: 'intake',
+            pipelineStatus: response.errors.length > 0 ? 'parse-partial' : 'parse-success',
+            isParsingInProgress: false,
+            statusMessage: response.errors.length > 0
+              ? `No net changes to review; ${excludedBlockCount || response.errors.length} block${(excludedBlockCount || response.errors.length) === 1 ? '' : 's'} excluded.`
+              : 'No net changes to review.',
+            v2PreviewSession: null,
+          });
+          return;
+        }
+
         updateState({
           parsedBlocks: [],
           validationErrors: [],
           reviewItems: adapted.reviewItems,
-          reviewComparisonByItem: adapted.reviewComparisonByItem,
-          reviewPreflightByItem: adapted.reviewPreflightByItem,
+          v2ReviewFiles: adapted.v2ReviewFiles,
+          reviewComparisonByItem: {},
+          reviewPreflightByItem: {},
           parseErrors: [],
           parseWarnings: [],
           v2PreviewDiagnostics: response.errors,
-          selectedItemId: adapted.reviewItems.length > 0 ? adapted.reviewItems[0].id : null,
+          selectedItemId: null,
+          selectedV2FileId: adapted.v2ReviewFiles[0].id,
           selectedIntakeBlockId: response.partial ? firstFaultyTarget?.blockId ?? null : state.selectedIntakeBlockId,
           selectedIntakeLineIndex: response.partial ? firstFaultyTarget?.lineIndex ?? null : null,
           rightPanelOwner: 'inspector',
           rightPanelView: response.partial ? 'diagnostics' : 'properties',
           selectedHunkId: null,
           collapsedHunkIdsByItem: {},
+          collapsedHunkIdsByFile: {},
           collapsedDiffGroupIdsByItem: {},
+          collapsedDiffGroupIdsByFile: {},
           isEditing: false,
           reviewView: 'unified',
           reviewComparisonError: null,
@@ -172,8 +216,8 @@ export function useParsingActions() {
           pipelineStatus: response.partial ? 'parse-partial' : 'parse-success',
           isParsingInProgress: false,
           statusMessage: response.partial
-            ? `Previewed ${adapted.reviewItems.length} valid V2 operation${adapted.reviewItems.length === 1 ? '' : 's'}; ${excludedBlockCount || response.errors.length} block${(excludedBlockCount || response.errors.length) === 1 ? '' : 's'} excluded.`
-            : `Ready to review: ${adapted.reviewItems.length} V2 operations`,
+            ? `Previewed ${adapted.v2ReviewFiles.length} final file${adapted.v2ReviewFiles.length === 1 ? '' : 's'}; ${excludedBlockCount || response.errors.length} block${(excludedBlockCount || response.errors.length) === 1 ? '' : 's'} excluded.`
+            : `Ready to review: ${adapted.v2ReviewFiles.length} file${adapted.v2ReviewFiles.length === 1 ? '' : 's'}`,
           v2PreviewSession: {
             previewToken: response.previewToken,
             expiresAt: response.expiresAt,
@@ -185,14 +229,17 @@ export function useParsingActions() {
           parsedBlocks: [],
           validationErrors: [],
           reviewItems: [],
+          v2ReviewFiles: [],
           reviewComparisonByItem: {},
           reviewPreflightByItem: {},
           selectedItemId: null,
+          selectedV2FileId: null,
           selectedIntakeLineIndex: null,
           rightPanelOwner: 'inspector',
           rightPanelView: 'diagnostics',
           selectedHunkId: null,
           collapsedHunkIdsByItem: {},
+          collapsedHunkIdsByFile: {},
           collapsedDiffGroupIdsByItem: {},
           parseErrors: [],
           parseWarnings: [],
@@ -268,7 +315,9 @@ export function useParsingActions() {
       updateState({
         validationErrors: validationErrors || [],
         reviewItems,
+        v2ReviewFiles: [],
         selectedItemId: reviewItems.length > 0 ? reviewItems[0].id : null,
+        selectedV2FileId: null,
         mode: 'review',
         pipelineStatus: 'parse-success',
         isParsingInProgress: false,

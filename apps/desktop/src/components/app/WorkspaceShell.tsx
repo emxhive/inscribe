@@ -43,8 +43,9 @@ import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
 
 import { TerminalPanel } from './TerminalPanel';
 import { cn } from '@/lib/utils';
-import type { AppState } from '@/types';
+import type { AppState, V1ReviewItem, V2ReviewFile, V2ReviewItem } from '@/types';
 import { buildDiagnosticGroups, formatDiagnosticGroupForClipboard, type DiagnosticGroup } from '@/utils/diagnostics';
+import { PanelTabs } from '@/components/ui/panel-tabs';
 
 const RIGHT_PANEL_WIDTH = 360;
 const PANEL_STORAGE_KEYS = {
@@ -62,6 +63,10 @@ type WorkspaceTopBarProps = WorkspaceShellProps & {
   onReplaceIntakeFromClipboard: () => void;
   onUploadIntake: () => void;
 };
+
+function isV1ReviewItem(item: AppState['reviewItems'][number]): item is V1ReviewItem {
+  return item.engineVersion !== 'v2';
+}
 
 export function WorkspaceShell({
   onOpenIgnore,
@@ -238,7 +243,9 @@ function replaceIntake(
     parsedBlocks: [],
     validationErrors: [],
     reviewItems: [],
+    v2ReviewFiles: [],
     selectedItemId: null,
+    selectedV2FileId: null,
     selectedIntakeBlockId: null,
     selectedIntakeLineIndex: null,
     rightPanelOwner: 'inspector',
@@ -249,7 +256,9 @@ function replaceIntake(
     reviewPreflightByItem: {},
     reviewComparisonByItem: {},
     collapsedHunkIdsByItem: {},
+    collapsedHunkIdsByFile: {},
     collapsedDiffGroupIdsByItem: {},
+    collapsedDiffGroupIdsByFile: {},
     terminalCommandSuggestions: [],
     terminalSuggestionSourceApplyId: null,
     lastAppliedPlan: null,
@@ -501,7 +510,10 @@ function WorkspaceBottomBar() {
   const { state, updateState } = useAppStateContext();
   const { handleParseBlocks } = useParsingActions();
   const applyActions = useApplyActions();
-  const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId) ?? null;
+  const selectedItem = state.reviewItems.find(
+    (item): item is V1ReviewItem => item.id === state.selectedItemId && isV1ReviewItem(item),
+  ) ?? null;
+  const hasV2Review = state.v2ReviewFiles.length > 0;
   const applySummary = getReviewApplySummary(state.reviewItems, state.reviewPreflightByItem);
   const selectedIsApplied = selectedItem?.status === 'applied';
   const selectedApplyState = selectedItem ? getReviewItemApplyState(selectedItem, state.reviewPreflightByItem) : null;
@@ -509,12 +521,12 @@ function WorkspaceBottomBar() {
   const canUndoSelected =
     Boolean(selectedItem) &&
     selectedIsApplied &&
-    selectedItem.engineVersion !== 'v2' &&
     state.historyItems.some(
       (item) => item.file === selectedItem.file && item.blockIndex === selectedItem.blockIndex && !item.restoredAt,
     );
 
   const hasOnlyPendingV2Items =
+    state.v2ReviewFiles.length > 0 &&
     state.reviewItems.length > 0 &&
     state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
 
@@ -526,7 +538,7 @@ function WorkspaceBottomBar() {
     state.mode === 'intake' &&
     state.pipelineStatus === 'parse-partial' &&
     Boolean(state.v2PreviewSession) &&
-    state.reviewItems.length > 0;
+    state.v2ReviewFiles.length > 0;
   const excludedV2BlockCount = new Set(
     state.v2PreviewDiagnostics.map((diagnostic) => diagnostic.blockIndex ?? `global:${diagnostic.code}:${diagnostic.line ?? ''}`),
   ).size;
@@ -539,7 +551,7 @@ function WorkspaceBottomBar() {
   const enableApplyAll = applySummary.canApplyAll || canApplyV2Session;
   const applyAllButtonLabel = canApplyV2Session ? 'Apply V2 Preview' : 'Apply All';
   const selectedHunkIndex = state.selectedHunkId
-    ? Math.max(0, state.reviewItems.findIndex((item) => item.id === state.selectedItemId))
+    ? 0
     : -1;
 
   const statusIcon = (() => {
@@ -579,10 +591,11 @@ function WorkspaceBottomBar() {
               size="sm"
               onClick={() => updateState({
                 mode: 'review',
-                statusMessage: `Reviewing ${state.reviewItems.length} valid V2 operation${state.reviewItems.length === 1 ? '' : 's'}; excluded blocks remain unapplied.`,
+                rightPanelView: 'properties',
+                statusMessage: `Reviewing ${state.v2ReviewFiles.length} final file${state.v2ReviewFiles.length === 1 ? '' : 's'}; excluded blocks remain unapplied.`,
               })}
             >
-              Review {state.reviewItems.length} Valid · {excludedV2BlockCount} Excluded
+              Review {state.v2ReviewFiles.length} Files · {excludedV2BlockCount} Excluded
             </Button>
           )}
           <Button
@@ -634,24 +647,28 @@ function WorkspaceBottomBar() {
           >
             Undo All
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onClick={applyActions.handleApplySelected}
-            disabled={!canApplySelected}
-          >
-            {state.isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onClick={applyActions.handleApplyValidBlocks}
-            disabled={!applySummary.canApplyValid || state.isApplyingInProgress}
-          >
-            Apply Valid
-          </Button>
+          {!hasV2Review && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={applyActions.handleApplySelected}
+                disabled={!canApplySelected}
+              >
+                {state.isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={applyActions.handleApplyValidBlocks}
+                disabled={!applySummary.canApplyValid || state.isApplyingInProgress}
+              >
+                Apply Valid
+              </Button>
+            </>
+          )}
           <Button
             type="button"
             size="sm"
@@ -703,22 +720,37 @@ function InspectorRightPanel() {
   const { state, updateState } = useAppStateContext();
   const { blocks, warnings: globalWarnings } = useIntakeBlocks();
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
-  const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId) ?? null;
+  const selectedItem = state.reviewItems.find(
+    (item): item is V1ReviewItem => item.id === state.selectedItemId && isV1ReviewItem(item),
+  ) ?? null;
+  const selectedV2File = state.v2ReviewFiles.find((file) => file.id === state.selectedV2FileId) ?? null;
+  const selectedV2Operations: V2ReviewItem[] = selectedV2File
+    ? state.reviewItems.filter(
+        (item): item is V2ReviewItem =>
+          item.engineVersion === 'v2' && selectedV2File.operationIds.includes(item.id),
+      )
+    : [];
   const [blockPendingRemoval, setBlockPendingRemoval] = useState<typeof selectedBlock>(null);
   const reviewActions = useReviewActions();
   const diagnostics = buildDiagnosticGroups(state, blocks, { mode: state.mode, globalWarnings });
   const diagnosticCount = diagnostics.reduce((sum, group) => sum + group.messages.length, 0);
   const selectionLabel = state.mode === 'intake'
     ? selectedBlock?.label ?? 'No block selected'
-    : selectedItem?.file ?? 'No change selected';
-  const selectionStatus = state.mode === 'intake' ? selectedBlock?.status : selectedItem?.status;
+    : selectedV2File?.filePath ?? selectedItem?.file ?? 'No change selected';
+  const selectionStatus = state.mode === 'intake'
+    ? selectedBlock?.status
+    : selectedV2File
+      ? selectedV2Operations.every((item) => item.status === 'applied') ? 'applied' : 'pending'
+      : selectedItem?.status;
   const selectionMeta = state.mode === 'intake'
     ? selectedBlock
       ? `${toSentenceCase(selectedBlock.status)} · Block ${selectedBlock.index + 1}`
       : 'Select a block from the sidebar'
-    : selectedItem
-      ? `${toSentenceCase(selectedItem.status)} · Change ${state.reviewItems.findIndex((item) => item.id === selectedItem.id) + 1}`
-      : 'Select a change from the sidebar';
+    : selectedV2File
+      ? `${toSentenceCase(selectedV2Operations.every((item) => item.status === 'applied') ? 'applied' : 'pending')} · ${selectedV2Operations.length} operation${selectedV2Operations.length === 1 ? '' : 's'}`
+      : selectedItem
+        ? `${toSentenceCase(selectedItem.status)} · Change ${state.reviewItems.findIndex((item) => item.id === selectedItem.id) + 1}`
+        : 'Select a change from the sidebar';
   const tabs = [
     { id: 'properties' as const, label: 'Properties' },
     { id: 'diagnostics' as const, label: 'Diagnostics', count: diagnosticCount },
@@ -756,7 +788,9 @@ function InspectorRightPanel() {
       parsedBlocks: [],
       validationErrors: [],
       reviewItems: [],
+      v2ReviewFiles: [],
       selectedItemId: null,
+      selectedV2FileId: null,
       selectedIntakeBlockId: nextSelection,
       selectedIntakeLineIndex: null,
       rightPanelOwner: 'inspector',
@@ -766,7 +800,9 @@ function InspectorRightPanel() {
       reviewPreflightByItem: {},
       reviewComparisonByItem: {},
       collapsedHunkIdsByItem: {},
+      collapsedHunkIdsByFile: {},
       collapsedDiffGroupIdsByItem: {},
+      collapsedDiffGroupIdsByFile: {},
       v2PreviewSession: null,
       pipelineStatus: 'idle',
       statusMessage: `Removed ${blockPendingRemoval.label}. Preview the remaining blocks again.`,
@@ -823,37 +859,26 @@ function InspectorRightPanel() {
           </div>
         </div>
 
-        <div className="grid h-9 flex-shrink-0 grid-cols-2 border-b border-border px-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => updateState({ rightPanelView: tab.id })}
-              className={cn(
-                'relative flex items-center justify-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground',
-                state.rightPanelView === tab.id && 'text-foreground after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-primary',
-              )}
-            >
-              {tab.label}
-              {tab.count ? <span className="text-[9px] text-destructive">{tab.count}</span> : null}
-            </button>
-          ))}
-        </div>
+        <PanelTabs
+          options={tabs}
+          value={state.rightPanelView}
+          onChange={(value) => updateState({ rightPanelView: value })}
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {state.rightPanelView === 'properties' && (
             <div className="px-3 py-3">
               {state.mode === 'intake' ? (
                 selectedBlock ? <IntakeDirectiveSection selectedBlock={selectedBlock} /> : <InspectorEmptyState message="Select a block to inspect its properties." />
+              ) : selectedV2File ? (
+                <ReviewFileProperties file={selectedV2File} operations={selectedV2Operations} />
               ) : selectedItem ? (
                 <div className="space-y-4">
                   <ReviewProperties selectedItem={selectedItem} />
-                  {selectedItem.engineVersion !== 'v2' && (
-                    <ReviewDirectiveEditor
-                      item={selectedItem}
-                      onSave={(updates) => reviewActions.handleUpdateDirectives(selectedItem.id, updates)}
-                    />
-                  )}
+                  <ReviewDirectiveEditor
+                    item={selectedItem}
+                    onSave={(updates) => reviewActions.handleUpdateDirectives(selectedItem.id, updates)}
+                  />
                 </div>
               ) : (
                 <InspectorEmptyState message="Select a change to inspect its properties." />
@@ -962,7 +987,97 @@ function IntakeDirectiveSection({ selectedBlock }: { selectedBlock: ReturnType<t
   );
 }
 
-function ReviewProperties({ selectedItem }: { selectedItem: AppState['reviewItems'][number] }) {
+function ReviewFileProperties({
+  file,
+  operations,
+}: {
+  file: V2ReviewFile;
+  operations: V2ReviewItem[];
+}) {
+  const diffHunks = file.comparison.diffHunks ?? [];
+  const countChangedLines = (text: string) => {
+    if (!text) return 0;
+    const withoutTrailingNewline = text.endsWith('\n') ? text.slice(0, -1) : text;
+    return withoutTrailingNewline.length === 0 ? 1 : withoutTrailingNewline.split('\n').length;
+  };
+  const stateLabel = !file.beforeExists && file.afterExists
+    ? 'Created'
+    : file.beforeExists && !file.afterExists
+      ? 'Deleted'
+      : 'Modified';
+  const statusLabel = operations.length > 0 && operations.every((operation) => operation.status === 'applied')
+    ? 'Applied'
+    : 'Ready to apply';
+
+  return (
+    <div className="space-y-5">
+      <InspectorPropertyGroup title="Final change">
+        <dl className="divide-y divide-border text-xs">
+          <InspectorRow label="File" value={file.filePath} mono />
+          <InspectorRow label="State" value={stateLabel} />
+          <InspectorRow label="Status" value={statusLabel} />
+          <div className="grid min-h-8 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1.5">
+            <dt className="text-muted-foreground">Change</dt>
+            <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">+{diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.newText), 0)}</span>
+              <span className="font-mono font-semibold text-destructive">−{diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.oldText), 0)}</span>
+              <span className="text-muted-foreground">{diffHunks.length} hunk{diffHunks.length === 1 ? '' : 's'}</span>
+            </dd>
+          </div>
+          <InspectorRow label="Operations" value={String(operations.length)} />
+        </dl>
+      </InspectorPropertyGroup>
+
+      <InspectorPropertyGroup title="Provenance">
+        <div className="space-y-2 text-xs">
+          {operations.map((operation) => {
+            const target = operation.targetScope.selectorText
+              ?? (operation.targetScope.lineRange
+                ? `Lines ${operation.targetScope.lineRange.startLine}–${operation.targetScope.lineRange.endLine}`
+                : operation.strategy === 'replace_file' || operation.strategy === 'create_file' || operation.strategy === 'delete_file'
+                  ? 'Whole file'
+                  : 'Target resolved');
+            const fallback = operation.targetScope.matchMetadata?.kind === 'fallback';
+            return (
+              <div key={operation.id} className="rounded-md border border-border px-2.5 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-foreground">Operation {operation.operationIndex + 1} · Block {operation.blockIndex + 1}</span>
+                  <span className="text-muted-foreground">{operation.strategy}</span>
+                </div>
+                <div className="mt-1 truncate font-mono text-[10px] text-muted-foreground" title={target}>{target}</div>
+                {fallback && <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">Fallback targeting used</div>}
+              </div>
+            );
+          })}
+        </div>
+      </InspectorPropertyGroup>
+
+      {operations.some((operation) => operation.targetScope.matchMetadata?.kind === 'fallback') && (
+        <InspectorPropertyGroup title="Match / targeting">
+          <dl className="divide-y divide-border text-xs">
+            {operations
+              .filter((operation) => operation.targetScope.matchMetadata?.kind === 'fallback')
+              .map((operation) => {
+                const metadata = operation.targetScope.matchMetadata!;
+                return (
+                  <div key={operation.id} className="py-1.5">
+                    <div className="mb-1 text-muted-foreground">Operation {operation.operationIndex + 1}</div>
+                    {typeof metadata.score === 'number' && <InspectorRow label="Score" value={`${Math.round(metadata.score * 100)}%`} />}
+                    {metadata.fallbackReason && <InspectorRow label="Reason" value={toSentenceCase(metadata.fallbackReason)} />}
+                    {metadata.unmatchedSoftTokens && metadata.unmatchedSoftTokens.length > 0 && (
+                      <InspectorRow label="Unmatched" value={metadata.unmatchedSoftTokens.join(', ')} mono />
+                    )}
+                  </div>
+                );
+              })}
+          </dl>
+        </InspectorPropertyGroup>
+      )}
+    </div>
+  );
+}
+
+function ReviewProperties({ selectedItem }: { selectedItem: V1ReviewItem }) {
   const { state } = useAppStateContext();
   const itemState = getReviewItemApplyState(selectedItem, state.reviewPreflightByItem);
   const comparison = state.reviewComparisonByItem[selectedItem.id]?.comparison;
@@ -987,30 +1102,7 @@ function ReviewProperties({ selectedItem }: { selectedItem: AppState['reviewItem
               ? 'Preview only'
               : 'Applied';
 
-  const mode = selectedItem.engineVersion === 'v2' ? selectedItem.strategy : selectedItem.mode;
-  const target = selectedItem.engineVersion === 'v2'
-    ? selectedItem.targetScope.selectorText
-      ?? (selectedItem.targetScope.lineRange
-        ? `Lines ${selectedItem.targetScope.lineRange.startLine}–${selectedItem.targetScope.lineRange.endLine}`
-        : mode === 'replace_file' || mode === 'create_file' || mode === 'delete_file'
-          ? 'Whole file'
-          : null)
-    : null;
-  const fileState = selectedItem.engineVersion === 'v2'
-    ? !selectedItem.beforeExists && selectedItem.afterExists
-      ? 'New file'
-      : selectedItem.beforeExists && !selectedItem.afterExists
-        ? 'Deleted file'
-        : 'Existing file'
-    : null;
-  const matchMetadata = selectedItem.engineVersion === 'v2'
-    ? selectedItem.targetScope.matchMetadata
-    : undefined;
-  const resolution = matchMetadata
-    ? matchMetadata.kind === 'fallback'
-      ? `Fallback · ${Math.round((matchMetadata.score ?? 0) * 100)}%`
-      : `${toSentenceCase(matchMetadata.kind)}${typeof matchMetadata.score === 'number' ? ` · ${Math.round(matchMetadata.score * 100)}%` : ''}`
-    : null;
+  const mode = selectedItem.mode;
 
   return (
     <div className="space-y-5">
@@ -1033,26 +1125,11 @@ function ReviewProperties({ selectedItem }: { selectedItem: AppState['reviewItem
               </span>
             </dd>
           </div>
-          {target && <InspectorRow label="Target" value={target} mono />}
-          {fileState && <InspectorRow label="File state" value={fileState} />}
-          {resolution && <InspectorRow label="Resolution" value={resolution} />}
           <InspectorRow label="Source block" value={String(selectedItem.blockIndex + 1)} />
           {state.selectedHunkId && <InspectorRow label="Hunk" value={state.selectedHunkId} mono />}
         </dl>
       </InspectorPropertyGroup>
 
-      {matchMetadata?.kind === 'fallback' && (
-        <InspectorPropertyGroup title="Match">
-          <dl className="divide-y divide-border text-xs">
-            {matchMetadata.fallbackReason && (
-              <InspectorRow label="Reason" value={toSentenceCase(matchMetadata.fallbackReason)} />
-            )}
-            {matchMetadata.unmatchedSoftTokens && matchMetadata.unmatchedSoftTokens.length > 0 && (
-              <InspectorRow label="Unmatched" value={matchMetadata.unmatchedSoftTokens.join(', ')} mono />
-            )}
-          </dl>
-        </InspectorPropertyGroup>
-      )}
     </div>
   );
 }
@@ -1061,13 +1138,12 @@ function ReviewDirectiveEditor({
   item,
   onSave,
 }: {
-  item: NonNullable<ReturnType<typeof useReviewActions>['selectedItem']>;
+  item: V1ReviewItem;
   onSave: (updates: Partial<Record<HeaderKey | DirectiveKey, string>>) => void;
 }) {
   const [draft, setDraft] = useState<Partial<Record<HeaderKey | DirectiveKey, string>>>({});
 
   useEffect(() => {
-    if (item.engineVersion === 'v2') return;
     const nextDraft: Partial<Record<HeaderKey | DirectiveKey, string>> = {
       FILE: item.file,
       MODE: item.mode,
@@ -1081,11 +1157,11 @@ function ReviewDirectiveEditor({
   const presentDirectiveKeys = DIRECTIVE_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(draft, key));
   const missingDirectiveKeys = DIRECTIVE_KEYS.filter((key) => !Object.prototype.hasOwnProperty.call(draft, key));
 
-  if (item.engineVersion === 'v2' || item.status === 'applied') {
+  if (item.status === 'applied') {
     return (
       <div>
         <p className="text-xs text-muted-foreground">
-          {item.engineVersion === 'v2' ? 'V2 preview items cannot be edited.' : 'Applied changes cannot be edited.'}
+          Applied changes cannot be edited.
         </p>
       </div>
     );

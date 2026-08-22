@@ -97,7 +97,6 @@ describe('applyAppStateUpdates', () => {
       reviewItems: [
         {
           engineVersion: 'v2' as const,
-          comparisonSource: 'canonical-v2' as const,
           id: '0-src/new.ts',
           file: 'src/new.ts',
           strategy: 'replace_text' as const,
@@ -105,23 +104,37 @@ describe('applyAppStateUpdates', () => {
           operationIndex: 0,
           blockIndex: 0,
           filePath: 'src/new.ts',
-          beforeFileHash: 'hash-before',
-          afterFileHash: 'hash-after',
           targetScope: { filePath: 'src/new.ts', strategy: 'replace_text' as const },
-          beforeExists: false,
-          afterExists: true,
           language: 'typescript',
           lineCount: 0,
           status: 'pending' as const,
-          originalContent: '',
-          editedContent: '',
         },
       ],
+      v2ReviewFiles: [{
+        id: 'src/new.ts',
+        filePath: 'src/new.ts',
+        language: 'typescript',
+        beforeExists: false,
+        afterExists: true,
+        beforeFileHash: 'hash-before',
+        afterFileHash: 'hash-after',
+        comparison: {
+          type: 'v2_final_file' as const,
+          file: 'src/new.ts',
+          oldContent: '',
+          newContent: 'new',
+          regions: [],
+          replacementRegions: [],
+          diffHunks: [],
+        },
+        operationIds: ['0-src/new.ts'],
+      }],
       reviewComparisonByItem: {},
       reviewPreflightByItem: {},
       parseErrors: [],
       parseWarnings: [],
-      selectedItemId: '0-src/new.ts',
+      selectedItemId: null,
+      selectedV2FileId: 'src/new.ts',
       selectedHunkId: null,
       collapsedHunkIdsByItem: {},
       collapsedDiffGroupIdsByItem: {},
@@ -149,6 +162,8 @@ describe('applyAppStateUpdates', () => {
     expect(nextState.reviewView).toBe('unified');
     expect(nextState.reviewItems).toHaveLength(1);
     expect(nextState.reviewItems[0].id).toBe('0-src/new.ts');
+    expect(nextState.selectedItemId).toBe(null);
+    expect(nextState.selectedV2FileId).toBe('src/new.ts');
   });
 
   it('atomically clears V1/V2 review state and returns to intake mode on V2 failure transition', () => {
@@ -159,7 +174,6 @@ describe('applyAppStateUpdates', () => {
       reviewItems: [
         {
           engineVersion: 'v2' as const,
-          comparisonSource: 'canonical-v2' as const,
           id: '0-src/new.ts',
           file: 'src/new.ts',
           strategy: 'replace_text' as const,
@@ -167,23 +181,36 @@ describe('applyAppStateUpdates', () => {
           operationIndex: 0,
           blockIndex: 0,
           filePath: 'src/new.ts',
-          beforeFileHash: 'hash-before',
-          afterFileHash: 'hash-after',
           targetScope: { filePath: 'src/new.ts', strategy: 'replace_text' as const },
-          beforeExists: false,
-          afterExists: true,
           language: 'typescript',
           lineCount: 0,
           status: 'pending' as const,
-          originalContent: '',
-          editedContent: '',
         },
       ],
+      v2ReviewFiles: [{
+        id: 'src/new.ts',
+        filePath: 'src/new.ts',
+        language: 'typescript',
+        beforeExists: false,
+        afterExists: true,
+        beforeFileHash: 'hash-before',
+        afterFileHash: 'hash-after',
+        comparison: {
+          type: 'v2_final_file' as const,
+          file: 'src/new.ts',
+          oldContent: '',
+          newContent: 'new',
+          regions: [],
+          replacementRegions: [],
+          diffHunks: [],
+        },
+        operationIds: ['0-src/new.ts'],
+      }],
       reviewComparisonByItem: {
         '0-src/new.ts': {
           fingerprint: 'f1',
           comparison: {
-            type: 'replace_text',
+            type: 'v2_final_file',
             file: 'src/new.ts',
             oldContent: '',
             newContent: '',
@@ -195,7 +222,8 @@ describe('applyAppStateUpdates', () => {
       reviewPreflightByItem: {
         '0-src/new.ts': { status: 'passed', fingerprint: 'f1' },
       },
-      selectedItemId: '0-src/new.ts',
+      selectedItemId: null,
+      selectedV2FileId: 'src/new.ts',
       selectedHunkId: 'hunk-1',
       collapsedHunkIdsByItem: { '0-src/new.ts': ['hunk-1'] },
       collapsedDiffGroupIdsByItem: { '0-src/new.ts': ['group-1'] },

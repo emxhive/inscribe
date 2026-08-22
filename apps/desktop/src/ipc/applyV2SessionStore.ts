@@ -29,6 +29,7 @@ export interface StoreSessionEntry {
 export interface PreviewV2SessionSummary {
   previewToken: string;
   expiresAt: string;
+  finalMutations: PreparedFileMutation[];
 }
 
 export interface SessionStoreConfig {
@@ -322,6 +323,7 @@ export class ApplyV2SessionStore {
     return {
       previewToken: token,
       expiresAt: expiresAtStr,
+      finalMutations: finalMutations.map((mutation) => ({ ...mutation })),
     };
   }
 

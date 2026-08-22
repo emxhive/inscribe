@@ -1,4 +1,4 @@
-import type { ReviewItem } from '@/types';
+import type { V1ReviewItem } from '@/types';
 import { buildReviewItems } from '@/utils';
 import { HEADER_KEYS, type HeaderKey } from '@inscribe/shared';
 import {
@@ -11,9 +11,9 @@ import {
 type DirectiveUpdates = Partial<Record<string, string>>;
 
 const mergeReviewItems = (
-  nextItems: ReviewItem[],
-  previousItems: ReviewItem[]
-): ReviewItem[] => {
+  nextItems: V1ReviewItem[],
+  previousItems: V1ReviewItem[],
+): V1ReviewItem[] => {
   const previousMap = new Map(previousItems.map((item) => [item.id, item]));
 
   return nextItems.map((item) => {
@@ -49,7 +49,7 @@ export async function updateDirectivesAndRebuild({
   updates,
 }: {
   aiInput: string;
-  reviewItems: ReviewItem[];
+  reviewItems: V1ReviewItem[];
   repoRoot: string | null;
   targetItemId: string;
   updates: DirectiveUpdates;
@@ -57,10 +57,6 @@ export async function updateDirectivesAndRebuild({
   const targetItem = reviewItems.find((item) => item.id === targetItemId);
   if (!targetItem) {
     return { error: 'Unable to locate review item.' };
-  }
-
-  if (targetItem.engineVersion === 'v2') {
-    return { error: 'V2 preview items cannot be edited.' };
   }
 
   let nextInput = aiInput;

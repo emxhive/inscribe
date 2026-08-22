@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReviewItem } from '@/types';
+import type { V1ReviewItem } from '@/types';
 import {
   DIRECTIVE_KEYS,
   HEADER_KEYS,
@@ -14,7 +14,7 @@ type EditableKey = HeaderKey | DirectiveKey;
 type ReviewDirectivePopoverProps = {
   isOpen: boolean;
   anchorRef: React.RefObject<HTMLElement | null>;
-  item: ReviewItem | null;
+  item: V1ReviewItem | null;
   onSave: (updates: Partial<Record<EditableKey, string>>) => void;
   onClose: () => void;
 };
@@ -45,10 +45,6 @@ export function ReviewDirectivePopover({
 
   useEffect(() => {
     if (!isOpen || !item) {
-      setDraft({});
-      return;
-    }
-    if (item.engineVersion === 'v2') {
       setDraft({});
       return;
     }
@@ -96,7 +92,7 @@ export function ReviewDirectivePopover({
     [draft],
   );
 
-  if (!isOpen || !item || !position || item.engineVersion === 'v2') {
+  if (!isOpen || !item || !position) {
     return null;
   }
 

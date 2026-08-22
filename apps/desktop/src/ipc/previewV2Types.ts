@@ -35,11 +35,23 @@ export interface PreviewV2ExecutionDTO {
   afterFileHash: string;
 }
 
+export interface PreviewV2FinalFileDTO {
+  filePath: string;
+  beforeExists: boolean;
+  afterExists: boolean;
+  beforeContent: string;
+  afterContent: string;
+  beforeFileHash: string;
+  afterFileHash: string;
+  actualDiffHunks: V2DiffHunk[];
+}
+
 export type PreviewV2WorkerResponse =
   | {
       ok: true;
       partial: boolean;
       executions: PreviewV2ExecutionDTO[];
+      finalFiles: PreviewV2FinalFileDTO[];
       errors: PreviewV2ErrorDTO[];
       previewToken: string;
       expiresAt: string;

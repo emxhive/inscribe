@@ -1,5 +1,6 @@
 import { useAppStateContext } from './useAppStateContext';
 import { updateDirectivesAndRebuild } from '@/utils/reviewDirectives';
+import type { V1ReviewItem } from '@/types';
 
 type DirectiveUpdates = Partial<Record<string, string>>;
 
@@ -9,8 +10,23 @@ type DirectiveUpdates = Partial<Record<string, string>>;
 export function useReviewActions() {
   const { state, updateState, updateReviewItemContent } = useAppStateContext();
   const handleSelectItem = (id: string) => {
+    const item = state.reviewItems.find((candidate) => candidate.id === id);
+    if (!item || item.engineVersion === 'v2') {
+      return;
+    }
     updateState({
       selectedItemId: id,
+      selectedV2FileId: null,
+      isEditing: false,
+      selectedHunkId: null,
+      rightPanelOwner: 'inspector',
+    });
+  };
+
+  const handleSelectV2File = (fileId: string) => {
+    updateState({
+      selectedV2FileId: fileId,
+      selectedItemId: null,
       isEditing: false,
       selectedHunkId: null,
       rightPanelOwner: 'inspector',
@@ -28,7 +44,9 @@ export function useReviewActions() {
     try {
       const result = await updateDirectivesAndRebuild({
         aiInput: state.aiInput,
-        reviewItems: state.reviewItems,
+        reviewItems: state.reviewItems.filter(
+          (item): item is V1ReviewItem => item.engineVersion !== 'v2',
+        ),
         repoRoot: state.repoRoot,
         targetItemId: itemId,
         updates,
@@ -70,7 +88,9 @@ export function useReviewActions() {
   };
 
   // Derived data
-  const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
+  const selectedItem = state.reviewItems.find(
+    (item): item is V1ReviewItem => item.id === state.selectedItemId && item.engineVersion !== 'v2',
+  );
 
   const editorValue = selectedItem?.editedContent || '';
 
@@ -78,6 +98,7 @@ export function useReviewActions() {
 
   return {
     handleSelectItem,
+    handleSelectV2File,
     handleEditorChange,
     handleUpdateDirectives,
     selectedItem,

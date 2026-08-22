@@ -40,31 +40,26 @@ interface ReviewItemBase {
   language: string;
   lineCount: number;
   status: 'pending' | 'applied' | 'invalid';
-  originalContent: string;
-  editedContent: string;
   validationError?: string;
 }
 
 export interface V1ReviewItem extends ReviewItemBase {
   engineVersion?: undefined;
   mode: OperationMode;
+  originalContent: string;
+  editedContent: string;
   blockIndex: number;
   directives: Record<string, string>;
 }
 
 export interface V2ReviewItem extends ReviewItemBase {
   engineVersion: 'v2';
-  comparisonSource: 'canonical-v2';
   strategy: V2OperationStrategy;
   executionId: string;
   operationIndex: number;
   blockIndex: number;
   filePath: string;
-  beforeFileHash: string;
-  afterFileHash: string;
   targetScope: V2TargetScope;
-  beforeExists: boolean;
-  afterExists: boolean;
 }
 
 export type ReviewItem = V1ReviewItem | V2ReviewItem;
@@ -79,12 +74,24 @@ export interface ReviewPreflightResult {
 
 export type ReviewComparison =
   Omit<OperationComparison, 'type'> & {
-    type: OperationComparison['type'] | V2OperationStrategy;
+    type: OperationComparison['type'] | 'v2_final_file';
   };
 
 export interface ReviewComparisonSnapshot {
   fingerprint: string;
   comparison: ReviewComparison;
+}
+
+export interface V2ReviewFile {
+  id: string;
+  filePath: string;
+  language: string;
+  beforeExists: boolean;
+  afterExists: boolean;
+  beforeFileHash: string;
+  afterFileHash: string;
+  comparison: ReviewComparison;
+  operationIds: string[];
 }
 
 export type RestoreStatus =
@@ -127,6 +134,8 @@ export interface AppState {
   validationErrors: ValidationError[];
   reviewItems: ReviewItem[];
   selectedItemId: string | null;
+  v2ReviewFiles: V2ReviewFile[];
+  selectedV2FileId: string | null;
   selectedIntakeBlockId: string | null;
   selectedIntakeLineIndex: number | null;
 
@@ -148,7 +157,9 @@ export interface AppState {
   rightPanelOwner: RightPanelOwner;
   rightPanelView: RightPanelView;
   collapsedHunkIdsByItem: Record<string, string[]>;
+  collapsedHunkIdsByFile: Record<string, string[]>;
   collapsedDiffGroupIdsByItem: Record<string, string[]>;
+  collapsedDiffGroupIdsByFile: Record<string, string[]>;
   isTerminalOpen: boolean;
   terminalCommandSuggestions: CliCommandSuggestion[];
   terminalSuggestionSourceApplyId: string | null;

@@ -14,7 +14,7 @@ import type { ReviewItem, V1ReviewItem, ReviewPreflightResult } from '@/types';
 export function buildReviewItems(
   blocks: ParsedBlock[],
   validationErrors: ValidationError[]
-): ReviewItem[] {
+): V1ReviewItem[] {
   // Create a map of blockIndex to validation errors
   const errorMap = new Map<number, ValidationError[]>();
   for (const error of validationErrors) {
@@ -23,7 +23,7 @@ export function buildReviewItems(
     errorMap.set(error.blockIndex, errors);
   }
 
-  return blocks.map((block): ReviewItem => {
+  return blocks.map((block): V1ReviewItem => {
     const errors = errorMap.get(block.blockIndex) || [];
     const hasErrors = errors.length > 0;
     const validationError = hasErrors ? errors.map((e) => e.message).join('; ') : undefined;
@@ -104,20 +104,7 @@ export type ReviewSidebarStatus = ReviewItem['status'];
 const DEFAULT_PREFLIGHT_BLOCKER = 'Review comparison/preflight failed.';
 const PENDING_PREFLIGHT_BLOCKER = 'Review comparison/preflight has not completed.';
 
-export function buildReviewItemPreflightFingerprint(item: ReviewItem): string {
-  if (item.engineVersion === 'v2') {
-    return JSON.stringify({
-      engineVersion: item.engineVersion,
-      executionId: item.executionId,
-      operationIndex: item.operationIndex,
-      filePath: item.filePath,
-      strategy: item.strategy,
-      beforeFileHash: item.beforeFileHash,
-      afterFileHash: item.afterFileHash,
-      beforeExists: item.beforeExists,
-      afterExists: item.afterExists,
-    });
-  }
+export function buildReviewItemPreflightFingerprint(item: V1ReviewItem): string {
   return JSON.stringify({
     file: item.file,
     mode: item.mode,
@@ -130,7 +117,7 @@ export function buildReviewItemPreflightFingerprint(item: ReviewItem): string {
 }
 
 export function getCurrentReviewPreflight(
-  item: ReviewItem,
+  item: V1ReviewItem,
   preflightByItem: Record<string, ReviewPreflightResult>,
 ): ReviewPreflightResult | null {
   const preflight = preflightByItem[item.id];

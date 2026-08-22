@@ -22,6 +22,8 @@ export const initialState: AppState = {
   validationErrors: [],
   reviewItems: [],
   selectedItemId: null,
+  v2ReviewFiles: [],
+  selectedV2FileId: null,
   selectedIntakeBlockId: null,
   selectedIntakeLineIndex: null,
 
@@ -42,7 +44,9 @@ export const initialState: AppState = {
   rightPanelOwner: 'inspector',
   rightPanelView: 'properties',
   collapsedHunkIdsByItem: {},
+  collapsedHunkIdsByFile: {},
   collapsedDiffGroupIdsByItem: {},
+  collapsedDiffGroupIdsByFile: {},
   isTerminalOpen: false,
   terminalCommandSuggestions: [],
   terminalSuggestionSourceApplyId: null,

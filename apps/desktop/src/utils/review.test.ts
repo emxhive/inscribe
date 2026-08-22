@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ReviewItem, ReviewPreflightResult } from '@/types';
+import type { ReviewItem, ReviewPreflightResult, V1ReviewItem } from '@/types';
 import {
   buildReviewItemPreflightFingerprint,
   getApplyablePendingReviewItems,
@@ -13,8 +13,6 @@ import {
   buildApplyPlanFromItems,
   V2_APPLY_BLOCKER,
 } from './review';
-
-import type { V1ReviewItem } from '@/types';
 
 const buildItem = (overrides: Partial<V1ReviewItem> = {}): V1ReviewItem => ({
   id: '0-src/app.ts',
@@ -30,12 +28,12 @@ const buildItem = (overrides: Partial<V1ReviewItem> = {}): V1ReviewItem => ({
   ...overrides,
 });
 
-const passedPreflight = (item: ReviewItem): ReviewPreflightResult => ({
+const passedPreflight = (item: V1ReviewItem): ReviewPreflightResult => ({
   status: 'passed',
   fingerprint: buildReviewItemPreflightFingerprint(item),
 });
 
-const failedPreflight = (item: ReviewItem, error = 'No range candidate matched'): ReviewPreflightResult => ({
+const failedPreflight = (item: V1ReviewItem, error = 'No range candidate matched'): ReviewPreflightResult => ({
   status: 'failed',
   fingerprint: buildReviewItemPreflightFingerprint(item),
   error,
@@ -119,7 +117,6 @@ describe('review item state selectors', () => {
   it('blocks V2 items from being applied and rejects plans containing them', () => {
     const v2Item: ReviewItem = {
       engineVersion: 'v2',
-      comparisonSource: 'canonical-v2',
       id: '0-src/new.ts',
       file: 'src/new.ts',
       strategy: 'replace_text',
@@ -127,16 +124,10 @@ describe('review item state selectors', () => {
       operationIndex: 0,
       blockIndex: 0,
       filePath: 'src/new.ts',
-      beforeFileHash: 'hash-before',
-      afterFileHash: 'hash-after',
       targetScope: { filePath: 'src/new.ts', strategy: 'replace_text' },
-      beforeExists: false,
-      afterExists: true,
       language: 'typescript',
       lineCount: 0,
       status: 'pending',
-      originalContent: '',
-      editedContent: '',
     };
 
     const v1Item = buildItem({ id: '1-src/app.ts', file: 'src/app.ts' });

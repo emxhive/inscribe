@@ -1,37 +1,81 @@
 import type {
-  ReviewItem,
-  ReviewComparisonSnapshot,
-  ReviewPreflightResult,
   ReviewComparison,
+  V2ReviewFile,
+  V2ReviewItem,
 } from '@/types';
-import type { PreviewV2ExecutionDTO } from '@/ipc/previewV2Types';
+import type {
+  PreviewV2ExecutionDTO,
+  PreviewV2FinalFileDTO,
+} from '@/ipc/previewV2Types';
 import type { OperationComparisonRegion } from '@inscribe/shared';
 import { getLanguageFromFilename } from './language';
 import { countLines } from './text';
-import { buildReviewItemPreflightFingerprint } from './review';
 
 export interface AdaptedV2ReviewResult {
-  reviewItems: ReviewItem[];
-  reviewComparisonByItem: Record<string, ReviewComparisonSnapshot>;
-  reviewPreflightByItem: Record<string, ReviewPreflightResult>;
+  reviewItems: V2ReviewItem[];
+  v2ReviewFiles: V2ReviewFile[];
+}
+
+function mapFinalRegions(file: PreviewV2FinalFileDTO): OperationComparisonRegion[] {
+  return file.actualDiffHunks.map((hunk) => ({
+    id: hunk.id,
+    kind: hunk.kind,
+    oldRange: hunk.oldRange,
+    newRange: hunk.newRange,
+    oldText: hunk.oldText,
+    newText: hunk.newText,
+    boundaries: {
+      before: { oldOffset: hunk.oldRange.start, newOffset: hunk.newRange.start },
+      after: { oldOffset: hunk.oldRange.end, newOffset: hunk.newRange.end },
+    },
+    compare: {
+      oldRange: hunk.oldRange,
+      newRange: hunk.newRange,
+    },
+    renderAnchor: {
+      oldOffset: hunk.oldRange.start,
+      newOffset: hunk.newRange.start,
+      side: hunk.kind === 'insert' ? 'empty' : 'before',
+    },
+  }));
+}
+
+function buildFinalComparison(file: PreviewV2FinalFileDTO): ReviewComparison {
+  const regions = mapFinalRegions(file);
+  return {
+    type: 'v2_final_file',
+    file: file.filePath,
+    oldContent: file.beforeContent,
+    newContent: file.afterContent,
+    diffHunks: file.actualDiffHunks,
+    replacementRegions: regions,
+    regions,
+  };
 }
 
 /**
- * Maps PreviewV2ExecutionDTOs into renderer review items, comparison snapshots, and preloaded preflight entries.
+ * Adapts the frozen V2 preview into two deliberately separate models:
+ * final file mutations for Review, and slim operation metadata for provenance.
  */
-export function adaptV2Executions(
-  executions: PreviewV2ExecutionDTO[]
+export function adaptV2Preview(
+  executions: PreviewV2ExecutionDTO[],
+  finalFiles: PreviewV2FinalFileDTO[],
 ): AdaptedV2ReviewResult {
-  const reviewItems: ReviewItem[] = [];
-  const reviewComparisonByItem: Record<string, ReviewComparisonSnapshot> = {};
-  const reviewPreflightByItem: Record<string, ReviewPreflightResult> = {};
+  const reviewItems: V2ReviewItem[] = [];
+  const finalFileByPath = new Map(finalFiles.map((file) => [file.filePath, file]));
+  const operationIdsByFile = new Map<string, string[]>();
 
   for (const exec of executions) {
+    // Executions for net-zero file chains have no final Review row. Their
+    // operation snapshots remain in the preview session only; provenance is
+    // exposed for files that survive session collapse.
+    if (!finalFileByPath.has(exec.filePath)) {
+      continue;
+    }
     const itemId = `${exec.operationIndex}-${exec.filePath}`;
-
-    const item: ReviewItem = {
+    const finalFile = finalFileByPath.get(exec.filePath);
+    const item: V2ReviewItem = {
       engineVersion: 'v2',
-      comparisonSource: 'canonical-v2',
       id: itemId,
       file: exec.filePath,
       strategy: exec.strategy,
@@ -39,73 +83,32 @@ export function adaptV2Executions(
       operationIndex: exec.operationIndex,
       blockIndex: exec.blockIndex,
       filePath: exec.filePath,
-      beforeFileHash: exec.beforeFileHash,
-      afterFileHash: exec.afterFileHash,
       targetScope: exec.targetScope,
-      beforeExists: exec.beforeExists,
-      afterExists: exec.afterExists,
       language: getLanguageFromFilename(exec.filePath),
-      lineCount: countLines(exec.afterContent),
+      lineCount: finalFile ? countLines(finalFile.afterContent) : 0,
       status: 'pending',
-      originalContent: exec.beforeContent,
-      editedContent: exec.afterContent,
     };
 
     reviewItems.push(item);
-
-    // Build compatibility regions for Option A
-    const mappedRegions: OperationComparisonRegion[] = exec.actualDiffHunks.map((hunk) => {
-      const oldText = hunk.oldText !== undefined ? hunk.oldText : exec.beforeContent.slice(hunk.oldRange.start, hunk.oldRange.end);
-      const newText = hunk.newText !== undefined ? hunk.newText : exec.afterContent.slice(hunk.newRange.start, hunk.newRange.end);
-      return {
-        id: hunk.id,
-        kind: hunk.kind,
-        oldRange: hunk.oldRange,
-        newRange: hunk.newRange,
-        oldText,
-        newText,
-        boundaries: {
-          before: { oldOffset: hunk.oldRange.start, newOffset: hunk.newRange.start },
-          after: { oldOffset: hunk.oldRange.end, newOffset: hunk.newRange.end },
-        },
-        compare: {
-          oldRange: hunk.oldRange,
-          newRange: hunk.newRange,
-        },
-        renderAnchor: {
-          oldOffset: hunk.oldRange.start,
-          newOffset: hunk.newRange.start,
-          side: hunk.kind === 'insert' ? 'empty' : 'before',
-        },
-      };
-    });
-
-    const comparison: ReviewComparison = {
-      type: exec.strategy,
-      file: exec.filePath,
-      oldContent: exec.beforeContent,
-      newContent: exec.afterContent,
-      diffHunks: exec.actualDiffHunks,
-      replacementRegions: mappedRegions,
-      regions: mappedRegions,
-    };
-
-    const fingerprint = buildReviewItemPreflightFingerprint(item);
-
-    reviewComparisonByItem[itemId] = {
-      fingerprint,
-      comparison,
-    };
-
-    reviewPreflightByItem[itemId] = {
-      status: 'passed',
-      fingerprint,
-    };
+    const operationIds = operationIdsByFile.get(exec.filePath) ?? [];
+    operationIds.push(itemId);
+    operationIdsByFile.set(exec.filePath, operationIds);
   }
+
+  const v2ReviewFiles = finalFiles.map((file): V2ReviewFile => ({
+    id: file.filePath,
+    filePath: file.filePath,
+    language: getLanguageFromFilename(file.filePath),
+    beforeExists: file.beforeExists,
+    afterExists: file.afterExists,
+    beforeFileHash: file.beforeFileHash,
+    afterFileHash: file.afterFileHash,
+    comparison: buildFinalComparison(file),
+    operationIds: operationIdsByFile.get(file.filePath) ?? [],
+  }));
 
   return {
     reviewItems,
-    reviewComparisonByItem,
-    reviewPreflightByItem,
+    v2ReviewFiles,
   };
 }

@@ -2,10 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { EmptyState } from '../common';
 import { useAppStateContext, useReviewActions, useIntakeBlocks } from '@/hooks';
 import { cn } from '@/lib/utils';
-import type { ReviewItem } from '@/types';
+import type { V1ReviewItem, V2ReviewItem } from '@/types';
 import { ReviewDirectivePopover } from './ReviewDirectivePopover';
 import { AlertTriangle, CheckCircle2, XCircle, CircleDot } from 'lucide-react';
 import { getReviewSidebarError, getReviewSidebarStatus } from '@/utils';
+
+function countChangedLines(text: string): number {
+  if (!text) return 0;
+  const withoutTrailingNewline = text.endsWith('\n') ? text.slice(0, -1) : text;
+  return withoutTrailingNewline.length === 0 ? 1 : withoutTrailingNewline.split('\n').length;
+}
 
 export const MIN_SIDEBAR_WIDTH = 240;
 export const MAX_SIDEBAR_WIDTH = 420;
@@ -40,7 +46,7 @@ type FileSidebarProps = {
 
 export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   const { state, updateState } = useAppStateContext();
-  const { handleSelectItem, handleUpdateDirectives } = useReviewActions();
+  const { handleSelectItem, handleSelectV2File, handleUpdateDirectives } = useReviewActions();
   const { blocks } = useIntakeBlocks();
   const invalidBlockCount = blocks.filter((block) => block.status === 'error' || block.status === 'incomplete').length;
   const intakeIssueCount = blocks.reduce(
@@ -95,10 +101,10 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   }, [dragging, onResize, sidebarWidth]);
 
   const handleOpenDirectiveEditor = (
-    item: ReviewItem,
+    item: V1ReviewItem,
     event: React.MouseEvent<HTMLLIElement>,
   ) => {
-    if (item.status === 'applied' || item.engineVersion === 'v2') {
+    if (item.status === 'applied') {
       return;
     }
     event.stopPropagation();
@@ -120,13 +126,18 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     );
   };
 
+  const v1ReviewItems = state.reviewItems.filter(
+    (item): item is V1ReviewItem => item.engineVersion !== 'v2',
+  );
   const reviewPathsByBasename = new Map<string, Set<string>>();
-  state.reviewItems.forEach((item) => {
+  v1ReviewItems.forEach((item) => {
     const fileName = item.file.split('/').pop() ?? item.file;
     const paths = reviewPathsByBasename.get(fileName) ?? new Set<string>();
     paths.add(item.file);
     reviewPathsByBasename.set(fileName, paths);
   });
+
+  const hasV2Review = state.v2ReviewFiles.length > 0;
 
   return (
     <aside
@@ -153,7 +164,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
             </span>
           )}
           <span className="text-foreground">
-            {state.mode === 'intake' ? blocks.length : state.reviewItems.length}
+            {state.mode === 'intake' ? blocks.length : hasV2Review ? state.v2ReviewFiles.length : state.reviewItems.length}
           </span>
         </div>
       </div>
@@ -170,15 +181,6 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
             {blocks.map((block) => {
               const isV2 = block.protocol === 'v2';
               const issueCount = new Set([...block.errors, ...block.warnings]).size;
-              const firstIssue = block.errors[0] ?? block.warnings[0];
-              const riskLabels: Record<string, string> = {
-                delete_file: 'delete',
-                replace_file: 'whole file',
-                replace_node: 'structural',
-                replace_text: 'text',
-                create_file: 'create',
-              };
-
               if (isV2) {
                 return (
                   <li key={block.id}>
@@ -205,11 +207,6 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                             {block.mode && (
                               <span className="rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 text-[10px] font-medium px-1.5 py-0.5 lowercase">
                                 {block.mode}
-                              </span>
-                            )}
-                            {block.mode && riskLabels[block.mode] && (
-                              <span className="text-[10px] text-muted-foreground bg-secondary px-1 py-0.5 rounded font-medium">
-                                {riskLabels[block.mode]}
                               </span>
                             )}
                           </div>
@@ -239,14 +236,6 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                       <p className="text-xs text-muted-foreground mt-1">
                         Lines {block.startLine + 1}–{block.endLine + 1}
                       </p>
-                      {firstIssue && (
-                        <p className={cn(
-                          'mt-1 truncate text-[10px] leading-snug',
-                          block.status === 'error' ? 'text-destructive/90' : 'text-amber-700 dark:text-amber-300',
-                        )} title={firstIssue}>
-                          {firstIssue}
-                        </p>
-                      )}
                     </button>
                   </li>
                 );
@@ -285,15 +274,81 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
 
       {state.mode === 'review' && (
         <>
+          {hasV2Review ? (
+            <ul className="flex flex-col overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">
+              {state.v2ReviewFiles.map((file) => {
+                const fileName = file.filePath.split('/').pop() ?? file.filePath;
+                const parentPath = file.filePath.slice(0, -(fileName.length + 1));
+                const operations = state.reviewItems.filter(
+                  (item): item is V2ReviewItem =>
+                    item.engineVersion === 'v2' && file.operationIds.includes(item.id),
+                );
+                const statuses = operations.map((item) => getReviewSidebarStatus(item, state.reviewPreflightByItem));
+                const sidebarStatus = statuses.every((status) => status === 'applied')
+                  ? 'applied'
+                  : statuses.some((status) => status === 'invalid')
+                    ? 'invalid'
+                    : 'pending';
+                const StatusIcon = sidebarStatus === 'applied'
+                  ? CheckCircle2
+                  : sidebarStatus === 'invalid'
+                    ? XCircle
+                    : CircleDot;
+
+                return (
+                  <li key={file.id} className="border-b border-border">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectV2File(file.id)}
+                      className={cn(
+                        'w-full px-3 py-2 text-left transition-colors',
+                        state.selectedV2FileId === file.id
+                          ? 'bg-primary/10'
+                          : 'hover:bg-secondary/70',
+                      )}
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <StatusIcon
+                          className={cn(
+                            'h-3.5 w-3.5 flex-shrink-0',
+                            sidebarStatus === 'applied'
+                              ? 'text-emerald-600'
+                              : sidebarStatus === 'invalid'
+                                ? 'text-destructive'
+                                : 'text-muted-foreground',
+                          )}
+                          aria-label={sidebarStatus}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground" title={file.filePath}>
+                          {fileName}
+                        </span>
+                        <div className="flex flex-shrink-0 items-center gap-1.5 font-mono text-[10px] font-semibold">
+                          <span className="text-emerald-700 dark:text-emerald-400">+{file.comparison.diffHunks?.reduce((sum, hunk) => sum + countChangedLines(hunk.newText), 0) ?? 0}</span>
+                          <span className="text-destructive">−{file.comparison.diffHunks?.reduce((sum, hunk) => sum + countChangedLines(hunk.oldText), 0) ?? 0}</span>
+                        </div>
+                      </div>
+                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 pl-5 text-[10px] text-muted-foreground">
+                        {parentPath && (
+                          <span className="min-w-0 flex-1 truncate font-mono" title={parentPath}>{parentPath}</span>
+                        )}
+                        {parentPath && <span aria-hidden>·</span>}
+                        <span className="flex-shrink-0">
+                          {operations.length} operation{operations.length === 1 ? '' : 's'}
+                        </span>
+                        {operations.some((item) => item.engineVersion === 'v2' && item.targetScope.matchMetadata?.kind === 'fallback') && (
+                          <span className="flex-shrink-0 text-amber-600 dark:text-amber-400" title="Fallback targeting used">· fallback</span>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
           <ul className="flex flex-col overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">
-            {state.reviewItems.map((item) => {
+              {v1ReviewItems.map((item) => {
               const comparison = state.reviewComparisonByItem[item.id]?.comparison;
               const diffHunks = comparison?.diffHunks ?? [];
-              const countChangedLines = (text: string) => {
-                if (!text) return 0;
-                const withoutTrailingNewline = text.endsWith('\n') ? text.slice(0, -1) : text;
-                return withoutTrailingNewline.length === 0 ? 1 : withoutTrailingNewline.split('\n').length;
-              };
               const addedCount = diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.newText), 0);
               const removedCount = diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.oldText), 0);
               const sidebarStatus = getReviewSidebarStatus(item, state.reviewPreflightByItem);
@@ -307,14 +362,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
               const fileName = pathParts.pop() ?? item.file;
               const parentPath = pathParts.join('/');
               const showParentPath = (reviewPathsByBasename.get(fileName)?.size ?? 0) > 1;
-              const mode = item.engineVersion === 'v2' ? item.strategy : item.mode;
-              const targetLabel = item.engineVersion === 'v2'
-                ? item.targetScope.selectorText
-                  ?? (item.targetScope.lineRange
-                    ? `Lines ${item.targetScope.lineRange.startLine}–${item.targetScope.lineRange.endLine}`
-                    : null)
-                : null;
-              const matchMetadata = item.engineVersion === 'v2' ? item.targetScope.matchMetadata : undefined;
+              const mode = item.mode;
 
               return (
                 <li
@@ -369,25 +417,6 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
                       <span className="flex-shrink-0">
                         {diffHunks.length} hunk{diffHunks.length === 1 ? '' : 's'}
                       </span>
-                      {targetLabel && (
-                        <>
-                          <span aria-hidden>·</span>
-                          <span className="min-w-0 flex-1 truncate font-mono" title={targetLabel}>
-                            {targetLabel}
-                          </span>
-                        </>
-                      )}
-                      {matchMetadata?.kind === 'fallback' && (
-                        <>
-                          <span aria-hidden>·</span>
-                          <span
-                            className="flex-shrink-0 text-[9px] text-amber-600 dark:text-amber-400"
-                            title={matchMetadata.fallbackReason}
-                          >
-                            fallback {Math.round((matchMetadata.score ?? 0) * 100)}%
-                          </span>
-                        </>
-                      )}
                     </div>
 
                     {sidebarError && (
@@ -400,10 +429,11 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
               );
             })}
           </ul>
+          )}
           <ReviewDirectivePopover
             isOpen={Boolean(directiveEditorItemId)}
             anchorRef={directiveAnchorRef}
-            item={state.reviewItems.find((item) => item.id === directiveEditorItemId) ?? null}
+            item={v1ReviewItems.find((item) => item.id === directiveEditorItemId) ?? null}
             onClose={() => setDirectiveEditorItemId(null)}
             onSave={async (updates) => {
               if (!directiveEditorItemId) {

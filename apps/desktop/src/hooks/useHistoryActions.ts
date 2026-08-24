@@ -7,6 +7,7 @@ import { initRepositoryState } from './useRepositoryActions';
 const EMPTY_V2_HISTORY_REVIEW = {
   actionId: null,
   requestId: null,
+  selectedEntryId: null,
   preview: null,
   isLoading: false,
   isRestoring: false,
@@ -140,10 +141,11 @@ export function useHistoryActions() {
     const repoRoot = state.repoRoot;
 
     updateState({
-      legacyHistoryReview: { applyId: null },
+      legacyHistoryReview: { applyId: null, selectedEntryId: null },
       v2HistoryReview: {
         actionId,
         requestId,
+        selectedEntryId: null,
         preview: null,
         isLoading: true,
         isRestoring: false,
@@ -159,6 +161,7 @@ export function useHistoryActions() {
           v2HistoryReview: {
             actionId,
             requestId,
+            selectedEntryId: preview.files[0]?.entryId ?? null,
             preview,
             isLoading: false,
             isRestoring: false,
@@ -174,6 +177,7 @@ export function useHistoryActions() {
           v2HistoryReview: {
             actionId,
             requestId,
+            selectedEntryId: null,
             preview: null,
             isLoading: false,
             isRestoring: false,
@@ -186,9 +190,12 @@ export function useHistoryActions() {
 
   const openLegacyHistoryReview = (applyId: string) => {
     if (state.v2HistoryReview.isRestoring || state.isRestoringInProgress) return;
+    const firstItem = state.historyItems
+      .filter((item) => item.applyId === applyId)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))[0];
     updateState({
       v2HistoryReview: EMPTY_V2_HISTORY_REVIEW,
-      legacyHistoryReview: { applyId },
+      legacyHistoryReview: { applyId, selectedEntryId: firstItem?.id ?? null },
     });
   };
 
@@ -220,6 +227,7 @@ export function useHistoryActions() {
         v2HistoryReview: {
           actionId: null,
           requestId: null,
+          selectedEntryId: null,
           preview: null,
           isLoading: false,
           isRestoring: false,
@@ -247,5 +255,13 @@ export function useHistoryActions() {
     openV2RestoreReview,
     openLegacyHistoryReview,
     restoreV2ReviewedAction,
+    closeHistoryReview: () => {
+      if (state.isRestoringInProgress || state.v2HistoryReview.isRestoring) return;
+      updateState({
+        rightPanelOwner: 'history',
+        v2HistoryReview: EMPTY_V2_HISTORY_REVIEW,
+        legacyHistoryReview: { applyId: null, selectedEntryId: null },
+      });
+    },
   };
 }

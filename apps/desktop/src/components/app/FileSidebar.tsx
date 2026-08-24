@@ -138,6 +138,11 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
   });
 
   const hasV2Review = state.v2ReviewFiles.length > 0;
+  const isHistoryReviewActive = Boolean(state.v2HistoryReview.actionId || state.legacyHistoryReview.applyId);
+  const historyV2Files = state.v2HistoryReview.preview?.files ?? [];
+  const historyLegacyItems = state.historyItems
+    .filter((item) => item.applyId === state.legacyHistoryReview.applyId)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
 
   return (
     <aside
@@ -147,7 +152,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
     >
       <div className="h-10 flex items-center justify-between border-b border-border px-3">
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {state.mode === 'intake' ? 'Blocks' : 'Changes'}
+          {isHistoryReviewActive ? 'History Review' : state.mode === 'intake' ? 'Blocks' : 'Changes'}
         </span>
         <div className="flex items-center gap-2 text-xs font-semibold">
           {state.mode === 'intake' && intakeIssueCount > 0 && (
@@ -164,18 +169,99 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
             </span>
           )}
           <span className="text-foreground">
-            {state.mode === 'intake' ? blocks.length : hasV2Review ? state.v2ReviewFiles.length : state.reviewItems.length}
+            {isHistoryReviewActive
+              ? state.v2HistoryReview.actionId ? historyV2Files.length : historyLegacyItems.length
+              : state.mode === 'intake' ? blocks.length : hasV2Review ? state.v2ReviewFiles.length : state.reviewItems.length}
           </span>
         </div>
       </div>
 
-      {state.mode === 'intake' && blocks.length === 0 && (
+      {isHistoryReviewActive && state.v2HistoryReview.actionId && historyV2Files.length === 0 && (
+        <div className="p-3 text-xs text-muted-foreground">
+          {state.v2HistoryReview.isLoading ? 'Checking historical files...' : 'No historical files available.'}
+        </div>
+      )}
+
+      {isHistoryReviewActive && state.v2HistoryReview.actionId && historyV2Files.length > 0 && (
+        <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden list-none p-0 m-0">
+          {historyV2Files.map((file) => {
+            const fileName = file.file.split(/[\\/]/).filter(Boolean).pop() ?? file.file;
+            const isSelected = state.v2HistoryReview.selectedEntryId === file.entryId;
+            const StatusIcon = file.eligible ? CheckCircle2 : XCircle;
+            return (
+              <li key={file.entryId} className="border-b border-border">
+                <button
+                  type="button"
+                  onClick={() => updateState({
+                    v2HistoryReview: { ...state.v2HistoryReview, selectedEntryId: file.entryId },
+                  })}
+                  className={cn(
+                    'w-full px-3 py-2 text-left transition-colors',
+                    isSelected ? 'bg-primary/10' : 'hover:bg-secondary/70',
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <StatusIcon className={cn('h-3.5 w-3.5 flex-shrink-0', file.eligible ? 'text-emerald-600' : 'text-destructive')} />
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground" title={file.file}>
+                      {fileName}
+                    </span>
+                  </div>
+                  <div className="mt-1 pl-5 text-[10px] text-muted-foreground">
+                    {file.eligible ? 'Eligible to restore' : 'Unavailable'}
+                    {file.currentExists !== (file.restoredState?.exists ?? file.currentExists) && ' · state changes'}
+                  </div>
+                  {!file.eligible && file.error && (
+                    <p className="mt-0.5 truncate pl-5 text-[10px] text-destructive" title={file.error}>{file.error}</p>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {isHistoryReviewActive && state.legacyHistoryReview.applyId && historyLegacyItems.length === 0 && (
+        <div className="p-3 text-xs text-muted-foreground">No historical files available.</div>
+      )}
+
+      {isHistoryReviewActive && state.legacyHistoryReview.applyId && historyLegacyItems.length > 0 && (
+        <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden list-none p-0 m-0">
+          {historyLegacyItems.map((item) => {
+            const isSelected = state.legacyHistoryReview.selectedEntryId === item.id;
+            const fileName = item.file.split(/[\\/]/).filter(Boolean).pop() ?? item.file;
+            return (
+              <li key={item.id} className="border-b border-border">
+                <button
+                  type="button"
+                  onClick={() => updateState({
+                    legacyHistoryReview: { ...state.legacyHistoryReview, selectedEntryId: item.id },
+                  })}
+                  className={cn(
+                    'w-full px-3 py-2 text-left transition-colors',
+                    isSelected ? 'bg-primary/10' : 'hover:bg-secondary/70',
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    {item.restoredAt ? <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" /> : <CircleDot className="h-3.5 w-3.5 flex-shrink-0 text-amber-600" />}
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground" title={item.file}>{fileName}</span>
+                  </div>
+                  <div className="mt-1 pl-5 text-[10px] text-muted-foreground">
+                    {item.restoredAt ? 'Already restored' : 'Legacy safety checks on restore'}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {!isHistoryReviewActive && state.mode === 'intake' && blocks.length === 0 && (
         <div className="p-3">
           <EmptyState message="Paste AI response to begin" />
         </div>
       )}
 
-      {state.mode === 'intake' && blocks.length > 0 && (
+      {!isHistoryReviewActive && state.mode === 'intake' && blocks.length > 0 && (
         <div className="flex flex-col min-h-0 flex-1">
           <ul className="flex-1 min-h-0 overflow-y-auto list-none p-0 m-0">
             {blocks.map((block) => {
@@ -272,7 +358,7 @@ export function FileSidebar({ sidebarWidth, onResize }: FileSidebarProps) {
         </div>
       )}
 
-      {state.mode === 'review' && (
+      {!isHistoryReviewActive && state.mode === 'review' && (
         <>
           {hasV2Review ? (
             <ul className="flex flex-col overflow-y-auto overflow-x-hidden list-none p-0 m-0 flex-1 min-h-0">

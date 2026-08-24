@@ -1,5 +1,6 @@
 import { normalizeRelativePath } from '@inscribe/shared';
 import type { HistoryEntry, ParsedBlock } from '@inscribe/shared';
+import { useRef } from 'react';
 import { buildReviewItems, decorateHistoryEntries } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 import { initialState } from './useAppState';
@@ -48,6 +49,8 @@ export async function initRepositoryState(
  */
 export function useRepositoryActions() {
   const { state, updateState } = useAppStateContext();
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const resetRepositoryState = (repoRoot: string | null, statusMessage: string) => {
     updateState({
       repoRoot,
@@ -125,9 +128,12 @@ export function useRepositoryActions() {
     });
   };
   const handleBrowseRepo = async () => {
+    if (stateRef.current.isRestoringInProgress) return;
+
     try {
-      const selectedPath = await window.inscribeAPI.selectRepository(state.repoRoot || undefined);
+      const selectedPath = await window.inscribeAPI.selectRepository(stateRef.current.repoRoot || undefined);
       if (!selectedPath) return;
+      if (stateRef.current.isRestoringInProgress) return;
 
       await window.inscribeAPI.openRepository(selectedPath);
     } catch (error) {

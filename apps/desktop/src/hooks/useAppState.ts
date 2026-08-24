@@ -60,6 +60,7 @@ export const initialState: AppState = {
   v2HistoryReview: {
     actionId: null,
     requestId: null,
+    selectedEntryId: null,
     preview: null,
     isLoading: false,
     isRestoring: false,
@@ -67,6 +68,7 @@ export const initialState: AppState = {
   },
   legacyHistoryReview: {
     applyId: null,
+    selectedEntryId: null,
   },
 };
 

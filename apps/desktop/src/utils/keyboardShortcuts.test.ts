@@ -65,6 +65,16 @@ describe('keyboard shortcuts', () => {
     expect(shouldHandleKeyboardShortcut({ ...event, key: 'Enter', code: 'Enter' }, primaryAction, false)).toBe(true);
   });
 
+  it('blocks repository navigation shortcuts during restore without blocking the global terminal shortcut', () => {
+    const openRepository = KEYBOARD_SHORTCUTS.find((shortcut) => shortcut.id === 'open-repository')!;
+    const openRecentRepositories = KEYBOARD_SHORTCUTS.find((shortcut) => shortcut.id === 'open-recent-repositories')!;
+    const toggleTerminal = KEYBOARD_SHORTCUTS.find((shortcut) => shortcut.id === 'toggle-terminal')!;
+
+    expect(shouldHandleKeyboardShortcut({ ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, key: 'o', code: 'KeyO' }, openRepository, false, false, false, true)).toBe(false);
+    expect(shouldHandleKeyboardShortcut({ ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, key: 'p', code: 'KeyP' }, openRecentRepositories, false, false, false, true)).toBe(false);
+    expect(shouldHandleKeyboardShortcut({ ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, key: '`', code: 'Backquote' }, toggleTerminal, false, false, false, true)).toBe(true);
+  });
+
   it('detects the shared blocking overlay marker', () => {
     vi.stubGlobal('document', { querySelector: vi.fn(() => ({})) });
     expect(hasBlockingShortcutOverlay()).toBe(true);

@@ -17,6 +17,7 @@ const baseState = {
   v2HistoryReview: {
     actionId: null,
     requestId: null,
+    selectedEntryId: null,
     preview: null,
     isLoading: false,
     isRestoring: false,
@@ -24,6 +25,7 @@ const baseState = {
   },
   legacyHistoryReview: {
     applyId: null,
+    selectedEntryId: null,
   },
 };
 
@@ -90,6 +92,7 @@ describe('WorkspaceShell primary action resolution', () => {
       v2HistoryReview: {
         actionId: 'action-1',
         requestId: 'request-1',
+        selectedEntryId: null,
         preview: {
           actionId: 'action-1',
           files: [],
@@ -114,6 +117,7 @@ describe('WorkspaceShell primary action resolution', () => {
       v2HistoryReview: {
         actionId: 'action-1',
         requestId: 'request-1',
+        selectedEntryId: null,
         preview: { actionId: 'action-1', files: [], eligible: false },
         isLoading: false,
         isRestoring: false,
@@ -123,7 +127,7 @@ describe('WorkspaceShell primary action resolution', () => {
 
     expect(resolvePrimaryAction({
       ...baseState,
-      legacyHistoryReview: { applyId: 'legacy-1' },
+      legacyHistoryReview: { applyId: 'legacy-1', selectedEntryId: null },
     })).toEqual({ id: 'none', label: 'History inspection', enabled: false });
   });
 
@@ -140,6 +144,7 @@ describe('WorkspaceShell primary action resolution', () => {
       v2HistoryReview: {
         actionId: 'action-1',
         requestId: 'request-1',
+        selectedEntryId: null,
         preview: { actionId: 'action-1', files: [], eligible: true },
         isLoading: false,
         isRestoring: true,
@@ -154,6 +159,7 @@ describe('WorkspaceShell primary action resolution', () => {
       v2HistoryReview: {
         actionId: 'action-2',
         requestId: 'request-2',
+        selectedEntryId: null,
         preview: null,
         isLoading: true,
         isRestoring: false,

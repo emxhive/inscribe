@@ -117,6 +117,7 @@ export interface HistoryItem extends HistoryEntry {
 export interface V2HistoryReviewState {
   actionId: string | null;
   requestId: string | null;
+  selectedEntryId: string | null;
   preview: V2RestorePreview | null;
   isLoading: boolean;
   isRestoring: boolean;
@@ -125,6 +126,7 @@ export interface V2HistoryReviewState {
 
 export interface LegacyHistoryReviewState {
   applyId: string | null;
+  selectedEntryId: string | null;
 }
 
 export interface AppState {

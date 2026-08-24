@@ -169,7 +169,13 @@ export function shouldHandleKeyboardShortcut(
   isInteractiveTarget: boolean,
   hasBlockingOverlay = false,
   isTextEditingTarget = isInteractiveTarget,
+  isRestoringInProgress = false,
 ): boolean {
+  if (
+    isRestoringInProgress
+    && (shortcut.id === 'open-repository' || shortcut.id === 'open-recent-repositories')
+  ) return false;
+
   return matchesKeyboardShortcut(event, shortcut)
     && (shortcut.isGlobal === true || (
       !hasBlockingOverlay &&

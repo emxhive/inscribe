@@ -166,6 +166,7 @@ export function WorkspaceShell({
         isInteractiveKeyboardTarget(event.target),
         hasBlockingShortcutOverlay(),
         isTextEditingKeyboardTarget(event.target),
+        state.isRestoringInProgress,
       )) return;
 
       event.preventDefault();
@@ -199,7 +200,7 @@ export function WorkspaceShell({
 
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
-  }, [primaryAction.run, replaceIntakeFromClipboard, repositoryActions.handleBrowseRepo, toggleHistory, updateState, uploadIntake]);
+  }, [primaryAction.run, replaceIntakeFromClipboard, repositoryActions.handleBrowseRepo, state.isRestoringInProgress, toggleHistory, updateState, uploadIntake]);
 
   const handleSidebarResize = (width: number, options?: { persist?: boolean }) => {
     const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
@@ -396,6 +397,12 @@ function WorkspaceTopBar({
     dropdownRef.current?.querySelector<HTMLButtonElement>('[data-recent-item="true"]')?.focus();
   }, [recentProjects, showRecentRepositories]);
 
+  useEffect(() => {
+    if (!state.isRestoringInProgress) return;
+    onShowRecentRepositoriesChange(false);
+    setSelectedRecentProject(null);
+  }, [onShowRecentRepositoriesChange, state.isRestoringInProgress]);
+
   const handleRecentKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const recentItems = Array.from(
       event.currentTarget.querySelectorAll<HTMLButtonElement>('[data-recent-item="true"]'),
@@ -435,12 +442,13 @@ function WorkspaceTopBar({
   };
 
   const handleRecentClick = (path: string) => {
+    if (state.isRestoringInProgress) return;
     setSelectedRecentProject(path);
     onShowRecentRepositoriesChange(false);
   };
 
   const handleOpenRecentProject = (target: 'same-window' | 'new-window') => {
-    if (!selectedRecentProject) return;
+    if (!selectedRecentProject || state.isRestoringInProgress) return;
     window.inscribeAPI.openRepository(selectedRecentProject, target);
     setSelectedRecentProject(null);
   };
@@ -469,6 +477,7 @@ function WorkspaceTopBar({
               ref={recentTriggerRef}
               className="absolute right-1.5 rounded-sm p-1 hover:bg-accent hover:text-accent-foreground"
               onClick={() => onShowRecentRepositoriesChange(!showRecentRepositories)}
+              disabled={state.isRestoringInProgress}
               title={`Recent projects (${getKeyboardShortcutDisplay('open-recent-repositories')})`}
               type="button"
             >
@@ -506,6 +515,7 @@ function WorkspaceTopBar({
                     size="sm"
                     className="mt-2 h-7"
                     type="button"
+                    disabled={state.isRestoringInProgress}
                     onClick={() => {
                       onShowRecentRepositoriesChange(false);
                       onOpenRepository();
@@ -526,6 +536,7 @@ function WorkspaceTopBar({
           title={`Open repository (${getKeyboardShortcutDisplay('open-repository')})`}
           aria-label="Browse for repository"
           onClick={onOpenRepository}
+          disabled={state.isRestoringInProgress}
         >
           <Folder className="h-3.5 w-3.5" />
         </Button>
@@ -596,7 +607,7 @@ function WorkspaceTopBar({
         </ChromeButton>
       </div>
       <Modal
-        isOpen={Boolean(selectedRecentProject)}
+        isOpen={Boolean(selectedRecentProject) && !state.isRestoringInProgress}
         onClose={() => setSelectedRecentProject(null)}
         title="Open Project"
         footer={
@@ -645,6 +656,7 @@ function WorkspaceBottomBar({
   const { state, updateState } = useAppStateContext();
   const { handleParseBlocks } = useParsingActions();
   const applyActions = useApplyActions();
+  const { restoreItem, restoreGroup, closeHistoryReview } = useHistoryActions();
   const selectedItem = state.reviewItems.find(
     (item): item is V1ReviewItem => item.id === state.selectedItemId && isV1ReviewItem(item),
   ) ?? null;
@@ -669,6 +681,11 @@ function WorkspaceBottomBar({
     state.reviewItems.length > 0 &&
     state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
   const isHistoryReviewActive = Boolean(state.v2HistoryReview.actionId || state.legacyHistoryReview.applyId);
+  const legacyHistoryItems = state.historyItems
+    .filter((item) => item.applyId === state.legacyHistoryReview.applyId)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+  const selectedLegacyHistoryItem = legacyHistoryItems.find((item) => item.id === state.legacyHistoryReview.selectedEntryId) ?? null;
+  const restorableLegacyHistoryItems = legacyHistoryItems.filter((item) => !item.restoredAt);
 
   const selectedHunkIndex = state.selectedHunkId
     ? 0
@@ -701,6 +718,55 @@ function WorkspaceBottomBar({
         {statusIcon}
         <span className="truncate" title={statusText}>{statusText}</span>
       </div>
+
+      {isHistoryReviewActive && (
+        <>
+          <Button
+            variant="outline"
+            type="button"
+            size="sm"
+            onClick={closeHistoryReview}
+            disabled={state.isRestoringInProgress}
+          >
+            Back to History
+          </Button>
+          {state.v2HistoryReview.actionId ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={onRunPrimaryAction}
+              disabled={!primaryAction.enabled}
+              title={!primaryAction.enabled && primaryAction.label === 'Restore unavailable' ? 'Restore is unavailable for the current repository state' : undefined}
+            >
+              <PrimaryActionButtonLabel label={primaryAction.label} />
+            </Button>
+          ) : (
+            <>
+              {selectedLegacyHistoryItem && !selectedLegacyHistoryItem.restoredAt && (
+                <Button
+                  variant="outline"
+                  type="button"
+                  size="sm"
+                  onClick={() => void restoreItem(selectedLegacyHistoryItem)}
+                  disabled={state.isRestoringInProgress}
+                >
+                  Restore file
+                </Button>
+              )}
+              {restorableLegacyHistoryItems.length > 1 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void restoreGroup(state.legacyHistoryReview.applyId!)}
+                  disabled={state.isRestoringInProgress}
+                >
+                  Restore available files
+                </Button>
+              )}
+            </>
+          )}
+        </>
+      )}
 
       {!isHistoryReviewActive && state.mode === 'intake' && (
         <>
@@ -821,7 +887,86 @@ function PrimaryActionButtonLabel({ label }: { label: string }) {
 
 function RightPanel() {
   const { state } = useAppStateContext();
+  if (state.v2HistoryReview.actionId || state.legacyHistoryReview.applyId) {
+    return <HistoryReviewInspector />;
+  }
   return state.rightPanelOwner === 'history' ? <HistoryRightPanel /> : <InspectorRightPanel />;
+}
+
+function HistoryReviewInspector() {
+  const { state } = useAppStateContext();
+  const preview = state.v2HistoryReview.preview;
+  const selectedV2File = preview?.files.find((file) => file.entryId === state.v2HistoryReview.selectedEntryId) ?? null;
+  const legacyItems = state.historyItems
+    .filter((item) => item.applyId === state.legacyHistoryReview.applyId)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+  const selectedLegacyItem = legacyItems.find((item) => item.id === state.legacyHistoryReview.selectedEntryId) ?? null;
+  const isV2 = Boolean(state.v2HistoryReview.actionId);
+  const createdAt = preview?.createdAt ?? selectedLegacyItem?.createdAt;
+  const actionType = preview?.actionType ?? (selectedLegacyItem?.actionType === 'restore' ? 'restore' : 'apply');
+
+  return (
+    <aside className="flex min-h-0 flex-col border-l border-border bg-card">
+      <div className="flex h-10 flex-shrink-0 items-center justify-between border-b border-border px-3">
+        <p className="text-xs font-semibold text-foreground">History Review</p>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{isV2 ? 'V2' : 'Legacy'}</span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="space-y-4">
+          <InspectorPropertyGroup title="Action">
+            <dl className="divide-y divide-border text-xs">
+              <InspectorRow label="Type" value={actionType === 'restore' ? 'Restore / reversal' : 'Apply'} />
+              <InspectorRow label="When" value={formatHistoryTimestamp(createdAt)} />
+              <InspectorRow label="Files" value={String(preview?.files.length ?? legacyItems.length)} />
+              {preview?.sourceActionId && <InspectorRow label="Reverses action" value={preview.sourceActionId} mono />}
+              {!isV2 && selectedLegacyItem?.sourceActionId && (
+                <InspectorRow label="Reverses action" value={selectedLegacyItem.sourceActionId} mono />
+              )}
+              {!isV2 && selectedLegacyItem?.sourceEntryId && (
+                <InspectorRow label="Reverses entry" value={selectedLegacyItem.sourceEntryId} mono />
+              )}
+            </dl>
+          </InspectorPropertyGroup>
+
+          {isV2 && selectedV2File && (
+            <InspectorPropertyGroup title="Restore safety">
+              <dl className="divide-y divide-border text-xs">
+                <InspectorRow label="Eligibility" value={selectedV2File.eligible ? 'Eligible' : 'Unavailable'} />
+                <InspectorRow label="Current state" value={selectedV2File.currentExists ? 'Present' : 'Absent'} />
+                <InspectorRow label="Proposed state" value={selectedV2File.restoredState ? selectedV2File.restoredState.exists ? 'Present' : 'Absent' : 'Unavailable'} />
+                {selectedV2File.sourceEntryId && <InspectorRow label="Source entry" value={selectedV2File.sourceEntryId} mono />}
+              </dl>
+              {!selectedV2File.eligible && selectedV2File.error && (
+                <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-xs text-destructive">
+                  {selectedV2File.error}
+                </p>
+              )}
+            </InspectorPropertyGroup>
+          )}
+
+          {!isV2 && (
+            <InspectorPropertyGroup title="Legacy restore">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Legacy history does not contain a live final-file snapshot. The center shows the stored target only; the existing legacy restore checks remain the source of truth when you continue.
+              </p>
+              {selectedLegacyItem && (
+                <dl className="mt-3 divide-y divide-border text-xs">
+                  <InspectorRow label="Status" value={selectedLegacyItem.restoredAt ? 'Already restored' : 'Available'} />
+                  <InspectorRow label="Mode" value={selectedLegacyItem.mode} />
+                </dl>
+              )}
+            </InspectorPropertyGroup>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function formatHistoryTimestamp(timestamp?: string): string {
+  if (!timestamp) return 'Unknown time';
+  const date = new Date(timestamp);
+  return Number.isNaN(date.valueOf()) ? timestamp : date.toLocaleString();
 }
 
 function HistoryRightPanel() {

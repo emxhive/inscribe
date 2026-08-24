@@ -149,6 +149,16 @@ export function isTextEditingKeyboardTarget(target: EventTarget | null): boolean
     || Boolean(target.closest(TEXT_EDITING_TARGET_SELECTOR));
 }
 
+export function isEditorKeyboardTarget(target: EventTarget | null): boolean {
+  if (typeof Element === 'undefined' || !(target instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(target.closest('.cm-editor'))
+    || target.matches('textarea, [contenteditable="true"]')
+    || Boolean(target.closest('textarea, [contenteditable="true"]'));
+}
+
 export function hasBlockingShortcutOverlay(): boolean {
   return typeof document !== 'undefined' && Boolean(document.querySelector(BLOCKING_OVERLAY_SELECTOR));
 }

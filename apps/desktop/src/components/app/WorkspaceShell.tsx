@@ -53,6 +53,7 @@ import {
   KEYBOARD_SHORTCUTS,
   getKeyboardShortcutDisplay,
   hasBlockingShortcutOverlay,
+  isEditorKeyboardTarget,
   isInteractiveKeyboardTarget,
   isTextEditingKeyboardTarget,
   matchesKeyboardShortcut,
@@ -75,6 +76,7 @@ type WorkspaceTopBarProps = WorkspaceShellProps & {
   onReplaceIntakeFromClipboard: () => void;
   onUploadIntake: () => void;
   onOpenRepository: () => void;
+  onToggleHistory: () => void;
   showRecentRepositories: boolean;
   onShowRecentRepositoriesChange: (open: boolean) => void;
   onShowKeyboardShortcuts: () => void;
@@ -95,6 +97,13 @@ export function WorkspaceShell({
   const uploadIntake = useUploadIntake();
   const [showRecentRepositories, setShowRecentRepositories] = useState(false);
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const toggleHistory = useCallback(() => {
+    updateState((prev) => ({
+      rightPanelOwner: 'history',
+      isRightPanelCollapsed: prev.rightPanelOwner === 'history' && !prev.isRightPanelCollapsed,
+    }));
+  }, [updateState]);
   const panelPersistenceReady = useRef(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === 'undefined') return 280;
@@ -140,6 +149,15 @@ export function WorkspaceShell({
     const handleShortcut = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
 
+      if (event.key === 'Escape' && !hasBlockingShortcutOverlay() && isEditorKeyboardTarget(event.target)) {
+        event.preventDefault();
+        if (event.target instanceof HTMLElement) {
+          event.target.blur();
+        }
+        workspaceRef.current?.focus({ preventScroll: true });
+        return;
+      }
+
       const shortcut = KEYBOARD_SHORTCUTS.find((candidate) => matchesKeyboardShortcut(event, candidate));
       if (!shortcut || !shouldHandleKeyboardShortcut(
         event,
@@ -161,7 +179,7 @@ export function WorkspaceShell({
           setShowRecentRepositories(true);
           break;
         case 'open-history':
-          updateState({ isRightPanelCollapsed: false, rightPanelOwner: 'history' });
+          toggleHistory();
           break;
         case 'open-intake-file':
           void uploadIntake();
@@ -180,7 +198,7 @@ export function WorkspaceShell({
 
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
-  }, [primaryAction.run, replaceIntakeFromClipboard, repositoryActions.handleBrowseRepo, updateState, uploadIntake]);
+  }, [primaryAction.run, replaceIntakeFromClipboard, repositoryActions.handleBrowseRepo, toggleHistory, updateState, uploadIntake]);
 
   const handleSidebarResize = (width: number, options?: { persist?: boolean }) => {
     const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
@@ -197,13 +215,14 @@ export function WorkspaceShell({
   ].filter(Boolean).join(' ');
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    <div ref={workspaceRef} tabIndex={-1} className="flex h-screen flex-col overflow-hidden bg-background outline-none">
       <WorkspaceTopBar
         onOpenIgnore={onOpenIgnore}
         onOpenIndexedList={onOpenIndexedList}
         onReplaceIntakeFromClipboard={replaceIntakeFromClipboard}
         onUploadIntake={uploadIntake}
         onOpenRepository={repositoryActions.handleBrowseRepo}
+        onToggleHistory={toggleHistory}
         showRecentRepositories={showRecentRepositories}
         onShowRecentRepositoriesChange={setShowRecentRepositories}
         onShowKeyboardShortcuts={() => setShowKeyboardShortcuts(true)}
@@ -342,6 +361,7 @@ function WorkspaceTopBar({
   onReplaceIntakeFromClipboard,
   onUploadIntake,
   onOpenRepository,
+  onToggleHistory,
   showRecentRepositories,
   onShowRecentRepositoriesChange,
   onShowKeyboardShortcuts,
@@ -540,7 +560,7 @@ function WorkspaceTopBar({
         <ChromeButton onClick={onOpenIndexedList}>Indexed {state.indexedCount}</ChromeButton>
         <ChromeButton
           active={state.rightPanelOwner === 'history' && !state.isRightPanelCollapsed}
-          onClick={() => updateState({ isRightPanelCollapsed: false, rightPanelOwner: 'history' })}
+          onClick={onToggleHistory}
           title={`History (${getKeyboardShortcutDisplay('open-history')})`}
         >
           <History className="h-3.5 w-3.5" />

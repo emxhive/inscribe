@@ -83,6 +83,20 @@ export function ReviewDirectivePopover({
     };
   }, [anchorRef, isOpen, onClose]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const presentDirectiveKeys = useMemo(
     () => DIRECTIVE_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(draft, key)),
     [draft],

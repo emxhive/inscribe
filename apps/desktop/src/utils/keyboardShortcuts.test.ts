@@ -3,6 +3,7 @@ import {
   KEYBOARD_SHORTCUTS,
   getKeyboardShortcutDisplay,
   hasBlockingShortcutOverlay,
+  isTextEditingKeyboardTarget,
   matchesKeyboardShortcut,
   shouldHandleKeyboardShortcut,
 } from './keyboardShortcuts';
@@ -49,7 +50,8 @@ describe('keyboard shortcuts', () => {
     expect(shouldHandleKeyboardShortcut(event, openRecentRepositories, true)).toBe(false);
     expect(shouldHandleKeyboardShortcut(event, openRecentRepositories, false)).toBe(true);
     expect(shouldHandleKeyboardShortcut(event, openRecentRepositories, false, true)).toBe(false);
-    expect(shouldHandleKeyboardShortcut({ ...event, key: 'v', code: 'KeyV' }, pasteIntake, true)).toBe(false);
+    expect(shouldHandleKeyboardShortcut({ ...event, key: 'v', code: 'KeyV' }, pasteIntake, true, false, true)).toBe(false);
+    expect(shouldHandleKeyboardShortcut({ ...event, key: 'v', code: 'KeyV' }, pasteIntake, true, false, false)).toBe(true);
     expect(shouldHandleKeyboardShortcut({ ...event, key: '`', code: 'Backquote' }, toggleTerminal, true)).toBe(true);
     expect(shouldHandleKeyboardShortcut({ ...event, key: '`', code: 'Backquote' }, toggleTerminal, false, true)).toBe(true);
     expect(shouldHandleKeyboardShortcut({ ...event, key: 'Enter', code: 'Enter' }, primaryAction, true)).toBe(false);
@@ -64,5 +66,9 @@ describe('keyboard shortcuts', () => {
     expect(hasBlockingShortcutOverlay()).toBe(false);
 
     vi.unstubAllGlobals();
+  });
+
+  it('keeps text-editing targets protected for Paste Intake', () => {
+    expect(isTextEditingKeyboardTarget(null)).toBe(false);
   });
 });

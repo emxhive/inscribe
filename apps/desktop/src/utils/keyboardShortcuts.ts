@@ -110,6 +110,11 @@ const INTERACTIVE_TARGET_SELECTOR = [
   '[role="option"]',
   '[role="textbox"]',
 ].join(',');
+const TEXT_EDITING_TARGET_SELECTOR = [
+  'textarea:not([disabled]):not([readonly])',
+  'input:not([disabled]):not([readonly]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"])',
+  '[contenteditable="true"]',
+].join(',');
 const BLOCKING_OVERLAY_SELECTOR = '[data-inscribe-shortcut-overlay="true"]';
 
 export function isInteractiveKeyboardTarget(target: EventTarget | null): boolean {
@@ -121,6 +126,20 @@ export function isInteractiveKeyboardTarget(target: EventTarget | null): boolean
     || Boolean(target.closest(INTERACTIVE_TARGET_SELECTOR));
 }
 
+export function isTextEditingKeyboardTarget(target: EventTarget | null): boolean {
+  if (typeof Element === 'undefined' || !(target instanceof Element)) {
+    return false;
+  }
+
+  const isContentEditable = typeof HTMLElement !== 'undefined'
+    && target instanceof HTMLElement
+    && target.isContentEditable;
+
+  return isContentEditable
+    || target.matches(TEXT_EDITING_TARGET_SELECTOR)
+    || Boolean(target.closest(TEXT_EDITING_TARGET_SELECTOR));
+}
+
 export function hasBlockingShortcutOverlay(): boolean {
   return typeof document !== 'undefined' && Boolean(document.querySelector(BLOCKING_OVERLAY_SELECTOR));
 }
@@ -130,7 +149,11 @@ export function shouldHandleKeyboardShortcut(
   shortcut: KeyboardShortcut,
   isInteractiveTarget: boolean,
   hasBlockingOverlay = false,
+  isTextEditingTarget = isInteractiveTarget,
 ): boolean {
   return matchesKeyboardShortcut(event, shortcut)
-    && (shortcut.isGlobal === true || (!isInteractiveTarget && !hasBlockingOverlay));
+    && (shortcut.isGlobal === true || (
+      !hasBlockingOverlay &&
+      (shortcut.id === 'paste-intake' ? !isTextEditingTarget : !isInteractiveTarget)
+    ));
 }

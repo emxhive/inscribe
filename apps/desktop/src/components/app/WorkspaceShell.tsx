@@ -53,6 +53,7 @@ import {
   getKeyboardShortcutDisplay,
   hasBlockingShortcutOverlay,
   isInteractiveKeyboardTarget,
+  isTextEditingKeyboardTarget,
   matchesKeyboardShortcut,
   shouldHandleKeyboardShortcut,
 } from '@/utils/keyboardShortcuts';
@@ -139,7 +140,13 @@ export function WorkspaceShell({
       if (event.defaultPrevented) return;
 
       const shortcut = KEYBOARD_SHORTCUTS.find((candidate) => matchesKeyboardShortcut(event, candidate));
-      if (!shortcut || !shouldHandleKeyboardShortcut(event, shortcut, isInteractiveKeyboardTarget(event.target), hasBlockingShortcutOverlay())) return;
+      if (!shortcut || !shouldHandleKeyboardShortcut(
+        event,
+        shortcut,
+        isInteractiveKeyboardTarget(event.target),
+        hasBlockingShortcutOverlay(),
+        isTextEditingKeyboardTarget(event.target),
+      )) return;
 
       event.preventDefault();
       switch (shortcut.id) {

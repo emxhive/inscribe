@@ -64,6 +64,10 @@ Supported kinds: `class`, `method`, `function`, `if_statement`.
 4. Apply selected, valid, or all pending changes.
 5. Restore from persisted history when needed.
 
+## Keyboard shortcuts
+
+See [docs/keyboard-shortcuts.md](docs/keyboard-shortcuts.md) for the workspace shortcut reference. The same list is available in the app with `Ctrl+/`.
+
 ## Safety
 
 - `FILE` must be repository-relative. Absolute paths and `../` traversal are rejected.

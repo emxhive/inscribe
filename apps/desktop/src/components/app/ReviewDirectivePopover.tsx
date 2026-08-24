@@ -99,6 +99,7 @@ export function ReviewDirectivePopover({
   return (
     <div
       ref={popoverRef}
+      data-inscribe-shortcut-overlay="true"
       className="fixed z-50 w-80 rounded-lg border border-border bg-card shadow-lg p-3"
       style={{ top: position.top, left: position.left, transform: 'translateY(-50%)' }}
     >

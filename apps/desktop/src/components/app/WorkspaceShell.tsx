@@ -9,7 +9,7 @@ import {
   Folder,
   FileCode2,
   History,
-  Info,
+  Keyboard,
   Loader2,
   PanelLeft,
   PanelRight,
@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/common';
 import { FileListEntry } from '@/components/common/FileListEntry';
-import { useAppStateContext, useApplyActions, useHistoryActions, useIntakeBlocks, useParsingActions, useRepositoryActions, useReviewActions } from '@/hooks';
+import { useAppStateContext, useApplyActions, useHistoryActions, useIntakeBlocks, useParsingActions, usePrimaryAction, useRepositoryActions, useReviewActions } from '@/hooks';
 import {
   getLanguageFromFilename,
   getPathBasename,
@@ -40,12 +40,22 @@ import { FileSidebar, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from './FileSidebar
 import { IntakePanel } from './IntakePanel';
 import { ReviewPanel } from './ReviewPanel';
 import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
+import { KeyboardShortcutsModal } from '../KeyboardShortcutsModal';
 
 import { TerminalPanel } from './TerminalPanel';
 import { cn } from '@/lib/utils';
 import type { AppState, V1ReviewItem, V2ReviewFile, V2ReviewItem } from '@/types';
+import type { PrimaryAction } from '@/utils/primaryAction';
 import { buildDiagnosticGroups, formatDiagnosticGroupForClipboard, type DiagnosticGroup } from '@/utils/diagnostics';
 import { PanelTabs } from '@/components/ui/panel-tabs';
+import {
+  KEYBOARD_SHORTCUTS,
+  getKeyboardShortcutDisplay,
+  hasBlockingShortcutOverlay,
+  isInteractiveKeyboardTarget,
+  matchesKeyboardShortcut,
+  shouldHandleKeyboardShortcut,
+} from '@/utils/keyboardShortcuts';
 
 const RIGHT_PANEL_WIDTH = 360;
 const PANEL_STORAGE_KEYS = {
@@ -62,6 +72,10 @@ type WorkspaceShellProps = {
 type WorkspaceTopBarProps = WorkspaceShellProps & {
   onReplaceIntakeFromClipboard: () => void;
   onUploadIntake: () => void;
+  onOpenRepository: () => void;
+  showRecentRepositories: boolean;
+  onShowRecentRepositoriesChange: (open: boolean) => void;
+  onShowKeyboardShortcuts: () => void;
 };
 
 function isV1ReviewItem(item: AppState['reviewItems'][number]): item is V1ReviewItem {
@@ -73,8 +87,12 @@ export function WorkspaceShell({
   onOpenIndexedList,
 }: WorkspaceShellProps) {
   const { state, updateState } = useAppStateContext();
+  const repositoryActions = useRepositoryActions();
+  const primaryAction = usePrimaryAction();
   const replaceIntakeFromClipboard = useReplaceIntakeFromClipboard();
   const uploadIntake = useUploadIntake();
+  const [showRecentRepositories, setShowRecentRepositories] = useState(false);
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const panelPersistenceReady = useRef(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === 'undefined') return 280;
@@ -118,34 +136,40 @@ export function WorkspaceShell({
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
-      const isTerminalToggleShortcut =
-        (event.ctrlKey || event.metaKey) &&
-        !event.shiftKey &&
-        !event.altKey &&
-        (event.key === '`' || event.code === 'Backquote');
+      if (event.defaultPrevented) return;
 
-      if (isTerminalToggleShortcut) {
-        event.preventDefault();
-        updateState((prev) => ({ isTerminalOpen: !prev.isTerminalOpen }));
-        return;
-      }
-
-      const isPasteIntakeShortcut =
-        (event.ctrlKey || event.metaKey) &&
-        event.shiftKey &&
-        event.key.toLowerCase() === 'v';
-
-      if (!isPasteIntakeShortcut) {
-        return;
-      }
+      const shortcut = KEYBOARD_SHORTCUTS.find((candidate) => matchesKeyboardShortcut(event, candidate));
+      if (!shortcut || !shouldHandleKeyboardShortcut(event, shortcut, isInteractiveKeyboardTarget(event.target), hasBlockingShortcutOverlay())) return;
 
       event.preventDefault();
-      void replaceIntakeFromClipboard();
+      switch (shortcut.id) {
+        case 'paste-intake':
+          void replaceIntakeFromClipboard();
+          break;
+        case 'open-repository':
+          void repositoryActions.handleBrowseRepo();
+          break;
+        case 'open-recent-repositories':
+          setShowRecentRepositories(true);
+          break;
+        case 'open-intake-file':
+          void uploadIntake();
+          break;
+        case 'toggle-terminal':
+          updateState((prev) => ({ isTerminalOpen: !prev.isTerminalOpen }));
+          break;
+        case 'show-keyboard-shortcuts':
+          setShowKeyboardShortcuts(true);
+          break;
+        case 'primary-action':
+          primaryAction.run();
+          break;
+      }
     };
 
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
-  }, [replaceIntakeFromClipboard, updateState]);
+  }, [primaryAction.run, replaceIntakeFromClipboard, repositoryActions.handleBrowseRepo, updateState, uploadIntake]);
 
   const handleSidebarResize = (width: number, options?: { persist?: boolean }) => {
     const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
@@ -168,6 +192,10 @@ export function WorkspaceShell({
         onOpenIndexedList={onOpenIndexedList}
         onReplaceIntakeFromClipboard={replaceIntakeFromClipboard}
         onUploadIntake={uploadIntake}
+        onOpenRepository={repositoryActions.handleBrowseRepo}
+        showRecentRepositories={showRecentRepositories}
+        onShowRecentRepositoriesChange={setShowRecentRepositories}
+        onShowKeyboardShortcuts={() => setShowKeyboardShortcuts(true)}
       />
       <div
         className="grid min-h-0 flex-1 overflow-hidden"
@@ -200,7 +228,11 @@ export function WorkspaceShell({
           />
         </div>
       )}
-      <WorkspaceBottomBar />
+      <WorkspaceBottomBar primaryAction={primaryAction.action} onRunPrimaryAction={primaryAction.run} />
+      <KeyboardShortcutsModal
+        isOpen={showKeyboardShortcuts}
+        onClose={() => setShowKeyboardShortcuts(false)}
+      />
     </div>
   );
 }
@@ -298,12 +330,14 @@ function WorkspaceTopBar({
   onOpenIndexedList,
   onReplaceIntakeFromClipboard,
   onUploadIntake,
+  onOpenRepository,
+  showRecentRepositories,
+  onShowRecentRepositoriesChange,
+  onShowKeyboardShortcuts,
 }: WorkspaceTopBarProps) {
   const { state, updateState } = useAppStateContext();
-  const repositoryActions = useRepositoryActions();
   const hasRepository = Boolean(state.repoRoot);
   const [recentProjects, setRecentProjects] = useState<string[]>([]);
-  const [showRecent, setShowRecent] = useState(false);
   const [selectedRecentProject, setSelectedRecentProject] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -315,12 +349,17 @@ function WorkspaceTopBar({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowRecent(false);
+        onShowRecentRepositoriesChange(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [onShowRecentRepositoriesChange]);
+
+  useEffect(() => {
+    if (!showRecentRepositories) return;
+    dropdownRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+  }, [recentProjects, showRecentRepositories]);
 
   const requireRepository = (action: () => void, message: string) => {
     if (!hasRepository) {
@@ -332,7 +371,7 @@ function WorkspaceTopBar({
 
   const handleRecentClick = (path: string) => {
     setSelectedRecentProject(path);
-    setShowRecent(false);
+    onShowRecentRepositoriesChange(false);
   };
 
   const handleOpenRecentProject = (target: 'same-window' | 'new-window') => {
@@ -363,22 +402,23 @@ function WorkspaceTopBar({
           {recentProjects.length > 0 && (
             <button
               className="absolute right-1.5 rounded-sm p-1 hover:bg-accent hover:text-accent-foreground"
-              onClick={() => setShowRecent(!showRecent)}
-              title="Recent projects"
+              onClick={() => onShowRecentRepositoriesChange(!showRecentRepositories)}
+              title={`Recent projects (${getKeyboardShortcutDisplay('open-recent-repositories')})`}
               type="button"
             >
               <Clock className="h-3.5 w-3.5" />
             </button>
           )}
-          {showRecent && (
+          {showRecentRepositories && (
             <div
               ref={dropdownRef}
+              data-inscribe-shortcut-overlay="true"
               className="absolute left-0 top-full z-[100] mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-lg"
             >
               <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Recent Projects
               </div>
-              {recentProjects.map((path) => (
+              {recentProjects.length > 0 ? recentProjects.map((path) => (
                 <button
                   key={path}
                   className="w-full truncate px-3 py-2 text-left text-xs hover:bg-accent hover:text-accent-foreground"
@@ -389,7 +429,23 @@ function WorkspaceTopBar({
                   <div className="truncate font-medium">{getPathBasename(path)}</div>
                   <div className="truncate text-[10px] text-muted-foreground">{path}</div>
                 </button>
-              ))}
+              )) : (
+                <div className="px-3 py-3 text-xs text-muted-foreground">
+                  <p>No recent repositories yet.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 h-7"
+                    type="button"
+                    onClick={() => {
+                      onShowRecentRepositoriesChange(false);
+                      onOpenRepository();
+                    }}
+                  >
+                    Open Repository
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -398,9 +454,9 @@ function WorkspaceTopBar({
           size="icon"
           type="button"
           className="h-7 w-7"
-          title="Browse for repository"
+          title={`Open repository (${getKeyboardShortcutDisplay('open-repository')})`}
           aria-label="Browse for repository"
-          onClick={repositoryActions.handleBrowseRepo}
+          onClick={onOpenRepository}
         >
           <Folder className="h-3.5 w-3.5" />
         </Button>
@@ -412,14 +468,14 @@ function WorkspaceTopBar({
         </ChromeButton>
         <ChromeButton
           onClick={onReplaceIntakeFromClipboard}
-          title="Replace intake from clipboard (Ctrl+Shift+V)"
+          title={`Paste intake from clipboard (${getKeyboardShortcutDisplay('paste-intake')})`}
           aria-label="Replace intake from clipboard"
         >
           <ClipboardPaste className="h-3.5 w-3.5" />
         </ChromeButton>
         <ChromeButton
           onClick={onUploadIntake}
-          title="Upload Markdown document"
+          title={`Open intake file (${getKeyboardShortcutDisplay('open-intake-file')})`}
           aria-label="Upload Markdown document"
         >
           <Upload className="h-3.5 w-3.5" />
@@ -446,12 +502,16 @@ function WorkspaceTopBar({
         <ChromeButton onClick={() => updateState({ statusMessage: 'Settings (placeholder)' })} title="Settings">
           <Settings className="h-3.5 w-3.5" />
         </ChromeButton>
-        <ChromeButton onClick={() => updateState({ statusMessage: 'Info (placeholder)' })} title="Info">
-          <Info className="h-3.5 w-3.5" />
+        <ChromeButton
+          onClick={onShowKeyboardShortcuts}
+          title={`Keyboard shortcuts (${getKeyboardShortcutDisplay('show-keyboard-shortcuts')})`}
+          aria-label="Keyboard shortcuts"
+        >
+          <Keyboard className="h-3.5 w-3.5" />
         </ChromeButton>
         <ChromeButton
           onClick={() => updateState({ isTerminalOpen: !state.isTerminalOpen })}
-          title={state.isTerminalOpen ? 'Hide terminal' : 'Show terminal'}
+          title={`${state.isTerminalOpen ? 'Hide terminal' : 'Show terminal'} (${getKeyboardShortcutDisplay('toggle-terminal')})`}
           aria-label={state.isTerminalOpen ? 'Hide terminal' : 'Show terminal'}
           active={state.isTerminalOpen}
         >
@@ -506,7 +566,13 @@ function WorkspaceTopBar({
   );
 }
 
-function WorkspaceBottomBar() {
+function WorkspaceBottomBar({
+  primaryAction,
+  onRunPrimaryAction,
+}: {
+  primaryAction: PrimaryAction;
+  onRunPrimaryAction: () => void;
+}) {
   const { state, updateState } = useAppStateContext();
   const { handleParseBlocks } = useParsingActions();
   const applyActions = useApplyActions();
@@ -525,31 +591,15 @@ function WorkspaceBottomBar() {
       (item) => item.file === selectedItem.file && item.blockIndex === selectedItem.blockIndex && !item.restoredAt,
     );
 
-  const hasOnlyPendingV2Items =
-    state.v2ReviewFiles.length > 0 &&
-    state.reviewItems.length > 0 &&
-    state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
-
-  const canApplyV2Session =
-    Boolean(state.repoRoot) &&
-    Boolean(state.v2PreviewSession) &&
-    hasOnlyPendingV2Items;
   const hasPartialV2Preview =
-    state.mode === 'intake' &&
-    state.pipelineStatus === 'parse-partial' &&
-    Boolean(state.v2PreviewSession) &&
-    state.v2ReviewFiles.length > 0;
-  const excludedV2BlockCount = new Set(
-    state.v2PreviewDiagnostics.map((diagnostic) => diagnostic.blockIndex ?? `global:${diagnostic.code}:${diagnostic.line ?? ''}`),
-  ).size;
+    primaryAction.id === 'review-v2-partial';
   const canReturnToPartialIntake =
     state.mode === 'review' &&
     Boolean(state.v2PreviewSession) &&
     state.v2PreviewDiagnostics.length > 0 &&
-    hasOnlyPendingV2Items;
+    state.reviewItems.length > 0 &&
+    state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
 
-  const enableApplyAll = applySummary.canApplyAll || canApplyV2Session;
-  const applyAllButtonLabel = canApplyV2Session ? 'Apply V2 Preview' : 'Apply All';
   const selectedHunkIndex = state.selectedHunkId
     ? 0
     : -1;
@@ -586,26 +636,26 @@ function WorkspaceBottomBar() {
         <>
           {hasPartialV2Preview && (
             <Button
-              variant="outline"
+              variant="default"
               type="button"
               size="sm"
-              onClick={() => updateState({
-                mode: 'review',
-                rightPanelView: 'properties',
-                statusMessage: `Reviewing ${state.v2ReviewFiles.length} final file${state.v2ReviewFiles.length === 1 ? '' : 's'}; excluded blocks remain unapplied.`,
-              })}
+              onClick={onRunPrimaryAction}
+              disabled={!primaryAction.enabled}
             >
-              Review {state.v2ReviewFiles.length} Files · {excludedV2BlockCount} Excluded
+              <PrimaryActionButtonLabel label={primaryAction.label} />
             </Button>
           )}
           <Button
+            variant={primaryAction.id === 'parse' ? 'default' : 'outline'}
             type="button"
             size="sm"
-            onClick={handleParseBlocks}
-            disabled={!state.repoRoot || state.isParsingInProgress}
-            title={!state.repoRoot ? 'Select a repository first' : state.isParsingInProgress ? 'Parsing in progress...' : ''}
+            onClick={primaryAction.id === 'parse' ? onRunPrimaryAction : handleParseBlocks}
+            disabled={primaryAction.id === 'parse' ? !primaryAction.enabled : !state.repoRoot || state.isParsingInProgress}
+            title={primaryAction.id === 'parse' && !state.repoRoot ? 'Select a repository first' : primaryAction.id === 'parse' && state.isParsingInProgress ? 'Parsing in progress...' : ''}
           >
-            {state.isParsingInProgress ? 'Parsing...' : 'Parse Code Blocks'}
+            {primaryAction.id === 'parse'
+              ? <PrimaryActionButtonLabel label={primaryAction.label} />
+              : 'Parse Code Blocks'}
           </Button>
         </>
       )}
@@ -672,10 +722,10 @@ function WorkspaceBottomBar() {
           <Button
             type="button"
             size="sm"
-            onClick={applyActions.handleApplyAll}
-            disabled={!enableApplyAll || state.isApplyingInProgress}
+            onClick={onRunPrimaryAction}
+            disabled={!primaryAction.enabled}
           >
-            {applyAllButtonLabel}
+            <PrimaryActionButtonLabel label={primaryAction.label} />
           </Button>
           {state.reviewItems.length > 0 && state.reviewItems.every((item) => item.status === 'applied') && (
             <Button variant="outline" size="sm" type="button" onClick={() => updateState({ mode: 'intake' })}>
@@ -685,6 +735,17 @@ function WorkspaceBottomBar() {
         </>
       )}
     </footer>
+  );
+}
+
+function PrimaryActionButtonLabel({ label }: { label: string }) {
+  return (
+    <span className="flex min-w-0 items-baseline gap-1">
+      <span className="truncate">{label}</span>
+      <kbd className="shrink-0 rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-[9px] font-medium leading-none tracking-tight text-primary-foreground/70">
+        {getKeyboardShortcutDisplay('primary-action')}
+      </kbd>
+    </span>
   );
 }
 

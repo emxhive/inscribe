@@ -32,6 +32,13 @@ describe('keyboard shortcuts', () => {
     expect(matchesKeyboardShortcut({ ctrlKey: false, metaKey: true, altKey: false, shiftKey: false, key: '/', code: 'Slash' }, showShortcuts)).toBe(true);
   });
 
+  it('registers History as a discoverable workspace shortcut', () => {
+    const openHistory = KEYBOARD_SHORTCUTS.find((shortcut) => shortcut.id === 'open-history')!;
+
+    expect(getKeyboardShortcutDisplay('open-history')).toBe('Ctrl+H');
+    expect(matchesKeyboardShortcut({ ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, key: 'h', code: 'KeyH' }, openHistory)).toBe(true);
+  });
+
   it('requires exact modifier state', () => {
     const openRepository = KEYBOARD_SHORTCUTS.find((shortcut) => shortcut.id === 'open-repository')!;
 

@@ -44,6 +44,7 @@ import { KeyboardShortcutsModal } from '../KeyboardShortcutsModal';
 
 import { TerminalPanel } from './TerminalPanel';
 import { cn } from '@/lib/utils';
+import { getNextRecentRepositoryIndex } from '@/utils/recentRepositories';
 import type { AppState, V1ReviewItem, V2ReviewFile, V2ReviewItem } from '@/types';
 import type { PrimaryAction } from '@/utils/primaryAction';
 import { buildDiagnosticGroups, formatDiagnosticGroupForClipboard, type DiagnosticGroup } from '@/utils/diagnostics';
@@ -158,6 +159,9 @@ export function WorkspaceShell({
           break;
         case 'open-recent-repositories':
           setShowRecentRepositories(true);
+          break;
+        case 'open-history':
+          updateState({ isRightPanelCollapsed: false, rightPanelOwner: 'history' });
           break;
         case 'open-intake-file':
           void uploadIntake();
@@ -347,6 +351,7 @@ function WorkspaceTopBar({
   const [recentProjects, setRecentProjects] = useState<string[]>([]);
   const [selectedRecentProject, setSelectedRecentProject] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const recentTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     window.inscribeAPI.getRecentProjects().then(setRecentProjects);
@@ -365,8 +370,38 @@ function WorkspaceTopBar({
 
   useEffect(() => {
     if (!showRecentRepositories) return;
-    dropdownRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    dropdownRef.current?.querySelector<HTMLButtonElement>('[data-recent-item="true"]')?.focus();
   }, [recentProjects, showRecentRepositories]);
+
+  const handleRecentKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const recentItems = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[data-recent-item="true"]'),
+    );
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onShowRecentRepositoriesChange(false);
+      recentTriggerRef.current?.focus();
+      return;
+    }
+    if (recentItems.length === 0) return;
+
+    const currentIndex = recentItems.indexOf(document.activeElement as HTMLButtonElement);
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowDown') {
+      nextIndex = getNextRecentRepositoryIndex(currentIndex, recentItems.length, 'next');
+    } else if (event.key === 'ArrowUp') {
+      nextIndex = getNextRecentRepositoryIndex(currentIndex, recentItems.length, 'previous');
+    } else if (event.key === 'Home') {
+      nextIndex = getNextRecentRepositoryIndex(currentIndex, recentItems.length, 'first');
+    } else if (event.key === 'End') {
+      nextIndex = getNextRecentRepositoryIndex(currentIndex, recentItems.length, 'last');
+    }
+
+    if (nextIndex !== null) {
+      event.preventDefault();
+      recentItems[nextIndex]?.focus();
+    }
+  };
 
   const requireRepository = (action: () => void, message: string) => {
     if (!hasRepository) {
@@ -408,6 +443,7 @@ function WorkspaceTopBar({
           />
           {recentProjects.length > 0 && (
             <button
+              ref={recentTriggerRef}
               className="absolute right-1.5 rounded-sm p-1 hover:bg-accent hover:text-accent-foreground"
               onClick={() => onShowRecentRepositoriesChange(!showRecentRepositories)}
               title={`Recent projects (${getKeyboardShortcutDisplay('open-recent-repositories')})`}
@@ -419,6 +455,7 @@ function WorkspaceTopBar({
           {showRecentRepositories && (
             <div
               ref={dropdownRef}
+              onKeyDown={handleRecentKeyDown}
               data-inscribe-shortcut-overlay="true"
               className="absolute left-0 top-full z-[100] mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-lg"
             >
@@ -428,6 +465,7 @@ function WorkspaceTopBar({
               {recentProjects.length > 0 ? recentProjects.map((path) => (
                 <button
                   key={path}
+                  data-recent-item="true"
                   className="w-full truncate px-3 py-2 text-left text-xs hover:bg-accent hover:text-accent-foreground"
                   onClick={() => handleRecentClick(path)}
                   title={path}
@@ -440,6 +478,7 @@ function WorkspaceTopBar({
                 <div className="px-3 py-3 text-xs text-muted-foreground">
                   <p>No recent repositories yet.</p>
                   <Button
+                    data-recent-item="true"
                     variant="outline"
                     size="sm"
                     className="mt-2 h-7"
@@ -502,7 +541,7 @@ function WorkspaceTopBar({
         <ChromeButton
           active={state.rightPanelOwner === 'history' && !state.isRightPanelCollapsed}
           onClick={() => updateState({ isRightPanelCollapsed: false, rightPanelOwner: 'history' })}
-          title="History"
+          title={`History (${getKeyboardShortcutDisplay('open-history')})`}
         >
           <History className="h-3.5 w-3.5" />
         </ChromeButton>

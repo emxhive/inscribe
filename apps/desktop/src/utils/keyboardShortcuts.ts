@@ -2,6 +2,7 @@ export type KeyboardShortcutId =
   | 'paste-intake'
   | 'open-repository'
   | 'open-recent-repositories'
+  | 'open-history'
   | 'open-intake-file'
   | 'toggle-terminal'
   | 'show-keyboard-shortcuts'
@@ -42,6 +43,14 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcut[] = [
     display: 'Ctrl+P',
     key: 'p',
     code: 'KeyP',
+  },
+  {
+    id: 'open-history',
+    label: 'Open History',
+    description: 'Show the repository history panel.',
+    display: 'Ctrl+H',
+    key: 'h',
+    code: 'KeyH',
   },
   {
     id: 'open-intake-file',

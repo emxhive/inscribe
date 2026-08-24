@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,12 +19,36 @@ export function Modal({
   footer,
   size = 'default',
 }: ModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+
+      const openModals = document.querySelectorAll<HTMLElement>('[data-inscribe-modal="true"]');
+      if (openModals[openModals.length - 1] !== modalRef.current) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <div 
       className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[1000] backdrop-blur-sm" 
       data-inscribe-shortcut-overlay="true"
+      data-inscribe-modal="true"
+      role="dialog"
+      aria-modal="true"
+      ref={modalRef}
       onClick={onClose}
     >
       <div 

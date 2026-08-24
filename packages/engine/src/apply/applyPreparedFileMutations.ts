@@ -400,7 +400,10 @@ export function applyPreparedFileMutations(
   const historyEntries: HistoryEntry[] = [];
 
   for (const execution of executions) {
-    const restoreEntry = buildRestoreEntry(execution, repoRoot, applyId, appliedAt);
+    const restoreEntry = buildRestoreEntry(execution, repoRoot, applyId, appliedAt, {
+      protocol: 'v2',
+      actionType: 'apply',
+    });
     historyEntries.push(restoreEntry);
   }
 

@@ -95,6 +95,12 @@ const api = {
   markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) =>
     ipcRenderer.invoke('history-mark-restored', repoRoot, entryId, restoredAt),
 
+  previewV2Restore: (repoRoot: string, actionId: string) =>
+    ipcRenderer.invoke('history-v2-preview-restore', repoRoot, actionId),
+
+  restoreV2Action: (repoRoot: string, actionId: string): Promise<ApplyResult> =>
+    ipcRenderer.invoke('history-v2-restore', repoRoot, actionId),
+
   terminalCreate: (options: import('./types').TerminalCreateOptions) =>
     ipcRenderer.invoke('terminal-create', options),
 

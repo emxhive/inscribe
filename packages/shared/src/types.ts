@@ -175,6 +175,15 @@ export interface RestorePayloadV2 {
 export interface HistoryEntry {
   id: string;
   applyId: string;
+  /** V2 action identity. Older entries use applyId as their action identity. */
+  actionId?: string;
+  /** Immutable V2 timeline event kind. */
+  actionType?: 'apply' | 'restore';
+  /** The V2 history entry/action this restore reverses. */
+  sourceEntryId?: string;
+  sourceActionId?: string;
+  /** Identifies entries written by the current V2 apply path. */
+  protocol?: 'v2';
   file: string;
   mode: Mode;
   createdAt: string;
@@ -185,6 +194,32 @@ export interface HistoryEntry {
   restorePayload?: RestorePayloadV2;
   blockIndex?: number;
   restoredAt?: string;
+}
+
+export interface V2RestorePreviewFile {
+  entryId: string;
+  sourceEntryId?: string;
+  file: string;
+  mode: Mode;
+  currentExists: boolean;
+  currentContent: string;
+  restoredState?: {
+    exists: boolean;
+    content: string;
+  };
+  diffHunks?: import('./v2/comparisons').V2DiffHunk[];
+  eligible: boolean;
+  error?: string;
+}
+
+export interface V2RestorePreview {
+  actionId: string;
+  actionType?: 'apply' | 'restore';
+  createdAt?: string;
+  sourceActionId?: string;
+  files: V2RestorePreviewFile[];
+  eligible: boolean;
+  error?: string;
 }
 
 export interface ParseWarning {

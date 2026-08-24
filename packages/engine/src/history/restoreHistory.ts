@@ -16,17 +16,32 @@ export function buildRestoreEntry(
   repoRoot: string,
   applyId: string,
   appliedAt: string,
+  metadata: {
+    protocol?: 'v2';
+    actionType?: 'apply' | 'restore';
+    sourceEntryId?: string;
+    sourceActionId?: string;
+    modeOverride?: Operation['type'];
+  } = {},
 ): HistoryEntry {
   const { operation, beforeContent, afterContent, operationIndex } = execution;
 
-  const restorePayload = buildRestorePayload(operation.type, operation.file, beforeContent, afterContent);
-  const restoreOperation = buildRestoreOperation(operation, restorePayload);
+  const historyOperation = metadata.modeOverride
+    ? { ...operation, type: metadata.modeOverride }
+    : operation;
+  const restorePayload = buildRestorePayload(historyOperation.type, operation.file, beforeContent, afterContent);
+  const restoreOperation = buildRestoreOperation(historyOperation, restorePayload);
 
   return {
     id: `${applyId}:${operationIndex}`,
     applyId,
+    actionId: applyId,
+    actionType: metadata.actionType ?? 'apply',
+    sourceEntryId: metadata.sourceEntryId,
+    sourceActionId: metadata.sourceActionId,
+    protocol: metadata.protocol,
     file: operation.file,
-    mode: operation.type,
+    mode: historyOperation.type,
     createdAt: appliedAt,
     restoreOperation, // Deprecated compatibility data for persisted history/UI display
     restorePayload,

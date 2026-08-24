@@ -1,7 +1,7 @@
 import { getReviewApplySummary } from './review';
 import type { AppState } from '@/types';
 
-export type PrimaryActionId = 'parse' | 'review-v2-partial' | 'apply-all';
+export type PrimaryActionId = 'parse' | 'review-v2-partial' | 'apply-all' | 'history-restore' | 'none';
 
 export interface PrimaryAction {
   id: PrimaryActionId;
@@ -15,15 +15,41 @@ type PrimaryActionState = Pick<
   | 'repoRoot'
   | 'isParsingInProgress'
   | 'isApplyingInProgress'
+  | 'isRestoringInProgress'
   | 'v2ReviewFiles'
   | 'reviewItems'
   | 'reviewPreflightByItem'
   | 'v2PreviewSession'
   | 'v2PreviewDiagnostics'
   | 'pipelineStatus'
+  | 'v2HistoryReview'
+  | 'legacyHistoryReview'
 >;
 
 export function resolvePrimaryAction(state: PrimaryActionState): PrimaryAction {
+  if (state.v2HistoryReview.actionId) {
+    if (state.v2HistoryReview.isLoading) {
+      return { id: 'history-restore', label: 'Checking restore...', enabled: false };
+    }
+
+    return {
+      id: 'history-restore',
+      label: state.v2HistoryReview.preview?.eligible ? 'Restore action' : 'Restore unavailable',
+      enabled: Boolean(state.v2HistoryReview.preview?.eligible)
+        && !state.v2HistoryReview.isRestoring
+        && !state.isApplyingInProgress
+        && !state.isRestoringInProgress,
+    };
+  }
+
+  if (state.legacyHistoryReview.applyId) {
+    return { id: 'none', label: 'History inspection', enabled: false };
+  }
+
+  if (state.isRestoringInProgress) {
+    return { id: 'none', label: 'Restoring...', enabled: false };
+  }
+
   if (state.mode === 'intake') {
     const hasPartialV2Preview =
       state.pipelineStatus === 'parse-partial' &&

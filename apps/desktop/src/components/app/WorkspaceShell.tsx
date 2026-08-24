@@ -13,7 +13,6 @@ import {
   Loader2,
   PanelLeft,
   PanelRight,
-  RotateCcw,
   Save,
   Settings,
   SquareTerminal,
@@ -25,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/common';
 import { FileListEntry } from '@/components/common/FileListEntry';
-import { useAppStateContext, useApplyActions, useHistoryActions, useIntakeBlocks, useParsingActions, usePrimaryAction, useRepositoryActions, useReviewActions } from '@/hooks';
+import { useAppStateContext, useApplyActions, useIntakeBlocks, useParsingActions, usePrimaryAction, useRepositoryActions, useReviewActions, useHistoryActions } from '@/hooks';
 import {
   getLanguageFromFilename,
   getPathBasename,
@@ -39,6 +38,8 @@ import { updateDirectiveInText } from '@/utils/intake';
 import { FileSidebar, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from './FileSidebar';
 import { IntakePanel } from './IntakePanel';
 import { ReviewPanel } from './ReviewPanel';
+import { HistoryReviewPanel } from './HistoryReviewPanel';
+import { LegacyHistoryReviewPanel } from './LegacyHistoryReviewPanel';
 import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
 import { KeyboardShortcutsModal } from '../KeyboardShortcutsModal';
 
@@ -243,8 +244,10 @@ export function WorkspaceShell({
               Restoring last repository...
             </div>
           )}
-          {!state.isRestoringRepo && state.mode === 'intake' && <IntakePanel />}
-          {!state.isRestoringRepo && state.mode === 'review' && <ReviewPanel />}
+          {!state.isRestoringRepo && state.v2HistoryReview.actionId && <HistoryReviewPanel />}
+          {!state.isRestoringRepo && !state.v2HistoryReview.actionId && state.legacyHistoryReview.applyId && <LegacyHistoryReviewPanel />}
+          {!state.isRestoringRepo && !state.v2HistoryReview.actionId && !state.legacyHistoryReview.applyId && state.mode === 'intake' && <IntakePanel />}
+          {!state.isRestoringRepo && !state.v2HistoryReview.actionId && !state.legacyHistoryReview.applyId && state.mode === 'review' && <ReviewPanel />}
         </main>
         {!state.isRightPanelCollapsed && <RightPanel />}
       </div>
@@ -665,6 +668,7 @@ function WorkspaceBottomBar({
     state.v2PreviewDiagnostics.length > 0 &&
     state.reviewItems.length > 0 &&
     state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
+  const isHistoryReviewActive = Boolean(state.v2HistoryReview.actionId || state.legacyHistoryReview.applyId);
 
   const selectedHunkIndex = state.selectedHunkId
     ? 0
@@ -698,7 +702,7 @@ function WorkspaceBottomBar({
         <span className="truncate" title={statusText}>{statusText}</span>
       </div>
 
-      {state.mode === 'intake' && (
+      {!isHistoryReviewActive && state.mode === 'intake' && (
         <>
           {hasPartialV2Preview && (
             <Button
@@ -726,7 +730,7 @@ function WorkspaceBottomBar({
         </>
       )}
 
-      {state.mode === 'review' && (
+      {!isHistoryReviewActive && state.mode === 'review' && (
         <>
           {canReturnToPartialIntake && (
             <Button
@@ -1363,13 +1367,31 @@ function ReviewDirectiveEditor({
 
 function HistoryPanelContent() {
   const { state } = useAppStateContext();
-  const { restoreItem, restoreGroup } = useHistoryActions();
-  const activeItems = state.historyItems.filter((item) => !item.restoredAt);
-  const restoredItems = state.historyItems.filter((item) => !!item.restoredAt);
+  const { openV2RestoreReview, openLegacyHistoryReview } = useHistoryActions();
+  const v2Items = state.historyItems.filter((item) => item.protocol === 'v2');
+  const legacyItems = state.historyItems.filter((item) => item.protocol !== 'v2');
+  const activeLegacyItems = legacyItems.filter((item) => !item.restoredAt);
+  const restoredLegacyItems = legacyItems.filter((item) => Boolean(item.restoredAt));
 
   const groupedHistory = useMemo(() => {
-    const groups = new Map<string, typeof activeItems>();
-    activeItems.forEach((item) => {
+    const groups = new Map<string, typeof v2Items>();
+    v2Items.forEach((item) => {
+      const actionId = item.actionId ?? item.applyId;
+      const group = groups.get(actionId) ?? [];
+      group.push(item);
+      groups.set(actionId, group);
+    });
+    return Array.from(groups.entries()).map(([actionId, items]) => ({
+      actionId,
+      items,
+      createdAt: items[0]?.createdAt,
+      actionType: items[0]?.actionType ?? 'apply',
+    })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [v2Items]);
+
+  const groupedLegacyHistory = useMemo(() => {
+    const groups = new Map<string, typeof activeLegacyItems>();
+    activeLegacyItems.forEach((item) => {
       const group = groups.get(item.applyId) ?? [];
       group.push(item);
       groups.set(item.applyId, group);
@@ -1379,7 +1401,7 @@ function HistoryPanelContent() {
       items,
       createdAt: items[0]?.createdAt,
     })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [activeItems]);
+  }, [activeLegacyItems]);
 
   const formatTimestamp = (timestamp?: string) => {
     if (!timestamp) return 'Unknown time';
@@ -1390,99 +1412,138 @@ function HistoryPanelContent() {
 
   return (
     <div className="space-y-4 py-3">
-      {groupedHistory.length === 0 && restoredItems.length === 0 && (
-        <p className="py-3 text-xs text-muted-foreground">No applied blocks to restore yet.</p>
+      {groupedHistory.length === 0 && groupedLegacyHistory.length === 0 && restoredLegacyItems.length === 0 && (
+        <p className="py-3 text-xs text-muted-foreground">No history recorded yet.</p>
       )}
 
       {groupedHistory.map((group) => (
-        <div key={group.applyId} className="border-b border-border pb-4">
-          <div className="mb-2 flex items-start justify-between gap-2">
+        <button
+          key={group.actionId}
+          type="button"
+          className={cn(
+            'w-full border-b border-border px-1 pb-3 text-left transition-colors hover:bg-secondary/40',
+            state.v2HistoryReview.actionId === group.actionId && 'bg-primary/5',
+          )}
+          onClick={() => openV2RestoreReview(group.actionId)}
+          disabled={state.isRestoringInProgress || state.v2HistoryReview.isLoading || state.v2HistoryReview.isRestoring}
+        >
+          <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="text-[10px] text-muted-foreground">Applied {formatTimestamp(group.createdAt)}</p>
-              <p className="text-xs font-semibold">{group.items.length} block{group.items.length === 1 ? '' : 's'}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {group.actionType === 'restore' ? 'Restored' : 'Applied'} {formatTimestamp(group.createdAt)}
+              </p>
+              <p className="text-xs font-semibold">
+                {group.items.length} file{group.items.length === 1 ? '' : 's'}
+              </p>
             </div>
-            {group.items.length > 1 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                type="button"
-                onClick={() => restoreGroup(group.applyId)}
-                disabled={state.isRestoringInProgress}
-                className="h-7 w-7"
-                aria-label="Restore all changes in this apply"
-                title="Restore all"
-              >
-                <RotateCcw className="h-3 w-3" />
-              </Button>
-            )}
+            <span className="text-[10px] text-muted-foreground">Inspect</span>
           </div>
-          <div className="space-y-1">
-            {group.items.map((item) => {
-              const meta = item.restoreMeta ?? {
-                file: item.file,
-                lineCount: item.restorePayload?.newContent.split('\n').length ?? 0,
-                language: getLanguageFromFilename(item.file),
-                mode: item.mode,
-              };
-              return (
-                <FileListEntry
-                  key={item.id}
-                  file={meta.file}
-                  lineCount={meta.lineCount}
-                  language={meta.language}
-                  mode={meta.mode}
-                  status="applied"
-                  actions={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      type="button"
-                      className="h-6 w-6"
-                      onClick={() => restoreItem(item)}
-                      disabled={state.isRestoringInProgress}
-                      aria-label={`Restore ${meta.file}`}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
-                  }
-                  actionPlacement="top"
-                />
-              );
-            })}
-          </div>
-        </div>
+          <p className="mt-1 truncate text-[11px] text-muted-foreground">
+            {group.items.map((item) => item.file).join(', ')}
+          </p>
+          {group.actionType === 'restore' && group.items[0]?.sourceActionId && (
+            <p className="mt-1 truncate text-[10px] text-primary/80">
+              Reverses action {group.items[0].sourceActionId}
+            </p>
+          )}
+        </button>
       ))}
 
-      {restoredItems.length > 0 && (
-        <div className="mt-6">
-          <div className="mb-2 border-b border-border pb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Restored</span>
-          </div>
-          <div className="space-y-1 opacity-60 grayscale-[0.5]">
-            {restoredItems.sort((a, b) => (b.restoredAt || '').localeCompare(a.restoredAt || '')).map((item) => {
-              const meta = item.restoreMeta ?? {
-                file: item.file,
-                lineCount: item.restorePayload?.newContent.split('\n').length ?? 0,
-                language: getLanguageFromFilename(item.file),
-                mode: item.mode,
-              };
-              return (
-                <div key={item.id} className="relative">
-                   <FileListEntry
-                    file={meta.file}
-                    lineCount={meta.lineCount}
-                    language={meta.language}
-                    mode={meta.mode}
-                    status="applied"
-                  />
-                  <div className="mt-0.5 px-2 text-[9px] text-muted-foreground">
-                    Restored {formatTimestamp(item.restoredAt)}
+      {groupedLegacyHistory.length > 0 && (
+        <section className="border-t border-border pt-3">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Legacy history</p>
+          <div className="space-y-4">
+            {groupedLegacyHistory.map((group) => (
+              <div
+                key={group.applyId}
+                role="button"
+                tabIndex={state.isRestoringInProgress ? -1 : 0}
+                aria-disabled={state.isRestoringInProgress}
+                className={cn(
+                  'w-full border-b border-border pb-4 text-left transition-colors hover:bg-secondary/40',
+                  state.isRestoringInProgress && 'pointer-events-none opacity-60',
+                )}
+                onClick={() => {
+                  if (!state.isRestoringInProgress) openLegacyHistoryReview(group.applyId);
+                }}
+                onKeyDown={(event) => {
+                  if (!state.isRestoringInProgress && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    openLegacyHistoryReview(group.applyId);
+                  }
+                }}
+              >
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Applied {formatTimestamp(group.createdAt)}</p>
+                    <p className="text-xs font-semibold">{group.items.length} block{group.items.length === 1 ? '' : 's'}</p>
                   </div>
+                  <span className="text-[10px] text-muted-foreground">Inspect</span>
                 </div>
-              );
-            })}
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const meta = item.restoreMeta ?? {
+                      file: item.file,
+                      lineCount: item.restoreOperation?.content.split('\n').length ?? 0,
+                      language: getLanguageFromFilename(item.file),
+                      mode: item.mode,
+                    };
+                    return (
+                      <FileListEntry
+                        key={item.id}
+                        file={meta.file}
+                        lineCount={meta.lineCount}
+                        language={meta.language}
+                        mode={meta.mode}
+                        status="applied"
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
+      )}
+
+      {restoredLegacyItems.length > 0 && (
+        <section className="mt-6 border-t border-border pt-3">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Restored legacy history</p>
+          <div className="space-y-1 opacity-60 grayscale-[0.5]">
+            {restoredLegacyItems.sort((a, b) => (b.restoredAt || '').localeCompare(a.restoredAt || '')).map((item) => (
+              <div
+                key={item.id}
+                role="button"
+                tabIndex={state.isRestoringInProgress ? -1 : 0}
+                aria-disabled={state.isRestoringInProgress}
+                className={cn(
+                  'w-full text-left transition-colors hover:bg-secondary/40',
+                  state.isRestoringInProgress && 'pointer-events-none opacity-60',
+                )}
+                onClick={() => {
+                  if (!state.isRestoringInProgress) openLegacyHistoryReview(item.applyId);
+                }}
+                onKeyDown={(event) => {
+                  if (!state.isRestoringInProgress && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    openLegacyHistoryReview(item.applyId);
+                  }
+                }}
+              >
+                <FileListEntry
+                  file={item.file}
+                  lineCount={item.restoreOperation?.content.split('\n').length ?? 0}
+                  language={getLanguageFromFilename(item.file)}
+                  mode={item.mode}
+                  status="applied"
+                />
+                <div className="mt-0.5 px-2 text-[9px] text-muted-foreground">
+                  Restored {formatTimestamp(item.restoredAt)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

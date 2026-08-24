@@ -12,6 +12,7 @@ import type {
   V2OperationStrategy,
   V2TargetScope,
   PreviewV2ErrorDTO,
+  V2RestorePreview,
 } from '@inscribe/shared';
 
 /**
@@ -113,6 +114,19 @@ export interface HistoryItem extends HistoryEntry {
   };
 }
 
+export interface V2HistoryReviewState {
+  actionId: string | null;
+  requestId: string | null;
+  preview: V2RestorePreview | null;
+  isLoading: boolean;
+  isRestoring: boolean;
+  error: string | null;
+}
+
+export interface LegacyHistoryReviewState {
+  applyId: string | null;
+}
+
 export interface AppState {
   // Repository state
   repoRoot: string | null;
@@ -177,4 +191,6 @@ export interface AppState {
 
   // Restore history
   historyItems: HistoryItem[];
+  v2HistoryReview: V2HistoryReviewState;
+  legacyHistoryReview: LegacyHistoryReviewState;
 }

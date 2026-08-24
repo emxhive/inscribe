@@ -57,6 +57,17 @@ export const initialState: AppState = {
   canUndoApply: false,
   v2PreviewSession: null,
   historyItems: [],
+  v2HistoryReview: {
+    actionId: null,
+    requestId: null,
+    preview: null,
+    isLoading: false,
+    isRestoring: false,
+    error: null,
+  },
+  legacyHistoryReview: {
+    applyId: null,
+  },
 };
 
 export function useAppState() {

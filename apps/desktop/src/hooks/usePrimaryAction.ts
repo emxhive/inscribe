@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { resolvePrimaryAction, type PrimaryAction } from '@/utils/primaryAction';
 import { useAppStateContext } from './useAppStateContext';
 import { useApplyActions } from './useApplyActions';
+import { useHistoryActions } from './useHistoryActions';
 import { useParsingActions } from './useParsingActions';
 
 export function usePrimaryAction(): {
@@ -11,6 +12,7 @@ export function usePrimaryAction(): {
   const { state, updateState } = useAppStateContext();
   const { handleParseBlocks } = useParsingActions();
   const { handleApplyAll } = useApplyActions();
+  const { restoreV2ReviewedAction } = useHistoryActions();
   const action = resolvePrimaryAction(state);
 
   const run = useCallback(() => {
@@ -30,8 +32,13 @@ export function usePrimaryAction(): {
       case 'apply-all':
         void handleApplyAll();
         break;
+      case 'history-restore':
+        void restoreV2ReviewedAction();
+        break;
+      case 'none':
+        break;
     }
-  }, [action, handleApplyAll, handleParseBlocks, state.v2ReviewFiles.length, updateState]);
+  }, [action, handleApplyAll, handleParseBlocks, restoreV2ReviewedAction, state.v2ReviewFiles.length, updateState]);
 
   return { action, run };
 }

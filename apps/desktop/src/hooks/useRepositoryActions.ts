@@ -85,6 +85,8 @@ export function useRepositoryActions() {
       lastApplyId: null,
       canUndoApply: false,
       historyItems: [],
+      v2HistoryReview: initialState.v2HistoryReview,
+      legacyHistoryReview: initialState.legacyHistoryReview,
       collapsedHunkIdsByItem: {},
       collapsedHunkIdsByFile: {},
       collapsedDiffGroupIdsByItem: {},

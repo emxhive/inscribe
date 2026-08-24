@@ -695,7 +695,7 @@ export function ReviewPanel() {
   );
 }
 
-function UnifiedDiffView({
+export function UnifiedDiffView({
   model,
   selectedHunkId,
   collapsedHunkIds,

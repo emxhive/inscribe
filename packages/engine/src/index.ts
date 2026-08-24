@@ -40,5 +40,9 @@ export {
   type RestoreRequest,
 } from './history/restoreExecution';
 export { restoreEntry } from './history/restoreEntry';
+export {
+  previewV2RestoreAction,
+  restoreV2Action,
+} from './history/v2HistoryRestore';
 
 export * as v2 from './v2';

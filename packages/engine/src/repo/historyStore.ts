@@ -20,10 +20,20 @@ function readHistoryEntries(repoRoot: string): HistoryEntry[] {
   try {
     const raw = fs.readFileSync(storePath, 'utf-8');
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeHistoryEntry) : [];
   } catch {
     return [];
   }
+}
+
+function normalizeHistoryEntry(entry: HistoryEntry): HistoryEntry {
+  // Do not infer a protocol from optional fields. Unmarked records remain
+  // legacy history and cannot enter the strict V2 restore path.
+  return {
+    ...entry,
+    actionId: entry.actionId ?? entry.applyId,
+    actionType: entry.actionType ?? 'apply',
+  };
 }
 
 function writeHistoryEntries(repoRoot: string, entries: HistoryEntry[]): void {

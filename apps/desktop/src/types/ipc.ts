@@ -10,6 +10,7 @@ import type {
   ParsedBlock,
   ValidationError,
   HistoryEntry,
+  V2RestorePreview,
 } from '@inscribe/shared';
 import type { PreviewV2IpcArgs, PreviewV2WorkerResponse } from '../ipc/previewV2Types';
 import type { ApplyV2IpcArgs, ApplyV2WorkerResponse } from '../ipc/applyV2Types';
@@ -99,6 +100,8 @@ export interface InscribeAPI {
   compareOperation: (operation: Operation, repoRoot: string) => Promise<OperationComparisonResult>;
   getHistoryEntries: (repoRoot: string) => Promise<HistoryEntry[]>;
   markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) => Promise<boolean>;
+  previewV2Restore: (repoRoot: string, actionId: string) => Promise<V2RestorePreview>;
+  restoreV2Action: (repoRoot: string, actionId: string) => Promise<ApplyResult>;
   terminalCreate: (options: TerminalCreateOptions) => Promise<TerminalSessionInfo>;
   terminalWrite: (sessionId: string, data: string) => Promise<boolean>;
   terminalResize: (sessionId: string, cols: number, rows: number) => Promise<boolean>;

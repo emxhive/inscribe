@@ -4,25 +4,57 @@ import { windowManager } from './windowManager';
 import { dispose as disposeEngineWorker } from './ipc/engineWorkerClient';
 import './recentProjects';
 
-// Register all IPC handlers
-registerAllHandlers();
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
-app.on('ready', () => {
-  windowManager.createWindow();
-});
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  // Register all IPC handlers only in the owning process.
+  registerAllHandlers();
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+  let isReady = false;
+  let pendingSecondInstances = 0;
 
-app.on('will-quit', () => {
-  disposeEngineWorker();
-});
+  const createAndFocusWindow = () => {
+    const win = windowManager.createWindow();
+    if (win.isMinimized()) {
+      win.restore();
+    }
+    win.focus();
+  };
 
-app.on('activate', () => {
-  if (!windowManager.hasOpenWindows()) {
-    windowManager.createWindow();
-  }
-});
+  app.on('second-instance', () => {
+    if (!isReady) {
+      pendingSecondInstances += 1;
+      return;
+    }
+
+    createAndFocusWindow();
+  });
+
+  app.on('ready', () => {
+    isReady = true;
+    createAndFocusWindow();
+
+    while (pendingSecondInstances > 0) {
+      pendingSecondInstances -= 1;
+      createAndFocusWindow();
+    }
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
+  });
+
+  app.on('will-quit', () => {
+    disposeEngineWorker();
+  });
+
+  app.on('activate', () => {
+    if (!windowManager.hasOpenWindows()) {
+      createAndFocusWindow();
+    }
+  });
+}

@@ -1,5 +1,6 @@
-import { BrowserWindow, app, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import { getWindowTitle } from './utils/windowTitle';
 
 export class WindowManager {
@@ -14,8 +15,10 @@ export class WindowManager {
   }
 
   createWindow(repoRoot?: string): BrowserWindow {
-    const isDev = !app.isPackaged;
     const devServerUrl = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_RENDERER_URL;
+    // A local `electron dist/main.js` launch is unpackaged too, but should load
+    // the built renderer when no dev server URL was supplied.
+    const isDev = Boolean(devServerUrl);
 
     // In production, __dirname is where main.js is. renderer/index.html is relative to it.
     // Based on main.ts: const startUrl = isDev ? ... : `file://${path.join(__dirname, 'renderer/index.html')}`;
@@ -39,7 +42,7 @@ export class WindowManager {
 
       startUrl = devServerUrl;
     } else {
-      startUrl = `file://${path.join(__dirname, 'renderer/index.html')}`;
+      startUrl = pathToFileURL(path.join(__dirname, 'renderer/index.html')).toString();
     }
 
     win.loadURL(startUrl);

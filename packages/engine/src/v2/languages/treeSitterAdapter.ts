@@ -1,5 +1,8 @@
 import Parser from 'web-tree-sitter';
-import { treeSitterRangeToJsRange } from '../structural/treeSitterRangeToJsRange';
+import {
+  treeSitterByteRangeToJsRange,
+  treeSitterRangeToJsRange,
+} from '../structural/treeSitterRangeToJsRange';
 import {
   createParser,
   initTreeSitter,
@@ -16,13 +19,30 @@ import {
 /**
  * Internal Tree-sitter candidate shape used by adapter implementations.
  *
- * `replacementNode` is deliberately required: a semantic match node is not
- * sufficient when the logical replacement boundary is an enclosing wrapper.
+ * `replacement` is deliberately required: a semantic match node is not
+ * sufficient when the logical replacement boundary is an enclosing wrapper
+ * or a declaration assembled from sibling nodes.
  */
+export interface TreeSitterReplacementRange {
+  /** Tree-sitter offsets for the logical replacement boundary. */
+  startIndex: number;
+  endIndex: number;
+  /**
+   * Optional logical text for runtimes whose node indexes are already JS
+   * offsets. Without it, the range is interpreted as UTF-8 byte offsets.
+   */
+  text?: string;
+}
+
+export type TreeSitterReplacement =
+  | { type: 'node'; node: Parser.SyntaxNode }
+  | { type: 'range'; range: TreeSitterReplacementRange };
+
 export interface TreeSitterReplacementCandidate {
   kind: StructuralKind;
   name?: string;
-  replacementNode: Parser.SyntaxNode;
+  /** The logical replacement boundary, never merely the semantic match node. */
+  replacement: TreeSitterReplacement;
 }
 
 export interface TreeSitterLanguageAdapterDefinition {
@@ -84,7 +104,14 @@ export function createTreeSitterLanguageAdapter(
         }
 
         return definition.collectCandidates(tree.rootNode, query).map((candidate) => {
-          const range = treeSitterRangeToJsRange(query.source, candidate.replacementNode);
+          const range = candidate.replacement.type === 'node'
+            ? treeSitterRangeToJsRange(query.source, candidate.replacement.node)
+            : candidate.replacement.range.text !== undefined
+              ? treeSitterRangeToJsRange(query.source, {
+                ...candidate.replacement.range,
+                text: candidate.replacement.range.text,
+              })
+              : treeSitterByteRangeToJsRange(query.source, candidate.replacement.range);
           return {
             kind: candidate.kind,
             name: candidate.name,

@@ -191,6 +191,41 @@ INSCRIBE>>>`,
     expect(fs.readFileSync(path.join(repoRoot, 'component.tsx'), 'utf8')).toBe(originalCode);
   });
 
+  it('preview replace_node in .dart through the production registry', async () => {
+    const originalCode = `class MyWidget extends StatelessWidget {
+  @override
+  Widget build(Object context) {
+    return Widget();
+  }
+}
+`;
+    fs.writeFileSync(path.join(repoRoot, 'widget.dart'), originalCode);
+
+    const payload = {
+      rawInput: `<<<INSCRIBE
+FILE: widget.dart
+MODE: replace_node
+SELECTOR: class:MyWidget > method:build
+<<<CONTENT
+  @override
+  Widget build(Object context) {
+    return UpdatedWidget();
+  }
+CONTENT>>>
+INSCRIBE>>>`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewV2Worker(payload);
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.executions.length).toBe(1);
+      expect(response.executions[0].afterContent).toContain('UpdatedWidget');
+    }
+    expect(fs.readFileSync(path.join(repoRoot, 'widget.dart'), 'utf8')).toBe(originalCode);
+  });
+
   it('sequential combinations: create_file -> replace_text', async () => {
     const payload = {
       rawInput: `<<<INSCRIBE
@@ -643,6 +678,7 @@ INSCRIBE>>>`,
         languageWasmPaths: {
           typescript: '/missing/ts.wasm',
           tsx: '/missing/tsx.wasm',
+          dart: '/missing/dart.wasm',
         },
       },
     };
@@ -745,6 +781,7 @@ INSCRIBE>>>`,
           languageWasmPaths: {
             typescript: '',
             tsx: '',
+            dart: '',
           },
         },
       } as any;

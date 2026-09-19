@@ -9,6 +9,7 @@ describe('Tree-sitter Asset Locator', () => {
     expect(fs.existsSync(assets.coreWasmPath)).toBe(true);
     expect(fs.existsSync(assets.languageWasmPaths.typescript)).toBe(true);
     expect(fs.existsSync(assets.languageWasmPaths.tsx)).toBe(true);
+    expect(fs.existsSync(assets.languageWasmPaths.dart)).toBe(true);
   });
 
   it('packaged seam derives from injected resourcesPath', () => {
@@ -17,5 +18,6 @@ describe('Tree-sitter Asset Locator', () => {
       resourcesPath: '/packaged/resources',
     });
     expect(paths.coreWasmPath).toBe(path.resolve('/packaged/resources', 'tree-sitter.wasm'));
+    expect(paths.languageWasmPaths.dart).toBe(path.resolve('/packaged/resources', 'tree-sitter-dart.wasm'));
   });
 });

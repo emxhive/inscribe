@@ -67,7 +67,8 @@ export async function runPreviewV2Worker(
     !payload.assetPaths.languageWasmPaths ||
     typeof payload.assetPaths.languageWasmPaths !== 'object' ||
     typeof payload.assetPaths.languageWasmPaths.typescript !== 'string' ||
-    typeof payload.assetPaths.languageWasmPaths.tsx !== 'string'
+    typeof payload.assetPaths.languageWasmPaths.tsx !== 'string' ||
+    typeof payload.assetPaths.languageWasmPaths.dart !== 'string'
   ) {
     return {
       ok: false,
@@ -168,6 +169,7 @@ export async function runPreviewV2Worker(
 
     const languageRegistry = v2.createV2LanguageRegistry([
       v2.createTypeScriptLanguageAdapter(assetPaths),
+      v2.createDartLanguageAdapter(assetPaths),
     ]);
     const structuralResolver = v2.createAdapterStructuralResolver(languageRegistry);
     const resolvedPlan = await v2.resolvePlan(operations, initialFiles, {

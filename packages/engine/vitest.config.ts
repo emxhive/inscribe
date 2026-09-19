@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    exclude: ['**/dist/**'],
     alias: {
       '@inscribe/shared': path.resolve(__dirname, '../shared/src'),
       '@inscribe/engine': path.resolve(__dirname, './src'),

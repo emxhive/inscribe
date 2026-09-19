@@ -35,7 +35,10 @@ function collectCandidates(
   return semanticMatches.map((semanticNode) => ({
     kind: finalKind,
     name: getNodeName(semanticNode),
-    replacementNode: getLogicalReplacementNode(semanticNode, finalKind),
+    replacement: {
+      type: 'node' as const,
+      node: getLogicalReplacementNode(semanticNode, finalKind),
+    },
   }));
 }
 

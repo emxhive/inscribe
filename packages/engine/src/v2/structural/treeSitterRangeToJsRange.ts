@@ -7,6 +7,22 @@ export function treeSitterRangeToJsRange(
     return { start: node.startIndex, end: node.endIndex };
   }
 
+  return treeSitterByteRangeToJsRange(source, node);
+}
+
+/**
+ * Converts a logical Tree-sitter byte range into JavaScript UTF-16 offsets.
+ *
+ * Tree-sitter declaration shapes are not always represented by one node. For
+ * example, Dart emits a function signature and its body as sibling nodes, so
+ * adapters can provide this range explicitly while keeping the same byte
+ * offset conversion used for parser nodes.
+ */
+export function treeSitterByteRangeToJsRange(
+  source: string,
+  range: { startIndex: number; endIndex: number },
+): { start: number; end: number } {
+
   // Fallback: UTF-8 byte offset to UTF-16 code unit mapping
   const encoder = new TextEncoder();
   const bytes = encoder.encode(source);
@@ -30,7 +46,7 @@ export function treeSitterRangeToJsRange(
   byteToCharIndex[byteIndex] = source.length;
 
   return {
-    start: byteToCharIndex[node.startIndex] ?? node.startIndex,
-    end: byteToCharIndex[node.endIndex] ?? node.endIndex,
+    start: byteToCharIndex[range.startIndex] ?? range.startIndex,
+    end: byteToCharIndex[range.endIndex] ?? range.endIndex,
   };
 }

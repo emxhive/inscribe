@@ -30,16 +30,29 @@ export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptio
   ];
   const tsxGrammarPath = tsxCandidates.find((c) => fs.existsSync(c)) || tsxCandidates[0];
 
+  const dartCandidates = [
+    path.resolve(monorepoRoot, 'packages/engine/assets/tree-sitter-dart.wasm'),
+    path.resolve(monorepoRoot, 'node_modules/tree-sitter-wasms/out/tree-sitter-dart.wasm'),
+    path.resolve(monorepoRoot, 'packages/engine/node_modules/tree-sitter-wasms/out/tree-sitter-dart.wasm'),
+  ];
+  const dartGrammarPath = dartCandidates.find((c) => fs.existsSync(c)) || dartCandidates[0];
+
   const devPaths: v2.TreeSitterAssetPaths = {
     coreWasmPath,
     languageWasmPaths: {
       typescript: typescriptGrammarPath,
       tsx: tsxGrammarPath,
+      dart: dartGrammarPath,
     },
   };
 
   if (options?.devPaths) {
-    Object.assign(devPaths, options.devPaths);
+    Object.assign(devPaths, options.devPaths, {
+      languageWasmPaths: {
+        ...devPaths.languageWasmPaths,
+        ...options.devPaths.languageWasmPaths,
+      },
+    });
   }
 
   // Packaged production app detection seam
@@ -62,10 +75,16 @@ export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptio
       languageWasmPaths: {
         typescript: path.resolve(resourcesPath, 'tree-sitter-typescript.wasm'),
         tsx: path.resolve(resourcesPath, 'tree-sitter-tsx.wasm'),
+        dart: path.resolve(resourcesPath, 'tree-sitter-dart.wasm'),
       },
     };
     if (options?.prodPaths) {
-      Object.assign(prodPaths, options.prodPaths);
+      Object.assign(prodPaths, options.prodPaths, {
+        languageWasmPaths: {
+          ...prodPaths.languageWasmPaths,
+          ...options.prodPaths.languageWasmPaths,
+        },
+      });
     }
     return prodPaths;
   }

@@ -208,7 +208,11 @@ describe('V2 language adapter contracts', () => {
         };
 
         const node = visit(rootNode);
-        return node ? [{ kind: 'function' as const, name: 'run', replacementNode: node }] : [];
+        return node ? [{
+          kind: 'function' as const,
+          name: 'run',
+          replacement: { type: 'node' as const, node },
+        }] : [];
       },
     }, {
       coreWasmPath: CORE_WASM,
@@ -231,7 +235,7 @@ describe('V2 language adapter contracts', () => {
       start: source.indexOf('function'),
       end: source.length,
     }]);
-    expect('replacementNode' in candidates[0]).toBe(false);
+    expect('replacement' in candidates[0]).toBe(false);
     expect(grammarIdForFile).toHaveBeenCalledWith('fixture.tsx');
 
     await adapter.resolveCandidates({
@@ -241,5 +245,42 @@ describe('V2 language adapter contracts', () => {
       path: [{ kind: 'function', name: 'run' }],
     });
     expect(grammarIdForFile).toHaveBeenCalledWith('fixture.ts');
+  });
+
+  it('converts explicit logical Tree-sitter ranges to UTF-16 candidates', async () => {
+    const source = '// 🚀\nfunction run() {}';
+    const start = source.indexOf('function');
+    const encoder = new TextEncoder();
+    const byteStart = encoder.encode(source.slice(0, start)).length;
+    const byteEnd = encoder.encode(source).length;
+    const adapter = createTreeSitterLanguageAdapter({
+      id: 'tree-sitter-range-test',
+      extensions: ['.ts'],
+      supportedKinds: ['function'],
+      grammarIdForFile: () => 'typescript',
+      collectCandidates: () => [{
+        kind: 'function',
+        name: 'run',
+        replacement: {
+          type: 'range',
+          range: { startIndex: byteStart, endIndex: byteEnd },
+        },
+      }],
+    }, {
+      coreWasmPath: CORE_WASM,
+      languageWasmPaths: { typescript: TS_WASM },
+    });
+
+    await expect(adapter.resolveCandidates({
+      source,
+      filePath: 'fixture.ts',
+      extension: '.ts',
+      path: [{ kind: 'function', name: 'run' }],
+    })).resolves.toEqual([{
+      kind: 'function',
+      name: 'run',
+      start,
+      end: source.length,
+    }]);
   });
 });

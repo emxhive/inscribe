@@ -32,7 +32,7 @@ INSCRIBE>>>
 | `replace_file` | `CONTENT` | Replace an entire file with complete content |
 | `delete_file` | — | Delete a file |
 | `replace_text` | `SEARCH` + `CONTENT` | Replace an exact text match |
-| `replace_node` | `SELECTOR` + `CONTENT` | Replace a structural node via Tree-sitter (`.ts`, `.tsx`) |
+| `replace_node` | `SELECTOR` + `CONTENT` | Replace a structural node via Tree-sitter (`.ts`, `.tsx`, `.dart`) |
 
 `replace_node` optionally accepts `STARTS_WITH` to disambiguate repeated structural targets (e.g. multiple `if_statement` nodes inside a function).
 
@@ -47,7 +47,10 @@ SELECTOR: class:UserService > method:save
 SELECTOR: function:resolvePlan > if_statement
 ```
 
-Supported kinds: `class`, `method`, `function`, `if_statement`.
+Supported kinds include `class`, `constructor`, `method`, `function`, `for_statement`,
+`while_statement`, `switch_statement`, and `if_statement`. Flutter-aware Dart files also
+support `widget`, `widget_subtree`, `builder_callback`, `event_callback`, `collection_if`,
+`collection_for`, and `builder_branch`.
 
 ## Payload Rules
 

@@ -31,7 +31,7 @@ Allowed cases:
 - Replace an entire file with complete content.
 - Delete a file intentionally.
 - Replace exact text using SEARCH + CONTENT.
-- Replace a TypeScript or TSX structural node using SELECTOR + CONTENT.
+- Replace a TypeScript, TSX, or Dart structural node using SELECTOR + CONTENT.
 
 ## 3. When not to use Inscribe V2
 
@@ -236,7 +236,7 @@ INSCRIBE>>>
 
 - `replace_node` uses Tree-sitter to locate a syntax node boundary.
 - Tree-sitter only locates the node; it does not generate the replacement, validate business logic, or complete incomplete code.
-- Supported languages: `.ts`, `.tsx`. No `.js` or `.jsx` support is claimed.
+- Supported languages: `.ts`, `.tsx`, and `.dart`. No `.js` or `.jsx` support is claimed. Dart files may also use the Flutter-aware semantic selectors documented below.
 - `replace_node` is safest when replacing a whole named function, class, method, or a specific `if_statement` qualified by `STARTS_WITH`.
 
 Example:
@@ -271,9 +271,20 @@ Rules:
 
 Supported selector kinds:
 - `class`
+- `constructor`
 - `method`
 - `function`
+- `for_statement`
+- `while_statement`
+- `switch_statement`
 - `if_statement`
+
+Flutter-aware Dart files additionally support semantic selectors for `widget`,
+`widget_subtree`, `builder_callback`, `event_callback`, `collection_if`, `collection_for`,
+and `builder_branch`. These selectors require Flutter evidence in the source; ordinary Dart
+selectors remain available for every Dart file. Use callback names such as `builder`,
+`itemBuilder`, or `onTap` when they are present in source, and use `STARTS_WITH` for repeated
+collection entries or builder branches.
 
 ## 11. STARTS_WITH rules
 

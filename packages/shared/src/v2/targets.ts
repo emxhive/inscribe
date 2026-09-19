@@ -8,7 +8,14 @@ export type StructuralKind =
   | 'for_statement'
   | 'while_statement'
   | 'switch_statement'
-  | 'if_statement';
+  | 'if_statement'
+  | 'widget'
+  | 'widget_subtree'
+  | 'builder_callback'
+  | 'event_callback'
+  | 'collection_if'
+  | 'collection_for'
+  | 'builder_branch';
 
 export interface StructuralSelectorSegment {
   kind: StructuralKind;

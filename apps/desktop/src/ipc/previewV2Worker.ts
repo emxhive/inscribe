@@ -169,7 +169,7 @@ export async function runPreviewV2Worker(
 
     const languageRegistry = v2.createV2LanguageRegistry([
       v2.createTypeScriptLanguageAdapter(assetPaths),
-      v2.createDartLanguageAdapter(assetPaths),
+      v2.createFlutterLanguageAdapter(assetPaths),
     ]);
     const structuralResolver = v2.createAdapterStructuralResolver(languageRegistry);
     const syntaxValidator = v2.createAdapterSyntaxValidator(languageRegistry);

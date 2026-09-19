@@ -2,8 +2,12 @@ import { V2OperationStrategy } from './operations';
 
 export type StructuralKind =
   | 'class'
+  | 'constructor'
   | 'method'
   | 'function'
+  | 'for_statement'
+  | 'while_statement'
+  | 'switch_statement'
   | 'if_statement';
 
 export interface StructuralSelectorSegment {

@@ -25,14 +25,11 @@ import {
  * or a declaration assembled from sibling nodes.
  */
 export interface TreeSitterReplacementRange {
-  /** Tree-sitter offsets for the logical replacement boundary. */
+  /** Offsets for the logical replacement boundary. */
   startIndex: number;
   endIndex: number;
-  /**
-   * Optional logical text for runtimes whose node indexes are already JS
-   * offsets. Without it, the range is interpreted as UTF-8 byte offsets.
-   */
-  text?: string;
+  /** Explicit ranges default to UTF-8 byte offsets for compatibility. */
+  coordinateSpace?: 'utf8-byte' | 'js-utf16';
 }
 
 export type TreeSitterReplacement =
@@ -77,11 +74,11 @@ export function createTreeSitterLanguageAdapter(
           definition.collectCandidates(rootNode, query).map((candidate) => {
             const range = candidate.replacement.type === 'node'
               ? treeSitterRangeToJsRange(query.source, candidate.replacement.node)
-              : candidate.replacement.range.text !== undefined
-                ? treeSitterRangeToJsRange(query.source, {
-                  ...candidate.replacement.range,
-                  text: candidate.replacement.range.text,
-                })
+              : candidate.replacement.range.coordinateSpace === 'js-utf16'
+                ? {
+                  start: candidate.replacement.range.startIndex,
+                  end: candidate.replacement.range.endIndex,
+                }
                 : treeSitterByteRangeToJsRange(query.source, candidate.replacement.range);
             return {
               kind: candidate.kind,

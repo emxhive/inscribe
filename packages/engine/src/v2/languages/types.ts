@@ -4,8 +4,12 @@ export { StructuralKind, StructuralSelectorSegment };
 
 export const V2_STRUCTURAL_KINDS: readonly StructuralKind[] = [
   'class',
+  'constructor',
   'method',
   'function',
+  'for_statement',
+  'while_statement',
+  'switch_statement',
   'if_statement',
 ];
 

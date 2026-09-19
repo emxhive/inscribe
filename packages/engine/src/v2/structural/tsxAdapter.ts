@@ -8,6 +8,18 @@ export function isNodeOfKind(node: Parser.SyntaxNode, kind: StructuralKind): boo
   if (kind === 'method') {
     return node.type === 'method_definition';
   }
+  if (kind === 'constructor') {
+    return node.type === 'method_definition' && getNodeName(node) === 'constructor';
+  }
+  if (kind === 'for_statement') {
+    return node.type === 'for_statement';
+  }
+  if (kind === 'while_statement') {
+    return node.type === 'while_statement';
+  }
+  if (kind === 'switch_statement') {
+    return node.type === 'switch_statement';
+  }
   if (kind === 'if_statement') {
     return node.type === 'if_statement';
   }
@@ -68,7 +80,14 @@ export function getLogicalReplacementNode(
   semanticNode: Parser.SyntaxNode,
   kind: StructuralKind
 ): Parser.SyntaxNode {
-  if (kind === 'method' || kind === 'if_statement') {
+  if (
+    kind === 'method' ||
+    kind === 'constructor' ||
+    kind === 'for_statement' ||
+    kind === 'while_statement' ||
+    kind === 'switch_statement' ||
+    kind === 'if_statement'
+  ) {
     return semanticNode;
   }
 

@@ -36,6 +36,65 @@ describe('Structural selectors', () => {
     expect(sliced).toContain('saving');
   });
 
+  it('resolves TypeScript constructors and nested control-flow statements', async () => {
+    const source = `
+      // 🚀
+      class Counter {
+        constructor(initial: number) {
+          this.value = initial;
+        }
+
+        run() {
+          for (let i = 0; i < 1; i++) {
+            while (i < 1) {
+              switch (i) {
+                case 0:
+                  this.value++;
+                  break;
+                default:
+                  break;
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const constructorMatch = await resolver({
+      source,
+      filePath: 'counter.ts',
+      selector: parseSelector('class:Counter > constructor'),
+    });
+    expect(source.slice(constructorMatch.start, constructorMatch.end)).toContain(
+      'constructor(initial: number)',
+    );
+
+    const forMatch = await resolver({
+      source,
+      filePath: 'counter.ts',
+      selector: parseSelector('class:Counter > method:run > for_statement'),
+    });
+    expect(source.slice(forMatch.start, forMatch.end)).toMatch(/^for \(/);
+
+    const whileMatch = await resolver({
+      source,
+      filePath: 'counter.ts',
+      selector: parseSelector(
+        'class:Counter > method:run > for_statement > while_statement',
+      ),
+    });
+    expect(source.slice(whileMatch.start, whileMatch.end)).toMatch(/^while \(/);
+
+    const switchMatch = await resolver({
+      source,
+      filePath: 'counter.ts',
+      selector: parseSelector(
+        'class:Counter > method:run > for_statement > while_statement > switch_statement',
+      ),
+    });
+    expect(source.slice(switchMatch.start, switchMatch.end)).toMatch(/^switch \(/);
+  });
+
   it('fails with TARGET_NOT_FOUND when node does not exist', async () => {
     const source = `
       class UserService {
@@ -99,6 +158,27 @@ describe('Structural selectors', () => {
     expect(match.kind).toBe('if_statement');
     const sliced = source.slice(match.start, match.end);
     expect(sliced).toContain('Loading...');
+  });
+
+  it('resolves constructors through the TSX grammar variant', async () => {
+    const source = `
+      class Counter extends React.Component<Props> {
+        constructor(props: Props) {
+          super(props);
+        }
+
+        render() {
+          return <div />;
+        }
+      }
+    `;
+    const match = await resolver({
+      source,
+      filePath: 'counter.tsx',
+      selector: parseSelector('class:Counter > constructor'),
+    });
+
+    expect(source.slice(match.start, match.end)).toContain('super(props);');
   });
 
   it('fails on unsupported kinds', () => {

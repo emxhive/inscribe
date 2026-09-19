@@ -94,7 +94,10 @@ function getStructuralMatch(
       kind: 'class',
       name: getDeclaredName(node),
       traversalNode: node,
-      replacement: { type: 'node', node },
+      replacement: {
+        type: 'range',
+        range: createNormalizedNodeRange(source, findDeclarationStartNode(node), node),
+      },
     };
   }
 
@@ -176,7 +179,7 @@ function getConstructorSignature(node: Parser.SyntaxNode): Parser.SyntaxNode | u
   if (node.type !== 'declaration' && node.type !== 'method_signature') return undefined;
 
   const visit = (current: Parser.SyntaxNode): Parser.SyntaxNode | undefined => {
-    if (current.type === 'constructor_signature') return current;
+    if (isConstructorSignatureType(current.type)) return current;
     for (let index = 0; index < current.namedChildCount; index++) {
       const child = current.namedChild(index);
       if (!child) continue;
@@ -187,6 +190,15 @@ function getConstructorSignature(node: Parser.SyntaxNode): Parser.SyntaxNode | u
   };
 
   return visit(node);
+}
+
+function isConstructorSignatureType(type: string): boolean {
+  return (
+    type === 'constructor_signature' ||
+    type === 'factory_constructor_signature' ||
+    type === 'constant_constructor_signature' ||
+    type === 'redirecting_factory_constructor_signature'
+  );
 }
 
 function createConstructorMatch(
@@ -235,7 +247,17 @@ function getConstructorName(signature: Parser.SyntaxNode): string {
   const identifiers: string[] = [];
   for (let index = 0; index < signature.namedChildCount; index++) {
     const child = signature.namedChild(index);
-    if (child?.type === 'identifier') identifiers.push(child.text);
+    if (!child) continue;
+    if (child.type === 'identifier') {
+      identifiers.push(child.text);
+      continue;
+    }
+    if (child.type === 'qualified') {
+      for (let nestedIndex = 0; nestedIndex < child.namedChildCount; nestedIndex++) {
+        const nested = child.namedChild(nestedIndex);
+        if (nested?.type === 'identifier') identifiers.push(nested.text);
+      }
+    }
   }
   return identifiers[1] ?? 'new';
 }
@@ -291,7 +313,10 @@ function isStructuralOwner(node: Parser.SyntaxNode): boolean {
     node.type === 'class_definition' ||
     node.type === 'method_signature' ||
     isConstructorDeclaration(node) ||
-    (node.type === 'function_signature' && node.parent?.type === 'program')
+    node.type === 'function_signature' ||
+    node.type === 'function_expression' ||
+    node.type === 'lambda_expression' ||
+    node.type === 'local_function_declaration'
   );
 }
 

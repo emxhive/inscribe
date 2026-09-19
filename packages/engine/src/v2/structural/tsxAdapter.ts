@@ -3,16 +3,21 @@ import { StructuralKind } from './types';
 
 export function isNodeOfKind(node: Parser.SyntaxNode, kind: StructuralKind): boolean {
   if (kind === 'class') {
-    return node.type === 'class_declaration';
+    return node.type === 'class_declaration' || node.type === 'abstract_class_declaration';
   }
   if (kind === 'method') {
-    return node.type === 'method_definition';
+    return node.type === 'method_definition' || node.type === 'method_signature';
   }
   if (kind === 'constructor') {
-    return node.type === 'method_definition' && getNodeName(node) === 'constructor';
+    return (
+      (node.type === 'method_definition' || node.type === 'method_signature') &&
+      getNodeName(node) === 'constructor'
+    );
   }
   if (kind === 'for_statement') {
-    return node.type === 'for_statement';
+    // The TypeScript grammar uses for_in_statement for both for...of and
+    // for...in, while classic for loops use for_statement.
+    return node.type === 'for_statement' || node.type === 'for_in_statement';
   }
   if (kind === 'while_statement') {
     return node.type === 'while_statement';
@@ -28,16 +33,10 @@ export function isNodeOfKind(node: Parser.SyntaxNode, kind: StructuralKind): boo
       return true;
     }
     if (node.type === 'variable_declarator') {
-      const valueNode = node.childForFieldName('value');
-      if (
-        valueNode &&
-        (valueNode.type === 'arrow_function' ||
-          valueNode.type === 'function' ||
-          valueNode.type === 'function_expression' ||
-          valueNode.type === 'generator_function')
-      ) {
-        return true;
-      }
+      return isFunctionValue(node);
+    }
+    if (node.type === 'public_field_definition') {
+      return isFunctionValue(node);
     }
   }
   return false;
@@ -60,20 +59,25 @@ export function isStructuralOwner(node: Parser.SyntaxNode): boolean {
     t === 'generator_function_declaration' ||
     t === 'generator_function' ||
     t === 'arrow_function' ||
-    (t === 'variable_declarator' && isArrowOrFunctionDeclarator(node))
+    t === 'method_signature' ||
+    (t === 'variable_declarator' && (isFunctionValue(node) || isClassValue(node))) ||
+    (t === 'public_field_definition' && isFunctionValue(node))
   );
 }
 
-function isArrowOrFunctionDeclarator(node: Parser.SyntaxNode): boolean {
+function isFunctionValue(node: Parser.SyntaxNode): boolean {
   const valueNode = node.childForFieldName('value');
   if (!valueNode) return false;
   return (
     valueNode.type === 'arrow_function' ||
     valueNode.type === 'function' ||
     valueNode.type === 'function_expression' ||
-    valueNode.type === 'generator_function' ||
-    valueNode.type === 'class'
+    valueNode.type === 'generator_function'
   );
+}
+
+function isClassValue(node: Parser.SyntaxNode): boolean {
+  return node.childForFieldName('value')?.type === 'class';
 }
 
 export function getLogicalReplacementNode(

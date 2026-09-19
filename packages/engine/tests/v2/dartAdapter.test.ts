@@ -268,4 +268,121 @@ Widget makeWidget() {
     expect(functionMatch.end).toBe(functionStart + expectedFunction.length);
     expect(source.slice(functionMatch.start, functionMatch.end)).toBe(expectedFunction);
   });
+
+  it('handles annotated abstract classes, factory/const constructors, and Dart loop forms', async () => {
+    const source = `// 🚀
+@immutable
+abstract class Box<T> {
+  @named
+  factory Box.from(T value) => Box._(value);
+  const Box.empty();
+  Box._(this.value);
+
+  @override
+  Future<void> load() async {}
+
+  Iterable<T> items() sync* {
+    yield value;
+  }
+
+  void run(List<T> values) {
+    for (final value in values) {}
+    for (var index = 0; index < 1; index++) {}
+  }
+}
+`;
+
+    const classMatch = await resolver({
+      source,
+      filePath: 'box.dart',
+      selector: { path: [{ kind: 'class', name: 'Box' }] },
+    });
+    const classSource = source.slice(classMatch.start, classMatch.end);
+    expect(classSource).toMatch(/^@immutable\nabstract class Box/);
+    expect(classSource).toContain('Box._(this.value);');
+
+    const factoryMatch = await resolver({
+      source,
+      filePath: 'box.dart',
+      selector: {
+        path: [
+          { kind: 'class', name: 'Box' },
+          { kind: 'constructor', name: 'from' },
+        ],
+      },
+    });
+    expect(source.slice(factoryMatch.start, factoryMatch.end)).toBe(
+      '@named\n  factory Box.from(T value) => Box._(value);',
+    );
+
+    const constMatch = await resolver({
+      source,
+      filePath: 'box.dart',
+      selector: {
+        path: [
+          { kind: 'class', name: 'Box' },
+          { kind: 'constructor', name: 'empty' },
+        ],
+      },
+    });
+    expect(source.slice(constMatch.start, constMatch.end)).toBe('const Box.empty();');
+
+    const forInMatch = await resolver({
+      source,
+      filePath: 'box.dart',
+      selector: {
+        path: [
+          { kind: 'class', name: 'Box' },
+          { kind: 'method', name: 'run' },
+          { kind: 'for_statement' },
+        ],
+        startsWith: 'for (final value in values)',
+      },
+    });
+    expect(source.slice(forInMatch.start, forInMatch.end)).toBe(
+      'for (final value in values) {}',
+    );
+
+    const classicForMatch = await resolver({
+      source,
+      filePath: 'box.dart',
+      selector: {
+        path: [
+          { kind: 'class', name: 'Box' },
+          { kind: 'method', name: 'run' },
+          { kind: 'for_statement' },
+        ],
+        startsWith: 'for (var index = 0;',
+      },
+    });
+    expect(source.slice(classicForMatch.start, classicForMatch.end)).toBe(
+      'for (var index = 0; index < 1; index++) {}',
+    );
+  });
+
+  it('keeps Dart local functions and closures behind the method boundary', async () => {
+    const source = `class Controller {
+  void run(List<int> values) {
+    void local() {
+      if (localOnly) {}
+    }
+    values.forEach((value) {
+      if (closureOnly) {}
+    });
+  }
+}
+`;
+
+    await expect(resolver({
+      source,
+      filePath: 'controller.dart',
+      selector: {
+        path: [
+          { kind: 'class', name: 'Controller' },
+          { kind: 'method', name: 'run' },
+          { kind: 'if_statement' },
+        ],
+      },
+    })).rejects.toThrow('TARGET_NOT_FOUND');
+  });
 });

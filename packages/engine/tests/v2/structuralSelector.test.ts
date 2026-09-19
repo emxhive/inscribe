@@ -181,6 +181,183 @@ describe('Structural selectors', () => {
     expect(source.slice(match.start, match.end)).toContain('super(props);');
   });
 
+  it('normalizes real-world TypeScript declaration and loop variants', async () => {
+    const source = `@sealed()
+export default abstract class Box<T> {
+  @log
+  protected constructor(readonly value: T) {}
+
+  @log
+  async *items() {
+    yield this.value;
+  }
+
+  overload(value: string): void;
+
+  run(values: T[]) {
+    for (const value of values) {}
+    for (const key in values) {}
+    for (let index = 0; index < 1; index++) {}
+  }
+
+  handler = async () => {};
+  generator = function* () {};
+}
+`;
+
+    const classMatch = await resolver({
+      source,
+      filePath: 'box.ts',
+      selector: parseSelector('class:Box'),
+    });
+    expect(source.slice(classMatch.start, classMatch.end)).toBe(source.trimEnd());
+
+    const constructorMatch = await resolver({
+      source,
+      filePath: 'box.ts',
+      selector: parseSelector('class:Box > constructor'),
+    });
+    expect(source.slice(constructorMatch.start, constructorMatch.end)).toBe(
+      '@log\n  protected constructor(readonly value: T) {}',
+    );
+
+    const overloadMatch = await resolver({
+      source,
+      filePath: 'box.ts',
+      selector: parseSelector('class:Box > method:overload'),
+    });
+    expect(source.slice(overloadMatch.start, overloadMatch.end)).toBe(
+      'overload(value: string): void;',
+    );
+
+    const ofMatch = await resolver({
+      source,
+      filePath: 'box.ts',
+      selector: parseSelector('class:Box > method:run > for_statement', 'for (const value of values)'),
+    });
+    expect(source.slice(ofMatch.start, ofMatch.end)).toBe('for (const value of values) {}');
+
+    const inMatch = await resolver({
+      source,
+      filePath: 'box.ts',
+      selector: parseSelector('class:Box > method:run > for_statement', 'for (const key in values)'),
+    });
+    expect(source.slice(inMatch.start, inMatch.end)).toBe('for (const key in values) {}');
+
+    const classicMatch = await resolver({
+      source,
+      filePath: 'box.ts',
+      selector: parseSelector('class:Box > method:run > for_statement', 'for (let index = 0;'),
+    });
+    expect(source.slice(classicMatch.start, classicMatch.end)).toBe(
+      'for (let index = 0; index < 1; index++) {}',
+    );
+
+    const fieldMatch = await resolver({
+      source,
+      filePath: 'box.ts',
+      selector: parseSelector('class:Box > function:handler'),
+    });
+    expect(source.slice(fieldMatch.start, fieldMatch.end)).toBe('handler = async () => {};');
+
+    const generatorFieldMatch = await resolver({
+      source,
+      filePath: 'box.ts',
+      selector: parseSelector('class:Box > function:generator'),
+    });
+    expect(source.slice(generatorFieldMatch.start, generatorFieldMatch.end)).toBe(
+      'generator = function* () {};',
+    );
+
+    const tsxSource = `export default abstract class View {
+  render = async () => <div />;
+}`;
+    const tsxFieldMatch = await resolver({
+      source: tsxSource,
+      filePath: 'view.tsx',
+      selector: parseSelector('class:View > function:render'),
+    });
+    expect(tsxSource.slice(tsxFieldMatch.start, tsxFieldMatch.end)).toBe(
+      'render = async () => <div />;',
+    );
+  });
+
+  it('keeps TypeScript class-field function bodies behind the owner boundary', async () => {
+    const source = `class Controller {
+  handler = async () => {
+    if (hidden) return;
+  };
+}
+`;
+
+    await expect(resolver({
+      source,
+      filePath: 'controller.ts',
+      selector: parseSelector('class:Controller > if_statement'),
+    })).rejects.toThrow('TARGET_NOT_FOUND');
+  });
+
+  it('normalizes composed TypeScript declaration ranges to UTF-16 offsets', async () => {
+    const source = `// 😀 leading text
+class Service {
+  @methodDecorator
+  async load() {}
+
+  @constructorDecorator
+  constructor(value: string) {}
+
+  overload(value: string): void;
+
+  @fieldDecorator
+  handler = async () => {};
+}
+`;
+
+    const methodMatch = await resolver({
+      source,
+      filePath: 'service.ts',
+      selector: parseSelector('class:Service > method:load'),
+    });
+    const methodStart = source.indexOf('@methodDecorator');
+    expect(methodMatch.start).toBe(methodStart);
+    expect(source.slice(methodMatch.start, methodMatch.end)).toBe(
+      '@methodDecorator\n  async load() {}',
+    );
+
+    const constructorMatch = await resolver({
+      source,
+      filePath: 'service.ts',
+      selector: parseSelector('class:Service > constructor'),
+    });
+    const constructorStart = source.indexOf('@constructorDecorator');
+    expect(constructorMatch.start).toBe(constructorStart);
+    expect(source.slice(constructorMatch.start, constructorMatch.end)).toBe(
+      '@constructorDecorator\n  constructor(value: string) {}',
+    );
+
+    const overloadMatch = await resolver({
+      source,
+      filePath: 'service.ts',
+      selector: parseSelector('class:Service > method:overload'),
+    });
+    const overloadStart = source.indexOf('overload(value: string)');
+    expect(overloadMatch.start).toBe(overloadStart);
+    expect(source.slice(overloadMatch.start, overloadMatch.end)).toBe(
+      'overload(value: string): void;',
+    );
+
+    const fieldMatch = await resolver({
+      source,
+      filePath: 'service.ts',
+      selector: parseSelector('class:Service > function:handler'),
+    });
+    const fieldStart = source.indexOf('@fieldDecorator');
+    expect(fieldMatch.start).toBe(fieldStart);
+    expect(source.slice(fieldMatch.start, fieldMatch.end)).toBe(
+      '@fieldDecorator\n  handler = async () => {};',
+    );
+  });
+
   it('fails on unsupported kinds', () => {
     expect(() => parseSelector('class:UserService > arrow_function')).toThrow(
       'Unsupported structural selector kind: arrow_function'

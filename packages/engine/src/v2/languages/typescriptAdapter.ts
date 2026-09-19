@@ -6,6 +6,7 @@ import {
   isNodeOfKind,
   isStructuralOwner,
 } from '../structural/tsxAdapter';
+import { treeSitterRangeToJsRange } from '../structural/treeSitterRangeToJsRange';
 import { TreeSitterAssetPaths } from '../structural/treeSitterRuntime';
 import {
   StructuralCandidateQuery,
@@ -15,6 +16,7 @@ import {
 } from './types';
 import {
   createTreeSitterLanguageAdapter,
+  TreeSitterReplacement,
   TreeSitterReplacementCandidate,
 } from './treeSitterAdapter';
 
@@ -35,11 +37,63 @@ function collectCandidates(
   return semanticMatches.map((semanticNode) => ({
     kind: finalKind,
     name: getNodeName(semanticNode),
-    replacement: {
-      type: 'node' as const,
-      node: getLogicalReplacementNode(semanticNode, finalKind),
-    },
+    replacement: getLogicalReplacement(semanticNode, finalKind, query.source),
   }));
+}
+
+function getLogicalReplacement(
+  semanticNode: Parser.SyntaxNode,
+  kind: StructuralSelectorSegment['kind'],
+  source: string,
+): TreeSitterReplacement {
+  const logicalNode = getLogicalReplacementNode(semanticNode, kind);
+  const startNode = findLeadingDecorator(semanticNode) ?? logicalNode;
+  const endNode = findDeclarationTerminator(semanticNode) ?? logicalNode;
+
+  if (startNode.startIndex === logicalNode.startIndex && endNode.endIndex === logicalNode.endIndex) {
+    return { type: 'node', node: logicalNode };
+  }
+
+  return {
+    type: 'range',
+    range: {
+      startIndex: treeSitterRangeToJsRange(source, startNode).start,
+      endIndex: treeSitterRangeToJsRange(source, endNode).end,
+      coordinateSpace: 'js-utf16',
+    },
+  };
+}
+
+function findLeadingDecorator(node: Parser.SyntaxNode): Parser.SyntaxNode | undefined {
+  if (node.type !== 'method_definition' &&
+      node.type !== 'method_signature' &&
+      node.type !== 'public_field_definition') {
+    return undefined;
+  }
+
+  const parent = node.parent;
+  if (!parent) return undefined;
+
+  const siblings = parent.namedChildren;
+  const nodeIndex = siblings.findIndex((sibling) => sibling.startIndex === node.startIndex);
+  if (nodeIndex < 0) return undefined;
+
+  let firstDecorator: Parser.SyntaxNode | undefined;
+  for (let index = nodeIndex - 1; index >= 0; index--) {
+    const sibling = siblings[index];
+    if (sibling.type !== 'decorator') break;
+    firstDecorator = sibling;
+  }
+  return firstDecorator;
+}
+
+function findDeclarationTerminator(node: Parser.SyntaxNode): Parser.SyntaxNode | undefined {
+  if (node.type !== 'method_signature' && node.type !== 'public_field_definition') {
+    return undefined;
+  }
+
+  const next = node.nextSibling;
+  return next?.type === ';' ? next : undefined;
 }
 
 function collectMatches(

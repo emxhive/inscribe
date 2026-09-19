@@ -1701,9 +1701,14 @@ function DiagnosticsSection({
   groups: DiagnosticGroup[];
   onNavigate: (target: { blockId: string; line?: number }) => void;
 }) {
-  const { updateState } = useAppStateContext();
+  const { state, updateState } = useAppStateContext();
   const handleCopy = async (group: DiagnosticGroup) => {
-    const text = formatDiagnosticGroupForClipboard(group);
+    const summary = formatDiagnosticGroupForClipboard(group);
+    const v2Details = state.v2PreviewDiagnostics.length > 0
+      ? `\n\nV2 Preview Diagnostic Details\n${JSON.stringify(state.v2PreviewDiagnostics, null, 2)}`
+      : '';
+    const text = `${summary}${v2Details}`;
+
     try {
       await navigator.clipboard.writeText(text);
       updateState({ statusMessage: `Copied ${group.title.toLowerCase()}.` });

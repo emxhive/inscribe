@@ -226,6 +226,66 @@ INSCRIBE>>>`,
     expect(fs.readFileSync(path.join(repoRoot, 'widget.dart'), 'utf8')).toBe(originalCode);
   });
 
+  it('rejects syntax-invalid resulting content and preserves partial preview attribution', async () => {
+    fs.writeFileSync(path.join(repoRoot, 'code.ts'), 'function run() { return 1; }');
+
+    const payload = {
+      rawInput: `<<<INSCRIBE
+FILE: code.ts
+MODE: replace_node
+SELECTOR: function:run
+<<<CONTENT
+function run() {
+CONTENT>>>
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: code.ts
+MODE: replace_node
+SELECTOR: function:run
+<<<CONTENT
+function run() { return 2; }
+CONTENT>>>
+INSCRIBE>>>
+<<<INSCRIBE
+FILE: independent.ts
+MODE: create_file
+<<<CONTENT
+function independent() { return 3; }
+CONTENT>>>
+INSCRIBE>>>`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewV2Worker(payload);
+
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.partial).toBe(true);
+      expect(response.executions).toMatchObject([{
+        blockIndex: 2,
+        filePath: 'independent.ts',
+      }]);
+      expect(response.errors).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resolution',
+          code: 'PARSER_DIAGNOSTICS_PRESENT',
+          blockIndex: 0,
+          operationIndex: 0,
+          filePath: 'code.ts',
+        }),
+        expect.objectContaining({
+          type: 'resolution',
+          code: 'DEPENDENCY_BLOCKED',
+          blockIndex: 1,
+          operationIndex: 1,
+          blockedByOperationIndex: 0,
+        }),
+      ]));
+    }
+    expect(fs.readFileSync(path.join(repoRoot, 'code.ts'), 'utf8')).toBe('function run() { return 1; }');
+  });
+
   it('sequential combinations: create_file -> replace_text', async () => {
     const payload = {
       rawInput: `<<<INSCRIBE

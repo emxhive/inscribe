@@ -1,5 +1,10 @@
 import * as path from 'path';
-import { V2LanguageAdapter, isV2StructuralKind } from './types';
+import {
+  hasV2StructuralCapabilities,
+  V2LanguageAdapter,
+  V2StructuralLanguageAdapter,
+  isV2StructuralKind,
+} from './types';
 
 function normalizeExtension(extension: string): string {
   if (typeof extension !== 'string') {
@@ -19,24 +24,34 @@ function validateAdapter(adapter: V2LanguageAdapter): void {
   if (!Array.isArray(adapter.extensions) || adapter.extensions.length === 0) {
     throw new Error(`Invalid language adapter "${adapter.id}": extensions are required`);
   }
-  if (typeof adapter.resolveCandidates !== 'function') {
-    throw new Error(`Invalid language adapter "${adapter.id}": resolveCandidates is required`);
-  }
-  if (!Array.isArray(adapter.supportedKinds) || adapter.supportedKinds.length === 0) {
-    throw new Error(`Invalid language adapter "${adapter.id}": supportedKinds are required`);
+  if (adapter.validateSyntax !== undefined && typeof adapter.validateSyntax !== 'function') {
+    throw new Error(`Invalid language adapter "${adapter.id}": validateSyntax must be a function`);
   }
 
-  const supportedKinds = new Set(adapter.supportedKinds);
-  if (
-    supportedKinds.size !== adapter.supportedKinds.length ||
-    adapter.supportedKinds.some((kind) => !isV2StructuralKind(kind))
-  ) {
-    throw new Error(`Invalid language adapter "${adapter.id}": supportedKinds are invalid`);
+  if (adapter.structural !== undefined) {
+    if (!adapter.structural || typeof adapter.structural.resolveCandidates !== 'function') {
+      throw new Error(`Invalid language adapter "${adapter.id}": structural.resolveCandidates is required`);
+    }
+    if (!Array.isArray(adapter.structural.supportedKinds) || adapter.structural.supportedKinds.length === 0) {
+      throw new Error(`Invalid language adapter "${adapter.id}": structural.supportedKinds are required`);
+    }
+
+    const supportedKinds = new Set(adapter.structural.supportedKinds);
+    if (
+      supportedKinds.size !== adapter.structural.supportedKinds.length ||
+      adapter.structural.supportedKinds.some((kind) => !isV2StructuralKind(kind))
+    ) {
+      throw new Error(`Invalid language adapter "${adapter.id}": structural.supportedKinds are invalid`);
+    }
+  }
+
+  if (adapter.structural === undefined && adapter.validateSyntax === undefined) {
+    throw new Error(`Invalid language adapter "${adapter.id}": at least one capability is required`);
   }
 }
 
 /**
- * Deterministic extension-to-adapter registry for V2 structural languages.
+ * Deterministic extension-to-adapter registry for V2 language capabilities.
  *
  * Registration is intentionally strict. An extension has exactly one owner,
  * and duplicate adapter ids or extensions fail at construction time instead
@@ -92,9 +107,9 @@ export class V2LanguageRegistry {
     return this.adaptersByExtension.get(normalizeExtension(extension));
   }
 
-  require(filePath: string): V2LanguageAdapter {
+  require(filePath: string): V2StructuralLanguageAdapter {
     const adapter = this.resolve(filePath);
-    if (!adapter) {
+    if (!adapter || !hasV2StructuralCapabilities(adapter)) {
       throw new Error(`Structural mode is unsupported for file type: ${filePath}. File was not modified.`);
     }
     return adapter;

@@ -172,8 +172,10 @@ export async function runPreviewV2Worker(
       v2.createDartLanguageAdapter(assetPaths),
     ]);
     const structuralResolver = v2.createAdapterStructuralResolver(languageRegistry);
+    const syntaxValidator = v2.createAdapterSyntaxValidator(languageRegistry);
     const resolvedPlan = await v2.resolvePlan(operations, initialFiles, {
       structuralResolver,
+      syntaxValidator,
     });
 
         const addProtocolDependencyBlocked = (

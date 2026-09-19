@@ -6,7 +6,7 @@ import {
 } from './types';
 import { matchesStartsWith } from './startsWithQualifier';
 import { V2LanguageRegistry } from '../languages/registry';
-import { StructuralCandidate } from '../languages/types';
+import { hasV2StructuralCapabilities, StructuralCandidate } from '../languages/types';
 
 export interface ResolveStructuralTargetOptions {
   source: string;
@@ -121,18 +121,18 @@ export function createAdapterStructuralResolver(
   return async (options): Promise<StructuralNodeMatch> => {
     validateStructuralSelector(options.selector);
     const adapter = registry.resolve(options.filePath);
-    if (!adapter) {
+    if (!adapter || !hasV2StructuralCapabilities(adapter)) {
       throw new Error('UNSUPPORTED_EXTENSION');
     }
 
     const unsupportedSegment = options.selector.path.find(
-      (segment) => !adapter.supportedKinds.includes(segment.kind),
+      (segment) => !adapter.structural.supportedKinds.includes(segment.kind),
     );
     if (unsupportedSegment) {
       throw new Error(`UNSUPPORTED_STRUCTURAL_KIND: ${unsupportedSegment.kind}`);
     }
 
-    const candidates = await adapter.resolveCandidates({
+    const candidates = await adapter.structural.resolveCandidates({
       source: options.source,
       filePath: options.filePath,
       extension: path.extname(options.filePath).toLowerCase(),

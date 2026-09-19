@@ -42,7 +42,7 @@ describe('Dart V2 language adapter', () => {
     const adapter = createDartLanguageAdapter(ASSETS);
 
     expect(adapter.extensions).toEqual(['.dart']);
-    expect(adapter.supportedKinds).toEqual(V2_STRUCTURAL_KINDS);
+    expect(adapter.structural.supportedKinds).toEqual(V2_STRUCTURAL_KINDS);
     expect(adapter.grammarIdForFile('lib/widget.dart')).toBe('dart');
   });
 

@@ -1,13 +1,16 @@
 import { V2Operation, V2TargetScope, V2RawPayload, V2NormalizedPayload, V2MatchMetadata } from '@inscribe/shared';
+import * as path from 'path';
 import { CanonicalExecution } from '../protocol';
 import { VirtualFileState, hashContent } from './virtualFileState';
 import { detectDestinationEOL, normalizeLineEndings } from './normalizeLineEndings';
 import { performReplaceText } from '../text/exactMatch';
 import { computeDiffHunks } from '../diff';
 import { ResolveStructuralTargetOptions, StructuralNodeMatch, StructuralResolver } from '../structural';
+import type { V2SyntaxValidator } from '../languages';
 
 export interface V2ExecutionContext {
   structuralResolver?: StructuralResolver;
+  syntaxValidator?: V2SyntaxValidator;
 }
 
 let idCounter = 0;
@@ -106,6 +109,14 @@ export async function resolveOperation(
     afterRange = { start: match.start, end: match.start + normalizedContent.length };
   } else {
     throw new Error(`Unsupported operation strategy: ${strategy}`);
+  }
+
+  if (afterExists && context.syntaxValidator) {
+    await context.syntaxValidator({
+      source: afterContent,
+      filePath,
+      extension: path.extname(filePath).toLowerCase(),
+    });
   }
 
   const targetScope: V2TargetScope = {

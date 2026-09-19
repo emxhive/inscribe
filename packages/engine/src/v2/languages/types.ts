@@ -36,22 +36,50 @@ export interface StructuralCandidateQuery {
   path: readonly StructuralSelectorSegment[];
 }
 
+export interface SyntaxValidationQuery {
+  source: string;
+  filePath: string;
+  /** Lowercase extension extracted by the V2 core, including the leading dot. */
+  extension: string;
+}
+
 /**
  * Language-specific structural discovery for V2 replace_node.
  *
  * Phase A adapters use Tree-sitter internally. Their public result is
  * deliberately parser-agnostic so selector policy remains in the V2 core.
  */
-export interface V2LanguageAdapter {
-  readonly id: string;
-  readonly extensions: readonly string[];
+export interface V2StructuralCapabilities {
   readonly supportedKinds: readonly StructuralKind[];
   resolveCandidates(
     query: StructuralCandidateQuery,
   ): StructuralCandidate[] | readonly StructuralCandidate[] | Promise<StructuralCandidate[] | readonly StructuralCandidate[]>;
 }
 
-export interface TreeSitterLanguageAdapter extends V2LanguageAdapter {
+/**
+ * Shared language identity plus independently-optional V2 capabilities.
+ * A syntax-only adapter does not need to expose unused structural members.
+ */
+export interface V2LanguageAdapter {
+  readonly id: string;
+  readonly extensions: readonly string[];
+  readonly structural?: V2StructuralCapabilities;
+  /** Optional syntax-only validation for the adapter's supported files. */
+  validateSyntax?(query: SyntaxValidationQuery): void | Promise<void>;
+}
+
+export interface V2StructuralLanguageAdapter extends V2LanguageAdapter {
+  readonly structural: V2StructuralCapabilities;
+}
+
+export function hasV2StructuralCapabilities(
+  adapter: V2LanguageAdapter,
+): adapter is V2StructuralLanguageAdapter {
+  return adapter.structural !== undefined;
+}
+
+export interface TreeSitterLanguageAdapter extends V2StructuralLanguageAdapter {
   /** Selects the grammar asset for the concrete file variant being resolved. */
   readonly grammarIdForFile: (filePath: string) => string;
+  readonly validateSyntax: (query: SyntaxValidationQuery) => Promise<void>;
 }

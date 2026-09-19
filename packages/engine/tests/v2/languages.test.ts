@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import * as path from 'path';
 import Parser from 'web-tree-sitter';
 import {
+  createAdapterSyntaxValidator,
   createV2LanguageRegistry,
   createTypeScriptLanguageAdapter,
   V2LanguageRegistry,
@@ -25,11 +26,13 @@ function adapter(
   return {
     id,
     extensions,
-    supportedKinds,
-    resolveCandidates: vi.fn(async (query) => {
-      expect(query.path).toEqual([{ kind: 'function', name: 'run' }]);
-      return candidates;
-    }),
+    structural: {
+      supportedKinds,
+      resolveCandidates: vi.fn(async (query) => {
+        expect(query.path).toEqual([{ kind: 'function', name: 'run' }]);
+        return candidates;
+      }),
+    },
   };
 }
 
@@ -72,14 +75,46 @@ describe('V2 language adapter contracts', () => {
       'Duplicate extension',
     );
     expect(() => new V2LanguageRegistry([adapter('no-kinds', ['.none'], [], [])])).toThrow(
-      'supportedKinds are required',
+      'structural.supportedKinds are required',
     );
     expect(() => new V2LanguageRegistry([adapter(
       'duplicate-kinds',
       ['.duplicate'],
       [],
       ['function', 'function'],
-    )])).toThrow('supportedKinds are invalid');
+    )])).toThrow('structural.supportedKinds are invalid');
+    expect(() => new V2LanguageRegistry([{
+      id: 'no-capabilities',
+      extensions: ['.empty'],
+    }])).toThrow('at least one capability is required');
+  });
+
+  it('accepts syntax-only adapters without structural members', async () => {
+    const validateSyntax = vi.fn(async () => undefined);
+    const syntaxOnly = {
+      id: 'syntax-only',
+      extensions: ['.syntax'],
+      validateSyntax,
+    };
+    const registry = new V2LanguageRegistry([syntaxOnly]);
+
+    expect(registry.resolve('fixture.syntax')).toBe(syntaxOnly);
+    await createAdapterSyntaxValidator(registry)({
+      source: 'valid syntax',
+      filePath: 'fixture.syntax',
+      extension: '.syntax',
+    });
+    expect(validateSyntax).toHaveBeenCalledWith({
+      source: 'valid syntax',
+      filePath: 'fixture.syntax',
+      extension: '.syntax',
+    });
+    await expect(createAdapterStructuralResolver(registry)({
+      source: 'anything',
+      filePath: 'fixture.syntax',
+      selector: { path: [{ kind: 'function', name: 'run' }] },
+    })).rejects.toThrow('UNSUPPORTED_EXTENSION');
+    expect(validateSyntax).toHaveBeenCalledTimes(1);
   });
 
   it('keeps STARTS_WITH, not-found, ambiguity, and winner selection in the core', () => {
@@ -128,8 +163,10 @@ describe('V2 language adapter contracts', () => {
     const registry = new V2LanguageRegistry([{
       id: 'test-language',
       extensions: ['.test'],
-      supportedKinds: ['function'],
-      resolveCandidates,
+      structural: {
+        supportedKinds: ['function'],
+        resolveCandidates,
+      },
     }]);
     const resolver = createAdapterStructuralResolver(registry);
 
@@ -153,8 +190,10 @@ describe('V2 language adapter contracts', () => {
     const registry = new V2LanguageRegistry([{
       id: 'function-only',
       extensions: ['.kind'],
-      supportedKinds: ['function'],
-      resolveCandidates,
+      structural: {
+        supportedKinds: ['function'],
+        resolveCandidates,
+      },
     }]);
     const resolver = createAdapterStructuralResolver(registry);
 
@@ -222,7 +261,7 @@ describe('V2 language adapter contracts', () => {
       },
     });
 
-    const candidates = await adapter.resolveCandidates({
+    const candidates = await adapter.structural.resolveCandidates({
       source,
       filePath: 'fixture.tsx',
       extension: '.tsx',
@@ -238,7 +277,7 @@ describe('V2 language adapter contracts', () => {
     expect('replacement' in candidates[0]).toBe(false);
     expect(grammarIdForFile).toHaveBeenCalledWith('fixture.tsx');
 
-    await adapter.resolveCandidates({
+    await adapter.structural.resolveCandidates({
       source,
       filePath: 'fixture.ts',
       extension: '.ts',
@@ -271,7 +310,7 @@ describe('V2 language adapter contracts', () => {
       languageWasmPaths: { typescript: TS_WASM },
     });
 
-    await expect(adapter.resolveCandidates({
+    await expect(adapter.structural.resolveCandidates({
       source,
       filePath: 'fixture.ts',
       extension: '.ts',

@@ -9,7 +9,8 @@
     "dev:build": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "vitest"
+    "dev": "vitest",
+    "benchmark:structural-conformance": "vitest run benchmarks/v2-structural-conformance/structuralConformance.test.ts"
   },
   "keywords": [],
   "author": "",

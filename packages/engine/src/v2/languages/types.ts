@@ -1,11 +1,6 @@
-import type {
-  StructuralKind,
-  StructuralRange,
-  StructuralSelectorSegment,
-} from '@inscribe/shared';
-import type { V2ValidationResult } from '../validators';
+import { StructuralKind, StructuralSelectorSegment } from '@inscribe/shared';
 
-export type { StructuralKind, StructuralSelectorSegment };
+export { StructuralKind, StructuralSelectorSegment };
 
 export const V2_STRUCTURAL_KINDS: readonly StructuralKind[] = [
   'class',
@@ -23,19 +18,17 @@ export function isV2StructuralKind(value: unknown): value is StructuralKind {
 }
 
 /**
- * Parser-agnostic structural match returned by a V2 language adapter.
+ * A structural candidate returned by a V2 language adapter.
  *
- * Ranges use JavaScript UTF-16 string offsets and are half-open: [start, end).
- * They always refer to the exact source string supplied to findCandidates().
- */
+ * The range is expressed in JavaScript UTF-16 code-unit offsets and follows
+ * the usual half-open interval convention: [start, end). Tree-sitter nodes
+ * must not cross this boundary.
  */
 export interface StructuralCandidate {
   kind: StructuralKind;
   name?: string;
-export interface StructuralCandidate {
-  kind: StructuralKind;
-  name?: string;
-  range: StructuralRange;
+  start: number;
+  end: number;
 }
 
 export interface StructuralCandidateQuery {
@@ -54,6 +47,12 @@ export interface SyntaxValidationQuery {
   extension: string;
 }
 
+/**
+ * Language-specific structural discovery for V2 replace_node.
+ *
+ * Phase A adapters use Tree-sitter internally. Their public result is
+ * deliberately parser-agnostic so selector policy remains in the V2 core.
+ */
 export interface V2StructuralCapabilities {
   readonly supportedKinds: readonly StructuralKind[];
   resolveCandidates(
@@ -61,25 +60,14 @@ export interface V2StructuralCapabilities {
   ): StructuralCandidate[] | readonly StructuralCandidate[] | Promise<StructuralCandidate[] | readonly StructuralCandidate[]>;
 }
 
-export interface V2CandidateValidationInput {
-  filePath: string;
-  source: string;
-}
-
-export interface V2LanguageValidationCapability {
-  validateCandidate(input: V2CandidateValidationInput): Promise<V2ValidationResult>;
-}
-
 /**
- * A V2 language adapter describes language behavior only.
- * Runtime assets and parser deployment details are supplied when adapters are
- * constructed and must not leak through this contract.
+ * Shared language identity plus independently-optional V2 capabilities.
+ * A syntax-only adapter does not need to expose unused structural members.
  */
 export interface V2LanguageAdapter {
   readonly id: string;
   readonly extensions: readonly string[];
   readonly structural?: V2StructuralCapabilities;
-  readonly validation?: V2LanguageValidationCapability;
   /** Optional syntax-only validation for the adapter's supported files. */
   validateSyntax?(query: SyntaxValidationQuery): void | Promise<void>;
 }
@@ -98,5 +86,4 @@ export interface TreeSitterLanguageAdapter extends V2StructuralLanguageAdapter {
   /** Selects the grammar asset for the concrete file variant being resolved. */
   readonly grammarIdForFile: (filePath: string) => string;
   readonly validateSyntax: (query: SyntaxValidationQuery) => Promise<void>;
-}
 }

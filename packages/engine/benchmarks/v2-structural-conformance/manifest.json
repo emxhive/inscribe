@@ -610,7 +610,21 @@
           "intent": "Replace only the FutureBuilder builder callback, not the surrounding build method or FutureBuilder node.",
           "targetShape": "builder callback closure",
           "anchor": "builder: (context, snapshot)",
-          "evidence": ["callback ownership", "build-tree boundary", "valid Flutter replacement"]
+          "evidence": ["callback ownership", "build-tree boundary", "valid Flutter replacement"],
+          "selector": "class:_OrderDetailsPageState > method:build > builder_callback:builder",
+          "assertions": {
+            "kind": "builder_callback",
+            "name": "builder",
+            "rangeAnchor": "(context, snapshot) {",
+            "rangeEndAnchor": ",\n      ),\n    );\n  }\n\n  Future<Order> _loadOrder",
+            "contains": ["if (snapshot.hasError)", "ListView"],
+            "excludes": ["builder:"],
+            "replacement": {
+              "content": "(context, snapshot) => const SizedBox.shrink()",
+              "validSyntax": true
+            },
+            "neighbors": { "before": ["import 'package:flutter/material.dart';"], "after": ["Future<Order> _loadOrder"] }
+          }
         },
         {
           "id": "flutter-collection-control-flow",
@@ -619,7 +633,20 @@
           "intent": "Target one collection-if or collection-for entry in the ListView children list.",
           "targetShape": "collection if/for element",
           "anchor": "if (order.isPaid)",
-          "evidence": ["collection element boundary", "neighbor preservation", "valid Dart replacement"]
+          "evidence": ["collection element boundary", "neighbor preservation", "valid Dart replacement"],
+          "selector": "class:_OrderDetailsPageState > method:build > builder_callback:builder > collection_if",
+          "startsWith": "if (order.isPaid)",
+          "assertions": {
+            "kind": "collection_if",
+            "rangeAnchor": "if (order.isPaid)",
+            "rangeEndAnchor": ",\n                for (final note",
+            "contains": ["const PaidBanner()"],
+            "replacement": {
+              "content": "if (order.isPaid) const PaidBanner()",
+              "validSyntax": true
+            },
+            "neighbors": { "before": ["OrderSummary(order: order)"], "after": ["for (final note in order.notes)"] }
+          }
         },
         {
           "id": "flutter-list-builder",
@@ -628,7 +655,21 @@
           "intent": "Replace one ListView.builder itemBuilder callback while preserving pagination and the surrounding widget tree.",
           "targetShape": "itemBuilder callback closure",
           "anchor": "itemBuilder: (context, index)",
-          "evidence": ["builder callback ownership", "index scope", "neighbor preservation"]
+          "evidence": ["builder callback ownership", "index scope", "neighbor preservation"],
+          "selector": "class:_ActivityFeedPageState > method:build > builder_callback:builder > builder_callback:itemBuilder",
+          "assertions": {
+            "kind": "builder_callback",
+            "name": "itemBuilder",
+            "rangeAnchor": "(context, index) {",
+            "rangeEndAnchor": ",\n          );",
+            "contains": ["activities[index]", "ActivityTile"],
+            "excludes": ["itemBuilder:"],
+            "replacement": {
+              "content": "(context, index) => const SizedBox.shrink()",
+              "validSyntax": true
+            },
+            "neighbors": { "before": ["itemCount: activities.length"], "after": ["Future<void> _retry"] }
+          }
         },
         {
           "id": "flutter-stream-build-tree",
@@ -637,7 +678,15 @@
           "intent": "Target the loading/error/data branches inside a StreamBuilder without replacing the whole State.build method.",
           "targetShape": "builder-owned conditional build tree",
           "anchor": "StreamBuilder<List<Activity>>",
-          "evidence": ["nested callback boundary", "repeated conditional disambiguation", "valid Flutter replacement"]
+          "evidence": ["nested callback boundary", "repeated conditional disambiguation", "valid Flutter replacement"],
+          "selector": "class:_ActivityFeedPageState > method:build > builder_callback:builder > builder_branch",
+          "startsWith": "if (snapshot.hasError)",
+          "assertions": {
+            "kind": "builder_branch",
+            "rangeAnchor": "if (snapshot.hasError)",
+            "rangeEndAnchor": "\n\n          if (!snapshot.hasData)",
+            "contains": ["RetryPanel(onRetry: _retry)"]
+          }
         },
         {
           "id": "flutter-callback-on-tap",
@@ -646,7 +695,16 @@
           "intent": "Target the onTap closure for one activity row independently from the ListTile declaration.",
           "targetShape": "event callback closure",
           "anchor": "onTap: () => _openActivity",
-          "evidence": ["closure range", "captured row scope", "neighbor preservation"]
+          "evidence": ["closure range", "captured row scope", "neighbor preservation"],
+          "selector": "class:_ActivityFeedPageState > method:build > builder_callback:builder > builder_callback:itemBuilder > event_callback:onTap",
+          "assertions": {
+            "kind": "event_callback",
+            "name": "onTap",
+            "rangeAnchor": "() => _openActivity(activity.id)",
+            "rangeEndAnchor": ",\n                trailing:",
+            "contains": ["_openActivity(activity.id)"],
+            "excludes": ["ActivityTile("]
+          }
         }
       ]
     }

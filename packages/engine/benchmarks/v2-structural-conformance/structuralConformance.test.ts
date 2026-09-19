@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
 import {
-  createDartLanguageAdapter,
+  createFlutterLanguageAdapter,
   createTypeScriptLanguageAdapter,
   createAdapterSyntaxValidator,
   createV2LanguageRegistry,
@@ -31,7 +31,7 @@ const ASSETS = {
 
 const registry = createV2LanguageRegistry([
   createTypeScriptLanguageAdapter(ASSETS),
-  createDartLanguageAdapter(ASSETS),
+  createFlutterLanguageAdapter(ASSETS),
 ]);
 const resolver = createAdapterStructuralResolver(registry);
 const syntaxValidator = createAdapterSyntaxValidator(registry);
@@ -49,7 +49,7 @@ for (const suite of manifest.suites) {
 
   describe(`V2 structural conformance: ${suite.id}`, () => {
     for (const scenario of suite.scenarios) {
-      if (scenario.mode === 'capability') {
+      if (scenario.mode === 'capability' && !scenario.selector) {
         const category = scenario.category ? ` [${scenario.category}]` : '';
         if (scenario.category === 'parser-compatibility') {
           it(`${scenario.id}${category}: ${scenario.intent}`, async () => {

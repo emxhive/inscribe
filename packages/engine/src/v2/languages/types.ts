@@ -13,8 +13,24 @@ export const V2_STRUCTURAL_KINDS: readonly StructuralKind[] = [
   'if_statement',
 ];
 
+/** Flutter semantics layered on top of the Dart Tree-sitter adapter. */
+export const FLUTTER_STRUCTURAL_KINDS: readonly StructuralKind[] = [
+  'widget',
+  'widget_subtree',
+  'builder_callback',
+  'event_callback',
+  'collection_if',
+  'collection_for',
+  'builder_branch',
+];
+
+export const ALL_V2_STRUCTURAL_KINDS: readonly StructuralKind[] = [
+  ...V2_STRUCTURAL_KINDS,
+  ...FLUTTER_STRUCTURAL_KINDS,
+];
+
 export function isV2StructuralKind(value: unknown): value is StructuralKind {
-  return typeof value === 'string' && V2_STRUCTURAL_KINDS.includes(value as StructuralKind);
+  return typeof value === 'string' && ALL_V2_STRUCTURAL_KINDS.includes(value as StructuralKind);
 }
 
 /**

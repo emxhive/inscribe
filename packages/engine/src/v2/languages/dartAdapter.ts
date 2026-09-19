@@ -15,7 +15,7 @@ import {
 
 const DART_EXTENSIONS = ['.dart'] as const;
 
-interface DartStructuralMatch {
+export interface DartStructuralMatch {
   kind: StructuralKind;
   name?: string;
   traversalNode: Parser.SyntaxNode;
@@ -26,12 +26,12 @@ function grammarIdForFile(_filePath: string): string {
   return 'dart';
 }
 
-function collectCandidates(
+export function collectDartCandidates(
   rootNode: Parser.SyntaxNode,
   query: StructuralCandidateQuery,
 ): readonly TreeSitterReplacementCandidate[] {
   const matches: DartStructuralMatch[] = [];
-  collectMatches(rootNode, query.path, 0, matches, query.source);
+  collectDartMatches(rootNode, query.path, 0, matches, query.source);
 
   return matches.map((match) => ({
     kind: match.kind,
@@ -40,7 +40,7 @@ function collectCandidates(
   }));
 }
 
-function collectMatches(
+export function collectDartMatches(
   currentNode: Parser.SyntaxNode,
   selectorPath: readonly StructuralSelectorSegment[],
   depth: number,
@@ -56,7 +56,7 @@ function collectMatches(
       const child = node.namedChild(index);
       if (!child) continue;
 
-      const structuralMatch = getStructuralMatch(child, source, segment.kind);
+      const structuralMatch = getDartStructuralMatch(child, source, segment.kind);
       const isMatch =
         structuralMatch?.kind === segment.kind &&
         (!segment.name || structuralMatch.name === segment.name);
@@ -65,7 +65,7 @@ function collectMatches(
         candidates.push(structuralMatch);
       }
 
-      if (depth > 0 && (isStructuralOwner(child) || isOwnedFunctionBody(child))) {
+      if (depth > 0 && (isDartStructuralOwner(child) || isOwnedFunctionBody(child))) {
         continue;
       }
 
@@ -79,12 +79,12 @@ function collectMatches(
     if (isLast) {
       results.push(candidate);
     } else {
-      collectMatches(candidate.traversalNode, selectorPath, depth + 1, results, source);
+      collectDartMatches(candidate.traversalNode, selectorPath, depth + 1, results, source);
     }
   }
 }
 
-function getStructuralMatch(
+export function getDartStructuralMatch(
   node: Parser.SyntaxNode,
   source: string,
   requestedKind: StructuralKind,
@@ -308,7 +308,7 @@ function findBodylessDeclarationEnd(source: string, jsEnd: number): number {
   return cursor + 1;
 }
 
-function isStructuralOwner(node: Parser.SyntaxNode): boolean {
+export function isDartStructuralOwner(node: Parser.SyntaxNode): boolean {
   return (
     node.type === 'class_definition' ||
     node.type === 'method_signature' ||
@@ -332,7 +332,7 @@ function isOwnedFunctionBody(node: Parser.SyntaxNode): boolean {
   for (let index = 1; index < parent.namedChildCount; index++) {
     if (parent.namedChild(index)?.startIndex !== node.startIndex) continue;
     const preceding = parent.namedChild(index - 1);
-    return preceding ? isStructuralOwner(preceding) : false;
+    return preceding ? isDartStructuralOwner(preceding) : false;
   }
   return false;
 }
@@ -406,6 +406,6 @@ export function createDartLanguageAdapter(
     extensions: DART_EXTENSIONS,
     supportedKinds: V2_STRUCTURAL_KINDS,
     grammarIdForFile,
-    collectCandidates,
+    collectCandidates: collectDartCandidates,
   }, assets);
 }

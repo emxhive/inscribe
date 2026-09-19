@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as path from 'path';
 import { resolvePlan } from '../../src/v2/execution/resolvePlan';
-import { createStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
+import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
+import { createTypeScriptLanguageAdapter, createV2LanguageRegistry } from '../../src/v2/languages';
 import { initTreeSitter } from '../../src/v2/structural/treeSitterRuntime';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -10,11 +11,12 @@ const TSX_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-w
 
 const ASSETS = {
   coreWasmPath: CORE_WASM,
-  typescriptWasmPath: TS_WASM,
-  tsxWasmPath: TSX_WASM,
+  languageWasmPaths: { typescript: TS_WASM, tsx: TSX_WASM },
 };
 
-const structuralResolver = createStructuralResolver(ASSETS);
+const structuralResolver = createAdapterStructuralResolver(
+  createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
+);
 
 const CONTEXT = {
   structuralResolver

@@ -1,9 +1,14 @@
 import { StructuralKind, StructuralSelectorSegment, StructuralSelector } from '@inscribe/shared';
+import {
+  StructuralCandidate,
+  V2_STRUCTURAL_KINDS,
+  isV2StructuralKind,
+} from '../languages/types';
 export { StructuralKind, StructuralSelectorSegment, StructuralSelector };
+export {
+  V2_STRUCTURAL_KINDS,
+  isV2StructuralKind,
+};
+export type { StructuralCandidate } from '../languages/types';
 
-export interface StructuralNodeMatch {
-  kind: StructuralKind;
-  name?: string;
-  start: number;
-  end: number;
-}
+export type StructuralNodeMatch = StructuralCandidate;

@@ -1,10 +1,12 @@
-import Parser from 'web-tree-sitter';
 import * as path from 'path';
-import { StructuralSelector, StructuralNodeMatch, StructuralSelectorSegment } from './types';
-import { treeSitterRangeToJsRange } from './treeSitterRangeToJsRange';
-import { initTreeSitter, loadLanguage, createParser, TreeSitterAssetPaths } from './treeSitterRuntime';
-import { isNodeOfKind, getNodeName, isStructuralOwner, getLogicalReplacementNode } from './tsxAdapter';
+import {
+  StructuralSelector,
+  StructuralNodeMatch,
+  isV2StructuralKind,
+} from './types';
 import { matchesStartsWith } from './startsWithQualifier';
+import { V2LanguageRegistry } from '../languages/registry';
+import { StructuralCandidate } from '../languages/types';
 
 export interface ResolveStructuralTargetOptions {
   source: string;
@@ -16,170 +18,126 @@ export type StructuralResolver = (
   options: ResolveStructuralTargetOptions
 ) => Promise<StructuralNodeMatch>;
 
-export function createStructuralResolver(
-  assets: TreeSitterAssetPaths
-): StructuralResolver {
-  return async (options: ResolveStructuralTargetOptions): Promise<StructuralNodeMatch> => {
-    // Resolver boundary validation
+export function validateStructuralSelector(selector: StructuralSelector): void {
+  if (!selector || !Array.isArray(selector.path) || selector.path.length === 0) {
+    throw new Error('INVALID_SELECTOR');
+  }
+
+  if (
+    selector.startsWith !== undefined &&
+    (typeof selector.startsWith !== 'string' || selector.startsWith.trim() === '')
+  ) {
+    throw new Error('INVALID_SELECTOR');
+  }
+
+  for (const segment of selector.path) {
+    if (!segment || !isV2StructuralKind(segment.kind)) {
+      throw new Error('INVALID_SELECTOR');
+    }
     if (
-      !options.selector ||
-      !Array.isArray(options.selector.path) ||
-      options.selector.path.length === 0
+      segment.name !== undefined &&
+      (typeof segment.name !== 'string' || segment.name.trim() === '')
     ) {
       throw new Error('INVALID_SELECTOR');
     }
+  }
+}
 
-    if (
-      options.selector.startsWith !== undefined &&
-      (typeof options.selector.startsWith !== 'string' || options.selector.startsWith.trim() === '')
-    ) {
-      throw new Error('INVALID_SELECTOR');
+function validateStructuralCandidate(
+  candidate: StructuralCandidate,
+  sourceLength: number,
+  finalKind: StructuralSelector['path'][number]['kind'],
+): void {
+  if (
+    !candidate ||
+    !isV2StructuralKind(candidate.kind) ||
+    !Number.isInteger(candidate.start) ||
+    !Number.isInteger(candidate.end) ||
+    candidate.start < 0 ||
+    candidate.start >= candidate.end ||
+    candidate.end > sourceLength
+  ) {
+    throw new Error('INVALID_STRUCTURAL_CANDIDATE');
+  }
+  if (candidate.kind !== finalKind) {
+    throw new Error(
+      `STRUCTURAL_CANDIDATE_KIND_MISMATCH: expected ${finalKind}, received ${candidate.kind}`,
+    );
+  }
+}
+
+/**
+ * Applies V2 selector policy to language-neutral candidates. Adapters only
+ * discover candidates; STARTS_WITH, not-found, ambiguity, and winner choice
+ * remain owned by this core function.
+ */
+export function selectStructuralCandidate(
+  source: string,
+  selector: StructuralSelector,
+  candidates: readonly StructuralCandidate[],
+): StructuralNodeMatch {
+  validateStructuralSelector(selector);
+  const finalKind = selector.path[selector.path.length - 1].kind;
+  for (const candidate of candidates) {
+    validateStructuralCandidate(candidate, source.length, finalKind);
+  }
+
+  const anyPathMatched = candidates.length > 0;
+  let matchedCandidates = candidates;
+
+  if (selector.startsWith) {
+    matchedCandidates = candidates.filter((candidate) => {
+      const candidateSource = source.slice(candidate.start, candidate.end);
+      return matchesStartsWith(candidateSource, selector.startsWith!);
+    });
+  }
+
+  if (matchedCandidates.length === 0) {
+    if (anyPathMatched && selector.startsWith) {
+      throw new Error('TARGET_QUALIFIER_NOT_MATCHED');
     }
+    throw new Error('TARGET_NOT_FOUND');
+  }
 
-    const SUPPORTED = new Set(['class', 'method', 'function', 'if_statement']);
-    for (const seg of options.selector.path) {
-      if (!seg || !seg.kind || !SUPPORTED.has(seg.kind)) {
-        throw new Error('INVALID_SELECTOR');
-      }
-      if (
-        seg.name !== undefined &&
-        (typeof seg.name !== 'string' || seg.name.trim() === '')
-      ) {
-        throw new Error('INVALID_SELECTOR');
-      }
-    }
+  if (matchedCandidates.length > 1) {
+    throw new Error('TARGET_AMBIGUOUS');
+  }
 
-    const ext = path.extname(options.filePath).toLowerCase();
-    if (ext !== '.ts' && ext !== '.tsx') {
-      throw new Error('UNSUPPORTED_EXTENSION');
-    }
-
-    try {
-      await initTreeSitter(assets);
-    } catch (err) {
-      throw new Error('RUNTIME_INITIALIZATION_FAILED');
-    }
-
-    let language;
-    try {
-      if (ext === '.tsx') {
-        language = await loadLanguage(assets.tsxWasmPath);
-      } else {
-        language = await loadLanguage(assets.typescriptWasmPath);
-      }
-    } catch (err) {
-      throw new Error('MISSING_WASM_ASSET');
-    }
-
-    let parser: Parser | undefined;
-    let tree: Parser.Tree | undefined;
-
-    try {
-      parser = createParser();
-      parser.setLanguage(language);
-
-      try {
-        tree = parser.parse(options.source);
-      } catch (err) {
-        throw new Error('RUNTIME_INITIALIZATION_FAILED');
-      }
-
-      if (tree.rootNode.hasError()) {
-        throw new Error('PARSER_DIAGNOSTICS_PRESENT');
-      }
-
-      let matchedNodes: Parser.SyntaxNode[] = [];
-      collectMatches(tree.rootNode, options.selector.path, 0, matchedNodes);
-
-      const anyPathMatched = matchedNodes.length > 0;
-
-      const lastKind = options.selector.path[options.selector.path.length - 1].kind;
-
-      if (options.selector.startsWith) {
-        matchedNodes = matchedNodes.filter((node) => {
-          const replacementNode = getLogicalReplacementNode(node, lastKind);
-          const { start, end } = treeSitterRangeToJsRange(options.source, replacementNode);
-          const candidateSource = options.source.slice(start, end);
-          return matchesStartsWith(candidateSource, options.selector.startsWith!);
-        });
-      }
-
-      if (matchedNodes.length === 0) {
-        if (anyPathMatched && options.selector.startsWith) {
-          throw new Error('TARGET_QUALIFIER_NOT_MATCHED');
-        }
-        throw new Error('TARGET_NOT_FOUND');
-      }
-
-      if (matchedNodes.length > 1) {
-        throw new Error('TARGET_AMBIGUOUS');
-      }
-
-      const matchedNode = matchedNodes[0];
-      const replacementNode = getLogicalReplacementNode(matchedNode, lastKind);
-      const { start, end } = treeSitterRangeToJsRange(options.source, replacementNode);
-
-      return {
-        kind: lastKind,
-        name: getNodeName(matchedNode),
-        start,
-        end,
-      };
-    } finally {
-      if (tree) {
-        try {
-          tree.delete();
-        } catch (_) {}
-      }
-      if (parser) {
-        try {
-          parser.delete();
-        } catch (_) {}
-      }
-    }
+  const candidate = matchedCandidates[0];
+  return {
+    kind: candidate.kind,
+    name: candidate.name,
+    start: candidate.start,
+    end: candidate.end,
   };
 }
 
-function collectMatches(
-  currentNode: Parser.SyntaxNode,
-  path: StructuralSelectorSegment[],
-  depth: number,
-  results: Parser.SyntaxNode[]
-) {
-  const segment = path[depth];
-  const isLast = depth === path.length - 1;
-
-  const candidates: Parser.SyntaxNode[] = [];
-
-  function traverse(node: Parser.SyntaxNode) {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
-      if (!child) continue;
-
-      const isMatch =
-        isNodeOfKind(child, segment.kind) &&
-        (!segment.name || getNodeName(child) === segment.name);
-
-      if (isMatch) {
-        candidates.push(child);
-      }
-
-      const isOwner = isStructuralOwner(child);
-      if (depth > 0 && isOwner) {
-        continue;
-      }
-
-      traverse(child);
+/**
+ * Creates the adapter-backed resolver used by V2 replace_node.
+ */
+export function createAdapterStructuralResolver(
+  registry: V2LanguageRegistry,
+): StructuralResolver {
+  return async (options): Promise<StructuralNodeMatch> => {
+    validateStructuralSelector(options.selector);
+    const adapter = registry.resolve(options.filePath);
+    if (!adapter) {
+      throw new Error('UNSUPPORTED_EXTENSION');
     }
-  }
 
-  traverse(currentNode);
-
-  for (const candidate of candidates) {
-    if (isLast) {
-      results.push(candidate);
-    } else {
-      collectMatches(candidate, path, depth + 1, results);
+    const unsupportedSegment = options.selector.path.find(
+      (segment) => !adapter.supportedKinds.includes(segment.kind),
+    );
+    if (unsupportedSegment) {
+      throw new Error(`UNSUPPORTED_STRUCTURAL_KIND: ${unsupportedSegment.kind}`);
     }
-  }
+
+    const candidates = await adapter.resolveCandidates({
+      source: options.source,
+      filePath: options.filePath,
+      extension: path.extname(options.filePath).toLowerCase(),
+      path: options.selector.path,
+    });
+    return selectStructuralCandidate(options.source, options.selector, candidates);
+  };
 }

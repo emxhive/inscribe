@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import * as path from 'path';
 import Parser from 'web-tree-sitter';
 import { resolveOperation, V2ExecutionContext } from '../../src/v2/execution/resolveOperation';
-import { createStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
+import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
+import { createTypeScriptLanguageAdapter, createV2LanguageRegistry } from '../../src/v2/languages';
 import { initTreeSitter } from '../../src/v2/structural/treeSitterRuntime';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -11,11 +12,13 @@ const TSX_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-w
 
 const ASSETS = {
   coreWasmPath: CORE_WASM,
-  typescriptWasmPath: TS_WASM,
-  tsxWasmPath: TSX_WASM,
+  languageWasmPaths: { typescript: TS_WASM, tsx: TSX_WASM },
 };
 
-const structuralResolver = createStructuralResolver(ASSETS);
+const createResolver = () => createAdapterStructuralResolver(
+  createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
+);
+const structuralResolver = createResolver();
 
 const CONTEXT: V2ExecutionContext = {
   structuralResolver,
@@ -549,7 +552,7 @@ describe('V2 replace_node operation', () => {
 
   it('asserts exact logical replacement ranges including wrappers', async () => {
     const getRangeSlice = async (source: string, path: any, filePath = 'test.tsx') => {
-      const resolver = createStructuralResolver(ASSETS);
+      const resolver = createResolver();
       const match = await resolver({ source, filePath, selector: { path } });
       return source.slice(match.start, match.end);
     };

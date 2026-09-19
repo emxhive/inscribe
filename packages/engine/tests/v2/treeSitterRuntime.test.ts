@@ -1,15 +1,27 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as path from 'path';
 import Parser from 'web-tree-sitter';
-import { initTreeSitter, loadLanguage, resetRuntimeForTesting } from '../../src/v2/structural/treeSitterRuntime';
+import {
+  initTreeSitter,
+  loadLanguage,
+  loadLanguageForGrammar,
+  resetRuntimeForTesting,
+  resolveGrammarWasmPath,
+} from '../../src/v2/structural/treeSitterRuntime';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
 const TS_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm');
 
 const ASSETS = {
   coreWasmPath: CORE_WASM,
-  typescriptWasmPath: TS_WASM,
-  tsxWasmPath: TS_WASM,
+  languageWasmPaths: { typescript: TS_WASM, tsx: TS_WASM },
+};
+
+const GENERIC_ASSETS = {
+  coreWasmPath: CORE_WASM,
+  languageWasmPaths: {
+    typescript: TS_WASM,
+  },
 };
 
 describe('Tree-sitter runtime caching and safety', () => {
@@ -46,6 +58,20 @@ describe('Tree-sitter runtime caching and safety', () => {
     const lang1 = await loadLanguage(TS_WASM);
     const lang2 = await loadLanguage(TS_WASM);
     expect(lang1).toBe(lang2); // identical instance
+  });
+
+  it('resolves and loads grammars by generic language id', async () => {
+    expect(resolveGrammarWasmPath(GENERIC_ASSETS, 'typescript')).toBe(TS_WASM);
+    await initTreeSitter(GENERIC_ASSETS);
+    const direct = await loadLanguage(TS_WASM);
+    const byGrammar = await loadLanguageForGrammar(GENERIC_ASSETS, 'typescript');
+    expect(byGrammar).toBe(direct);
+  });
+
+  it('fails clearly when a generic grammar asset is not registered', () => {
+    expect(() => resolveGrammarWasmPath(GENERIC_ASSETS, 'missing')).toThrow(
+      'Missing Tree-sitter grammar asset: missing',
+    );
   });
 
   it('parallel grammar loads share one language-load promise', async () => {

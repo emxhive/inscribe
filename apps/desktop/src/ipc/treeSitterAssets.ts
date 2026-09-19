@@ -22,18 +22,20 @@ export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptio
     path.resolve(monorepoRoot, 'node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm'),
     path.resolve(monorepoRoot, 'packages/engine/node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm'),
   ];
-  const typescriptWasmPath = typescriptCandidates.find((c) => fs.existsSync(c)) || typescriptCandidates[0];
+  const typescriptGrammarPath = typescriptCandidates.find((c) => fs.existsSync(c)) || typescriptCandidates[0];
 
   const tsxCandidates = [
     path.resolve(monorepoRoot, 'node_modules/tree-sitter-wasms/out/tree-sitter-tsx.wasm'),
     path.resolve(monorepoRoot, 'packages/engine/node_modules/tree-sitter-wasms/out/tree-sitter-tsx.wasm'),
   ];
-  const tsxWasmPath = tsxCandidates.find((c) => fs.existsSync(c)) || tsxCandidates[0];
+  const tsxGrammarPath = tsxCandidates.find((c) => fs.existsSync(c)) || tsxCandidates[0];
 
   const devPaths: v2.TreeSitterAssetPaths = {
     coreWasmPath,
-    typescriptWasmPath,
-    tsxWasmPath,
+    languageWasmPaths: {
+      typescript: typescriptGrammarPath,
+      tsx: tsxGrammarPath,
+    },
   };
 
   if (options?.devPaths) {
@@ -57,8 +59,10 @@ export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptio
     const resourcesPath = options?.resourcesPath || (process as any).resourcesPath || '';
     const prodPaths: v2.TreeSitterAssetPaths = {
       coreWasmPath: path.resolve(resourcesPath, 'tree-sitter.wasm'),
-      typescriptWasmPath: path.resolve(resourcesPath, 'tree-sitter-typescript.wasm'),
-      tsxWasmPath: path.resolve(resourcesPath, 'tree-sitter-tsx.wasm'),
+      languageWasmPaths: {
+        typescript: path.resolve(resourcesPath, 'tree-sitter-typescript.wasm'),
+        tsx: path.resolve(resourcesPath, 'tree-sitter-tsx.wasm'),
+      },
     };
     if (options?.prodPaths) {
       Object.assign(prodPaths, options.prodPaths);

@@ -1,7 +1,8 @@
 import * as path from 'path';
 import { performance } from 'perf_hooks';
 import { initTreeSitter, loadLanguage, createParser } from '../src/v2/structural/treeSitterRuntime';
-import { createStructuralResolver } from '../src/v2/structural/resolveStructuralTarget';
+import { createAdapterStructuralResolver } from '../src/v2/structural/resolveStructuralTarget';
+import { createTypeScriptLanguageAdapter, createV2LanguageRegistry } from '../src/v2/languages';
 import { parseSelector } from '../src/v2/structural/selectorParser';
 
 const CORE_WASM = path.resolve(__dirname, '../../../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -34,8 +35,7 @@ async function runBenchmark() {
   const t0 = performance.now();
   await initTreeSitter({
     coreWasmPath: CORE_WASM,
-    typescriptWasmPath: TS_WASM,
-    tsxWasmPath: TSX_WASM,
+    languageWasmPaths: { typescript: TS_WASM, tsx: TSX_WASM },
   });
   const t1 = performance.now();
   console.log(`Runtime initialization: ${(t1 - t0).toFixed(2)}ms`);
@@ -88,11 +88,12 @@ async function runBenchmark() {
     }`
   );
 
-  const resolver = createStructuralResolver({
+  const resolver = createAdapterStructuralResolver(createV2LanguageRegistry([
+    createTypeScriptLanguageAdapter({
     coreWasmPath: CORE_WASM,
-    typescriptWasmPath: TS_WASM,
-    tsxWasmPath: TSX_WASM,
-  });
+    languageWasmPaths: { typescript: TS_WASM, tsx: TSX_WASM },
+    }),
+  ]));
 
   const t14 = performance.now();
   const match = await resolver({

@@ -640,8 +640,10 @@ INSCRIBE>>>`,
       trustedRepoRoot: repoRoot,
       assetPaths: {
         coreWasmPath: assets.coreWasmPath,
-        typescriptWasmPath: '/missing/ts.wasm',
-        tsxWasmPath: '/missing/tsx.wasm',
+        languageWasmPaths: {
+          typescript: '/missing/ts.wasm',
+          tsx: '/missing/tsx.wasm',
+        },
       },
     };
 
@@ -740,8 +742,10 @@ INSCRIBE>>>`,
         trustedRepoRoot: repoRoot,
         assetPaths: {
           coreWasmPath: 123, // not a string
-          typescriptWasmPath: '',
-          tsxWasmPath: '',
+          languageWasmPaths: {
+            typescript: '',
+            tsx: '',
+          },
         },
       } as any;
 

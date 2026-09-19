@@ -7,3 +7,4 @@ export * from './diff';
 export * from './validators';
 export * from './text/exactMatch';
 export * from './structural';
+export * from './languages';

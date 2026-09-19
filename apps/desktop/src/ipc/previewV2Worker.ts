@@ -16,6 +16,7 @@ function mapResolutionError(msg: string): string {
     'TARGET_AMBIGUOUS',
     'TARGET_QUALIFIER_NOT_MATCHED',
     'UNSUPPORTED_EXTENSION',
+    'UNSUPPORTED_STRUCTURAL_KIND',
     'RUNTIME_INITIALIZATION_FAILED',
     'MISSING_WASM_ASSET',
     'PARSER_DIAGNOSTICS_PRESENT',
@@ -63,8 +64,10 @@ export async function runPreviewV2Worker(
     !payload.assetPaths ||
     typeof payload.assetPaths !== 'object' ||
     typeof payload.assetPaths.coreWasmPath !== 'string' ||
-    typeof payload.assetPaths.typescriptWasmPath !== 'string' ||
-    typeof payload.assetPaths.tsxWasmPath !== 'string'
+    !payload.assetPaths.languageWasmPaths ||
+    typeof payload.assetPaths.languageWasmPaths !== 'object' ||
+    typeof payload.assetPaths.languageWasmPaths.typescript !== 'string' ||
+    typeof payload.assetPaths.languageWasmPaths.tsx !== 'string'
   ) {
     return {
       ok: false,
@@ -163,7 +166,10 @@ export async function runPreviewV2Worker(
       };
     }
 
-    const structuralResolver = v2.createStructuralResolver(assetPaths);
+    const languageRegistry = v2.createV2LanguageRegistry([
+      v2.createTypeScriptLanguageAdapter(assetPaths),
+    ]);
+    const structuralResolver = v2.createAdapterStructuralResolver(languageRegistry);
     const resolvedPlan = await v2.resolvePlan(operations, initialFiles, {
       structuralResolver,
     });

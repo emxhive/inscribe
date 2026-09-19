@@ -2,9 +2,11 @@ import Parser from 'web-tree-sitter';
 
 export interface TreeSitterAssetPaths {
   coreWasmPath: string;
-  typescriptWasmPath: string;
-  tsxWasmPath: string;
+  /** Generic grammar id to WASM path mapping used by V2 language adapters. */
+  languageWasmPaths: Readonly<Record<string, string>>;
 }
+
+export type TreeSitterRuntimeAssets = TreeSitterAssetPaths;
 
 let initPromise: Promise<void> | null = null;
 let initializedCoreWasmPath: string | null = null;
@@ -55,6 +57,29 @@ export function loadLanguage(wasmPath: string): Promise<Parser.Language> {
     });
   }
   return promise;
+}
+
+/**
+ * Resolves a grammar asset by its language id rather than by a language-
+ * specific property on the runtime configuration.
+ */
+export function resolveGrammarWasmPath(
+  assets: TreeSitterAssetPaths,
+  grammarId: string,
+): string {
+  const genericPath = assets.languageWasmPaths[grammarId];
+  if (genericPath) {
+    return genericPath;
+  }
+
+  throw new Error(`Missing Tree-sitter grammar asset: ${grammarId}`);
+}
+
+export function loadLanguageForGrammar(
+  assets: TreeSitterAssetPaths,
+  grammarId: string,
+): Promise<Parser.Language> {
+  return loadLanguage(resolveGrammarWasmPath(assets, grammarId));
 }
 
 export function createParser(): Parser {

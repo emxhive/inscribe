@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
-import { createStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
+import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
+import { createTypeScriptLanguageAdapter, createV2LanguageRegistry } from '../../src/v2/languages';
 import { parseSelector } from '../../src/v2/structural/selectorParser';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -9,11 +10,12 @@ const TSX_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-w
 
 const ASSETS = {
   coreWasmPath: CORE_WASM,
-  typescriptWasmPath: TS_WASM,
-  tsxWasmPath: TSX_WASM,
+  languageWasmPaths: { typescript: TS_WASM, tsx: TSX_WASM },
 };
 
-const resolver = createStructuralResolver(ASSETS);
+const resolver = createAdapterStructuralResolver(
+  createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
+);
 
 describe('Structural selectors', () => {
   it('uniquely resolves class > method path', async () => {

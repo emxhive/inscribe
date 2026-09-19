@@ -7,8 +7,8 @@ describe('Tree-sitter Asset Locator', () => {
   it('returns valid dev asset paths and verifies they exist on the filesystem', () => {
     const assets = getTreeSitterAssetPaths();
     expect(fs.existsSync(assets.coreWasmPath)).toBe(true);
-    expect(fs.existsSync(assets.typescriptWasmPath)).toBe(true);
-    expect(fs.existsSync(assets.tsxWasmPath)).toBe(true);
+    expect(fs.existsSync(assets.languageWasmPaths.typescript)).toBe(true);
+    expect(fs.existsSync(assets.languageWasmPaths.tsx)).toBe(true);
   });
 
   it('packaged seam derives from injected resourcesPath', () => {

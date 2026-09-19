@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as path from 'path';
 import { initTreeSitter, loadLanguage, createParser } from '../../src/v2/structural/treeSitterRuntime';
 import { treeSitterRangeToJsRange } from '../../src/v2/structural/treeSitterRangeToJsRange';
-import { createStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
+import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
+import { createTypeScriptLanguageAdapter, createV2LanguageRegistry } from '../../src/v2/languages';
 import { parseSelector } from '../../src/v2/structural/selectorParser';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -11,9 +12,12 @@ const TSX_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-w
 
 const ASSETS = {
   coreWasmPath: CORE_WASM,
-  typescriptWasmPath: TS_WASM,
-  tsxWasmPath: TSX_WASM,
+  languageWasmPaths: { typescript: TS_WASM, tsx: TSX_WASM },
 };
+
+const resolver = createAdapterStructuralResolver(
+  createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
+);
 
 let parser: any;
 let tsLanguage: any;
@@ -52,7 +56,6 @@ describe('Tree-sitter offset verification', () => {
   });
 
   it('correctly maps ASCII source with LF', async () => {
-    const resolver = createStructuralResolver(ASSETS);
     const source = `function greet() {\n  if (true) {\n    console.log("hello");\n  }\n}`;
     const selector = parseSelector('function:greet > if_statement');
     const match = await resolver({ source, filePath: 'test.ts', selector });
@@ -63,7 +66,6 @@ describe('Tree-sitter offset verification', () => {
   });
 
   it('correctly maps ASCII source with CRLF', async () => {
-    const resolver = createStructuralResolver(ASSETS);
     const source = `function greet() {\r\n  if (true) {\r\n    console.log("hello");\r\n  }\r\n}`;
     const selector = parseSelector('function:greet > if_statement');
     const match = await resolver({ source, filePath: 'test.ts', selector });
@@ -74,7 +76,6 @@ describe('Tree-sitter offset verification', () => {
   });
 
   it('correctly maps source with accent characters (é)', async () => {
-    const resolver = createStructuralResolver(ASSETS);
     const source = `// Café\nfunction résumé() {\n  if (verify) {\n    return true;\n  }\n}`;
     const selector = parseSelector('function:résumé > if_statement');
     const match = await resolver({ source, filePath: 'test.ts', selector });
@@ -84,7 +85,6 @@ describe('Tree-sitter offset verification', () => {
   });
 
   it('correctly maps source with CJK characters (中)', async () => {
-    const resolver = createStructuralResolver(ASSETS);
     const source = `// 中文注释\nfunction 中国() {\n  if (测试) {\n    return "中";\n  }\n}`;
     const selector = parseSelector('function:中国 > if_statement');
     const match = await resolver({ source, filePath: 'test.ts', selector });
@@ -94,7 +94,6 @@ describe('Tree-sitter offset verification', () => {
   });
 
   it('correctly maps source with emoji before target', async () => {
-    const resolver = createStructuralResolver(ASSETS);
     const source = `// 🚀 Unicode Rocket Emoji\nfunction launcher() {\n  if (active) {\n    fire();\n  }\n}`;
     const selector = parseSelector('function:launcher > if_statement');
     const match = await resolver({ source, filePath: 'test.ts', selector });
@@ -104,7 +103,6 @@ describe('Tree-sitter offset verification', () => {
   });
 
   it('correctly maps source with emoji inside preceding line of target', async () => {
-    const resolver = createStructuralResolver(ASSETS);
     const source = `function launcher() {\n  // Preceding line 🌟 containing emoji\n  if (active) {\n    fire();\n  }\n}`;
     const selector = parseSelector('function:launcher > if_statement');
     const match = await resolver({ source, filePath: 'test.ts', selector });
@@ -114,7 +112,6 @@ describe('Tree-sitter offset verification', () => {
   });
 
   it('correctly maps source with emoji inside target itself', async () => {
-    const resolver = createStructuralResolver(ASSETS);
     const source = `function launcher() {\n  if (status === '🔥') {\n    abort();\n  }\n}`;
     const selector = parseSelector('function:launcher > if_statement');
     const match = await resolver({ source, filePath: 'test.ts', selector });

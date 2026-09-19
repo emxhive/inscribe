@@ -48,8 +48,11 @@ filesToCheck = filesToCheck.filter(file => {
   return (parts[0] === 'packages' || parts[0] === 'apps') && parts[2] === 'src';
 });
 
-// Detect imports containing "legacy" in their path
-const legacyImportRegex = /(?:import|from|require)\s*\(?\s*['"`]([^'"`]*legacy[^'"`]*)['"`]/i;
+// Detect imports that cross an actual `legacy/` path segment. A component such
+// as `LegacyHistoryReviewPanel` is active code and must not be treated as a
+// legacy-directory import merely because its name contains the same word.
+const importRegex = /(?:import|from|require)\s*\(?\s*['"`]([^'"`]*)['"`]/i;
+const legacyPathSegmentRegex = /(?:^|[\\/])legacy(?:[\\/]|$)/i;
 
 let violations = 0;
 
@@ -57,7 +60,8 @@ filesToCheck.forEach(file => {
   const content = fs.readFileSync(file, 'utf8');
   const lines = content.split(/\r?\n/);
   lines.forEach((line, idx) => {
-    if (legacyImportRegex.test(line)) {
+    const importMatch = importRegex.exec(line);
+    if (importMatch && legacyPathSegmentRegex.test(importMatch[1])) {
       console.error(`Violation: Legacy import found in ${path.relative(rootDir, file)} on line ${idx + 1}:`);
       console.error(`  > ${line.trim()}`);
       violations++;

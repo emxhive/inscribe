@@ -3,6 +3,10 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import { getWindowTitle } from './utils/windowTitle';
 
+export interface CreateWindowOptions {
+  showInactive?: boolean;
+}
+
 export class WindowManager {
   private windows: Map<string, Set<BrowserWindow>> = new Map(); // normalized repoRoot -> BrowserWindows
   private unboundWindows: Set<BrowserWindow> = new Set();
@@ -14,7 +18,7 @@ export class WindowManager {
     return this.windowToRepo.get(win);
   }
 
-  createWindow(repoRoot?: string): BrowserWindow {
+  createWindow(repoRoot?: string, options: CreateWindowOptions = {}): BrowserWindow {
     const devServerUrl = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_RENDERER_URL;
     // A local `electron dist/main.js` launch is unpackaged too, but should load
     // the built renderer when no dev server URL was supplied.
@@ -24,6 +28,7 @@ export class WindowManager {
     // Based on main.ts: const startUrl = isDev ? ... : `file://${path.join(__dirname, 'renderer/index.html')}`;
     
     const win = new BrowserWindow({
+      show: !options.showInactive,
       title: getWindowTitle(repoRoot),
       width: 1200,
       height: 800,
@@ -46,6 +51,14 @@ export class WindowManager {
     }
 
     win.loadURL(startUrl);
+
+    if (options.showInactive) {
+      win.once('ready-to-show', () => {
+        if (!win.isDestroyed()) {
+          win.showInactive();
+        }
+      });
+    }
  
     // if (isDev) {
     //   win.webContents.openDevTools();

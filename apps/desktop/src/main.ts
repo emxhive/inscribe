@@ -23,13 +23,17 @@ if (!hasSingleInstanceLock) {
     win.focus();
   };
 
+  const createSecondInstanceWindow = () => {
+    windowManager.createWindow(undefined, { showInactive: true });
+  };
+
   app.on('second-instance', () => {
     if (!isReady) {
       pendingSecondInstances += 1;
       return;
     }
 
-    createAndFocusWindow();
+    createSecondInstanceWindow();
   });
 
   app.on('ready', () => {
@@ -38,7 +42,7 @@ if (!hasSingleInstanceLock) {
 
     while (pendingSecondInstances > 0) {
       pendingSecondInstances -= 1;
-      createAndFocusWindow();
+      createSecondInstanceWindow();
     }
   });
 

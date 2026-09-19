@@ -175,8 +175,10 @@ export function useRepositoryActions() {
         return;
       }
 
-      // Claim the last repo for this window if it's not already open elsewhere
-      await window.inscribeAPI.openRepository(lastRepo);
+      // Restore the last repo into this window even if another window already
+      // has it open. Auto-routing would focus that window and leave this one
+      // unbound.
+      await window.inscribeAPI.openRepository(lastRepo, 'same-window');
     } catch (error) {
       console.error('Failed to restore repository:', error);
       resetRepositoryState(null, 'Unable to restore repository. Select a repository to start.');

@@ -30,8 +30,9 @@ Allowed cases:
 - Create a new file with complete content.
 - Replace an entire file with complete content.
 - Delete a file intentionally.
-- Replace exact text using SEARCH + CONTENT.
-- Replace a TypeScript, TSX, or Dart structural node using SELECTOR + CONTENT.
+- Replace or delete an exact textual region using SEARCH + CONTENT.
+- Replace or delete an entire supported structural target using SELECTOR + CONTENT.
+- Use structural targeting in TypeScript, TSX, Dart, and Flutter-aware Dart source where the requested selector kind is supported.
 
 ## 3. When not to use Inscribe V2
 
@@ -121,8 +122,10 @@ Requires:
 - `MODE: replace_text`
 - `SEARCH`
 - `CONTENT`
-`SEARCH` must exactly match existing text in the current virtual file state.
-`CONTENT` must be the exact replacement text.
+
+`SEARCH` must exactly match existing text in the current virtual file state and must not be empty.
+`CONTENT` is the exact replacement text and may be empty to delete the matched text.
+
 Forbidden:
 - `SELECTOR`
 - `STARTS_WITH`
@@ -133,19 +136,29 @@ Requires:
 - `MODE: replace_node`
 - `SELECTOR`
 - `CONTENT`
-`CONTENT` must be the complete replacement text for the selected structural node.
+
+`CONTENT` is the complete replacement text for the selected structural target. The section is required but may be empty to delete the exact resolved structural range.
+
 Optional:
 - `STARTS_WITH`
+
+When present, `STARTS_WITH` must not be empty.
+
 Forbidden:
 - `SEARCH`
 
 ## 6. Payload rules
 
 - `CONTENT` must be exact final text.
+- A required `CONTENT` section may be intentionally empty when the operation permits deletion or empty output.
+- Empty `replace_text` `CONTENT` deletes exactly the matched `SEARCH` text.
+- Empty `replace_node` `CONTENT` deletes exactly the resolved structural range.
+- Whitespace-only `CONTENT` is literal replacement text; it is not normalized to empty content.
+- Structural deletion does not automatically remove neighboring whitespace, blank lines, comments, punctuation, or formatting outside the resolved target range.
 - Never write “rest of file unchanged.”
 - Never write “existing code here.”
 - Never write “...”
-- Never omit imports, braces, function bodies, class members, or JSX children unless deletion is intended.
+- Never omit imports, braces, function bodies, class members, JSX children, Dart members, or Flutter children unless deletion is intended.
 - Never rely on the engine to preserve omitted parts inside a replaced node or replaced file.
 
 ### Preferred: section wrapper fences
@@ -178,13 +191,15 @@ For `replace_node`:
 
 - `FILE` must be a repository-relative path.
 - Use forward slashes.
-- Do not use absolute paths.
+- Do not use absolute or UNC paths.
 - Do not use drive-letter paths.
 - Do not use backslashes.
-- Do not use `./` or `../` segments.
-- Do not use repeated slashes.
+- Do not use `.` or `..` path segments.
+- Do not use repeated slashes or empty path segments.
 - Do not use trailing slashes.
 - Do not use control characters.
+- Do not use Windows-invalid path characters: `:`, `*`, `?`, `"`, `<`, `>`, or `|`.
+- Path segments must not end with `.` or a space.
 
 Valid:
 - `src/app.ts`
@@ -206,6 +221,24 @@ Invalid:
 - `SEARCH` must be copied from the current source truth exactly.
 - `SEARCH` should be as small as safely unique, but large enough to avoid ambiguity.
 - `CONTENT` replaces the whole `SEARCH` block.
+
+### Choosing between replace_text and replace_node
+
+Choose the operation whose target boundary matches the semantic scope of the requested edit.
+
+Prefer `replace_node` when:
+- the requested change replaces or deletes an entire supported structural construct;
+- the selector expresses the developer's intended target more directly than copied source text;
+- the target is a whole supported class, constructor, method, function, control-flow statement, Dart structure, or Flutter semantic structure.
+
+Prefer `replace_text` when:
+- the requested change affects an exact textual fragment smaller than the complete structural target;
+- the target is outside the structural selector vocabulary, such as an import, comment, constant, token, partial expression, or documentation fragment;
+- the desired structural kind is unsupported but an exact unique textual match can safely express the edit.
+
+Do not use `replace_text` merely to avoid a valid, uniquely resolvable structural selector for a whole supported target.
+
+Do not expand a small textual edit into a whole-node replacement merely because `replace_node` is available.
 
 Forbidden:
 - Approximate search text.
@@ -234,10 +267,29 @@ INSCRIBE>>>
 
 ## 9. replace_node rules
 
-- `replace_node` uses Tree-sitter to locate a syntax node boundary.
-- Tree-sitter only locates the node; it does not generate the replacement, validate business logic, or complete incomplete code.
+- `replace_node` is the structural editing operation for replacing or deleting an entire supported structural target.
+- Tree-sitter and the language adapters locate structural candidates and replacement boundaries. They do not generate replacement code, infer omitted logic, or validate business behavior.
 - Supported languages: `.ts`, `.tsx`, and `.dart`. No `.js` or `.jsx` support is claimed. Dart files may also use the Flutter-aware semantic selectors documented below.
-- `replace_node` is safest when replacing a whole named function, class, method, or a specific `if_statement` qualified by `STARTS_WITH`.
+- When the requested edit corresponds to an entire supported structural target, prefer `replace_node` over reconstructing that same target with `replace_text`.
+- `CONTENT` replaces exactly the resolved structural range. Empty `CONTENT` deletes exactly that range.
+
+### Parser recovery and structural trust
+
+Tree-sitter is structural discovery evidence, not an authoritative language syntax validator.
+
+Parser recovery elsewhere in a file does not automatically make a structural edit unsafe. A target may still be resolved when the structural facts required for that target remain trustworthy.
+
+Structural resolution must fail closed when parser recovery can materially threaten:
+- target identity;
+- selector-path ownership or qualification;
+- candidate cardinality or uniqueness;
+- `STARTS_WITH` qualification;
+- replacement boundaries;
+- discovery completeness, including recovery that could hide another candidate of the requested kind.
+
+Interior parser damage that does not threaten those facts must not automatically poison an otherwise trustworthy whole-target replacement.
+
+This recovery tolerance is an engine safety property. It does not permit the LLM to guess selectors, names, paths, or source structure.
 
 Example:
 <<<INSCRIBE
@@ -259,13 +311,18 @@ INSCRIBE>>>
 Example selectors:
 - `function:buildValue`
 - `class:UserService`
+- `class:UserService > constructor`
 - `class:UserService > method:save`
 - `function:resolvePlan > if_statement`
+- `function:processItems > for_statement`
+- `class:CartController > constructor:restore`
+- `widget:App`
+- `class:OrderPage > method:build > builder_callback:builder`
 
 Rules:
-- Named selectors must use the exact symbol name from source.
-- Do not invent function, class, or method names.
-- `if_statement` selectors usually need `STARTS_WITH` to disambiguate.
+- Named selector segments must use the exact symbol or semantic name from source.
+- Do not invent selector names.
+- Repeated structural targets often need `STARTS_WITH` to disambiguate.
 - The selector must resolve to exactly one node.
 - If selector uniqueness is uncertain, do not emit the block.
 
@@ -293,11 +350,13 @@ collection entries or builder branches.
 - It narrows matching nodes by requiring the target node text to start with the exact `STARTS_WITH` text.
 
 Rules:
-- Use `STARTS_WITH` for repeated `if_statement` targets.
+- Use `STARTS_WITH` when repeated candidates of the requested structural kind cannot otherwise be uniquely identified.
+- It is commonly useful for repeated `if_statement`, loop, collection-control-flow, branch, and similar structural targets.
 - `STARTS_WITH` must be copied from source truth.
 - `STARTS_WITH` must not be blank.
-- `STARTS_WITH` must not be a summary.
-- `STARTS_WITH` must match the start of the node.
+- `STARTS_WITH` must not be a summary, regex, or approximate fragment.
+- `STARTS_WITH` must match the start of the resolved target text.
+- Do not add `STARTS_WITH` when the selector already resolves uniquely without it.
 
 Example:
 <<<INSCRIBE
@@ -343,16 +402,22 @@ INSCRIBE>>>
 ## 14. Error-prevention checklist
 
 Verify each item before emitting any V2 block:
-- I have current source truth.
-- I know the exact target file path.
-- I know the exact operation mode.
-- I can write the complete final `CONTENT` payload.
+- I have authoritative current source truth.
+- I know the exact repository-relative target file path.
+- I chose the operation whose boundary matches the requested edit.
+- I know whether the intended `CONTENT` is non-empty, empty, or whitespace-only.
+- I can write the complete exact `CONTENT` payload.
 - I am not using placeholders unless literal placeholders are desired.
-- For `replace_text`, `SEARCH` is exact and uniquely identifies the intended text.
-- For `replace_node`, `SELECTOR` is supported and uniquely identifies the intended node.
-- For repeated structural nodes, `STARTS_WITH` is exact and non-blank.
+- For `replace_text`, `SEARCH` is exact, non-empty, and uniquely identifies the intended text.
+- For `replace_node`, the file type and selector kind are supported.
+- For `replace_node`, `SELECTOR` expresses the intended ownership path and uniquely identifies the structural target.
+- For repeated structural targets, any required `STARTS_WITH` is exact and non-blank.
+- I am not using `replace_text` merely to avoid a valid whole-structure selector.
+- I am not replacing a whole structural target when a smaller exact textual edit better matches the request.
+- If `CONTENT` is intentionally empty, I understand exactly which textual or structural range will be deleted.
 - I did not mix V1 and V2 syntax.
-- I did not wrap the Inscribe block in Markdown fences.
+- I did not wrap the outer Inscribe block in Markdown fences.
+- My payload does not accidentally contain standalone reserved Inscribe markers that will be interpreted as protocol structure.
 
 ## 15. Examples
 
@@ -561,6 +626,16 @@ Apply the fix from above
 CONTENT>>>
 ```
 *Why:* The engine will literally write the string "Apply the fix from above" into the codebase.
+
+### Forbidden: Standalone reserved Inscribe markers inside another payload
+
+The intake parser recognizes reserved protocol marker lines structurally. Markdown section wrapper fences do not make a standalone reserved marker line inert.
+
+When editing tests, fixtures, documentation, or source code that itself contains literal Inscribe syntax, do not place reserved markers such as `<<<INSCRIBE`, `INSCRIBE>>>`, `<<<CONTENT`, `CONTENT>>>`, `<<<SEARCH`, `SEARCH>>>`, `<<<STARTS_WITH`, or `STARTS_WITH>>>` as standalone physical lines inside another Inscribe payload.
+
+Represent such fixture text without producing reserved standalone lines in the outer payload, for example by constructing strings from quoted fragments joined with `\n` or by using escaped newline sequences.
+
+*Why:* Reserved standalone marker lines may be interpreted as nested protocol structure, producing malformed blocks, duplicate sections, orphan closers, or bogus directives.
 
 ### Forbidden: Wrapping Inscribe blocks in markdown code blocks
 ````

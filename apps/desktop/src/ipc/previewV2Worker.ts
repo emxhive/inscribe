@@ -9,7 +9,7 @@ import type {
 import { ApplyV2SessionStore, PreviewV2InitialFileSnapshot, defaultApplyV2SessionStore } from './applyV2SessionStore';
 import { createHash } from 'crypto';
 
-function mapResolutionError(msg: string): string {
+function mapResolutionError(msg: string, code?: string): string {
   const exactCodes = [
     'STRUCTURAL_RESOLVER_REQUIRED',
     'TARGET_NOT_FOUND',
@@ -19,12 +19,15 @@ function mapResolutionError(msg: string): string {
     'UNSUPPORTED_STRUCTURAL_KIND',
     'RUNTIME_INITIALIZATION_FAILED',
     'MISSING_WASM_ASSET',
-    'PARSER_DIAGNOSTICS_PRESENT',
+    'STRUCTURAL_TARGET_UNRELIABLE',
     'INVALID_SELECTOR',
     'UNSUPPORTED_NODE_SHAPE',
     'MUTABLE_TARGET_AMBIGUOUS',
     'FALLBACK_TARGET_AMBIGUOUS',
   ];
+  if (code && exactCodes.includes(code)) {
+    return code;
+  }
   if (exactCodes.includes(msg)) {
     return msg;
   }
@@ -215,7 +218,7 @@ export async function runPreviewV2Worker(
       const source = previewable[resolutionError.stepIndex];
       errors.push({
         type: 'resolution',
-        code: mapResolutionError(resolutionError.message),
+        code: mapResolutionError(resolutionError.message, resolutionError.code),
         message: resolutionError.message,
         filePath: source?.operation.filePath,
         strategy: source?.operation.strategy,
@@ -223,6 +226,7 @@ export async function runPreviewV2Worker(
         blockIndex: source?.blockIndex,
         line: source?.startLine,
         lineKind: source ? 'block' : undefined,
+        structuralParser: resolutionError.structuralParser,
       });
     }
 

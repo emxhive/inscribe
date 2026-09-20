@@ -226,7 +226,7 @@ INSCRIBE>>>`,
     expect(fs.readFileSync(path.join(repoRoot, 'widget.dart'), 'utf8')).toBe(originalCode);
   });
 
-  it('rejects syntax-invalid resulting content and preserves partial preview attribution', async () => {
+  it('does not syntax-gate a replacement, but later structural work fails safely on damaged state', async () => {
     fs.writeFileSync(path.join(repoRoot, 'code.ts'), 'function run() { return 1; }');
 
     const payload = {
@@ -262,24 +262,17 @@ INSCRIBE>>>`,
     expect(response.ok).toBe(true);
     if (response.ok) {
       expect(response.partial).toBe(true);
-      expect(response.executions).toMatchObject([{
-        blockIndex: 2,
-        filePath: 'independent.ts',
-      }]);
+      expect(response.executions).toMatchObject([
+        { blockIndex: 0, filePath: 'code.ts' },
+        { blockIndex: 2, filePath: 'independent.ts' },
+      ]);
       expect(response.errors).toEqual(expect.arrayContaining([
         expect.objectContaining({
           type: 'resolution',
-          code: 'PARSER_DIAGNOSTICS_PRESENT',
-          blockIndex: 0,
-          operationIndex: 0,
-          filePath: 'code.ts',
-        }),
-        expect.objectContaining({
-          type: 'resolution',
-          code: 'DEPENDENCY_BLOCKED',
+          code: 'STRUCTURAL_TARGET_UNRELIABLE',
           blockIndex: 1,
           operationIndex: 1,
-          blockedByOperationIndex: 0,
+          filePath: 'code.ts',
         }),
       ]));
     }
@@ -716,7 +709,12 @@ INSCRIBE>>>`,
     expect(response.ok).toBe(false);
     if (!response.ok) {
       expect(response.errors[0].type).toBe('resolution');
-      expect(response.errors[0].code).toBe('PARSER_DIAGNOSTICS_PRESENT');
+      expect(response.errors[0].code).toBe('STRUCTURAL_TARGET_UNRELIABLE');
+      expect(response.errors[0].structuralParser).toMatchObject({
+        parser: 'tree-sitter',
+        adapterId: 'typescript-v2',
+        grammarId: 'typescript',
+      });
     }
   });
 

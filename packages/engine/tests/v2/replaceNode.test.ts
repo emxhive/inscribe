@@ -327,7 +327,7 @@ describe('V2 replace_node operation', () => {
     await expect(resolveOperation(op, virtualState, {})).rejects.toThrow('STRUCTURAL_RESOLVER_REQUIRED');
   });
 
-  it('fails with PARSER_DIAGNOSTICS_PRESENT for malformed TSX files', async () => {
+  it('fails safely with structural diagnostics for malformed TSX targets', async () => {
     const source = `function Comp() {\n  return <div>\n}`;
     const virtualState = new Map([['test.tsx', { content: source, exists: true }]]);
     const op = {
@@ -339,10 +339,10 @@ describe('V2 replace_node operation', () => {
       }
     };
 
-    await expect(resolveOperation(op, virtualState, CONTEXT)).rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
+    await expect(resolveOperation(op, virtualState, CONTEXT)).rejects.toThrow('STRUCTURAL_TARGET_UNRELIABLE');
   });
 
-  it('fails with PARSER_DIAGNOSTICS_PRESENT for malformed TS with missing closing brace', async () => {
+  it('fails safely with structural diagnostics for missing TS delimiters', async () => {
     const source = `function Comp() {\n  if (true) {\n    return 42;\n  \n}`;
     const virtualState = new Map([['test.ts', { content: source, exists: true }]]);
     const op = {
@@ -354,7 +354,7 @@ describe('V2 replace_node operation', () => {
       }
     };
 
-    await expect(resolveOperation(op, virtualState, CONTEXT)).rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
+    await expect(resolveOperation(op, virtualState, CONTEXT)).rejects.toThrow('STRUCTURAL_TARGET_UNRELIABLE');
   });
 
   it('verifies parser and tree disposal', async () => {
@@ -451,7 +451,7 @@ describe('V2 replace_node operation', () => {
       expect(parserDeleteSpies[0]).toHaveBeenCalled();
       expect(treeDeleteSpies[0]).toHaveBeenCalled();
 
-      // 4. PARSER_DIAGNOSTICS_PRESENT
+      // 4. Structural parser diagnostics remain distinct from runtime failures.
       parserDeleteSpies = [];
       treeDeleteSpies = [];
       const sourceDiag = `function Comp() {\n  return <div>\n}`;
@@ -462,7 +462,7 @@ describe('V2 replace_node operation', () => {
         content: 'function Comp() {}',
         selector: { path: [{ kind: 'function', name: 'Comp' }] }
       };
-      await expect(resolveOperation(opDiag, virtualStateDiag, CONTEXT)).rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
+      await expect(resolveOperation(opDiag, virtualStateDiag, CONTEXT)).rejects.toThrow('STRUCTURAL_TARGET_UNRELIABLE');
       expect(parserDeleteSpies[0]).toHaveBeenCalled();
       expect(treeDeleteSpies[0]).toHaveBeenCalled();
     } finally {

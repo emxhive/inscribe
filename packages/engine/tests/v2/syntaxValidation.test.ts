@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import * as path from 'path';
 import {
   createAdapterSyntaxValidator,
@@ -24,134 +24,242 @@ const ASSETS = {
   },
 };
 
-const validator = createAdapterSyntaxValidator(
-  createV2LanguageRegistry([
-    createTypeScriptLanguageAdapter(ASSETS),
-    createDartLanguageAdapter(ASSETS),
-  ]),
-);
-const registry = createV2LanguageRegistry([
-  createTypeScriptLanguageAdapter(ASSETS),
-]);
-const structuralResolver = createAdapterStructuralResolver(registry);
-const executionContext = { structuralResolver, syntaxValidator: createAdapterSyntaxValidator(registry) };
+describe('V2 language capability boundaries', () => {
+  it('does not expose Tree-sitter as an authoritative syntax validator', async () => {
+    const typescript = createTypeScriptLanguageAdapter(ASSETS);
+    const dart = createDartLanguageAdapter(ASSETS);
+    const registry = createV2LanguageRegistry([typescript, dart]);
+    const validator = createAdapterSyntaxValidator(registry);
 
-describe('V2 language syntax validation', () => {
-  it('validates TypeScript, TSX, and Dart using their registered grammars', async () => {
-    await validator({
-      filePath: 'fixture.ts',
-      extension: '.ts',
-      source: 'function run(): number { return 1; }',
-    });
-    await validator({
-      filePath: 'fixture.tsx',
-      extension: '.tsx',
-      source: 'function App() { return <div />; }',
-    });
-    await validator({
-      filePath: 'fixture.dart',
-      extension: '.dart',
-      source: 'class App { Widget build() { return Widget(); } }',
-    });
-  });
+    expect('validateSyntax' in typescript).toBe(false);
+    expect('validateSyntax' in dart).toBe(false);
 
-  it('rejects syntax errors in each supported language', async () => {
     await expect(validator({
       filePath: 'fixture.ts',
       extension: '.ts',
       source: 'function run() {',
-    })).rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
-    await expect(validator({
-      filePath: 'fixture.tsx',
-      extension: '.tsx',
-      source: 'function App() { return <div>; }',
-    })).rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
+    })).resolves.toBeUndefined();
     await expect(validator({
       filePath: 'fixture.dart',
       extension: '.dart',
-      source: 'class App { Widget build() { return Widget(); }',
-    })).rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
-  });
-
-  it('preserves current behavior for unsupported file types', async () => {
-    await expect(validator({
-      filePath: 'fixture.json',
-      extension: '.json',
-      source: '{ invalid json',
+      source: 'class App {',
     })).resolves.toBeUndefined();
   });
 
-  it('validates the resulting content at the shared operation boundary', async () => {
-    const validSource = 'function run() { return 1; }';
+  it('keeps the shared validation boundary available to real validators', async () => {
+    const validateSyntax = vi.fn(async () => {
+      throw new Error('AUTHORITATIVE_VALIDATOR_REJECTED');
+    });
+    const registry = createV2LanguageRegistry([{
+      id: 'syntax-only',
+      extensions: ['.syntax'],
+      validateSyntax,
+    }]);
+    const validator = createAdapterSyntaxValidator(registry);
+
+    await expect(validator({
+      filePath: 'fixture.syntax',
+      extension: '.syntax',
+      source: 'not valid',
+    })).rejects.toThrow('AUTHORITATIVE_VALIDATOR_REJECTED');
+    expect(validateSyntax).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not make textual or file operations depend on a structural grammar', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const syntaxValidator = createAdapterSyntaxValidator(registry);
+    const context = { syntaxValidator };
 
     await expect(resolveOperation({
       strategy: 'create_file',
       filePath: 'new.ts',
       content: 'function run() {',
-    }, new Map(), executionContext)).rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
+    }, new Map(), context)).resolves.toBeDefined();
 
     await expect(resolveOperation({
       strategy: 'replace_file',
       filePath: 'existing.ts',
       content: 'function run() {',
-    }, new Map([['existing.ts', { content: validSource, exists: true }]]), executionContext))
-      .rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
+    }, new Map([['existing.ts', { content: 'function run() {}', exists: true }]]), context))
+      .resolves.toBeDefined();
 
     await expect(resolveOperation({
       strategy: 'replace_text',
       filePath: 'existing.ts',
-      search: '}',
-      content: '',
-    }, new Map([['existing.ts', { content: validSource, exists: true }]]), executionContext))
-      .rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
+      search: '{}',
+      content: '{',
+    }, new Map([['existing.ts', { content: 'function run() {}', exists: true }]]), context))
+      .resolves.toBeDefined();
+  });
+
+  it('keeps structural replacement available without claiming the replacement is syntax-valid', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const structuralResolver = createAdapterStructuralResolver(registry);
 
     await expect(resolveOperation({
       strategy: 'replace_node',
       filePath: 'existing.ts',
       content: 'function run() {',
       selector: { path: [{ kind: 'function', name: 'run' }] },
-    }, new Map([['existing.ts', { content: validSource, exists: true }]]), executionContext))
-      .rejects.toThrow('PARSER_DIAGNOSTICS_PRESENT');
+    }, new Map([['existing.ts', { content: 'function run() {}', exists: true }]]), {
+      structuralResolver,
+      syntaxValidator: createAdapterSyntaxValidator(registry),
+    })).resolves.toBeDefined();
   });
 
-  it('taints only the failed file and excludes later same-file work', async () => {
+  it('retains parser limitations as structural diagnostics for an affected target', async () => {
+    const registry = createV2LanguageRegistry([createDartLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `String paymentLabel(PaymentState state) => switch (state) {
+  PaymentState.pending => 'pending',
+  PaymentState.captured => 'captured',
+};`;
+
+    await expect(resolver({
+      source,
+      filePath: 'modern.dart',
+      selector: { path: [{ kind: 'function', name: 'paymentLabel' }] },
+    })).rejects.toMatchObject({
+      code: 'STRUCTURAL_TARGET_UNRELIABLE',
+      structuralParser: {
+        parser: 'tree-sitter',
+        adapterId: 'dart-v2',
+        grammarId: 'dart',
+      },
+    });
+  });
+
+  it('allows a trustworthy target beside unrelated recoverable parser damage', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function broken() {
+  const value = ;
+}
+
+function intact() {
+  return 1;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: 'recoverable.ts',
+      selector: { path: [{ kind: 'function', name: 'intact' }] },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain('function intact()');
+  });
+
+  it('applies STARTS_WITH before rejecting an unreliable sibling candidate', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  const value = ;
+}
+
+function run() {
+  return 2;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: 'qualified-recovery.ts',
+      selector: {
+        path: [{ kind: 'function', name: 'run' }],
+        startsWith: 'function run() {\n  return 2',
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain('return 2;');
+    expect(source.slice(match.start, match.end)).not.toContain('const value = ;');
+  });
+
+  it('does not silently turn an unreliable ambiguous set into a unique target', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  const value = ;
+}
+
+function run() {
+  return 2;
+}`;
+
+    await expect(resolver({
+      source,
+      filePath: 'ambiguous-recovery.ts',
+      selector: { path: [{ kind: 'function', name: 'run' }] },
+    })).rejects.toMatchObject({
+      code: 'STRUCTURAL_TARGET_UNRELIABLE',
+      structuralParser: {
+        diagnostics: expect.arrayContaining([
+          expect.objectContaining({ condition: 'ERROR_NODE' }),
+        ]),
+      },
+    });
+  });
+
+  it('bounds structural parser diagnostic context and payload size', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = Array.from(
+      { length: 50 },
+      (_, index) => `function broken${index}() { const value = ; }`,
+    ).join('\n');
+
+    const error = await resolver({
+      source,
+      filePath: 'many-diagnostics.ts',
+      selector: { path: [{ kind: 'function', name: 'missing' }] },
+    }).catch((caught) => caught as any);
+
+    expect(error).toMatchObject({ code: 'STRUCTURAL_TARGET_UNRELIABLE' });
+    expect(error.structuralParser.totalDiagnostics).toBeGreaterThan(20);
+    expect(error.structuralParser.diagnostics).toHaveLength(20);
+    expect(error.structuralParser.diagnosticsTruncated).toBe(true);
+    expect(error.structuralParser.diagnostics.every((diagnostic: { context: string }) => diagnostic.context.length <= 240)).toBe(true);
+  });
+
+  it('taints only the failed file while preserving parser diagnostics', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const structuralResolver = createAdapterStructuralResolver(registry);
+    const syntaxValidator = createAdapterSyntaxValidator(registry);
     const plan = await resolvePlan([
       {
         strategy: 'replace_node',
-        filePath: 'existing.ts',
-        content: 'function run() {',
-        selector: { path: [{ kind: 'function', name: 'run' }] },
+        filePath: 'broken.ts',
+        content: 'class A {}',
+        selector: { path: [{ kind: 'class', name: 'A' }] },
       },
       {
-        strategy: 'replace_node',
-        filePath: 'existing.ts',
-        content: 'function run() { return 2; }',
-        selector: { path: [{ kind: 'function', name: 'run' }] },
+        strategy: 'replace_text',
+        filePath: 'broken.ts',
+        search: 'class',
+        content: 'interface',
       },
       {
         strategy: 'create_file',
         filePath: 'independent.ts',
-        content: 'function other() { return 3; }',
+        content: 'function other() {}',
       },
     ], new Map([
-      ['existing.ts', { content: 'function run() { return 1; }', exists: true }],
-    ]), executionContext);
+      ['broken.ts', { content: 'class A {', exists: true }],
+    ]), { structuralResolver, syntaxValidator });
 
-    expect(plan.errors).toEqual([
-      expect.objectContaining({
-        stepIndex: 0,
-        filePath: 'existing.ts',
-        message: 'PARSER_DIAGNOSTICS_PRESENT',
-      }),
-    ]);
-    expect(plan.exclusions).toEqual([
-      expect.objectContaining({
-        stepIndex: 1,
-        blockedByStepIndex: 0,
-        filePath: 'existing.ts',
-      }),
-    ]);
+    expect(plan.errors[0]).toMatchObject({
+      stepIndex: 0,
+      code: 'STRUCTURAL_TARGET_UNRELIABLE',
+      structuralParser: {
+        adapterId: 'typescript-v2',
+        grammarId: 'typescript',
+        diagnostics: expect.arrayContaining([
+          expect.objectContaining({ condition: expect.stringMatching(/ERROR_NODE|MISSING_NODE/) }),
+        ]),
+      },
+    });
+    expect(plan.exclusions[0]).toMatchObject({
+      stepIndex: 1,
+      blockedByStepIndex: 0,
+    });
     expect(plan.executionStepIndices).toEqual([2]);
-    expect(plan.executions[0].filePath).toBe('independent.ts');
   });
 });

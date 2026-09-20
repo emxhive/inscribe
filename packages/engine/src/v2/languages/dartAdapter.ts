@@ -37,6 +37,7 @@ export function collectDartCandidates(
     kind: match.kind,
     name: match.name,
     replacement: match.replacement,
+    reliabilityNode: match.traversalNode,
   }));
 }
 

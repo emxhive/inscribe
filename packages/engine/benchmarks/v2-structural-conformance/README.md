@@ -5,11 +5,11 @@ This is a standalone conformance corpus for measuring structural targeting again
 The corpus has two kinds of scenarios:
 
 - `selector`: a developer intent that the current canonical selector vocabulary can express. The benchmark records the expected kind, exact targeting/range assertions, ownership expectations, neighboring-code preservation, and replacement syntax requirements.
-- `capability`: a developer intent that must remain visible in the benchmark. Cases without a selector remain descriptive TODOs; cases that gain a semantic selector execute the same range and replacement assertions as selector scenarios. Cases marked `parser-compatibility` instead execute the registered V2 syntax-validation path and assert their declared parser outcome, so grammar support changes become visible benchmark results rather than silent TODOs.
+- `capability`: a developer intent that must remain visible in the benchmark. Cases without a selector remain descriptive TODOs; cases that gain a semantic selector execute the same range and replacement assertions as selector scenarios. Cases marked `parser-compatibility` execute structural resolution and assert their declared parser outcome, so grammar support changes remain visible without treating Tree-sitter as authoritative syntax validation.
 
 The fixtures are ordinary-looking source files. They deliberately include framework conventions, modifiers, annotations, callbacks, repeated shapes, nested scopes, formatting differences, Unicode, and neighboring declarations so the benchmark does not become an implementation-shaped collection of minimal snippets.
 
-Successful selector scenarios declare independent `rangeAnchor` and `rangeEndAnchor` witnesses. Replacement scenarios run through the V2 `replace_node` operation executor and its virtual-file/syntax-validation path. Neighbor checks use manifest-declared sentinels outside the target, so they do not compare slices that were used to construct the replacement. Capability scenarios remain descriptive until a product-level selector vocabulary exists; executable capability scenarios retain their original intent and evidence in the manifest.
+Successful selector scenarios declare independent `rangeAnchor` and `rangeEndAnchor` witnesses. Replacement scenarios run through the V2 `replace_node` operation executor and its virtual-file path. Neighbor checks use manifest-declared sentinels outside the target, so they do not compare slices that were used to construct the replacement. Capability scenarios remain descriptive until a product-level selector vocabulary exists; executable capability scenarios retain their original intent and evidence in the manifest.
 
 ## Coverage
 

@@ -38,6 +38,7 @@ function collectCandidates(
     kind: finalKind,
     name: getNodeName(semanticNode),
     replacement: getLogicalReplacement(semanticNode, finalKind, query.source),
+    reliabilityNode: semanticNode,
   }));
 }
 

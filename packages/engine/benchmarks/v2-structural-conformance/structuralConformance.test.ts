@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import {
   createFlutterLanguageAdapter,
   createTypeScriptLanguageAdapter,
-  createAdapterSyntaxValidator,
   createV2LanguageRegistry,
 } from '../../src/v2/languages';
 import { resolveOperation } from '../../src/v2/execution/resolveOperation';
@@ -34,7 +33,6 @@ const registry = createV2LanguageRegistry([
   createFlutterLanguageAdapter(ASSETS),
 ]);
 const resolver = createAdapterStructuralResolver(registry);
-const syntaxValidator = createAdapterSyntaxValidator(registry);
 
 for (const suite of manifest.suites) {
   const fixtures = new Map(
@@ -49,27 +47,26 @@ for (const suite of manifest.suites) {
 
   describe(`V2 structural conformance: ${suite.id}`, () => {
     for (const scenario of suite.scenarios) {
+      if (scenario.category === 'parser-compatibility') {
+        it(`${scenario.id} [${scenario.category}]: ${scenario.intent}`, async () => {
+          const fixture = fixtures.get(scenario.fixture);
+          if (!fixture) throw new Error(`Unknown fixture: ${scenario.fixture}`);
+          if (!scenario.expectedOutcome || !scenario.selector) {
+            throw new Error(`${scenario.id} must declare selector and expectedOutcome`);
+          }
+
+          await expect(resolver({
+            source: fixture.source,
+            filePath: fixture.file,
+            selector: parseSelector(scenario.selector, scenario.startsWith),
+          })).rejects.toThrow(scenario.expectedOutcome);
+        });
+        continue;
+      }
+
       if (scenario.mode === 'capability' && !scenario.selector) {
         const category = scenario.category ? ` [${scenario.category}]` : '';
-        if (scenario.category === 'parser-compatibility') {
-          it(`${scenario.id}${category}: ${scenario.intent}`, async () => {
-            const fixture = fixtures.get(scenario.fixture);
-            if (!fixture) throw new Error(`Unknown fixture: ${scenario.fixture}`);
-            if (!scenario.expectedOutcome) {
-              throw new Error(`${scenario.id} must declare expectedOutcome`);
-            }
-
-            await expect(
-              syntaxValidator({
-                source: fixture.source,
-                filePath: fixture.file,
-                extension: path.extname(fixture.file).toLowerCase(),
-              }),
-            ).rejects.toThrow(scenario.expectedOutcome);
-          });
-        } else {
-          it.todo(`${scenario.id}${category}: ${scenario.intent}`);
-        }
+        it.todo(`${scenario.id}${category}: ${scenario.intent}`);
         continue;
       }
 
@@ -116,7 +113,7 @@ for (const suite of manifest.suites) {
               selector,
             },
             new Map([[fixture.file, { content: fixture.source, exists: true }]]),
-            { structuralResolver: resolver, syntaxValidator },
+            { structuralResolver: resolver },
           );
 
           expect(execution.targetScope.beforeRange).toEqual({ start: match.start, end: match.end });

@@ -6,7 +6,13 @@ import {
 } from './types';
 import { matchesStartsWith } from './startsWithQualifier';
 import { V2LanguageRegistry } from '../languages/registry';
-import { hasV2StructuralCapabilities, StructuralCandidate } from '../languages/types';
+import {
+  hasV2StructuralCapabilities,
+  StructuralCandidate,
+  StructuralCandidateDiscovery,
+  StructuralCandidateResolution,
+  StructuralCandidateReliability,
+} from '../languages/types';
 
 export interface ResolveStructuralTargetOptions {
   source: string;
@@ -17,6 +23,25 @@ export interface ResolveStructuralTargetOptions {
 export type StructuralResolver = (
   options: ResolveStructuralTargetOptions
 ) => Promise<StructuralNodeMatch>;
+
+export class StructuralTargetUnreliableError extends Error {
+  readonly code = 'STRUCTURAL_TARGET_UNRELIABLE';
+  readonly structuralParser?: StructuralCandidateReliability['structuralParser'];
+
+  constructor(reliabilities: readonly StructuralCandidateReliability[]) {
+    const first = reliabilities.find((reliability) => reliability.structuralParser);
+    const parser = first?.structuralParser;
+    const firstDiagnostic = parser?.diagnostics[0];
+    const location = firstDiagnostic
+      ? ` at line ${firstDiagnostic.startLine}${firstDiagnostic.startColumn > 0 ? `, column ${firstDiagnostic.startColumn + 1}` : ''}`
+      : '';
+    super(
+      `STRUCTURAL_TARGET_UNRELIABLE: Structural parser evidence was not sufficient to safely resolve the requested target${location}. The source was not treated as language-invalid.`,
+    );
+    this.name = 'StructuralTargetUnreliableError';
+    this.structuralParser = parser;
+  }
+}
 
 export function validateStructuralSelector(selector: StructuralSelector): void {
   if (!selector || !Array.isArray(selector.path) || selector.path.length === 0) {
@@ -99,6 +124,15 @@ export function selectStructuralCandidate(
     throw new Error('TARGET_NOT_FOUND');
   }
 
+  const unreliableCandidates = matchedCandidates.filter(
+    (candidate) => candidate.reliability && !candidate.reliability.trustworthy,
+  );
+  if (unreliableCandidates.length > 0) {
+    throw new StructuralTargetUnreliableError(
+      unreliableCandidates.map((candidate) => candidate.reliability!),
+    );
+  }
+
   if (matchedCandidates.length > 1) {
     throw new Error('TARGET_AMBIGUOUS');
   }
@@ -132,12 +166,32 @@ export function createAdapterStructuralResolver(
       throw new Error(`UNSUPPORTED_STRUCTURAL_KIND: ${unsupportedSegment.kind}`);
     }
 
-    const candidates = await adapter.structural.resolveCandidates({
+    const discovery = await adapter.structural.resolveCandidates({
       source: options.source,
       filePath: options.filePath,
       extension: path.extname(options.filePath).toLowerCase(),
       path: options.selector.path,
     });
+
+    const candidates = normalizeStructuralDiscovery(discovery);
     return selectStructuralCandidate(options.source, options.selector, candidates);
   };
+}
+
+function normalizeStructuralDiscovery(
+  discovery: StructuralCandidateResolution,
+): readonly StructuralCandidate[] {
+  if (Array.isArray(discovery)) return discovery;
+
+  const candidateDiscovery = discovery as StructuralCandidateDiscovery;
+  if (
+    candidateDiscovery.candidates.length === 0 &&
+    candidateDiscovery.unresolvedParser
+  ) {
+    throw new StructuralTargetUnreliableError([{
+      trustworthy: false,
+      structuralParser: candidateDiscovery.unresolvedParser,
+    }]);
+  }
+  return candidateDiscovery.candidates;
 }

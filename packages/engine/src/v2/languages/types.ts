@@ -1,4 +1,5 @@
 import { StructuralKind, StructuralSelectorSegment } from '@inscribe/shared';
+import type { V2StructuralParserFailure } from '@inscribe/shared';
 
 export { StructuralKind, StructuralSelectorSegment };
 
@@ -45,7 +46,33 @@ export interface StructuralCandidate {
   name?: string;
   start: number;
   end: number;
+  /**
+   * Optional adapter evidence used by the core resolver after selector
+   * qualification. Unreliable candidates stay in the set so they cannot be
+   * silently discarded and turn an ambiguous selector into a unique one.
+   */
+  reliability?: StructuralCandidateReliability;
 }
+
+export interface StructuralCandidateReliability {
+  trustworthy: boolean;
+  structuralParser?: V2StructuralParserFailure;
+}
+
+export interface StructuralCandidateDiscovery {
+  candidates: readonly StructuralCandidate[];
+  /**
+   * Used when parser damage prevented candidate discovery from establishing a
+   * trustworthy absence. This is intentionally separate from per-candidate
+   * reliability because there is no candidate to attach it to.
+   */
+  unresolvedParser?: V2StructuralParserFailure;
+}
+
+export type StructuralCandidateResolution =
+  | StructuralCandidate[]
+  | readonly StructuralCandidate[]
+  | StructuralCandidateDiscovery;
 
 export interface StructuralCandidateQuery {
   source: string;
@@ -73,7 +100,7 @@ export interface V2StructuralCapabilities {
   readonly supportedKinds: readonly StructuralKind[];
   resolveCandidates(
     query: StructuralCandidateQuery,
-  ): StructuralCandidate[] | readonly StructuralCandidate[] | Promise<StructuralCandidate[] | readonly StructuralCandidate[]>;
+  ): StructuralCandidateResolution | Promise<StructuralCandidateResolution>;
 }
 
 /**
@@ -101,5 +128,4 @@ export function hasV2StructuralCapabilities(
 export interface TreeSitterLanguageAdapter extends V2StructuralLanguageAdapter {
   /** Selects the grammar asset for the concrete file variant being resolved. */
   readonly grammarIdForFile: (filePath: string) => string;
-  readonly validateSyntax: (query: SyntaxValidationQuery) => Promise<void>;
 }

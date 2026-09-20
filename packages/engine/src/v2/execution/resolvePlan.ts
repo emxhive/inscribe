@@ -1,4 +1,4 @@
-import { V2Operation } from '@inscribe/shared';
+import { V2Operation, V2StructuralParserFailure } from '@inscribe/shared';
 import { CanonicalExecution } from '../protocol';
 import { VirtualFileState } from './virtualFileState';
 import { resolveOperation, V2ExecutionContext } from './resolveOperation';
@@ -14,6 +14,8 @@ export interface ResolutionFailure {
   stepIndex: number;
   filePath: string;
   message: string;
+  code?: string;
+  structuralParser?: V2StructuralParserFailure;
 }
 
 export interface ResolutionExclusion {
@@ -81,11 +83,20 @@ export async function resolvePlan(
         content: execution.afterContent,
         exists: execution.afterExists
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as {
+        message?: unknown;
+        code?: unknown;
+        structuralParser?: unknown;
+      };
       const failure: ResolutionFailure = {
         stepIndex: i,
         filePath: payload.filePath,
-        message: err.message || 'Unknown execution error'
+        message: typeof error.message === 'string' ? error.message : 'Unknown execution error',
+        code: typeof error.code === 'string' ? error.code : undefined,
+        structuralParser: isStructuralParserFailure(error.structuralParser)
+          ? error.structuralParser
+          : undefined,
       };
 
       const blockingFailure = taintedFiles.get(payload.filePath);
@@ -111,4 +122,15 @@ export async function resolvePlan(
     errors,
     exclusions,
   };
+}
+
+function isStructuralParserFailure(value: unknown): value is V2StructuralParserFailure {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<V2StructuralParserFailure>;
+  return (
+    candidate.parser === 'tree-sitter' &&
+    typeof candidate.adapterId === 'string' &&
+    typeof candidate.grammarId === 'string' &&
+    Array.isArray(candidate.diagnostics)
+  );
 }

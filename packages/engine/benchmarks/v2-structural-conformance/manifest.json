@@ -480,13 +480,12 @@
           "id": "dart.parser-diagnostics.switch-expression",
           "mode": "capability",
           "fixture": "modern-patterns",
-          "intent": "Retain the common Dart 3 switch-expression and pattern-case shape as an explicit parser-compatibility benchmark case.",
+          "intent": "Retain the common Dart 3 switch-expression and pattern-case shape while confirming the containing function remains structurally targetable despite parser recovery.",
           "targetShape": "switch expression with pattern cases",
           "selector": "function:paymentLabel",
           "anchor": "=> switch (state)",
-          "evidence": ["parser compatibility is reported explicitly", "pattern-case ownership", "unrelated Dart scenarios remain runnable"],
-          "category": "parser-compatibility",
-          "expectedOutcome": "STRUCTURAL_TARGET_UNRELIABLE"
+          "evidence": ["function boundary remains structurally targetable", "pattern-case ownership", "unrelated Dart scenarios remain runnable"],
+          "category": "parser-compatibility"
         }
       ]
     },

@@ -329,9 +329,6 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
         }
 
         const contentVal = sections.get('CONTENT')!.content;
-        if (!contentVal || !contentVal.trim()) {
-          throw new V2ProtocolError('EMPTY_CONTENT', blockIndex, sections.get('CONTENT')!.lineNum);
-        }
 
         let startsWithValue: string | undefined;
         if (sections.has('STARTS_WITH')) {

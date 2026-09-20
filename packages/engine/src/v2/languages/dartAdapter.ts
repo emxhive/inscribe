@@ -178,14 +178,14 @@ export function canHideDartCandidate(
   candidateKind: StructuralSelectorSegment['kind'],
 ): boolean {
   const text = recoveryNode.text;
-  const keywords: Partial<Record<StructuralSelectorSegment['kind'], RegExp>> = {
-    class: /\b(?:class|mixin|enum|extension)\b/,
-    if_statement: /\bif\b/,
-    for_statement: /\bfor\b/,
-    while_statement: /\bwhile\b/,
-    switch_statement: /\bswitch\b/,
-  };
-  const keyword = keywords[candidateKind];
+  const keywords = new Map<StructuralSelectorSegment['kind'], RegExp>([
+    ['class', /\b(?:class|mixin|enum|extension)\b/],
+    ['if_statement', /\bif\b/],
+    ['for_statement', /\bfor\b/],
+    ['while_statement', /\bwhile\b/],
+    ['switch_statement', /\bswitch\b/],
+  ]);
+  const keyword = keywords.get(candidateKind);
   if (keyword?.test(text)) return true;
   if (candidateKind !== 'function' && candidateKind !== 'method' && candidateKind !== 'constructor') {
     return false;

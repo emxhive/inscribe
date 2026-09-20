@@ -70,6 +70,33 @@ describe('V2 replace_node operation', () => {
     expect(slice).toBe('function welcome() {\n  return "welcome";\n}');
   });
 
+  it('deletes a selected node when replacement content is empty', async () => {
+    const source = `function keep() {}
+function removeMe() {}
+function tail() {}`;
+    const virtualState = new Map([['test.ts', { content: source, exists: true }]]);
+    const op = {
+      strategy: 'replace_node' as const,
+      filePath: 'test.ts',
+      content: '',
+      selector: {
+        path: [{ kind: 'function' as const, name: 'removeMe' }]
+      }
+    };
+
+    const exec = await resolveOperation(op, virtualState, CONTEXT);
+
+    expect(exec.afterContent).toBe(`function keep() {}
+
+function tail() {}`);
+    expect(exec.afterExists).toBe(true);
+    expect(exec.targetScope.afterRange).toEqual({
+      start: exec.targetScope.beforeRange!.start,
+      end: exec.targetScope.beforeRange!.start,
+    });
+  });
+
+
   it('replaces an exported named TSX function component', async () => {
     const source = `export function UserCard() {\n  return <div>User</div>;\n}`;
     const virtualState = new Map([['test.tsx', { content: source, exists: true }]]);
@@ -327,7 +354,7 @@ describe('V2 replace_node operation', () => {
     await expect(resolveOperation(op, virtualState, {})).rejects.toThrow('STRUCTURAL_RESOLVER_REQUIRED');
   });
 
-  it('fails safely with structural diagnostics for malformed TSX targets', async () => {
+    it('replaces a structurally clear function despite malformed TSX inside its body', async () => {
     const source = `function Comp() {\n  return <div>\n}`;
     const virtualState = new Map([['test.tsx', { content: source, exists: true }]]);
     const op = {
@@ -339,7 +366,9 @@ describe('V2 replace_node operation', () => {
       }
     };
 
-    await expect(resolveOperation(op, virtualState, CONTEXT)).rejects.toThrow('STRUCTURAL_TARGET_UNRELIABLE');
+    const exec = await resolveOperation(op, virtualState, CONTEXT);
+
+    expect(exec.afterContent).toBe('function Comp() {}');
   });
 
   it('fails safely with structural diagnostics for missing TS delimiters', async () => {
@@ -451,14 +480,14 @@ describe('V2 replace_node operation', () => {
       expect(parserDeleteSpies[0]).toHaveBeenCalled();
       expect(treeDeleteSpies[0]).toHaveBeenCalled();
 
-      // 4. Structural parser diagnostics remain distinct from runtime failures.
+            // 4. Structural parser diagnostics remain distinct from runtime failures.
       parserDeleteSpies = [];
       treeDeleteSpies = [];
-      const sourceDiag = `function Comp() {\n  return <div>\n}`;
-      const virtualStateDiag = new Map([['test.tsx', { content: sourceDiag, exists: true }]]);
+      const sourceDiag = 'function (';
+      const virtualStateDiag = new Map([['test.ts', { content: sourceDiag, exists: true }]]);
       const opDiag = {
         strategy: 'replace_node' as const,
-        filePath: 'test.tsx',
+        filePath: 'test.ts',
         content: 'function Comp() {}',
         selector: { path: [{ kind: 'function', name: 'Comp' }] }
       };

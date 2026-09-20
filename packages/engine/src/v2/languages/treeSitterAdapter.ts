@@ -182,9 +182,9 @@ export function createTreeSitterLanguageAdapter(
 function normalizeTreeSitterCandidateCollection(
   collection: readonly TreeSitterReplacementCandidate[] | TreeSitterCandidateCollection,
 ): TreeSitterCandidateCollection {
-  return Array.isArray(collection)
-    ? { candidates: collection, searchScopes: [], discoveryComplete: false }
-    : collection;
+  return 'candidates' in collection
+    ? collection
+    : { candidates: collection, searchScopes: [], discoveryComplete: false };
 }
 
 async function withParsedTree<T>(

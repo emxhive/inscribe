@@ -6,6 +6,7 @@ import {
   createTypeScriptLanguageAdapter,
   createV2LanguageRegistry,
 } from '../../src/v2/languages';
+import { createFlutterLanguageAdapter } from '../../src/v2/languages/flutter/flutterAdapter';
 import { resolveOperation } from '../../src/v2/execution/resolveOperation';
 import { resolvePlan } from '../../src/v2/execution/resolvePlan';
 import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
@@ -107,7 +108,7 @@ describe('V2 language capability boundaries', () => {
     })).resolves.toBeDefined();
   });
 
-  it('retains parser limitations as structural diagnostics for an affected target', async () => {
+  it('keeps a structurally clear Dart function editable despite interior parser limitations', async () => {
     const registry = createV2LanguageRegistry([createDartLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `String paymentLabel(PaymentState state) => switch (state) {
@@ -115,18 +116,18 @@ describe('V2 language capability boundaries', () => {
   PaymentState.captured => 'captured',
 };`;
 
-    await expect(resolver({
+    const match = await resolver({
       source,
       filePath: 'modern.dart',
       selector: { path: [{ kind: 'function', name: 'paymentLabel' }] },
-    })).rejects.toMatchObject({
-      code: 'STRUCTURAL_TARGET_UNRELIABLE',
-      structuralParser: {
-        parser: 'tree-sitter',
-        adapterId: 'dart-v2',
-        grammarId: 'dart',
-      },
     });
+
+    expect(match).toMatchObject({
+      kind: 'function',
+      name: 'paymentLabel',
+      start: 0,
+    });
+    expect(source.slice(match.start, match.end)).toContain('switch (state)');
   });
 
   it('allows a trustworthy target beside unrelated recoverable parser damage', async () => {
@@ -232,6 +233,32 @@ function intact() {
     });
 
     expect(source.slice(match.start, match.end)).toContain('function run');
+  });
+
+  it('fails closed when superclass recovery can hide another Flutter widget candidate', async () => {
+    const registry = createV2LanguageRegistry([createFlutterLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `import 'package:flutter/widgets.dart';
+
+class App extends Statel?ssWidget {
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+}
+
+class App extends StatelessWidget {
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+}`;
+
+    await expect(resolver({
+      source,
+      filePath: 'widget-superclass-recovery.dart',
+      selector: { path: [{ kind: 'widget', name: 'App' }] },
+    })).rejects.toMatchObject({ code: 'STRUCTURAL_TARGET_UNRELIABLE' });
   });
 
   it('fails closed when recovery reaches a candidate boundary that can hide structure', async () => {
@@ -374,6 +401,19 @@ function healthy() {}`,
     })).rejects.toThrow('TARGET_NOT_FOUND');
   });
 
+  it('does not treat unrelated top-level recovery as hidden function discovery', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(resolver({
+      source: `const broken = ;
+
+function healthy() {}`,
+      filePath: 'unrelated-top-level-recovery.ts',
+      selector: { path: [{ kind: 'function', name: 'missing' }] },
+    })).rejects.toThrow('TARGET_NOT_FOUND');
+  });
+
   it('keeps target absence uncertain when recovery is in the actual search space', async () => {
     const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
@@ -443,24 +483,10 @@ function run() {
     expect(candidates[1].reliability).toBeUndefined();
   });
 
-  it('does not convert a recovery-uncertain qualifier boundary into a mismatch', async () => {
+  it('does not convert recovery-uncertain structural absence into a qualifier mismatch', async () => {
     const adapter = createTypeScriptLanguageAdapter(ASSETS);
     const source = `function run() {
   return 1;`;
-    const discovery = await adapter.structural.resolveCandidates({
-      source,
-      filePath: 'boundary-recovery.ts',
-      extension: '.ts',
-      path: [{ kind: 'function', name: 'run' }],
-    });
-    const candidates = Array.isArray(discovery) ? discovery : discovery.candidates;
-    expect(candidates).toHaveLength(1);
-    expect(candidates[0]).toMatchObject({
-      reliability: {
-        qualification: 'uncertain',
-      },
-    });
-
     const registry = createV2LanguageRegistry([adapter]);
     const resolver = createAdapterStructuralResolver(registry);
 

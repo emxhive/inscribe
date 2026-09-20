@@ -43,20 +43,23 @@ export function getFlutterStructuralMatch(
   parserEvidence?: TreeSitterParserEvidence,
 ): FlutterStructuralMatch | undefined {
   if (requestedKind === 'widget' && node.type === 'class_definition') {
-    const superclass = node.childForFieldName('superclass');
-    if (!superclass || !isFlutterWidgetSuperclass(superclass, context)) return undefined;
+  const superclass = node.childForFieldName('superclass');
+  if (!superclass || !isFlutterWidgetSuperclass(superclass, context)) return undefined;
 
-    const dartClass = getDartStructuralMatch(node, source, 'class');
-    if (!dartClass) return undefined;
-    return {
-      kind: 'widget',
-      name: dartClass.name,
-      traversalNode: node,
-      replacement: dartClass.replacement,
-      identityRange: dartClass.identityRange,
-      identityNode: dartClass.identityNode,
-    };
-  }
+  const dartClass = getDartStructuralMatch(node, source, 'class');
+  if (!dartClass) return undefined;
+  const identityRange = dartClass.identityNode
+    ? createIdentityRange(source, dartClass.identityNode, superclass)
+    : dartClass.identityRange;
+  return {
+    kind: 'widget',
+    name: dartClass.name,
+    traversalNode: node,
+    replacement: dartClass.replacement,
+    identityRange,
+    identityNode: dartClass.identityNode,
+  };
+}
 
   if (requestedKind === 'builder_callback' || requestedKind === 'event_callback') {
     if (node.type !== 'named_argument') return undefined;

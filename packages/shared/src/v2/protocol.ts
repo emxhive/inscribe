@@ -143,6 +143,6 @@ export const V2_MODE_RULES: Record<V2OperationMode, V2ModeRule> = {
     forbiddenDirectives: [],
     requiredSections: ['CONTENT'],
     forbiddenSections: ['SEARCH'],
-    nonEmptyWhenPresentSections: ['CONTENT', 'STARTS_WITH'],
+    nonEmptyWhenPresentSections: ['STARTS_WITH'],
   },
 };

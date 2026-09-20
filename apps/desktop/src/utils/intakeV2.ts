@@ -242,17 +242,8 @@ export function scanV2IntakeStructure(
             if (active.sections[secKey]) {
               const sec = active.sections[secKey]!;
               if (sec.isEmpty) {
-                if (activeMode === 'replace_node' && secKey === 'CONTENT') {
-                  continue;
-                }
                 errors.push(`blank ${secKey}`);
               }
-            }
-          }
-          if (activeMode === 'replace_node') {
-            const contentSec = active.sections['CONTENT'];
-            if (contentSec && contentSec.isEmpty) {
-              errors.push('blank replace_node CONTENT');
             }
           }
         }

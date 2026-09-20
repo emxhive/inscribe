@@ -51,15 +51,27 @@ for (const suite of manifest.suites) {
         it(`${scenario.id} [${scenario.category}]: ${scenario.intent}`, async () => {
           const fixture = fixtures.get(scenario.fixture);
           if (!fixture) throw new Error(`Unknown fixture: ${scenario.fixture}`);
-          if (!scenario.expectedOutcome || !scenario.selector) {
-            throw new Error(`${scenario.id} must declare selector and expectedOutcome`);
+          if (!scenario.selector) {
+            throw new Error(`${scenario.id} must declare selector`);
           }
 
-          await expect(resolver({
+          const resolution = resolver({
             source: fixture.source,
             filePath: fixture.file,
             selector: parseSelector(scenario.selector, scenario.startsWith),
-          })).rejects.toThrow(scenario.expectedOutcome);
+          });
+
+          if (scenario.expectedOutcome) {
+            await expect(resolution).rejects.toThrow(scenario.expectedOutcome);
+            return;
+          }
+
+          if (!scenario.anchor) {
+            throw new Error(`${scenario.id} must declare anchor when no expectedOutcome is provided`);
+          }
+
+          const match = await resolution;
+          expect(fixture.source.slice(match.start, match.end)).toContain(scenario.anchor);
         });
         continue;
       }
@@ -158,6 +170,7 @@ interface BenchmarkScenario {
   expectedError?: string;
   category?: 'parser-compatibility' | 'structural-capability';
   expectedOutcome?: string;
+  anchor?: string;
   assertions?: BenchmarkAssertions;
 }
 

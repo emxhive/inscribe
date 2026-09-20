@@ -158,7 +158,16 @@ function canHideFlutterCandidate(
   if (candidateKind === 'builder_callback' || candidateKind === 'event_callback') {
     return /\b(?:builder|on[A-Z])\w*\b|=>/.test(text) || recoveryNode.parent?.type === 'named_argument';
   }
-  if (candidateKind === 'widget') return /\bclass\b/.test(text);
+  if (candidateKind === 'widget') {
+    if (/\bclass\b/.test(text)) return true;
+
+    let owner: Parser.SyntaxNode | null = recoveryNode.parent;
+    while (owner && owner.type !== 'class_definition') owner = owner.parent;
+    if (!owner) return false;
+
+    const body = owner.childForFieldName('body');
+    return !body || recoveryNode.endIndex <= body.startIndex;
+  }
   if (candidateKind === 'widget_subtree') return /\bconst\b|[A-Z][A-Za-z0-9_$]*\s*\(/.test(text);
   return false;
 }

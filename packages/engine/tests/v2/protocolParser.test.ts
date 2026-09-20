@@ -432,7 +432,7 @@ INSCRIBE>>>`;
     expect(() => parseInscribeBlocks(`<<<INSCRIBE\nFILE: src/a.ts\nMODE: replace_node\nSELECTOR: function:buildValue\n<<<STARTS_WITH\n\nSTARTS_WITH>>>\n<<<CONTENT\na\nCONTENT>>>\nINSCRIBE>>>`)).toThrowError(/EMPTY_STARTS_WITH/);
   });
 
-  it('rejects blank replace_node CONTENT', () => {
+  it('allows whitespace-only replace_node CONTENT', () => {
     const input = `<<<INSCRIBE
 FILE: src/example.ts
 MODE: replace_node
@@ -441,7 +441,10 @@ SELECTOR: function:buildValue
 ${' '.repeat(3)}
 CONTENT>>>
 INSCRIBE>>>`;
-    expect(() => parseInscribeBlocks(input)).toThrowError(/EMPTY_CONTENT/);
+    expect(parseInscribeBlocks(input)[0]).toMatchObject({
+      strategy: 'replace_node',
+      content: '   ',
+    });
   });
 
   it('rejects unsafe paths', () => {
@@ -689,9 +692,17 @@ INSCRIBE>>>`;
       });
     });
 
-    it('rejects empty or whitespace CONTENT for replace_node', () => {
+    it('allows empty CONTENT for replace_node', () => {
       const input = `<<<INSCRIBE\nFILE: a.ts\nMODE: replace_node\nSELECTOR: function:foo\n<<<CONTENT\nCONTENT>>>\nINSCRIBE>>>`;
-      expect(() => parseInscribeBlocks(input)).toThrowError(/EMPTY_CONTENT/);
+      expect(parseInscribeBlocks(input)[0]).toEqual({
+        strategy: 'replace_node',
+        filePath: 'a.ts',
+        selector: {
+          path: [{ kind: 'function', name: 'foo' }],
+          startsWith: undefined,
+        },
+        content: '',
+      });
     });
   });
 

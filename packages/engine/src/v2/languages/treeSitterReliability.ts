@@ -58,7 +58,7 @@ export function assessTreeSitterCandidateReliability(
 
   let qualification: StructuralTrust = 'trustworthy';
   let replacement: StructuralTrust = 'trustworthy';
-  let failureDiagnostics = boundaryDiagnostics;
+  let failureDiagnostics: TreeSitterParserEvidence['diagnostics'] = boundaryDiagnostics;
   let fallbackNode: Parser.SyntaxNode | undefined;
 
   if (!reliabilityNode && evidence.diagnostics.length > 0) {
@@ -242,9 +242,10 @@ function isWithinActualTraversal(
 ): boolean {
   let current: Parser.SyntaxNode | null = recoveryNode;
   while (current) {
-    if (scope.skippedNodes.some((node) => isSameNode(current, node))) return false;
-    if (scope.traversedNodes.some((node) => isSameNode(current, node))) return true;
-    current = current.parent;
+    const currentNode: Parser.SyntaxNode = current;
+    if (scope.skippedNodes.some((node) => isSameNode(currentNode, node))) return false;
+    if (scope.traversedNodes.some((node) => isSameNode(currentNode, node))) return true;
+    current = currentNode.parent;
   }
   return false;
 }

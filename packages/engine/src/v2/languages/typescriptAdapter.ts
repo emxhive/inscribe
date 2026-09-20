@@ -97,7 +97,7 @@ function getIdentityNode(
   if (kind !== 'class' && kind !== 'constructor' && kind !== 'method' && kind !== 'function') {
     return undefined;
   }
-  return node.childForFieldName('name');
+  return node.childForFieldName('name') ?? undefined;
 }
 
 function getLogicalReplacement(
@@ -255,16 +255,40 @@ function canHideTypeScriptCandidate(
   candidateKind: StructuralSelectorSegment['kind'],
 ): boolean {
   const text = recoveryNode.text;
-  const keywords: Partial<Record<StructuralSelectorSegment['kind'], RegExp>> = {
-    class: /\b(?:class|interface|enum|namespace)\b/,
-    function: /\bfunction\b|=>/,
-    if_statement: /\bif\b/,
-    for_statement: /\bfor\b/,
-    while_statement: /\bwhile\b/,
-    switch_statement: /\bswitch\b/,
-  };
-  const keyword = keywords[candidateKind];
+  const keywords = new Map<StructuralSelectorSegment['kind'], RegExp>([
+    ['class', /\b(?:class|interface|enum|namespace)\b/],
+    ['function', /\bfunction\b|=>/],
+    ['if_statement', /\bif\b/],
+    ['for_statement', /\bfor\b/],
+    ['while_statement', /\bwhile\b/],
+    ['switch_statement', /\bswitch\b/],
+  ]);
+  const keyword = keywords.get(candidateKind);
   if (keyword?.test(text)) return true;
+
+  if (candidateKind === 'function' || candidateKind === 'class') {
+    let topLevelRegion: Parser.SyntaxNode = recoveryNode;
+    while (topLevelRegion.parent && topLevelRegion.parent.type !== 'program') {
+      topLevelRegion = topLevelRegion.parent;
+    }
+
+    if (topLevelRegion.parent?.type === 'program') {
+      const regionText = topLevelRegion.text.trimStart();
+
+      if (candidateKind === 'class') {
+        return /^(?:export\s+(?:default\s+)?)?(?:declare\s+)?(?:abstract\s+)?(?:class|interface|enum|namespace)\b/.test(
+          regionText,
+        );
+      }
+
+      return (
+        /^(?:export\s+(?:default\s+)?)?(?:declare\s+)?(?:async\s+)?function\b/.test(regionText) ||
+        /^(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+[A-Za-z_$][A-Za-z0-9_$]*\s*=\s*(?:async\s+)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][A-Za-z0-9_$]*\s*=>)/.test(
+          regionText,
+        )
+      );
+    }
+  }
 
   if (candidateKind !== 'method' && candidateKind !== 'constructor') return false;
   const parent = nearestNonRecoveryParent(recoveryNode);

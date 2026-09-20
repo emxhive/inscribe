@@ -379,7 +379,7 @@ INSCRIBE>>>`;
     expect(blocks[0].errors).toContain('blank STARTS_WITH');
   });
 
-  it('identifies blank replace_node CONTENT', () => {
+  it('allows blank replace_node CONTENT', () => {
     const input = `<<<INSCRIBE
 FILE: src/a.ts
 MODE: replace_node
@@ -388,11 +388,11 @@ SELECTOR: class:Foo
 CONTENT>>>
 INSCRIBE>>>`;
     const { blocks } = scanV2IntakeStructure(input);
-    expect(blocks[0].status).toBe('error');
-    expect(blocks[0].errors).toContain('blank replace_node CONTENT');
-    expect(blocks[0].errors).not.toContain('blank CONTENT');
-    expect(blocks[0].errors.filter(e => e.includes('CONTENT'))).toEqual(['blank replace_node CONTENT']);
+    expect(blocks[0].status).toBe('valid');
+    expect(blocks[0].errors).toHaveLength(0);
   });
+
+
   it('ignores indexedFileSet in V2 and does not generate warnings', () => {
     // Case 1: create_file with target in indexedFileSet (previously generated warning)
     const inputCreate = `<<<INSCRIBE
@@ -441,7 +441,7 @@ INSCRIBE>>>`;
     });
   });
 
-  it('rejects whitespace-only sections live and strict parser agrees', () => {
+  it('rejects whitespace-only selectors but allows whitespace-only replace_node CONTENT', () => {
     const wsSearch = `<<<INSCRIBE
 FILE: src/a.ts
 MODE: replace_text
@@ -482,9 +482,12 @@ SELECTOR: class:Foo
 CONTENT>>>
 INSCRIBE>>>`;
     const scanRNContent = scanV2IntakeStructure(wsReplaceNodeContent);
-    expect(scanRNContent.blocks[0].status).toBe('error');
-    expect(scanRNContent.blocks[0].errors).toContain('blank replace_node CONTENT');
-    expect(() => v2.parseInscribeBlocks(wsReplaceNodeContent)).toThrowError(/EMPTY_CONTENT/);
+    expect(scanRNContent.blocks[0].status).toBe('valid');
+    expect(scanRNContent.blocks[0].errors).toHaveLength(0);
+    expect(v2.parseInscribeBlocks(wsReplaceNodeContent)[0]).toMatchObject({
+      strategy: 'replace_node',
+      content: '  \n  ',
+    });
   });
 
   it('preserves arbitrary marker-like text in payload and strict parser accepts them', () => {

@@ -151,6 +151,85 @@ describe('V2 language adapter contracts', () => {
     }, [])).toThrow('TARGET_NOT_FOUND');
   });
 
+  it('retains qualification-uncertain candidates during STARTS_WITH cardinality reasoning', () => {
+    const source = 'function run() {}\nfunction run() { return 1; }';
+    const firstStart = source.indexOf('function');
+    const secondStart = source.indexOf('function', firstStart + 1);
+    const candidates = [
+      {
+        kind: 'function' as const,
+        name: 'run',
+        start: firstStart,
+        end: firstStart + 'function run() {}'.length,
+        reliability: {
+          qualification: 'uncertain' as const,
+          replacement: 'trustworthy' as const,
+        },
+      },
+      {
+        kind: 'function' as const,
+        name: 'run',
+        start: secondStart,
+        end: source.length,
+      },
+    ];
+
+    expect(() => selectStructuralCandidate(source, {
+      path: [{ kind: 'function', name: 'run' }],
+      startsWith: 'function run() { return',
+    }, candidates)).toThrow('STRUCTURAL_TARGET_UNRELIABLE');
+  });
+
+  it('checks replacement trust after a unique candidate has been qualified', () => {
+    const source = 'function run() { return 1; }';
+    expect(() => selectStructuralCandidate(source, {
+      path: [{ kind: 'function', name: 'run' }],
+      startsWith: 'function run() { return',
+    }, [{
+      kind: 'function',
+      name: 'run',
+      start: 0,
+      end: source.length,
+      reliability: {
+        qualification: 'trustworthy',
+        replacement: 'uncertain',
+      },
+    }])).toThrow('STRUCTURAL_TARGET_UNRELIABLE');
+  });
+
+  it('fails closed on discovery uncertainty before claiming a unique target', async () => {
+    const candidate = {
+      kind: 'function' as const,
+      name: 'run',
+      start: 0,
+      end: 'function run() {}'.length,
+    };
+    const registry = new V2LanguageRegistry([{
+      id: 'uncertain-discovery',
+      extensions: ['.uncertain'],
+      structural: {
+        supportedKinds: ['function'],
+        resolveCandidates: vi.fn(async () => ({
+          candidates: [candidate],
+          discoveryUncertainty: {
+            parser: 'tree-sitter' as const,
+            adapterId: 'uncertain-discovery',
+            grammarId: 'fixture',
+            diagnostics: [],
+            totalDiagnostics: 1,
+            diagnosticsTruncated: true,
+          },
+        })),
+      },
+    }]);
+
+    await expect(createAdapterStructuralResolver(registry)({
+      source: 'function run() {}',
+      filePath: 'fixture.uncertain',
+      selector: { path: [{ kind: 'function', name: 'run' }] },
+    })).rejects.toMatchObject({ code: 'STRUCTURAL_TARGET_UNRELIABLE' });
+  });
+
   it('exposes only logical UTF-16 ranges through the adapter-backed resolver', async () => {
     const source = '// 🚀\nfunction run() {}';
     const candidate = {

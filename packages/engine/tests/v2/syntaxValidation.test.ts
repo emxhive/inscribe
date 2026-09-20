@@ -149,6 +149,255 @@ function intact() {
     expect(source.slice(match.start, match.end)).toContain('function intact()');
   });
 
+  it('keeps a clean statement editable beside an unrelated broken initializer', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  if (a) {
+    doA();
+  }
+
+  const broken = ;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: 'incomplete-search-scope.ts',
+      selector: {
+        path: [
+          { kind: 'function', name: 'run' },
+          { kind: 'if_statement' },
+        ],
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain('doA();');
+  });
+
+  it('replaces a complete function whose body contains broken syntax', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const structuralResolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  const value = ;
+}`;
+
+    const execution = await resolveOperation({
+      strategy: 'replace_node',
+      filePath: 'broken-function.ts',
+      content: 'function run() { return 2; }',
+      selector: { path: [{ kind: 'function', name: 'run' }] },
+    }, new Map([['broken-function.ts', { content: source, exists: true }]]), {
+      structuralResolver,
+    });
+
+    expect(execution.afterContent).toBe('function run() { return 2; }');
+  });
+
+  it('keeps a clean loop editable beside a broken sibling expression', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  for (const item of items) {
+    visit(item);
+  }
+
+  const broken = ;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: 'loop-with-recovery.ts',
+      selector: {
+        path: [
+          { kind: 'function', name: 'run' },
+          { kind: 'for_statement' },
+        ],
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain('visit(item);');
+  });
+
+  it('keeps declaration identity trustworthy when recovery is confined to parameters', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run(value = ) {
+  return 1;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: 'parameter-recovery.ts',
+      selector: { path: [{ kind: 'function', name: 'run' }] },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain('function run');
+  });
+
+  it('fails closed when recovery reaches a candidate boundary that can hide structure', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  if (ready) {
+    work();
+  }
+
+  if (other)
+}`;
+
+    await expect(resolver({
+      source,
+      filePath: 'candidate-boundary-recovery.ts',
+      selector: {
+        path: [
+          { kind: 'function', name: 'run' },
+          { kind: 'if_statement' },
+        ],
+      },
+    })).rejects.toMatchObject({ code: 'STRUCTURAL_TARGET_UNRELIABLE' });
+  });
+
+  it('does not discard a named candidate when recovery damages its identity', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function ?other() {
+  return 1;
+}
+
+function run() {
+  return 2;
+}`;
+
+    await expect(resolver({
+      source,
+      filePath: 'identity-recovery.ts',
+      selector: { path: [{ kind: 'function', name: 'run' }] },
+    })).rejects.toMatchObject({ code: 'STRUCTURAL_TARGET_UNRELIABLE' });
+  });
+
+  it('ignores recovery inside a nested owner that the traversal deliberately skips', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  function nested() {
+    const broken = ;
+  }
+
+  if (ready) {
+    work();
+  }
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: 'skipped-owner-recovery.ts',
+      selector: {
+        path: [
+          { kind: 'function', name: 'run' },
+          { kind: 'if_statement' },
+        ],
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain('work();');
+  });
+
+  it('ignores interior recovery contained by a known candidate for sibling discovery', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  if (a) {
+    const value = ;
+  }
+
+  if (b) {
+    return 2;
+  }
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: 'contained-recovery.ts',
+      selector: {
+        path: [
+          { kind: 'function', name: 'run' },
+          { kind: 'if_statement' },
+        ],
+        startsWith: 'if (b)',
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain('return 2;');
+  });
+
+  it('does not let recovery in another structural owner poison the requested owner', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function broken() {
+  if (a) {
+    const value = ;
+  }
+}
+
+function run() {
+  if (b) {
+    return 1;
+  }
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: 'other-owner-recovery.ts',
+      selector: {
+        path: [
+          { kind: 'function', name: 'run' },
+          { kind: 'if_statement' },
+        ],
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain('return 1;');
+  });
+
+  it('allows trustworthy target absence when unrelated owner recovery is contained', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(resolver({
+      source: `function broken() {
+  const value = ;
+}
+
+function healthy() {}`,
+      filePath: 'unrelated-absence.ts',
+      selector: { path: [{ kind: 'function', name: 'missing' }] },
+    })).rejects.toThrow('TARGET_NOT_FOUND');
+  });
+
+  it('keeps target absence uncertain when recovery is in the actual search space', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(resolver({
+      source: 'function (',
+      filePath: 'uncertain-absence.ts',
+      selector: { path: [{ kind: 'function', name: 'missing' }] },
+    })).rejects.toMatchObject({ code: 'STRUCTURAL_TARGET_UNRELIABLE' });
+  });
+
+  it('fails closed when recovery can hide another candidate of the requested kind', async () => {
+    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(resolver({
+      source: `function (
+
+function run() { return 2; }`,
+      filePath: 'hidden-function-recovery.ts',
+      selector: { path: [{ kind: 'function', name: 'run' }] },
+    })).rejects.toMatchObject({ code: 'STRUCTURAL_TARGET_UNRELIABLE' });
+  });
+
   it('applies STARTS_WITH before rejecting an unreliable sibling candidate', async () => {
     const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
@@ -173,7 +422,65 @@ function run() {
     expect(source.slice(match.start, match.end)).not.toContain('const value = ;');
   });
 
-  it('does not silently turn an unreliable ambiguous set into a unique target', async () => {
+  it('keeps interior parser damage out of structural trust when outer boundaries are clear', async () => {
+    const adapter = createTypeScriptLanguageAdapter(ASSETS);
+    const source = `function run() {
+  const value = ;
+}
+
+function run() {
+  return 2;
+}`;
+    const discovery = await adapter.structural.resolveCandidates({
+      source,
+      filePath: 'qualified-recovery.ts',
+      extension: '.ts',
+      path: [{ kind: 'function', name: 'run' }],
+    });
+    const candidates = Array.isArray(discovery) ? discovery : discovery.candidates;
+
+    expect(candidates[0].reliability).toBeUndefined();
+    expect(candidates[1].reliability).toBeUndefined();
+  });
+
+  it('does not convert a recovery-uncertain qualifier boundary into a mismatch', async () => {
+    const adapter = createTypeScriptLanguageAdapter(ASSETS);
+    const source = `function run() {
+  return 1;`;
+    const discovery = await adapter.structural.resolveCandidates({
+      source,
+      filePath: 'boundary-recovery.ts',
+      extension: '.ts',
+      path: [{ kind: 'function', name: 'run' }],
+    });
+    const candidates = Array.isArray(discovery) ? discovery : discovery.candidates;
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      reliability: {
+        qualification: 'uncertain',
+      },
+    });
+
+    const registry = createV2LanguageRegistry([adapter]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(resolver({
+      source,
+      filePath: 'boundary-recovery.ts',
+      selector: {
+        path: [{ kind: 'function', name: 'run' }],
+        startsWith: 'function missing',
+      },
+    })).rejects.toMatchObject({ code: 'STRUCTURAL_TARGET_UNRELIABLE' });
+
+    await expect(resolver({
+      source,
+      filePath: 'boundary-recovery.ts',
+      selector: { path: [{ kind: 'function', name: 'run' }] },
+    })).rejects.toMatchObject({ code: 'STRUCTURAL_TARGET_UNRELIABLE' });
+  });
+
+  it('preserves ambiguity when parser damage does not make candidate qualification uncertain', async () => {
     const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function run() {
@@ -188,14 +495,7 @@ function run() {
       source,
       filePath: 'ambiguous-recovery.ts',
       selector: { path: [{ kind: 'function', name: 'run' }] },
-    })).rejects.toMatchObject({
-      code: 'STRUCTURAL_TARGET_UNRELIABLE',
-      structuralParser: {
-        diagnostics: expect.arrayContaining([
-          expect.objectContaining({ condition: 'ERROR_NODE' }),
-        ]),
-      },
-    });
+    })).rejects.toThrow('TARGET_AMBIGUOUS');
   });
 
   it('bounds structural parser diagnostic context and payload size', async () => {
@@ -203,7 +503,7 @@ function run() {
     const resolver = createAdapterStructuralResolver(registry);
     const source = Array.from(
       { length: 50 },
-      (_, index) => `function broken${index}() { const value = ; }`,
+      (_, index) => `function ?broken${index}() {}`,
     ).join('\n');
 
     const error = await resolver({

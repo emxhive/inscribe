@@ -1,5 +1,11 @@
 import Parser from 'web-tree-sitter';
 import { treeSitterRangeToJsRange } from '../structural/treeSitterRangeToJsRange';
+import {
+  collectTreeSitterDiscoveryRiskNodes,
+  hasTreeSitterRecoveryAdjacentToNode,
+  hasTreeSitterRecoveryInRange,
+} from '../structural/treeSitterParserEvidence';
+import type { TreeSitterParserEvidence } from '../structural/treeSitterParserEvidence';
 import { TreeSitterAssetPaths } from '../structural/treeSitterRuntime';
 import {
   StructuralCandidateQuery,
@@ -10,7 +16,10 @@ import {
 } from './types';
 import {
   createTreeSitterLanguageAdapter,
+  TreeSitterCandidateCollection,
   TreeSitterReplacementCandidate,
+  TreeSitterReplacementRange,
+  TreeSitterStructuralSearchScope,
 } from './treeSitterAdapter';
 
 const DART_EXTENSIONS = ['.dart'] as const;
@@ -20,6 +29,9 @@ export interface DartStructuralMatch {
   name?: string;
   traversalNode: Parser.SyntaxNode;
   replacement: TreeSitterReplacementCandidate['replacement'];
+  identityRange?: TreeSitterReplacementRange;
+  identityNode?: Parser.SyntaxNode;
+  discoveryScope?: Parser.SyntaxNode;
 }
 
 function grammarIdForFile(_filePath: string): string {
@@ -30,15 +42,31 @@ export function collectDartCandidates(
   rootNode: Parser.SyntaxNode,
   query: StructuralCandidateQuery,
 ): readonly TreeSitterReplacementCandidate[] {
-  const matches: DartStructuralMatch[] = [];
-  collectDartMatches(rootNode, query.path, 0, matches, query.source);
+  return collectDartCandidateCollection(rootNode, query).candidates;
+}
 
-  return matches.map((match) => ({
-    kind: match.kind,
-    name: match.name,
-    replacement: match.replacement,
-    reliabilityNode: match.traversalNode,
-  }));
+export function collectDartCandidateCollection(
+  rootNode: Parser.SyntaxNode,
+  query: StructuralCandidateQuery,
+  parserEvidence?: TreeSitterParserEvidence,
+): TreeSitterCandidateCollection {
+  const matches: DartStructuralMatch[] = [];
+  const searchScopes: TreeSitterStructuralSearchScope[] = [];
+  collectDartMatches(rootNode, query.path, 0, matches, query.source, searchScopes, parserEvidence);
+
+  return {
+    candidates: matches.map((match) => ({
+      kind: match.kind,
+      name: match.name,
+      replacement: match.replacement,
+      reliabilityNode: match.traversalNode,
+      identityRange: match.identityRange,
+      identityNode: match.identityNode,
+      discoveryScope: match.discoveryScope,
+    })),
+    searchScopes,
+    discoveryComplete: true,
+  };
 }
 
 export function collectDartMatches(
@@ -47,26 +75,54 @@ export function collectDartMatches(
   depth: number,
   results: DartStructuralMatch[],
   source: string,
+  searchScopes: TreeSitterStructuralSearchScope[] = [],
+  parserEvidence?: TreeSitterParserEvidence,
 ): void {
   const segment = selectorPath[depth];
   const isLast = depth === selectorPath.length - 1;
   const candidates: DartStructuralMatch[] = [];
+  const protectedNodes: Parser.SyntaxNode[] = [];
+  const identityUncertainNodes: Parser.SyntaxNode[] = [];
+  const traversedNodes: Parser.SyntaxNode[] = [];
+  const skippedNodes: Parser.SyntaxNode[] = [];
 
   function traverse(node: Parser.SyntaxNode): void {
+    traversedNodes.push(node);
     for (let index = 0; index < node.namedChildCount; index++) {
       const child = node.namedChild(index);
       if (!child) continue;
 
       const structuralMatch = getDartStructuralMatch(child, source, segment.kind);
+      const identityUncertain = Boolean(
+        structuralMatch &&
+        segment.name &&
+        structuralMatch.name !== segment.name &&
+        parserEvidence &&
+        (
+          (structuralMatch.identityRange !== undefined &&
+            hasTreeSitterRecoveryInRange(source, parserEvidence, {
+              start: structuralMatch.identityRange.startIndex,
+              end: structuralMatch.identityRange.endIndex,
+            })) ||
+          (structuralMatch.identityNode !== undefined &&
+            hasTreeSitterRecoveryAdjacentToNode(parserEvidence, structuralMatch.identityNode))
+        ),
+      );
+      if (structuralMatch?.kind === segment.kind && identityUncertain) {
+        identityUncertainNodes.push(child);
+      } else if (structuralMatch?.kind === segment.kind) {
+        protectedNodes.push(child);
+      }
       const isMatch =
         structuralMatch?.kind === segment.kind &&
-        (!segment.name || structuralMatch.name === segment.name);
+        (!segment.name || structuralMatch.name === segment.name || identityUncertain);
 
       if (isMatch) {
         candidates.push(structuralMatch);
       }
 
       if (depth > 0 && (isDartStructuralOwner(child) || isOwnedFunctionBody(child))) {
+        skippedNodes.push(child);
         continue;
       }
 
@@ -76,13 +132,68 @@ export function collectDartMatches(
 
   traverse(currentNode);
 
+  searchScopes.push({
+    node: currentNode,
+    candidateKind: segment.kind,
+    protectedNodes,
+    traversedNodes,
+    skippedNodes,
+    discoveryRiskNodes: parserEvidence
+      ? [
+        ...collectTreeSitterDiscoveryRiskNodes(
+          parserEvidence,
+          traversedNodes,
+          skippedNodes,
+          segment.kind,
+          canHideDartCandidate,
+        ),
+        ...parserEvidence.recoveryNodes.filter((recoveryNode) =>
+          identityUncertainNodes.some((node) =>
+            node.startIndex <= recoveryNode.startIndex && node.endIndex >= recoveryNode.endIndex,
+          ),
+        ),
+      ]
+      : [],
+  });
+
   for (const candidate of candidates) {
     if (isLast) {
-      results.push(candidate);
+      results.push({ ...candidate, discoveryScope: currentNode });
     } else {
-      collectDartMatches(candidate.traversalNode, selectorPath, depth + 1, results, source);
+      collectDartMatches(
+        candidate.traversalNode,
+        selectorPath,
+        depth + 1,
+        results,
+        source,
+        searchScopes,
+        parserEvidence,
+      );
     }
   }
+}
+
+export function canHideDartCandidate(
+  recoveryNode: Parser.SyntaxNode,
+  candidateKind: StructuralSelectorSegment['kind'],
+): boolean {
+  const text = recoveryNode.text;
+  const keywords: Partial<Record<StructuralSelectorSegment['kind'], RegExp>> = {
+    class: /\b(?:class|mixin|enum|extension)\b/,
+    if_statement: /\bif\b/,
+    for_statement: /\bfor\b/,
+    while_statement: /\bwhile\b/,
+    switch_statement: /\bswitch\b/,
+  };
+  const keyword = keywords[candidateKind];
+  if (keyword?.test(text)) return true;
+  if (candidateKind !== 'function' && candidateKind !== 'method' && candidateKind !== 'constructor') {
+    return false;
+  }
+  if (/=>/.test(text)) return true;
+  let parent = recoveryNode.parent;
+  while (parent && (parent.type === 'ERROR' || parent.isMissing())) parent = parent.parent;
+  return parent?.type === 'program' || parent?.type === 'class_body';
 }
 
 export function getDartStructuralMatch(
@@ -99,6 +210,13 @@ export function getDartStructuralMatch(
         type: 'range',
         range: createNormalizedNodeRange(source, findDeclarationStartNode(node), node),
       },
+      identityRange: createNamedIdentityRange(
+        source,
+        node,
+        findDeclarationStartNode(node),
+        node.childForFieldName('body') ?? node,
+      ),
+      identityNode: getDeclaredNameNode(node),
     };
   }
 
@@ -124,6 +242,8 @@ export function getDartStructuralMatch(
         type: 'range',
         range: createNormalizedNodeRange(source, findDeclarationStartNode(node), body),
       },
+      identityRange: createNamedIdentityRange(source, node, findDeclarationStartNode(node), body),
+      identityNode: getDeclaredNameNode(node),
     };
   }
 
@@ -138,6 +258,8 @@ export function getDartStructuralMatch(
         type: 'range',
         range: createNormalizedNodeRange(source, findDeclarationStartNode(node), body),
       },
+      identityRange: createNamedIdentityRange(source, node, findDeclarationStartNode(node), body),
+      identityNode: getDeclaredNameNode(node),
     };
   }
 
@@ -212,6 +334,7 @@ function createConstructorMatch(
   const endIndex = body
     ? range.endIndex
     : findBodylessDeclarationEnd(source, range.endIndex);
+  const identityNodes = getConstructorIdentifierNodes(signature);
 
   return {
     kind: 'constructor',
@@ -224,6 +347,8 @@ function createConstructorMatch(
         endIndex,
       },
     },
+    identityRange: createConstructorIdentityRange(source, findDeclarationStartNode(node), signature),
+    identityNode: identityNodes[1] ?? identityNodes[0],
   };
 }
 
@@ -241,26 +366,33 @@ function createMethodMatch(
       type: 'range',
       range: createNormalizedNodeRange(source, findDeclarationStartNode(node), body),
     },
+    identityRange: createNamedIdentityRange(source, node, findDeclarationStartNode(node), body),
+    identityNode: getDeclaredNameNode(node),
   };
 }
 
 function getConstructorName(signature: Parser.SyntaxNode): string {
-  const identifiers: string[] = [];
+  const identifiers = getConstructorIdentifierNodes(signature).map((node) => node.text);
+  return identifiers[1] ?? 'new';
+}
+
+function getConstructorIdentifierNodes(signature: Parser.SyntaxNode): Parser.SyntaxNode[] {
+  const identifiers: Parser.SyntaxNode[] = [];
   for (let index = 0; index < signature.namedChildCount; index++) {
     const child = signature.namedChild(index);
     if (!child) continue;
     if (child.type === 'identifier') {
-      identifiers.push(child.text);
+      identifiers.push(child);
       continue;
     }
     if (child.type === 'qualified') {
       for (let nestedIndex = 0; nestedIndex < child.namedChildCount; nestedIndex++) {
         const nested = child.namedChild(nestedIndex);
-        if (nested?.type === 'identifier') identifiers.push(nested.text);
+        if (nested?.type === 'identifier') identifiers.push(nested);
       }
     }
   }
-  return identifiers[1] ?? 'new';
+  return identifiers;
 }
 
 /**
@@ -278,6 +410,54 @@ function createNormalizedNodeRange(
     endIndex: treeSitterRangeToJsRange(source, endNode).end,
     coordinateSpace: 'js-utf16',
   };
+}
+
+function createIdentityRange(
+  source: string,
+  startNode: Parser.SyntaxNode,
+  endNode: Parser.SyntaxNode,
+): TreeSitterReplacementRange {
+  return {
+    startIndex: treeSitterRangeToJsRange(source, startNode).start,
+    endIndex: treeSitterRangeToJsRange(source, endNode).start,
+    coordinateSpace: 'js-utf16',
+  };
+}
+
+function createNamedIdentityRange(
+  source: string,
+  node: Parser.SyntaxNode,
+  fallbackStartNode: Parser.SyntaxNode,
+  fallbackEndNode: Parser.SyntaxNode,
+): TreeSitterReplacementRange {
+  const nameNode = getDeclaredNameNode(node);
+  if (nameNode) {
+    const range = treeSitterRangeToJsRange(source, nameNode);
+    return {
+      startIndex: range.start,
+      endIndex: range.end,
+      coordinateSpace: 'js-utf16',
+    };
+  }
+  return createIdentityRange(source, fallbackStartNode, fallbackEndNode);
+}
+
+function createConstructorIdentityRange(
+  source: string,
+  fallbackStartNode: Parser.SyntaxNode,
+  signature: Parser.SyntaxNode,
+): TreeSitterReplacementRange {
+  const identifiers = getConstructorIdentifierNodes(signature);
+  const identityNode = identifiers[1] ?? identifiers[0];
+  if (identityNode) {
+    const identity = treeSitterRangeToJsRange(source, identityNode);
+    return {
+      startIndex: identity.start,
+      endIndex: identity.end,
+      coordinateSpace: 'js-utf16',
+    };
+  }
+  return createIdentityRange(source, fallbackStartNode, signature);
 }
 
 function findBodylessDeclarationEnd(source: string, jsEnd: number): number {
@@ -387,14 +567,18 @@ function isDartAnnotation(node: Parser.SyntaxNode): boolean {
 }
 
 function getDeclaredName(node: Parser.SyntaxNode): string | undefined {
+  return getDeclaredNameNode(node)?.text;
+}
+
+function getDeclaredNameNode(node: Parser.SyntaxNode): Parser.SyntaxNode | undefined {
   const directName = node.childForFieldName('name');
-  if (directName) return directName.text;
+  if (directName) return directName;
 
   for (let index = 0; index < node.namedChildCount; index++) {
     const child = node.namedChild(index);
     if (!child) continue;
     const nestedName = child.childForFieldName('name');
-    if (nestedName) return nestedName.text;
+    if (nestedName) return nestedName;
   }
   return undefined;
 }
@@ -407,6 +591,6 @@ export function createDartLanguageAdapter(
     extensions: DART_EXTENSIONS,
     supportedKinds: V2_STRUCTURAL_KINDS,
     grammarIdForFile,
-    collectCandidates: collectDartCandidates,
+    collectCandidates: collectDartCandidateCollection,
   }, assets);
 }

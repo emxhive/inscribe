@@ -103,18 +103,36 @@ export function selectStructuralCandidate(
 ): StructuralNodeMatch {
   validateStructuralSelector(selector);
   const finalKind = selector.path[selector.path.length - 1].kind;
+  const finalName = selector.path[selector.path.length - 1].name;
   for (const candidate of candidates) {
     validateStructuralCandidate(candidate, source.length, finalKind);
   }
 
-  const anyPathMatched = candidates.length > 0;
-  let matchedCandidates = candidates;
+  // Adapters may retain a same-kind candidate whose parsed name is uncertain.
+  // A trustworthy name mismatch is excluded here, while an uncertain one
+  // remains a possible match so recovery cannot invent uniqueness.
+  const nameCandidates = finalName
+    ? candidates.filter((candidate) =>
+      candidate.name === finalName || candidate.reliability?.qualification === 'uncertain',
+    )
+    : candidates;
+  const anyPathMatched = nameCandidates.length > 0;
+  let matchedCandidates = nameCandidates;
 
   if (selector.startsWith) {
-    matchedCandidates = candidates.filter((candidate) => {
+    const definitelyMatched = nameCandidates.filter((candidate) => {
+      if (candidate.reliability?.qualification === 'uncertain') return false;
       const candidateSource = source.slice(candidate.start, candidate.end);
       return matchesStartsWith(candidateSource, selector.startsWith!);
     });
+    const qualificationUncertain = nameCandidates.filter(
+      (candidate) => candidate.reliability?.qualification === 'uncertain',
+    );
+
+    // An uncertain range cannot be used to prove that a candidate fails the
+    // qualifier. Retain it as a possible match so recovery cannot turn an
+    // ambiguous or unresolved set into a false unique target.
+    matchedCandidates = [...definitelyMatched, ...qualificationUncertain];
   }
 
   if (matchedCandidates.length === 0) {
@@ -124,12 +142,12 @@ export function selectStructuralCandidate(
     throw new Error('TARGET_NOT_FOUND');
   }
 
-  const unreliableCandidates = matchedCandidates.filter(
-    (candidate) => candidate.reliability && !candidate.reliability.trustworthy,
+  const qualificationUncertain = matchedCandidates.filter(
+    (candidate) => candidate.reliability?.qualification === 'uncertain',
   );
-  if (unreliableCandidates.length > 0) {
+  if (qualificationUncertain.length > 0) {
     throw new StructuralTargetUnreliableError(
-      unreliableCandidates.map((candidate) => candidate.reliability!),
+      qualificationUncertain.map((candidate) => candidate.reliability!),
     );
   }
 
@@ -138,6 +156,9 @@ export function selectStructuralCandidate(
   }
 
   const candidate = matchedCandidates[0];
+  if (candidate.reliability?.replacement === 'uncertain') {
+    throw new StructuralTargetUnreliableError([candidate.reliability]);
+  }
   return {
     kind: candidate.kind,
     name: candidate.name,
@@ -185,12 +206,12 @@ function normalizeStructuralDiscovery(
 
   const candidateDiscovery = discovery as StructuralCandidateDiscovery;
   if (
-    candidateDiscovery.candidates.length === 0 &&
-    candidateDiscovery.unresolvedParser
+    candidateDiscovery.discoveryUncertainty
   ) {
     throw new StructuralTargetUnreliableError([{
-      trustworthy: false,
-      structuralParser: candidateDiscovery.unresolvedParser,
+      qualification: 'uncertain',
+      replacement: 'uncertain',
+      structuralParser: candidateDiscovery.discoveryUncertainty,
     }]);
   }
   return candidateDiscovery.candidates;

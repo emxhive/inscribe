@@ -9,13 +9,15 @@ import {
 } from '../types';
 import {
   createTreeSitterLanguageAdapter,
-  TreeSitterReplacementCandidate,
+  TreeSitterCandidateCollection,
+  TreeSitterStructuralSearchScope,
 } from '../treeSitterAdapter';
-import { collectDartCandidates } from '../dartAdapter';
+import { collectDartCandidateCollection } from '../dartAdapter';
 import { collectFlutterSourceContext } from './flutterContext';
 import { FlutterStructuralMatch } from './flutterMatches';
 import { isFlutterSource } from './flutterSemantics';
 import { collectFlutterMatches } from './flutterTraversal';
+import type { TreeSitterParserEvidence } from '../../structural/treeSitterParserEvidence';
 
 const DART_EXTENSIONS = ['.dart'] as const;
 const FLUTTER_KINDS = new Set<StructuralKind>(FLUTTER_STRUCTURAL_KINDS);
@@ -29,24 +31,35 @@ function grammarIdForFile(_filePath: string): string {
 function collectCandidates(
   rootNode: Parser.SyntaxNode,
   query: StructuralCandidateQuery,
-): readonly TreeSitterReplacementCandidate[] {
+  parserEvidence: TreeSitterParserEvidence,
+): TreeSitterCandidateCollection {
   const hasFlutterSelector = query.path.some((segment) => FLUTTER_KINDS.has(segment.kind));
 
   if (!hasFlutterSelector) {
-    return collectDartCandidates(rootNode, query);
+    return collectDartCandidateCollection(rootNode, query, parserEvidence);
   }
 
-  if (!isFlutterSource(query.source)) return [];
+  if (!isFlutterSource(query.source)) {
+    return { candidates: [], searchScopes: [], discoveryComplete: true };
+  }
 
   const context = collectFlutterSourceContext(rootNode, query.source);
   const matches: FlutterStructuralMatch[] = [];
-  collectFlutterMatches(rootNode, query.path, 0, matches, query, context);
-  return matches.map((match) => ({
-    kind: match.kind,
-    name: match.name,
-    replacement: match.replacement,
-    reliabilityNode: match.traversalNode,
-  }));
+  const searchScopes: TreeSitterStructuralSearchScope[] = [];
+  collectFlutterMatches(rootNode, query.path, 0, matches, query, context, searchScopes, parserEvidence);
+  return {
+    candidates: matches.map((match) => ({
+      kind: match.kind,
+      name: match.name,
+      replacement: match.replacement,
+      reliabilityNode: match.traversalNode,
+      identityRange: match.identityRange,
+      identityNode: match.identityNode,
+      discoveryScope: match.discoveryScope,
+    })),
+    searchScopes,
+    discoveryComplete: true,
+  };
 }
 
 export function createFlutterLanguageAdapter(

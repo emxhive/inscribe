@@ -47,26 +47,32 @@ export interface StructuralCandidate {
   start: number;
   end: number;
   /**
-   * Optional adapter evidence used by the core resolver after selector
-   * qualification. Unreliable candidates stay in the set so they cannot be
+   * Optional adapter evidence used by the core resolver at the two structural
+   * trust boundaries. Uncertain candidates stay in the set so they cannot be
    * silently discarded and turn an ambiguous selector into a unique one.
    */
   reliability?: StructuralCandidateReliability;
 }
 
+export type StructuralTrust = 'trustworthy' | 'uncertain';
+
 export interface StructuralCandidateReliability {
-  trustworthy: boolean;
+  /** Whether the candidate's identity and range can safely qualify a selector. */
+  qualification: StructuralTrust;
+  /** Whether the candidate's complete range and ownership can safely mutate. */
+  replacement: StructuralTrust;
   structuralParser?: V2StructuralParserFailure;
 }
 
 export interface StructuralCandidateDiscovery {
   candidates: readonly StructuralCandidate[];
   /**
-   * Used when parser damage prevented candidate discovery from establishing a
-   * trustworthy absence. This is intentionally separate from per-candidate
-   * reliability because there is no candidate to attach it to.
+   * Parser evidence showing that the candidate set or its cardinality cannot
+   * be trusted for this structural query. This is intentionally separate from
+   * per-candidate reliability because the uncertainty belongs to the search
+   * scope, not to one candidate.
    */
-  unresolvedParser?: V2StructuralParserFailure;
+  discoveryUncertainty?: V2StructuralParserFailure;
 }
 
 export type StructuralCandidateResolution =

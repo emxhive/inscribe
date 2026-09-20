@@ -29,6 +29,12 @@ export function getFunctionExpressionBody(
 export function getNamedArgumentLabel(
   node: Parser.SyntaxNode,
 ): string | undefined {
+  return getNamedArgumentLabelNode(node)?.text;
+}
+
+export function getNamedArgumentLabelNode(
+  node: Parser.SyntaxNode,
+): Parser.SyntaxNode | undefined {
   if (node.type !== 'named_argument') return undefined;
 
   const label = fieldOrNamedChild(node, 'label', 'label');
@@ -36,7 +42,7 @@ export function getNamedArgumentLabel(
 
   const identifier =
     label.childForFieldName('name') ?? firstNamedChildOfType(label, 'identifier');
-  return identifier?.type === 'identifier' ? identifier.text : undefined;
+  return identifier?.type === 'identifier' ? identifier : undefined;
 }
 
 export function getNamedArgumentFunction(

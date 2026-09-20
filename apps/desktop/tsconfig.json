@@ -1,19 +1,24 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "baseUrl": "./src",
+    "jsx": "react-jsx",
+    "noEmit": true,
     "paths": {
-      "@/*": ["./*"],
-      "@inscribe/shared": ["../../packages/shared/dist"],
-      "@inscribe/shared/*": ["../../packages/shared/dist/*"],
-      "@inscribe/engine": ["../../packages/engine/dist"],
-      "@inscribe/engine/*": ["../../packages/engine/dist/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/main.ts", "src/preload.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/main.ts",
+    "src/preload.ts",
+    "src/windowManager.ts",
+    "src/recentProjects.ts",
+    "src/ipc/**/*.ts",
+    "src/**/*.test.ts"
+  ]
 }

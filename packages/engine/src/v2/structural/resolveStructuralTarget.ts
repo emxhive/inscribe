@@ -100,6 +100,7 @@ export function selectStructuralCandidate(
   source: string,
   selector: StructuralSelector,
   candidates: readonly StructuralCandidate[],
+  discoveryUncertainty?: StructuralCandidateDiscovery['discoveryUncertainty'],
 ): StructuralNodeMatch {
   validateStructuralSelector(selector);
   const finalKind = selector.path[selector.path.length - 1].kind;
@@ -136,6 +137,13 @@ export function selectStructuralCandidate(
   }
 
   if (matchedCandidates.length === 0) {
+    if (discoveryUncertainty) {
+      throw new StructuralTargetUnreliableError([{
+        qualification: 'uncertain',
+        replacement: 'uncertain',
+        structuralParser: discoveryUncertainty,
+      }]);
+    }
     if (anyPathMatched && selector.startsWith) {
       throw new Error('TARGET_QUALIFIER_NOT_MATCHED');
     }
@@ -158,6 +166,13 @@ export function selectStructuralCandidate(
   const candidate = matchedCandidates[0];
   if (candidate.reliability?.replacement === 'uncertain') {
     throw new StructuralTargetUnreliableError([candidate.reliability]);
+  }
+  if (discoveryUncertainty) {
+    throw new StructuralTargetUnreliableError([{
+      qualification: 'uncertain',
+      replacement: 'uncertain',
+      structuralParser: discoveryUncertainty,
+    }]);
   }
   return {
     kind: candidate.kind,
@@ -194,25 +209,27 @@ export function createAdapterStructuralResolver(
       path: options.selector.path,
     });
 
-    const candidates = normalizeStructuralDiscovery(discovery);
-    return selectStructuralCandidate(options.source, options.selector, candidates);
+    const normalized = normalizeStructuralDiscovery(discovery);
+    return selectStructuralCandidate(
+      options.source,
+      options.selector,
+      normalized.candidates,
+      normalized.discoveryUncertainty,
+    );
   };
 }
 
 function normalizeStructuralDiscovery(
   discovery: StructuralCandidateResolution,
-): readonly StructuralCandidate[] {
-  if (Array.isArray(discovery)) return discovery;
+): {
+  candidates: readonly StructuralCandidate[];
+  discoveryUncertainty?: StructuralCandidateDiscovery['discoveryUncertainty'];
+} {
+  if (Array.isArray(discovery)) return { candidates: discovery };
 
   const candidateDiscovery = discovery as StructuralCandidateDiscovery;
-  if (
-    candidateDiscovery.discoveryUncertainty
-  ) {
-    throw new StructuralTargetUnreliableError([{
-      qualification: 'uncertain',
-      replacement: 'uncertain',
-      structuralParser: candidateDiscovery.discoveryUncertainty,
-    }]);
-  }
-  return candidateDiscovery.candidates;
+  return {
+    candidates: candidateDiscovery.candidates,
+    discoveryUncertainty: candidateDiscovery.discoveryUncertainty,
+  };
 }

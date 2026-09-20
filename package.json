@@ -11,7 +11,7 @@
         "build": "npm run build -w packages/shared && npm run build -w packages/engine && npm run build -w apps/desktop",
         "test:engine": "npm run test -w packages/engine",
         "dev:engine": "npm run dev -w packages/engine",
-        "dev:desktop": "concurrently -k \"npm -w packages/shared run dev:build\" \"npm -w packages/engine run dev:build\" \"npm -w apps/desktop run dev\""
+        "dev:desktop": "npm run build -w packages/shared && npm run build -w packages/engine && concurrently -k \"npm -w packages/shared run dev:build\" \"npm -w packages/engine run dev:build\" \"npm -w apps/desktop run dev\""
     },
     "devDependencies": {
         "concurrently": "^8.2.2",

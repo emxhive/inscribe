@@ -21,7 +21,6 @@ import {
 } from './types';
 import {
   assessTreeSitterCandidateReliability,
-  assessTreeSitterDiscoveryReliability,
 } from './treeSitterReliability';
 
 /**
@@ -65,26 +64,6 @@ export interface TreeSitterReplacementCandidate {
   discoveryScope?: Parser.SyntaxNode;
 }
 
-export interface TreeSitterStructuralSearchScope {
-  node: Parser.SyntaxNode;
-  candidateKind: StructuralKind;
-  /** Same-kind structural nodes with trustworthy selector identity in this scope. */
-  protectedNodes: readonly Parser.SyntaxNode[];
-  /** Nodes whose descendants the collector actually entered. */
-  traversedNodes: readonly Parser.SyntaxNode[];
-  /** Structural-owner branches the collector deliberately did not enter. */
-  skippedNodes: readonly Parser.SyntaxNode[];
-  /** Recovery regions the language traversal considers able to hide a candidate. */
-  discoveryRiskNodes: readonly Parser.SyntaxNode[];
-}
-
-export interface TreeSitterCandidateCollection {
-  candidates: readonly TreeSitterReplacementCandidate[];
-  searchScopes: readonly TreeSitterStructuralSearchScope[];
-  /** Whether the adapter provided an authoritative account of its search scopes. */
-  discoveryComplete: boolean;
-}
-
 export interface TreeSitterLanguageAdapterDefinition {
   id: string;
   extensions: readonly string[];
@@ -94,7 +73,7 @@ export interface TreeSitterLanguageAdapterDefinition {
     rootNode: Parser.SyntaxNode,
     query: StructuralCandidateQuery,
     parserEvidence: TreeSitterParserEvidence,
-  ): readonly TreeSitterReplacementCandidate[] | TreeSitterCandidateCollection;
+  ): readonly TreeSitterReplacementCandidate[];
 }
 
 /**
@@ -115,10 +94,7 @@ export function createTreeSitterLanguageAdapter(
       async resolveCandidates(query): Promise<StructuralCandidateResolution> {
         const grammarId = definition.grammarIdForFile(query.filePath);
         return withParsedTree(query, assets, grammarId, (rootNode, parserEvidence) => {
-          const collection = normalizeTreeSitterCandidateCollection(
-            definition.collectCandidates(rootNode, query, parserEvidence),
-          );
-          const candidates = collection.candidates;
+          const candidates = definition.collectCandidates(rootNode, query, parserEvidence);
           const convertedCandidates = candidates.map((candidate) => {
             const range = candidate.replacement.type === 'node'
               ? treeSitterRangeToJsRange(query.source, candidate.replacement.node)
@@ -160,31 +136,12 @@ export function createTreeSitterLanguageAdapter(
               },
           );
 
-          const discoveryUncertainty = assessTreeSitterDiscoveryReliability(
-            query.source,
-            definition.id,
-            grammarId,
-            collection.searchScopes,
-            parserEvidence,
-            collection.discoveryComplete,
-          );
-
-          return structuralCandidates.some((candidate) => candidate.reliability) || discoveryUncertainty
-            ? { candidates: structuralCandidates, discoveryUncertainty }
-            : structuralCandidates;
+          return structuralCandidates;
         });
       },
     },
     grammarIdForFile: definition.grammarIdForFile,
   };
-}
-
-function normalizeTreeSitterCandidateCollection(
-  collection: readonly TreeSitterReplacementCandidate[] | TreeSitterCandidateCollection,
-): TreeSitterCandidateCollection {
-  return 'candidates' in collection
-    ? collection
-    : { candidates: collection, searchScopes: [], discoveryComplete: false };
 }
 
 async function withParsedTree<T>(

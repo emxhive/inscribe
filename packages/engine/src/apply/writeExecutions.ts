@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { cleanupEmptyDirs, type PreflightExecution } from '../preflight/preflight';
+import { cleanupEmptyDirs, type PreflightExecution } from './executionTypes';
 
 export function writeExecutions(executions: PreflightExecution[], repoRoot: string): void {
   const written: PreflightExecution[] = [];

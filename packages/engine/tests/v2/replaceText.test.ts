@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { performReplaceText } from '../../src/v2/text/exactMatch';
 
-describe('V2 replace_text strategy matching', () => {
+describe('replace_text strategy matching', () => {
   it('succeeds when exactly one match exists', () => {
     const fileContent = 'const a = 1;\nconst b = 2;\nconst c = 3;';
     const search = 'const b = 2;';

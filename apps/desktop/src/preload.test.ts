@@ -12,15 +12,15 @@ vi.mock('electron', () => ({
 import { contextBridge, ipcRenderer } from 'electron';
 import './preload';
 
-describe('preload applyV2', () => {
-  it('exposes applyV2 on window.inscribeAPI and invokes apply-v2 channel', async () => {
+describe('preload apply', () => {
+  it('exposes apply on window.inscribeAPI and invokes apply channel', async () => {
     expect(contextBridge.exposeInMainWorld).toHaveBeenCalledWith('inscribeAPI', expect.any(Object));
     const exposedApi = vi.mocked(contextBridge.exposeInMainWorld).mock.calls[0][1] as any;
-    expect(exposedApi.applyV2).toBeDefined();
+    expect(exposedApi.apply).toBeDefined();
 
     vi.mocked(ipcRenderer.invoke).mockResolvedValue({ ok: true });
-    const res = await exposedApi.applyV2({ repoRoot: '/repo', previewToken: 'token' });
+    const res = await exposedApi.apply({ repoRoot: '/repo', previewToken: 'token' });
     expect(res).toEqual({ ok: true });
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith('apply-v2', { repoRoot: '/repo', previewToken: 'token' });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('apply', { repoRoot: '/repo', previewToken: 'token' });
   });
 });

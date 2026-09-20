@@ -40,7 +40,7 @@ describe('CLI command suggestion extraction', () => {
     expect(suggestions).toEqual([]);
   });
 
-  it('ignores consecutive V2 Inscribe blocks when extracting later shell commands', () => {
+  it('ignores consecutive Inscribe blocks when extracting later shell commands', () => {
     const response = [
       'The benchmark path is already correct; only the five `tests/v2` files need the extra `..`. The current six-file worktree confirms that distinction.',
       '',

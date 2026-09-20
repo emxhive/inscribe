@@ -1,4 +1,4 @@
-export interface V2DiffHunk {
+export interface DiffHunk {
   id: string;
   kind: 'insert' | 'delete' | 'replace';
   oldRange: { start: number; end: number };

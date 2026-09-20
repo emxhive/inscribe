@@ -1,5 +1,4 @@
-import { INSCRIBE_BEGIN, INSCRIBE_END } from './constants';
-import { matchesMarker } from './parseUtils';
+import { INSCRIBE_BLOCK_CLOSE, INSCRIBE_BLOCK_OPEN } from './v2';
 
 export type CliCommandRisk = 'normal' | 'risky' | 'destructive';
 
@@ -206,12 +205,12 @@ export function extractCliCommandSuggestions(text: string): CliCommandSuggestion
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
 
-    if (matchesMarker(line, INSCRIBE_BEGIN) || line.trim() === '<<<INSCRIBE') {
+    if (line.trim() === INSCRIBE_BLOCK_OPEN) {
       inInscribeBlock = true;
       continue;
     }
 
-    if (matchesMarker(line, INSCRIBE_END) || line.trim() === 'INSCRIBE>>>') {
+    if (line.trim() === INSCRIBE_BLOCK_CLOSE) {
       inInscribeBlock = false;
       continue;
     }

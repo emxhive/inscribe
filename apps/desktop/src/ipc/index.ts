@@ -6,26 +6,22 @@
 import { registerDialogHandlers } from './dialog';
 import { registerRepositoryHandlers } from './repository';
 import { registerIgnoreHandlers } from './ignore';
-import { registerParsingHandlers } from './parsing';
-import { registerApplyHandlers } from './apply';
 import { registerHistoryHandlers } from './history';
 import { registerWindowHandlers } from './window';
 import { registerTerminalHandlers } from './terminal';
 import { registerClipboardHandlers } from './clipboard';
-import { registerPreviewV2Handlers } from './previewV2';
-import { registerApplyV2Handlers } from './applyV2';
+import { registerPreviewHandlers } from './preview';
+import { registerApplyHandlers } from './apply';
 
 export { registerDialogHandlers } from './dialog';
 export { registerRepositoryHandlers } from './repository';
 export { registerIgnoreHandlers } from './ignore';
-export { registerParsingHandlers } from './parsing';
-export { registerApplyHandlers } from './apply';
 export { registerHistoryHandlers } from './history';
 export { registerWindowHandlers } from './window';
 export { registerTerminalHandlers } from './terminal';
 export { registerClipboardHandlers } from './clipboard';
-export { registerPreviewV2Handlers } from './previewV2';
-export { registerApplyV2Handlers } from './applyV2';
+export { registerPreviewHandlers } from './preview';
+export { registerApplyHandlers } from './apply';
 
 /**
  * Register all IPC handlers
@@ -34,12 +30,10 @@ export function registerAllHandlers() {
   registerDialogHandlers();
   registerRepositoryHandlers();
   registerIgnoreHandlers();
-  registerParsingHandlers();
-  registerApplyHandlers();
   registerHistoryHandlers();
   registerWindowHandlers();
   registerTerminalHandlers();
   registerClipboardHandlers();
-  registerPreviewV2Handlers();
-  registerApplyV2Handlers();
+  registerPreviewHandlers();
+  registerApplyHandlers();
 }

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { performReplaceText } from '../../src/v2/text/exactMatch';
 import { resolveOperation } from '../../src/v2/execution/resolveOperation';
 
-describe('V2 replace_text fallback matching', () => {
+describe('replace_text fallback matching', () => {
   it('performReplaceText returns exact metadata on exact matches', () => {
     const content = 'const one = 1;\nconst two = 2;\nconst three = 3;';
     const search = 'const two = 2;';

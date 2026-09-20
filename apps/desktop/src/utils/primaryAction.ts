@@ -1,7 +1,6 @@
-import { getReviewApplySummary } from './review';
 import type { AppState } from '@/types';
 
-export type PrimaryActionId = 'parse' | 'review-v2-partial' | 'apply-all' | 'history-restore' | 'none';
+export type PrimaryActionId = 'parse' | 'review-partial' | 'apply-all' | 'history-restore' | 'none';
 
 export interface PrimaryAction {
   id: PrimaryActionId;
@@ -16,34 +15,27 @@ type PrimaryActionState = Pick<
   | 'isParsingInProgress'
   | 'isApplyingInProgress'
   | 'isRestoringInProgress'
-  | 'v2ReviewFiles'
+  | 'reviewFiles'
   | 'reviewItems'
-  | 'reviewPreflightByItem'
-  | 'v2PreviewSession'
-  | 'v2PreviewDiagnostics'
+  | 'previewSession'
+  | 'previewDiagnostics'
   | 'pipelineStatus'
-  | 'v2HistoryReview'
-  | 'legacyHistoryReview'
+  | 'historyReview'
 >;
 
 export function resolvePrimaryAction(state: PrimaryActionState): PrimaryAction {
-  if (state.v2HistoryReview.actionId) {
-    if (state.v2HistoryReview.isLoading) {
+  if (state.historyReview.actionId) {
+    if (state.historyReview.isLoading) {
       return { id: 'history-restore', label: 'Checking restore...', enabled: false };
     }
-
     return {
       id: 'history-restore',
-      label: state.v2HistoryReview.preview?.eligible ? 'Restore action' : 'Restore unavailable',
-      enabled: Boolean(state.v2HistoryReview.preview?.eligible)
-        && !state.v2HistoryReview.isRestoring
+      label: state.historyReview.preview?.eligible ? 'Restore action' : 'Restore unavailable',
+      enabled: Boolean(state.historyReview.preview?.eligible)
+        && !state.historyReview.isRestoring
         && !state.isApplyingInProgress
         && !state.isRestoringInProgress,
     };
-  }
-
-  if (state.legacyHistoryReview.applyId) {
-    return { id: 'none', label: 'History inspection', enabled: false };
   }
 
   if (state.isRestoringInProgress) {
@@ -51,44 +43,39 @@ export function resolvePrimaryAction(state: PrimaryActionState): PrimaryAction {
   }
 
   if (state.mode === 'intake') {
-    const hasPartialV2Preview =
+    const hasPartialPreview =
       state.pipelineStatus === 'parse-partial' &&
-      Boolean(state.v2PreviewSession) &&
-      state.v2ReviewFiles.length > 0;
+      Boolean(state.previewSession) &&
+      state.reviewFiles.length > 0;
 
-    if (hasPartialV2Preview) {
-      const excludedV2BlockCount = new Set(
-        state.v2PreviewDiagnostics.map((diagnostic) => diagnostic.blockIndex ?? `global:${diagnostic.code}:${diagnostic.line ?? ''}`),
+    if (hasPartialPreview) {
+      const excludedCount = new Set(
+        state.previewDiagnostics.map((diagnostic) => diagnostic.blockIndex ?? `global:${diagnostic.code}:${diagnostic.line ?? ''}`),
       ).size;
-      const excludedLabel = `${excludedV2BlockCount} Excluded`;
-
       return {
-        id: 'review-v2-partial',
-        label: `Review ${state.v2ReviewFiles.length} Files · ${excludedLabel}`,
+        id: 'review-partial',
+        label: `Review ${state.reviewFiles.length} Files · ${excludedCount} Excluded`,
         enabled: !state.isParsingInProgress && !state.isApplyingInProgress,
       };
     }
 
     return {
       id: 'parse',
-      label: state.isParsingInProgress ? 'Parsing...' : 'Parse Code Blocks',
+      label: state.isParsingInProgress ? 'Parsing...' : 'Preview Changes',
       enabled: Boolean(state.repoRoot) && !state.isParsingInProgress,
     };
   }
 
-  const hasOnlyPendingV2Items =
-    state.v2ReviewFiles.length > 0 &&
-    state.reviewItems.length > 0 &&
-    state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
-  const canApplyV2Session =
+  const canApply =
     Boolean(state.repoRoot) &&
-    Boolean(state.v2PreviewSession) &&
-    hasOnlyPendingV2Items;
-  const applySummary = getReviewApplySummary(state.reviewItems, state.reviewPreflightByItem);
+    Boolean(state.previewSession) &&
+    state.reviewFiles.length > 0 &&
+    state.reviewItems.length > 0 &&
+    state.reviewItems.every((item) => item.status === 'pending');
 
   return {
     id: 'apply-all',
-    label: canApplyV2Session ? 'Apply V2 Preview' : 'Apply All',
-    enabled: (applySummary.canApplyAll || canApplyV2Session) && !state.isApplyingInProgress,
+    label: 'Apply Preview',
+    enabled: canApply && !state.isApplyingInProgress,
   };
 }

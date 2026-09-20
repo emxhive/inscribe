@@ -1,9 +1,9 @@
 import * as path from 'path';
 import {
-  hasV2StructuralCapabilities,
-  V2LanguageAdapter,
-  V2StructuralLanguageAdapter,
-  isV2StructuralKind,
+  hasStructuralCapabilities,
+  LanguageAdapter,
+  StructuralLanguageAdapter,
+  isStructuralKind,
 } from './types';
 
 function normalizeExtension(extension: string): string {
@@ -17,7 +17,7 @@ function normalizeExtension(extension: string): string {
   return normalized;
 }
 
-function validateAdapter(adapter: V2LanguageAdapter): void {
+function validateAdapter(adapter: LanguageAdapter): void {
   if (!adapter || typeof adapter.id !== 'string' || adapter.id.trim() === '') {
     throw new Error('Invalid language adapter: id is required');
   }
@@ -39,7 +39,7 @@ function validateAdapter(adapter: V2LanguageAdapter): void {
     const supportedKinds = new Set(adapter.structural.supportedKinds);
     if (
       supportedKinds.size !== adapter.structural.supportedKinds.length ||
-      adapter.structural.supportedKinds.some((kind) => !isV2StructuralKind(kind))
+      adapter.structural.supportedKinds.some((kind) => !isStructuralKind(kind))
     ) {
       throw new Error(`Invalid language adapter "${adapter.id}": structural.supportedKinds are invalid`);
     }
@@ -51,23 +51,23 @@ function validateAdapter(adapter: V2LanguageAdapter): void {
 }
 
 /**
- * Deterministic extension-to-adapter registry for V2 language capabilities.
+ * Deterministic extension-to-adapter registry for language capabilities.
  *
  * Registration is intentionally strict. An extension has exactly one owner,
  * and duplicate adapter ids or extensions fail at construction time instead
  * of depending on registration order.
  */
-export class V2LanguageRegistry {
-  private readonly adaptersByExtension = new Map<string, V2LanguageAdapter>();
-  private readonly adaptersById = new Map<string, V2LanguageAdapter>();
+export class LanguageRegistry {
+  private readonly adaptersByExtension = new Map<string, LanguageAdapter>();
+  private readonly adaptersById = new Map<string, LanguageAdapter>();
 
-  constructor(adapters: readonly V2LanguageAdapter[] = []) {
+  constructor(adapters: readonly LanguageAdapter[] = []) {
     for (const adapter of adapters) {
       this.register(adapter);
     }
   }
 
-  register(adapter: V2LanguageAdapter): this {
+  register(adapter: LanguageAdapter): this {
     validateAdapter(adapter);
 
     const id = adapter.id.trim();
@@ -99,29 +99,29 @@ export class V2LanguageRegistry {
     return this;
   }
 
-  resolve(filePath: string): V2LanguageAdapter | undefined {
+  resolve(filePath: string): LanguageAdapter | undefined {
     return this.adaptersByExtension.get(path.extname(filePath).toLowerCase());
   }
 
-  resolveExtension(extension: string): V2LanguageAdapter | undefined {
+  resolveExtension(extension: string): LanguageAdapter | undefined {
     return this.adaptersByExtension.get(normalizeExtension(extension));
   }
 
-  require(filePath: string): V2StructuralLanguageAdapter {
+  require(filePath: string): StructuralLanguageAdapter {
     const adapter = this.resolve(filePath);
-    if (!adapter || !hasV2StructuralCapabilities(adapter)) {
+    if (!adapter || !hasStructuralCapabilities(adapter)) {
       throw new Error(`Structural mode is unsupported for file type: ${filePath}. File was not modified.`);
     }
     return adapter;
   }
 
-  getAdapters(): readonly V2LanguageAdapter[] {
+  getAdapters(): readonly LanguageAdapter[] {
     return Object.freeze(Array.from(this.adaptersById.values()));
   }
 }
 
-export function createV2LanguageRegistry(
-  adapters: readonly V2LanguageAdapter[] = [],
-): V2LanguageRegistry {
-  return new V2LanguageRegistry(adapters);
+export function createLanguageRegistry(
+  adapters: readonly LanguageAdapter[] = [],
+): LanguageRegistry {
+  return new LanguageRegistry(adapters);
 }

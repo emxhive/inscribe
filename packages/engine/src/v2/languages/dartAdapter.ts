@@ -12,7 +12,7 @@ import {
   StructuralKind,
   StructuralSelectorSegment,
   TreeSitterLanguageAdapter,
-  V2_STRUCTURAL_KINDS,
+  STRUCTURAL_KINDS,
 } from './types';
 import {
   createTreeSitterLanguageAdapter,
@@ -587,9 +587,9 @@ export function createDartLanguageAdapter(
   assets: TreeSitterAssetPaths,
 ): TreeSitterLanguageAdapter {
   return createTreeSitterLanguageAdapter({
-    id: 'dart-v2',
+    id: 'dart',
     extensions: DART_EXTENSIONS,
-    supportedKinds: V2_STRUCTURAL_KINDS,
+    supportedKinds: STRUCTURAL_KINDS,
     grammarIdForFile,
     collectCandidates: collectDartCandidateCollection,
   }, assets);

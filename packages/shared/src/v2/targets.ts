@@ -1,4 +1,4 @@
-import { V2OperationStrategy } from './operations';
+import { OperationStrategy } from './operations';
 
 export type StructuralKind =
   | 'class'
@@ -32,7 +32,7 @@ export interface StructuralRange {
   end: number;
 }
 
-export interface V2MatchMetadata {
+export interface MatchMetadata {
   kind: 'exact' | 'fallback';
   score?: number;
   resolvedRange: { start: number; end: number };
@@ -40,14 +40,14 @@ export interface V2MatchMetadata {
   unmatchedSoftTokens?: string[];
 }
 
-export interface V2TargetScope {
+export interface TargetScope {
   filePath: string;
-  strategy: V2OperationStrategy;
+  strategy: OperationStrategy;
   selector?: StructuralSelector;
   selectorText?: string;
   lineRange?: { startLine: number; endLine: number };
   beforeRange?: StructuralRange;
   afterRange?: StructuralRange;
-  matchMetadata?: V2MatchMetadata;
+  matchMetadata?: MatchMetadata;
 }
 

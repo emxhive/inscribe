@@ -1,2 +1,2 @@
-// V2 history placeholder
+// History entry point reserved for future shared exports.
 export {};

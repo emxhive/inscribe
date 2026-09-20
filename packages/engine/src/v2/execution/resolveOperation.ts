@@ -1,4 +1,4 @@
-import { V2Operation, V2TargetScope, V2RawPayload, V2NormalizedPayload, V2MatchMetadata } from '@inscribe/shared';
+import { InscribeOperation, TargetScope, RawPayload, NormalizedPayload, MatchMetadata } from '@inscribe/shared';
 import * as path from 'path';
 import { CanonicalExecution } from '../protocol';
 import { VirtualFileState, hashContent } from './virtualFileState';
@@ -6,11 +6,11 @@ import { detectDestinationEOL, normalizeLineEndings } from './normalizeLineEndin
 import { performReplaceText } from '../text/exactMatch';
 import { computeDiffHunks } from '../diff';
 import { ResolveStructuralTargetOptions, StructuralNodeMatch, StructuralResolver } from '../structural';
-import type { V2SyntaxValidator } from '../languages';
+import type { SyntaxValidator } from '../languages';
 
-export interface V2ExecutionContext {
+export interface ExecutionContext {
   structuralResolver?: StructuralResolver;
-  syntaxValidator?: V2SyntaxValidator;
+  syntaxValidator?: SyntaxValidator;
 }
 
 let idCounter = 0;
@@ -20,9 +20,9 @@ function nextId(): string {
 }
 
 export async function resolveOperation(
-  operation: V2Operation,
+  operation: InscribeOperation,
   virtualState: VirtualFileState,
-  context: V2ExecutionContext = {}
+  context: ExecutionContext = {}
 ): Promise<CanonicalExecution> {
   const filePath = operation.filePath;
   const strategy = operation.strategy;
@@ -45,7 +45,7 @@ export async function resolveOperation(
   const rawDirectives: Record<string, string> = {};
   const normalizedDirectives: Record<string, string> = {};
 
-  let matchMetadata: V2MatchMetadata | undefined = undefined;
+  let matchMetadata: MatchMetadata | undefined = undefined;
 
   if (operation.strategy === 'create_file') {
     if (beforeExists) {
@@ -119,7 +119,7 @@ export async function resolveOperation(
     });
   }
 
-  const targetScope: V2TargetScope = {
+  const targetScope: TargetScope = {
     filePath,
     strategy,
     selector: (operation.strategy === 'replace_node') ? operation.selector : undefined,
@@ -133,14 +133,14 @@ export async function resolveOperation(
   const diffHunks = computeDiffHunks(beforeContentRaw, afterContent);
   const afterFileHash = afterExists ? hashContent(afterContent) : hashContent('');
 
-  const rawPayload: V2RawPayload = {
+  const rawPayload: RawPayload = {
     strategy,
     filePath,
     content: payloadContent,
     directives: rawDirectives
   };
 
-  const normalizedPayload: V2NormalizedPayload = {
+  const normalizedPayload: NormalizedPayload = {
     strategy,
     filePath,
     content: normalizedContent,

@@ -1,4 +1,4 @@
-import { StructuralSelector, StructuralSelectorSegment, StructuralKind, isV2StructuralKind } from './types';
+import { StructuralSelector, StructuralSelectorSegment, StructuralKind, isStructuralKind } from './types';
 
 export function parseSelectorPath(pathStr: string): StructuralSelectorSegment[] {
   const parts = pathStr.split('>').map((p) => p.trim()).filter(Boolean);
@@ -16,7 +16,7 @@ export function parseSelectorPath(pathStr: string): StructuralSelectorSegment[] 
       name = part.slice(colonIndex + 1).trim();
     }
 
-    if (!isV2StructuralKind(kindStr)) {
+    if (!isStructuralKind(kindStr)) {
       throw new Error(`Unsupported structural selector kind: ${kindStr}`);
     }
 

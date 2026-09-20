@@ -1,7 +1,7 @@
-import { V2Operation, V2StructuralParserFailure } from '@inscribe/shared';
+import { InscribeOperation, StructuralParserFailure } from '@inscribe/shared';
 import { CanonicalExecution } from '../protocol';
 import { VirtualFileState } from './virtualFileState';
-import { resolveOperation, V2ExecutionContext } from './resolveOperation';
+import { resolveOperation, ExecutionContext } from './resolveOperation';
 
 export interface ResolvedPlan {
   executions: CanonicalExecution[];
@@ -15,7 +15,7 @@ export interface ResolutionFailure {
   filePath: string;
   message: string;
   code?: string;
-  structuralParser?: V2StructuralParserFailure;
+  structuralParser?: StructuralParserFailure;
 }
 
 export interface ResolutionExclusion {
@@ -33,9 +33,9 @@ export interface ResolutionExclusion {
 }
 
 export async function resolvePlan(
-  payloads: V2Operation[],
+  payloads: InscribeOperation[],
   initialFiles: Map<string, { content: string; exists: boolean }>,
-  context: V2ExecutionContext = {}
+  context: ExecutionContext = {}
 ): Promise<ResolvedPlan> {
   const executions: CanonicalExecution[] = [];
   const executionStepIndices: number[] = [];
@@ -124,9 +124,9 @@ export async function resolvePlan(
   };
 }
 
-function isStructuralParserFailure(value: unknown): value is V2StructuralParserFailure {
+function isStructuralParserFailure(value: unknown): value is StructuralParserFailure {
   if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<V2StructuralParserFailure>;
+  const candidate = value as Partial<StructuralParserFailure>;
   return (
     candidate.parser === 'tree-sitter' &&
     typeof candidate.adapterId === 'string' &&

@@ -3,7 +3,7 @@ import * as path from 'path';
 import { initTreeSitter, loadLanguage, createParser } from '../../src/v2/structural/treeSitterRuntime';
 import { treeSitterRangeToJsRange } from '../../src/v2/structural/treeSitterRangeToJsRange';
 import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
-import { createTypeScriptLanguageAdapter, createV2LanguageRegistry } from '../../src/v2/languages';
+import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/v2/languages';
 import { parseSelector } from '../../src/v2/structural/selectorParser';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -16,7 +16,7 @@ const ASSETS = {
 };
 
 const resolver = createAdapterStructuralResolver(
-  createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
+  createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
 );
 
 let parser: any;

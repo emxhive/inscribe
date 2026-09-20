@@ -12,16 +12,16 @@ import { useAppStateContext } from '@/hooks';
  */
 export function HistoryReviewPanel() {
   const { state } = useAppStateContext();
-  const preview = state.v2HistoryReview.preview;
+  const preview = state.historyReview.preview;
   const reviewRef = useRef<HTMLElement>(null);
-  const selectedEntryId = state.v2HistoryReview.selectedEntryId;
+  const selectedEntryId = state.historyReview.selectedEntryId;
   const [selectedHunkId, setSelectedHunkId] = useState<string | null>(null);
   const [collapsedHunkIds, setCollapsedHunkIds] = useState<string[]>([]);
   const [collapsedDiffGroupIds, setCollapsedDiffGroupIds] = useState<string[]>([]);
 
   useEffect(() => {
     reviewRef.current?.focus({ preventScroll: true });
-  }, [state.v2HistoryReview.actionId]);
+  }, [state.historyReview.actionId]);
 
   useEffect(() => {
     setSelectedHunkId(null);
@@ -33,7 +33,7 @@ export function HistoryReviewPanel() {
   const comparison = useMemo<ReviewComparison | null>(() => {
     if (!selectedFile?.restoredState) return null;
     return {
-      type: 'v2_final_file',
+      type: 'final_file',
       file: selectedFile.file,
       oldContent: selectedFile.currentContent,
       newContent: selectedFile.restoredState.content,
@@ -59,21 +59,21 @@ export function HistoryReviewPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        {state.v2HistoryReview.isLoading && (
+        {state.historyReview.isLoading && (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             Checking the current repository state...
           </div>
         )}
 
-        {!state.v2HistoryReview.isLoading && state.v2HistoryReview.error && !preview && (
+        {!state.historyReview.isLoading && state.historyReview.error && !preview && (
           <div className="flex h-full items-center justify-center p-6 text-sm text-destructive">
             <p className="max-w-xl rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3">
-              {state.v2HistoryReview.error}
+              {state.historyReview.error}
             </p>
           </div>
         )}
 
-        {!state.v2HistoryReview.isLoading && !state.v2HistoryReview.error && !selectedFile && (
+        {!state.historyReview.isLoading && !state.historyReview.error && !selectedFile && (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             Select a historical file from the left pane.
           </div>

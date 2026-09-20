@@ -1,7 +1,6 @@
 import type { AppState } from '@/types';
 import type { IntakeBlock } from './intake';
-import { getReviewItemApplyState } from './review';
-import { findV2DiagnosticBlock } from './v2IntakeDiagnostics';
+import { findDiagnosticBlock } from './intakeDiagnostics';
 
 export type DiagnosticSeverity = 'error' | 'warning';
 
@@ -67,29 +66,21 @@ export function buildDiagnosticGroups(
       ])),
     );
 
-    const globalV2Diagnostics = state.v2PreviewDiagnostics.filter(
-      (diagnostic) => !findV2DiagnosticBlock(blocks, diagnostic),
+    const globalDiagnostics = state.previewDiagnostics.filter(
+      (diagnostic) => !findDiagnosticBlock(blocks, diagnostic),
     );
     addGroup(
-      'v2-preview-global',
-      'V2 Preview Errors',
+      'preview-global',
+      'Preview Errors',
       'error',
-      globalV2Diagnostics.map((diagnostic) => `[${diagnostic.code}] ${diagnostic.message}`),
+      globalDiagnostics.map((diagnostic) => `[${diagnostic.code}] ${diagnostic.message}`),
     );
   }
 
     if (mode === 'review' || mode === 'all') {
-    addGroup(
-      'validation',
-      'Validation Errors',
-      'error',
-      [
-        ...state.validationErrors.map((error) => formatDiagnosticMessage(error.file, error.message)),
-        ...state.reviewItems
-          .filter((item) => item.validationError)
-          .map((item) => formatDiagnosticMessage(item.file, item.validationError)),
-      ],
-    );
+    addGroup('preview', 'Preview Errors', 'error', state.previewDiagnostics.map((diagnostic) => (
+      `[${diagnostic.code}] ${diagnostic.message}`
+    )));
   }
 
   addGroup(
@@ -100,29 +91,9 @@ export function buildDiagnosticGroups(
   );
 
   if (mode === 'review' || mode === 'all') {
-    addGroup(
-      'apply-restore',
-      'Apply / Restore Failures',
-      'error',
-      [
-        state.pipelineStatus === 'apply-failure' ? state.statusMessage : null,
-        ...state.historyItems
-          .filter((item) => item.restoreStatus && !['idle', 'restoring', 'success'].includes(item.restoreStatus))
-          .map((item) => formatDiagnosticMessage(item.file, item.restoreMessage ?? item.restoreStatus)),
-      ],
-    );
-
-    addGroup(
-      'comparison',
-      'Review Comparison Errors',
-      'error',
-      state.reviewItems.flatMap((item) => {
-        const itemState = getReviewItemApplyState(item, state.reviewPreflightByItem);
-        return itemState.kind === 'blocked-preflight'
-          ? [formatDiagnosticMessage(item.file, itemState.blocker)]
-          : [];
-      }),
-    );
+    addGroup('apply-restore', 'Apply / Restore Failures', 'error', [
+      state.pipelineStatus === 'apply-failure' ? state.statusMessage : null,
+    ]);
   }
 
   return groups;

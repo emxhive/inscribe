@@ -3,10 +3,10 @@ import * as path from 'path';
 import Parser from 'web-tree-sitter';
 import {
   createAdapterSyntaxValidator,
-  createV2LanguageRegistry,
+  createLanguageRegistry,
   createTypeScriptLanguageAdapter,
-  V2LanguageRegistry,
-  V2LanguageAdapter,
+  LanguageRegistry,
+  LanguageAdapter,
 } from '../../src/v2/languages';
 import {
   createAdapterStructuralResolver,
@@ -22,7 +22,7 @@ function adapter(
   extensions: readonly string[],
   candidates = [{ kind: 'function' as const, name: 'run', start: 2, end: 20 }],
   supportedKinds = ['function' as const],
-): V2LanguageAdapter {
+): LanguageAdapter {
   return {
     id,
     extensions,
@@ -36,7 +36,7 @@ function adapter(
   };
 }
 
-describe('V2 language adapter contracts', () => {
+describe('language adapter contracts', () => {
   it('registers one TypeScript adapter for both grammar variants', () => {
     const typescriptAdapter = createTypeScriptLanguageAdapter({
       coreWasmPath: CORE_WASM,
@@ -45,7 +45,7 @@ describe('V2 language adapter contracts', () => {
         tsx: path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-tsx.wasm'),
       },
     });
-    const registry = new V2LanguageRegistry([typescriptAdapter]);
+    const registry = new LanguageRegistry([typescriptAdapter]);
 
     expect(registry.resolve('component.ts')).toBe(typescriptAdapter);
     expect(registry.resolve('component.tsx')).toBe(typescriptAdapter);
@@ -56,7 +56,7 @@ describe('V2 language adapter contracts', () => {
   it('resolves extensions case-insensitively and independently of registration order', () => {
     const first = adapter('first', ['.one']);
     const second = adapter('second', ['.TWO']);
-    const registry = createV2LanguageRegistry([second, first]);
+    const registry = createLanguageRegistry([second, first]);
 
     expect(registry.resolve('src/file.ONE')).toBe(first);
     expect(registry.resolve('src/file.two')).toBe(second);
@@ -65,25 +65,25 @@ describe('V2 language adapter contracts', () => {
 
   it('rejects duplicate ids, duplicate extensions, and duplicate extensions within an adapter', () => {
     const first = adapter('same', ['.one']);
-    expect(() => new V2LanguageRegistry([first, adapter('same', ['.two'])])).toThrow(
+    expect(() => new LanguageRegistry([first, adapter('same', ['.two'])])).toThrow(
       'Duplicate language adapter id',
     );
-    expect(() => new V2LanguageRegistry([first, adapter('other', ['.ONE'])])).toThrow(
+    expect(() => new LanguageRegistry([first, adapter('other', ['.ONE'])])).toThrow(
       'already registered',
     );
-    expect(() => new V2LanguageRegistry([adapter('invalid', ['.one', '.ONE'])])).toThrow(
+    expect(() => new LanguageRegistry([adapter('invalid', ['.one', '.ONE'])])).toThrow(
       'Duplicate extension',
     );
-    expect(() => new V2LanguageRegistry([adapter('no-kinds', ['.none'], [], [])])).toThrow(
+    expect(() => new LanguageRegistry([adapter('no-kinds', ['.none'], [], [])])).toThrow(
       'structural.supportedKinds are required',
     );
-    expect(() => new V2LanguageRegistry([adapter(
+    expect(() => new LanguageRegistry([adapter(
       'duplicate-kinds',
       ['.duplicate'],
       [],
       ['function', 'function'],
     )])).toThrow('structural.supportedKinds are invalid');
-    expect(() => new V2LanguageRegistry([{
+    expect(() => new LanguageRegistry([{
       id: 'no-capabilities',
       extensions: ['.empty'],
     }])).toThrow('at least one capability is required');
@@ -96,7 +96,7 @@ describe('V2 language adapter contracts', () => {
       extensions: ['.syntax'],
       validateSyntax,
     };
-    const registry = new V2LanguageRegistry([syntaxOnly]);
+    const registry = new LanguageRegistry([syntaxOnly]);
 
     expect(registry.resolve('fixture.syntax')).toBe(syntaxOnly);
     await createAdapterSyntaxValidator(registry)({
@@ -204,7 +204,7 @@ describe('V2 language adapter contracts', () => {
       start: 0,
       end: 'function run() {}'.length,
     };
-    const registry = new V2LanguageRegistry([{
+    const registry = new LanguageRegistry([{
       id: 'uncertain-discovery',
       extensions: ['.uncertain'],
       structural: {
@@ -239,7 +239,7 @@ describe('V2 language adapter contracts', () => {
       end: source.length,
     };
     const resolveCandidates = vi.fn(async () => [candidate]);
-    const registry = new V2LanguageRegistry([{
+    const registry = new LanguageRegistry([{
       id: 'test-language',
       extensions: ['.test'],
       structural: {
@@ -266,7 +266,7 @@ describe('V2 language adapter contracts', () => {
 
   it('rejects a kind the resolved adapter does not support before discovery', async () => {
     const resolveCandidates = vi.fn(async () => []);
-    const registry = new V2LanguageRegistry([{
+    const registry = new LanguageRegistry([{
       id: 'function-only',
       extensions: ['.kind'],
       structural: {

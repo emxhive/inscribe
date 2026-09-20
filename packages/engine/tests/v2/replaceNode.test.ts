@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import * as path from 'path';
 import Parser from 'web-tree-sitter';
-import { resolveOperation, V2ExecutionContext } from '../../src/v2/execution/resolveOperation';
+import { resolveOperation, ExecutionContext } from '../../src/v2/execution/resolveOperation';
 import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
-import { createTypeScriptLanguageAdapter, createV2LanguageRegistry } from '../../src/v2/languages';
+import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/v2/languages';
 import { initTreeSitter } from '../../src/v2/structural/treeSitterRuntime';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -16,11 +16,11 @@ const ASSETS = {
 };
 
 const createResolver = () => createAdapterStructuralResolver(
-  createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
+  createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
 );
 const structuralResolver = createResolver();
 
-const CONTEXT: V2ExecutionContext = {
+const CONTEXT: ExecutionContext = {
   structuralResolver,
 };
 
@@ -28,7 +28,7 @@ beforeAll(async () => {
   await initTreeSitter(ASSETS);
 });
 
-describe('V2 replace_node operation', () => {
+describe('replace_node operation', () => {
   it('replaces a named TypeScript class method', async () => {
     const source = `class Greeter {\n  greet() {\n    return "hello";\n  }\n}`;
     const virtualState = new Map([['test.ts', { content: source, exists: true }]]);

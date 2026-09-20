@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as path from 'path';
 import { resolvePlan } from '../../src/v2/execution/resolvePlan';
 import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
-import { createTypeScriptLanguageAdapter, createV2LanguageRegistry } from '../../src/v2/languages';
+import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/v2/languages';
 import { initTreeSitter } from '../../src/v2/structural/treeSitterRuntime';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -15,7 +15,7 @@ const ASSETS = {
 };
 
 const structuralResolver = createAdapterStructuralResolver(
-  createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
+  createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
 );
 
 const CONTEXT = {
@@ -26,7 +26,7 @@ beforeAll(async () => {
   await initTreeSitter(ASSETS);
 });
 
-describe('V2 virtual structural sequential execution', () => {
+describe('virtual structural sequential execution', () => {
   it('handles replace_node -> replace_node sequentially', async () => {
     const source = `class Greeter {\n  greet() {\n    return "1";\n  }\n  wave() {\n    return "2";\n  }\n}`;
     const initialFiles = new Map([['test.ts', { content: source, exists: true }]]);

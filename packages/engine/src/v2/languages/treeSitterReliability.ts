@@ -12,7 +12,7 @@ import {
 import type {
   TreeSitterParserEvidence,
 } from '../structural/treeSitterParserEvidence';
-import type { V2StructuralParserFailure } from '@inscribe/shared';
+import type { StructuralParserFailure } from '@inscribe/shared';
 import {
   treeSitterByteRangeToJsRange,
   treeSitterRangeToJsRange,
@@ -148,7 +148,7 @@ export function assessTreeSitterDiscoveryReliability(
   searchScopes: readonly TreeSitterStructuralSearchScope[],
   evidence: TreeSitterParserEvidence,
   discoveryComplete: boolean,
-): V2StructuralParserFailure | undefined {
+): StructuralParserFailure | undefined {
   if (evidence.recoveryNodes.length === 0) return undefined;
 
   const uniqueScopes = searchScopes.filter((scope, index) =>

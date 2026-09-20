@@ -1,17 +1,17 @@
-import type { V2Operation, StructuralSelector } from '@inscribe/shared';
+import type { InscribeOperation, StructuralSelector } from '@inscribe/shared';
 import {
-  V2_BLOCK_OPEN,
-  V2_BLOCK_CLOSE,
-  V2_SECTION_NAMES,
-  V2_SECTION_OPEN_MARKERS,
-  V2_SECTION_CLOSE_MARKERS,
-  V2_DIRECTIVE_KEYS,
-  V2_OPERATION_MODES,
-  validateV2RelativeFilePath,
+  INSCRIBE_BLOCK_OPEN,
+  INSCRIBE_BLOCK_CLOSE,
+  SECTION_NAMES,
+  SECTION_OPEN_MARKERS,
+  SECTION_CLOSE_MARKERS,
+  DIRECTIVE_KEYS,
+  PROTOCOL_OPERATION_MODES,
+  validateRelativeFilePath,
   parseSectionFenceWrapper,
-  isExactV2MarkerLine,
+  isExactMarkerLine,
 } from '@inscribe/shared';
-import { V2ProtocolError, type V2ProtocolErrorCode } from './protocolErrors';
+import { ProtocolError, type ProtocolErrorCode } from './protocolErrors';
 import { parseSelector } from '../structural/selectorParser';
 
 interface LineInfo {
@@ -23,7 +23,7 @@ interface LineInfo {
 }
 
 
-function parseStrictV2Source(rawInput: string): V2Operation[] {
+function parseStrictSource(rawInput: string): InscribeOperation[] {
   const lines: LineInfo[] = [];
   let currentStart = 0;
   let lineNum = 1;
@@ -83,7 +83,7 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
     });
   }
 
-  const operations: V2Operation[] = [];
+  const operations: InscribeOperation[] = [];
   let blockIndex = 0;
   let lineIdx = 0;
   let foundAnyBlock = false;
@@ -92,7 +92,7 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
     const line = lines[lineIdx];
     const trimmed = line.text.trim();
 
-    if (trimmed === V2_BLOCK_OPEN) {
+    if (trimmed === INSCRIBE_BLOCK_OPEN) {
       foundAnyBlock = true;
       const startLineNum = line.lineNum;
       lineIdx++;
@@ -106,22 +106,22 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
         const currentLine = lines[lineIdx];
         const currentTrimmed = currentLine.text.trim();
 
-        if (currentTrimmed === V2_BLOCK_CLOSE) {
+        if (currentTrimmed === INSCRIBE_BLOCK_CLOSE) {
           blockTerminated = true;
           lineIdx++;
           break;
         }
 
-        if (currentTrimmed.startsWith('<<<') && currentTrimmed !== V2_BLOCK_OPEN) {
+        if (currentTrimmed.startsWith('<<<') && currentTrimmed !== INSCRIBE_BLOCK_OPEN) {
           const possibleSection = currentTrimmed.slice(3);
-          const validSections = V2_SECTION_NAMES as readonly string[];
+          const validSections = SECTION_NAMES as readonly string[];
           if (!validSections.includes(possibleSection)) {
-            throw new V2ProtocolError('UNKNOWN_SECTION', blockIndex, currentLine.lineNum, possibleSection);
+            throw new ProtocolError('UNKNOWN_SECTION', blockIndex, currentLine.lineNum, possibleSection);
           }
 
           const sectionName = possibleSection;
           if (sections.has(sectionName)) {
-            throw new V2ProtocolError('DUPLICATE_SECTION', blockIndex, currentLine.lineNum, sectionName);
+            throw new ProtocolError('DUPLICATE_SECTION', blockIndex, currentLine.lineNum, sectionName);
           }
 
           sectionBegun = true;
@@ -134,31 +134,31 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
             const scanLine = lines[lineIdx];
             const scanTrimmed = scanLine.text.trim();
 
-            const reservedOpeners = V2_SECTION_OPEN_MARKERS;
-            const reservedClosers = V2_SECTION_CLOSE_MARKERS;
+            const reservedOpeners = SECTION_OPEN_MARKERS;
+            const reservedClosers = SECTION_CLOSE_MARKERS;
 
             if (scanTrimmed === closerMarker) {
               closeLineIdx = lineIdx;
               break;
             }
 
-            if (scanTrimmed === V2_BLOCK_CLOSE || scanTrimmed === V2_BLOCK_OPEN) {
-              throw new V2ProtocolError('UNTERMINATED_SECTION', blockIndex, scanLine.lineNum, sectionName);
+            if (scanTrimmed === INSCRIBE_BLOCK_CLOSE || scanTrimmed === INSCRIBE_BLOCK_OPEN) {
+              throw new ProtocolError('UNTERMINATED_SECTION', blockIndex, scanLine.lineNum, sectionName);
             }
 
             if (reservedOpeners.includes(scanTrimmed)) {
-              throw new V2ProtocolError('MALFORMED_MARKER', blockIndex, scanLine.lineNum, scanTrimmed);
+              throw new ProtocolError('MALFORMED_MARKER', blockIndex, scanLine.lineNum, scanTrimmed);
             }
 
             if (reservedClosers.includes(scanTrimmed)) {
-              throw new V2ProtocolError('MALFORMED_MARKER', blockIndex, scanLine.lineNum, scanTrimmed);
+              throw new ProtocolError('MALFORMED_MARKER', blockIndex, scanLine.lineNum, scanTrimmed);
             }
 
             lineIdx++;
           }
 
           if (closeLineIdx === -1) {
-            throw new V2ProtocolError('UNTERMINATED_SECTION', blockIndex, currentLine.lineNum, sectionName);
+            throw new ProtocolError('UNTERMINATED_SECTION', blockIndex, currentLine.lineNum, sectionName);
           }
 
           let sectionContent = '';
@@ -166,7 +166,7 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
             const sectionLines = lines.slice(openLineIdx + 1, closeLineIdx);
             const parseResult = parseSectionFenceWrapper(sectionLines);
             if (parseResult.type === 'error') {
-              throw new V2ProtocolError('MALFORMED_WRAPPER_FENCE', blockIndex, parseResult.lineNum, parseResult.message);
+              throw new ProtocolError('MALFORMED_WRAPPER_FENCE', blockIndex, parseResult.lineNum, parseResult.message);
             } else if (parseResult.type === 'unwrapped') {
               if (parseResult.bodyStartIdx <= parseResult.bodyEndIdx) {
                 const contentStartOffset = sectionLines[parseResult.bodyStartIdx].startIndex;
@@ -187,11 +187,11 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
           continue;
         }
 
-        if (currentTrimmed.includes('>>>') && currentTrimmed !== V2_BLOCK_CLOSE) {
-          throw new V2ProtocolError('MALFORMED_MARKER', blockIndex, currentLine.lineNum, currentTrimmed);
+        if (currentTrimmed.includes('>>>') && currentTrimmed !== INSCRIBE_BLOCK_CLOSE) {
+          throw new ProtocolError('MALFORMED_MARKER', blockIndex, currentLine.lineNum, currentTrimmed);
         }
         if (currentTrimmed.startsWith('<<<')) {
-          throw new V2ProtocolError('UNKNOWN_SECTION', blockIndex, currentLine.lineNum, currentTrimmed);
+          throw new ProtocolError('UNKNOWN_SECTION', blockIndex, currentLine.lineNum, currentTrimmed);
         }
 
         const colonIndex = currentLine.text.indexOf(':');
@@ -199,17 +199,17 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
           const key = currentLine.text.slice(0, colonIndex).trim();
           const value = currentLine.text.slice(colonIndex + 1);
 
-          const validDirectives = V2_DIRECTIVE_KEYS as readonly string[];
+          const validDirectives = DIRECTIVE_KEYS as readonly string[];
           if (!validDirectives.includes(key)) {
-            throw new V2ProtocolError('UNKNOWN_DIRECTIVE', blockIndex, currentLine.lineNum, key);
+            throw new ProtocolError('UNKNOWN_DIRECTIVE', blockIndex, currentLine.lineNum, key);
           }
 
           if (sectionBegun) {
-            throw new V2ProtocolError('UNEXPECTED_CONTENT', blockIndex, currentLine.lineNum, 'Directives must precede all fenced sections');
+            throw new ProtocolError('UNEXPECTED_CONTENT', blockIndex, currentLine.lineNum, 'Directives must precede all fenced sections');
           }
 
           if (directives.has(key)) {
-            throw new V2ProtocolError('DUPLICATE_DIRECTIVE', blockIndex, currentLine.lineNum, key);
+            throw new ProtocolError('DUPLICATE_DIRECTIVE', blockIndex, currentLine.lineNum, key);
           }
 
           directives.set(key, { value: value.trim(), lineNum: currentLine.lineNum });
@@ -222,11 +222,11 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
           continue;
         }
 
-        throw new V2ProtocolError('UNEXPECTED_CONTENT', blockIndex, currentLine.lineNum, currentLine.text);
+        throw new ProtocolError('UNEXPECTED_CONTENT', blockIndex, currentLine.lineNum, currentLine.text);
       }
 
       if (!blockTerminated) {
-        throw new V2ProtocolError('UNTERMINATED_INSCRIBE_BLOCK', blockIndex, startLineNum);
+        throw new ProtocolError('UNTERMINATED_INSCRIBE_BLOCK', blockIndex, startLineNum);
       }
 
       const fileEntry = directives.get('FILE');
@@ -234,35 +234,35 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
       const selectorEntry = directives.get('SELECTOR');
 
       if (!fileEntry) {
-        throw new V2ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, 'FILE directive is required');
+        throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, 'FILE directive is required');
       }
       if (!modeEntry) {
-        throw new V2ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, 'MODE directive is required');
+        throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, 'MODE directive is required');
       }
 
-      const filePathErr = validateV2RelativeFilePath(fileEntry.value);
+      const filePathErr = validateRelativeFilePath(fileEntry.value);
       if (filePathErr) {
-        throw new V2ProtocolError('INVALID_FILE_PATH', blockIndex, fileEntry.lineNum, filePathErr);
+        throw new ProtocolError('INVALID_FILE_PATH', blockIndex, fileEntry.lineNum, filePathErr);
       }
 
       const mode = modeEntry.value;
-      const validModes = V2_OPERATION_MODES as readonly string[];
+      const validModes = PROTOCOL_OPERATION_MODES as readonly string[];
       if (!validModes.includes(mode)) {
-        throw new V2ProtocolError('INVALID_MODE', blockIndex, modeEntry.lineNum, mode);
+        throw new ProtocolError('INVALID_MODE', blockIndex, modeEntry.lineNum, mode);
       }
 
       if (mode === 'create_file' || mode === 'replace_file') {
         if (selectorEntry) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
         }
         if (sections.has('SEARCH')) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('SEARCH')!.lineNum, `SEARCH is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('SEARCH')!.lineNum, `SEARCH is forbidden in ${mode}`);
         }
         if (sections.has('STARTS_WITH')) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('STARTS_WITH')!.lineNum, `STARTS_WITH is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('STARTS_WITH')!.lineNum, `STARTS_WITH is forbidden in ${mode}`);
         }
         if (!sections.has('CONTENT')) {
-          throw new V2ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `CONTENT is required in ${mode}`);
+          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `CONTENT is required in ${mode}`);
         }
 
         operations.push({
@@ -272,16 +272,16 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
         });
       } else if (mode === 'delete_file') {
         if (selectorEntry) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
         }
         if (sections.has('CONTENT')) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('CONTENT')!.lineNum, `CONTENT is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('CONTENT')!.lineNum, `CONTENT is forbidden in ${mode}`);
         }
         if (sections.has('SEARCH')) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('SEARCH')!.lineNum, `SEARCH is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('SEARCH')!.lineNum, `SEARCH is forbidden in ${mode}`);
         }
         if (sections.has('STARTS_WITH')) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('STARTS_WITH')!.lineNum, `STARTS_WITH is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('STARTS_WITH')!.lineNum, `STARTS_WITH is forbidden in ${mode}`);
         }
 
         operations.push({
@@ -290,21 +290,21 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
         });
       } else if (mode === 'replace_text') {
         if (selectorEntry) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
         }
         if (sections.has('STARTS_WITH')) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('STARTS_WITH')!.lineNum, `STARTS_WITH is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('STARTS_WITH')!.lineNum, `STARTS_WITH is forbidden in ${mode}`);
         }
         if (!sections.has('SEARCH')) {
-          throw new V2ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `SEARCH is required in ${mode}`);
+          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `SEARCH is required in ${mode}`);
         }
         if (!sections.has('CONTENT')) {
-          throw new V2ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `CONTENT is required in ${mode}`);
+          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `CONTENT is required in ${mode}`);
         }
 
         const searchContent = sections.get('SEARCH')!.content;
         if (!searchContent || !searchContent.trim()) {
-          throw new V2ProtocolError('EMPTY_SEARCH', blockIndex, sections.get('SEARCH')!.lineNum);
+          throw new ProtocolError('EMPTY_SEARCH', blockIndex, sections.get('SEARCH')!.lineNum);
         }
 
         operations.push({
@@ -315,17 +315,17 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
         });
       } else if (mode === 'replace_node') {
         if (sections.has('SEARCH')) {
-          throw new V2ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('SEARCH')!.lineNum, `SEARCH is forbidden in ${mode}`);
+          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('SEARCH')!.lineNum, `SEARCH is forbidden in ${mode}`);
         }
         if (!selectorEntry) {
-          throw new V2ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `SELECTOR is required in ${mode}`);
+          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `SELECTOR is required in ${mode}`);
         }
         if (!sections.has('CONTENT')) {
-          throw new V2ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `CONTENT is required in ${mode}`);
+          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `CONTENT is required in ${mode}`);
         }
 
         if (!selectorEntry.value || !selectorEntry.value.trim()) {
-          throw new V2ProtocolError('EMPTY_SELECTOR', blockIndex, selectorEntry.lineNum);
+          throw new ProtocolError('EMPTY_SELECTOR', blockIndex, selectorEntry.lineNum);
         }
 
         const contentVal = sections.get('CONTENT')!.content;
@@ -334,7 +334,7 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
         if (sections.has('STARTS_WITH')) {
           const swVal = sections.get('STARTS_WITH')!.content;
           if (!swVal || !swVal.trim()) {
-            throw new V2ProtocolError('EMPTY_STARTS_WITH', blockIndex, sections.get('STARTS_WITH')!.lineNum);
+            throw new ProtocolError('EMPTY_STARTS_WITH', blockIndex, sections.get('STARTS_WITH')!.lineNum);
           }
           startsWithValue = swVal;
         }
@@ -344,7 +344,7 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
           parsedSelector = parseSelector(selectorEntry.value, startsWithValue);
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
-          throw new V2ProtocolError('INVALID_SELECTOR', blockIndex, selectorEntry.lineNum, message);
+          throw new ProtocolError('INVALID_SELECTOR', blockIndex, selectorEntry.lineNum, message);
         }
 
         operations.push({
@@ -362,21 +362,21 @@ function parseStrictV2Source(rawInput: string): V2Operation[] {
   }
 
   if (!foundAnyBlock) {
-    throw new V2ProtocolError('NO_INSCRIBE_BLOCKS', 0, 1);
+    throw new ProtocolError('NO_INSCRIBE_BLOCKS', 0, 1);
   }
 
   return operations;
 }
 
-export interface RecoverableV2Operation {
-  operation: V2Operation;
+export interface RecoverableInscribeOperation {
+  operation: InscribeOperation;
   blockIndex: number;
   startLine: number;
   endLine: number;
 }
 
-export interface V2ProtocolDiagnostic {
-  code: V2ProtocolErrorCode;
+export interface ProtocolDiagnostic {
+  code: ProtocolErrorCode;
   message: string;
   blockIndex?: number;
   line?: number;
@@ -384,9 +384,9 @@ export interface V2ProtocolDiagnostic {
   filePath?: string;
 }
 
-export interface RecoverableV2ParseResult {
-  operations: RecoverableV2Operation[];
-  diagnostics: V2ProtocolDiagnostic[];
+export interface RecoverableParseResult {
+  operations: RecoverableInscribeOperation[];
+  diagnostics: ProtocolDiagnostic[];
 }
 
 interface RecoverableSourceLine {
@@ -440,27 +440,27 @@ function findRecoverableFilePath(lines: RecoverableSourceLine[], startIndex: num
   return undefined;
 }
 
-function formatRecoverableProtocolMessage(code: V2ProtocolErrorCode, context?: string): string {
+function formatRecoverableProtocolMessage(code: ProtocolErrorCode, context?: string): string {
   return context?.trim() ? `${code}: ${context}` : code;
 }
 
 /**
- * Parses every top-level V2 block independently so one malformed block does not
+ * Parses every top-level Inscribe block independently so one malformed block does not
  * prevent later blocks from being previewed. The strict parseInscribeBlocks API
  * remains unchanged for callers that require all-or-nothing parsing.
  */
-export function parseInscribeBlocksRecovering(rawInput: string): RecoverableV2ParseResult {
+export function parseInscribeBlocksRecovering(rawInput: string): RecoverableParseResult {
   const lines = splitRecoverableSourceLines(rawInput);
-  const operations: RecoverableV2Operation[] = [];
-  const diagnostics: V2ProtocolDiagnostic[] = [];
+  const operations: RecoverableInscribeOperation[] = [];
+  const diagnostics: ProtocolDiagnostic[] = [];
   let blockIndex = 0;
   let foundBlock = false;
   let lineIndex = 0;
 
   while (lineIndex < lines.length) {
     const trimmed = lines[lineIndex].text.trim();
-    if (trimmed !== V2_BLOCK_OPEN) {
-      if (isExactV2MarkerLine(lines[lineIndex].text)) {
+    if (trimmed !== INSCRIBE_BLOCK_OPEN) {
+      if (isExactMarkerLine(lines[lineIndex].text)) {
         diagnostics.push({
           code: 'MALFORMED_MARKER',
           message: `MALFORMED_MARKER: marker appears outside an INSCRIBE block`,
@@ -480,12 +480,12 @@ export function parseInscribeBlocksRecovering(rawInput: string): RecoverableV2Pa
     while (endLineIndex + 1 < lines.length) {
       endLineIndex++;
       const candidate = lines[endLineIndex].text.trim();
-      if (candidate === V2_BLOCK_OPEN) {
+      if (candidate === INSCRIBE_BLOCK_OPEN) {
         nextBlockLineIndex = endLineIndex;
         endLineIndex--;
         break;
       }
-      if (candidate === V2_BLOCK_CLOSE) {
+      if (candidate === INSCRIBE_BLOCK_CLOSE) {
         hasClose = true;
         break;
       }
@@ -499,7 +499,7 @@ export function parseInscribeBlocksRecovering(rawInput: string): RecoverableV2Pa
     const filePath = findRecoverableFilePath(lines, startLineIndex, endLineIndex);
 
     try {
-      const parsed = parseStrictV2Source(source);
+      const parsed = parseStrictSource(source);
       if (parsed[0]) {
         operations.push({
           operation: parsed[0],
@@ -509,7 +509,7 @@ export function parseInscribeBlocksRecovering(rawInput: string): RecoverableV2Pa
         });
       }
     } catch (error: unknown) {
-      if (error instanceof V2ProtocolError) {
+      if (error instanceof ProtocolError) {
         const globalLine = lines[startLineIndex].line + Math.max(0, error.line - 1);
         diagnostics.push({
           code: error.code,
@@ -531,7 +531,7 @@ export function parseInscribeBlocksRecovering(rawInput: string): RecoverableV2Pa
   if (!foundBlock) {
     diagnostics.push({
       code: 'NO_INSCRIBE_BLOCKS',
-      message: 'NO_INSCRIBE_BLOCKS: no V2 INSCRIBE blocks were found',
+      message: 'NO_INSCRIBE_BLOCKS: no Inscribe blocks were found',
     });
   }
 
@@ -541,13 +541,13 @@ export function parseInscribeBlocksRecovering(rawInput: string): RecoverableV2Pa
 /**
  * Compatibility entry point for callers that require all-or-nothing parsing.
  * Recoverable parsing remains canonical, while this wrapper throws its first
- * structured diagnostic using the existing V2ProtocolError contract.
+ * structured diagnostic using the existing ProtocolError contract.
  */
-export function parseInscribeBlocks(rawInput: string): V2Operation[] {
+export function parseInscribeBlocks(rawInput: string): InscribeOperation[] {
   const result = parseInscribeBlocksRecovering(rawInput);
   const firstDiagnostic = result.diagnostics[0];
   if (firstDiagnostic) {
-    throw new V2ProtocolError(
+    throw new ProtocolError(
       firstDiagnostic.code,
       firstDiagnostic.blockIndex ?? 0,
       firstDiagnostic.line ?? 1,

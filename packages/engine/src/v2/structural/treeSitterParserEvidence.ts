@@ -1,13 +1,13 @@
 import Parser from 'web-tree-sitter';
 import type {
-  V2StructuralParserDiagnostic,
-  V2StructuralParserFailure,
+  StructuralParserDiagnostic,
+  StructuralParserFailure,
 } from '@inscribe/shared';
 import type { StructuralKind } from '@inscribe/shared';
 import { treeSitterRangeToJsRange } from './treeSitterRangeToJsRange';
 
 export interface TreeSitterParserEvidence {
-  diagnostics: readonly V2StructuralParserDiagnostic[];
+  diagnostics: readonly StructuralParserDiagnostic[];
   totalDiagnostics: number;
   /** Live Tree-sitter recovery nodes used only while the parsed tree exists. */
   recoveryNodes: readonly Parser.SyntaxNode[];
@@ -27,7 +27,7 @@ export function collectTreeSitterParserEvidence(
   rootNode: Parser.SyntaxNode,
   source: string,
 ): TreeSitterParserEvidence {
-  const diagnostics: V2StructuralParserDiagnostic[] = [];
+  const diagnostics: StructuralParserDiagnostic[] = [];
   const recoveryNodes: Parser.SyntaxNode[] = [];
 
   function visit(node: Parser.SyntaxNode): void {
@@ -67,9 +67,9 @@ export function collectTreeSitterParserEvidence(
 export function createTreeSitterParserFailure(
   adapterId: string,
   grammarId: string,
-  diagnostics: readonly V2StructuralParserDiagnostic[],
+  diagnostics: readonly StructuralParserDiagnostic[],
   totalDiagnostics: number,
-): V2StructuralParserFailure {
+): StructuralParserFailure {
   const limitedDiagnostics = diagnostics.slice(0, MAX_DIAGNOSTICS_IN_FAILURE);
   return {
     parser: 'tree-sitter',
@@ -84,7 +84,7 @@ export function createTreeSitterParserFailure(
 export function createTreeSitterRecoveryDiagnostic(
   source: string,
   node: Parser.SyntaxNode,
-): V2StructuralParserDiagnostic {
+): StructuralParserDiagnostic {
   const range = treeSitterRangeToJsRange(source, node);
   const start = pointForOffset(source, range.start);
   const end = pointForOffset(source, range.end);

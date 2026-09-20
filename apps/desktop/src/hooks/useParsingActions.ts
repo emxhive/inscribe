@@ -1,22 +1,16 @@
-import type { ParseResult } from '@inscribe/shared';
-import {
-  buildReviewItems,
-  findV2DiagnosticBlock,
-  parseLiveIntakeStructure,
-  prepareInscribeInput,
-} from '@/utils';
-import type { PreviewV2ErrorDTO } from '@/ipc/previewV2Types';
-import { adaptV2Preview } from '@/utils/v2ReviewAdapter';
+import { findDiagnosticBlock, parseLiveIntakeStructure } from '@/utils';
+import type { PreviewErrorDTO } from '@/ipc/previewTypes';
+import { adaptPreview } from '@/utils/reviewAdapter';
 import { useAppStateContext } from './useAppStateContext';
 
 function getFirstDiagnosticTarget(
   input: string,
   indexedFileSet: Set<string>,
-  diagnostics: PreviewV2ErrorDTO[],
+  diagnostics: PreviewErrorDTO[],
 ): { blockId: string; lineIndex: number | null } | null {
   const structure = parseLiveIntakeStructure(input, { indexedFileSet });
   for (const diagnostic of diagnostics) {
-    const block = findV2DiagnosticBlock(structure.blocks, diagnostic);
+    const block = findDiagnosticBlock(structure.blocks, diagnostic);
     if (block) {
       return {
         blockId: block.id,
@@ -27,47 +21,15 @@ function getFirstDiagnosticTarget(
   return null;
 }
 
-/**
- * Hook for parsing-related operations
- */
 export function useParsingActions() {
   const { state, updateState } = useAppStateContext();
-
-  const confirmPreviouslyAppliedInput = async (input: string): Promise<boolean> => {
-    if (!state.repoRoot || !input.trim()) {
-      return true;
-    }
-
-    try {
-      const existing = await window.inscribeAPI.getAppliedAiInput(input, state.repoRoot);
-      if (!existing) {
-        return true;
-      }
-
-      const shouldContinue = await window.inscribeAPI.confirmPreviouslyAppliedAiInputParse(existing);
-      if (!shouldContinue) {
-        updateState({
-          pipelineStatus: 'idle',
-          statusMessage: 'Parse canceled: this AI input was already applied.',
-        });
-      }
-      return shouldContinue;
-    } catch (error) {
-      console.error('Failed to check applied AI input:', error);
-      updateState({
-        pipelineStatus: 'idle',
-        statusMessage: 'Unable to check whether this AI input was already applied.',
-      });
-      return false;
-    }
-  };
 
   const handleParseBlocks = async () => {
     if (!state.repoRoot) {
       updateState({
         statusMessage: 'Error: No repository selected',
         parseErrors: ['No repository selected. Please select a repository first.'],
-        pipelineStatus: 'idle'
+        pipelineStatus: 'idle',
       });
       return;
     }
@@ -76,267 +38,139 @@ export function useParsingActions() {
       updateState({
         statusMessage: 'Error: No input provided',
         parseErrors: ['No input provided. Please paste AI response.'],
-        pipelineStatus: 'idle'
+        pipelineStatus: 'idle',
       });
       return;
     }
 
     const rawInput = state.aiInput;
-    const prepared = prepareInscribeInput(rawInput);
-
-    if (prepared.protocol === 'v2') {
-      try {
-        updateState({
-          isParsingInProgress: true,
-          pipelineStatus: 'parsing',
-          reviewComparisonError: null,
-          reviewPreflightByItem: {},
-          v2PreviewDiagnostics: [],
-          statusMessage: 'Previewing V2 changes...',
-        });
-
-        const response = await window.inscribeAPI.previewV2({
-          repoRoot: state.repoRoot,
-          rawInput: prepared.parseInput,
-        });
-
-        if (!response.ok) {
-          const firstDiagnosticTarget = getFirstDiagnosticTarget(
-            prepared.parseInput,
-            state.indexedFileSet,
-            response.errors,
-          );
-          updateState({
-            parsedBlocks: [],
-            validationErrors: [],
-            reviewItems: [],
-            v2ReviewFiles: [],
-            reviewComparisonByItem: {},
-            reviewPreflightByItem: {},
-            selectedItemId: null,
-            selectedV2FileId: null,
-            selectedHunkId: null,
-            collapsedHunkIdsByItem: {},
-            collapsedHunkIdsByFile: {},
-            collapsedDiffGroupIdsByItem: {},
-            collapsedDiffGroupIdsByFile: {},
-            parseErrors: [],
-            parseWarnings: [],
-            v2PreviewDiagnostics: response.errors,
-            selectedIntakeBlockId: firstDiagnosticTarget?.blockId ?? null,
-            selectedIntakeLineIndex: firstDiagnosticTarget?.lineIndex ?? null,
-            rightPanelOwner: 'inspector',
-            rightPanelView: 'diagnostics',
-            reviewComparisonError: null,
-            isEditing: false,
-            reviewView: 'unified',
-            statusMessage: `Preview V2 failed: ${response.errors.length} error(s)`,
-            pipelineStatus: 'parse-failure',
-            isParsingInProgress: false,
-            mode: 'intake',
-            v2PreviewSession: null,
-          });
-          return;
-        }
-
-        const adapted = adaptV2Preview(response.executions, response.finalFiles);
-
-        const firstFaultyTarget = getFirstDiagnosticTarget(
-          prepared.parseInput,
-          state.indexedFileSet,
-          response.errors,
-        );
-        const excludedBlockCount = new Set(
-          response.errors
-            .filter((error) => typeof error.blockIndex === 'number')
-            .map((error) => error.blockIndex),
-        ).size;
-
-        if (adapted.v2ReviewFiles.length === 0) {
-          updateState({
-            parsedBlocks: [],
-            validationErrors: [],
-            reviewItems: [],
-            v2ReviewFiles: [],
-            reviewComparisonByItem: {},
-            reviewPreflightByItem: {},
-            parseErrors: [],
-            parseWarnings: [],
-            v2PreviewDiagnostics: response.errors,
-            selectedItemId: null,
-            selectedV2FileId: null,
-            selectedIntakeBlockId: firstFaultyTarget?.blockId ?? null,
-            selectedIntakeLineIndex: firstFaultyTarget?.lineIndex ?? null,
-            rightPanelOwner: 'inspector',
-            rightPanelView: response.errors.length > 0 ? 'diagnostics' : 'properties',
-            selectedHunkId: null,
-            collapsedHunkIdsByItem: {},
-            collapsedHunkIdsByFile: {},
-            collapsedDiffGroupIdsByItem: {},
-            collapsedDiffGroupIdsByFile: {},
-            isEditing: false,
-            reviewView: 'unified',
-            reviewComparisonError: null,
-            mode: 'intake',
-            pipelineStatus: response.errors.length > 0 ? 'parse-partial' : 'parse-success',
-            isParsingInProgress: false,
-            statusMessage: response.errors.length > 0
-              ? `No net changes to review; ${excludedBlockCount || response.errors.length} block${(excludedBlockCount || response.errors.length) === 1 ? '' : 's'} excluded.`
-              : 'No net changes to review.',
-            v2PreviewSession: null,
-          });
-          return;
-        }
-
-        updateState({
-          parsedBlocks: [],
-          validationErrors: [],
-          reviewItems: adapted.reviewItems,
-          v2ReviewFiles: adapted.v2ReviewFiles,
-          reviewComparisonByItem: {},
-          reviewPreflightByItem: {},
-          parseErrors: [],
-          parseWarnings: [],
-          v2PreviewDiagnostics: response.errors,
-          selectedItemId: null,
-          selectedV2FileId: adapted.v2ReviewFiles[0].id,
-          selectedIntakeBlockId: response.partial ? firstFaultyTarget?.blockId ?? null : state.selectedIntakeBlockId,
-          selectedIntakeLineIndex: response.partial ? firstFaultyTarget?.lineIndex ?? null : null,
-          rightPanelOwner: 'inspector',
-          rightPanelView: response.partial ? 'diagnostics' : 'properties',
-          selectedHunkId: null,
-          collapsedHunkIdsByItem: {},
-          collapsedHunkIdsByFile: {},
-          collapsedDiffGroupIdsByItem: {},
-          collapsedDiffGroupIdsByFile: {},
-          isEditing: false,
-          reviewView: 'unified',
-          reviewComparisonError: null,
-          mode: response.partial ? 'intake' : 'review',
-          pipelineStatus: response.partial ? 'parse-partial' : 'parse-success',
-          isParsingInProgress: false,
-          statusMessage: response.partial
-            ? `Previewed ${adapted.v2ReviewFiles.length} final file${adapted.v2ReviewFiles.length === 1 ? '' : 's'}; ${excludedBlockCount || response.errors.length} block${(excludedBlockCount || response.errors.length) === 1 ? '' : 's'} excluded.`
-            : `Ready to review: ${adapted.v2ReviewFiles.length} file${adapted.v2ReviewFiles.length === 1 ? '' : 's'}`,
-          v2PreviewSession: {
-            previewToken: response.previewToken,
-            expiresAt: response.expiresAt,
-          },
-        });
-      } catch (error) {
-        console.error('Failed V2 preview:', error);
-        updateState({
-          parsedBlocks: [],
-          validationErrors: [],
-          reviewItems: [],
-          v2ReviewFiles: [],
-          reviewComparisonByItem: {},
-          reviewPreflightByItem: {},
-          selectedItemId: null,
-          selectedV2FileId: null,
-          selectedIntakeLineIndex: null,
-          rightPanelOwner: 'inspector',
-          rightPanelView: 'diagnostics',
-          selectedHunkId: null,
-          collapsedHunkIdsByItem: {},
-          collapsedHunkIdsByFile: {},
-          collapsedDiffGroupIdsByItem: {},
-          parseErrors: [],
-          parseWarnings: [],
-          v2PreviewDiagnostics: [{
-            type: 'system',
-            code: 'PREVIEW_REQUEST_FAILED',
-            message: 'V2 preview request failed.',
-          }],
-          reviewComparisonError: null,
-          isEditing: false,
-          reviewView: 'unified',
-          statusMessage: 'Failed V2 preview',
-          pipelineStatus: 'parse-failure',
-          isParsingInProgress: false,
-          mode: 'intake',
-          v2PreviewSession: null,
-        });
-      }
-      return;
-    }
-
-    const parseInput = prepared.parseInput;
-    const normalization = prepared.normalization!;
-
-    updateState({ v2PreviewSession: null, v2PreviewDiagnostics: [] });
-
-    if (!(await confirmPreviouslyAppliedInput(parseInput))) {
-      return;
-    }
-
     try {
       updateState({
         isParsingInProgress: true,
         pipelineStatus: 'parsing',
-        reviewComparisonError: null,
-        reviewPreflightByItem: {},
-        statusMessage: 'Parsing code blocks...'
+        previewDiagnostics: [],
+        statusMessage: 'Previewing changes...',
       });
 
-      const parseResult: ParseResult = await window.inscribeAPI.parseBlocks(parseInput);
-      const normalizationWarnings = normalization.repairs.map((repair) => ({ message: repair.message }));
-      const parseWarnings = [...normalizationWarnings, ...(parseResult.warnings || [])];
-      
-      if (parseResult.errors && parseResult.errors.length > 0) {
+      const response = await window.inscribeAPI.preview({
+        repoRoot: state.repoRoot,
+        rawInput,
+      });
+
+      const firstDiagnosticTarget = getFirstDiagnosticTarget(rawInput, state.indexedFileSet, response.errors);
+      if (!response.ok) {
         updateState({
-          ...(normalization.changed ? { aiInput: parseInput } : {}),
-          parseErrors: parseResult.errors,
-          parseWarnings,
-          statusMessage: `Parse failed: ${parseResult.errors.length} error(s)`,
+          reviewItems: [],
+          reviewFiles: [],
+          selectedReviewFileId: null,
+          selectedIntakeBlockId: firstDiagnosticTarget?.blockId ?? null,
+          selectedIntakeLineIndex: firstDiagnosticTarget?.lineIndex ?? null,
+          parseErrors: [],
+          parseWarnings: [],
+          previewDiagnostics: response.errors,
+          rightPanelOwner: 'inspector',
+          rightPanelView: 'diagnostics',
+          selectedHunkId: null,
+          collapsedHunkIdsByFile: {},
+          collapsedDiffGroupIdsByFile: {},
+          reviewView: 'unified',
+          statusMessage: `preview failed: ${response.errors.length} error(s)`,
           pipelineStatus: 'parse-failure',
-          isParsingInProgress: false
+          isParsingInProgress: false,
+          mode: 'intake',
+          previewSession: null,
+        });
+        return;
+      }
+
+      const adapted = adaptPreview(response.executions, response.finalFiles);
+      const excludedBlockCount = new Set(
+        response.errors
+          .filter((error) => typeof error.blockIndex === 'number')
+          .map((error) => error.blockIndex),
+      ).size;
+
+      if (adapted.reviewFiles.length === 0) {
+        updateState({
+          reviewItems: [],
+          reviewFiles: [],
+          selectedReviewFileId: null,
+          selectedIntakeBlockId: firstDiagnosticTarget?.blockId ?? null,
+          selectedIntakeLineIndex: firstDiagnosticTarget?.lineIndex ?? null,
+          parseErrors: [],
+          parseWarnings: [],
+          previewDiagnostics: response.errors,
+          rightPanelOwner: 'inspector',
+          rightPanelView: response.errors.length > 0 ? 'diagnostics' : 'properties',
+          selectedHunkId: null,
+          collapsedHunkIdsByFile: {},
+          collapsedDiffGroupIdsByFile: {},
+          reviewView: 'unified',
+          mode: 'intake',
+          pipelineStatus: response.errors.length > 0 ? 'parse-partial' : 'parse-success',
+          isParsingInProgress: false,
+          statusMessage: response.errors.length > 0
+            ? `No net changes to review; ${excludedBlockCount || response.errors.length} block${(excludedBlockCount || response.errors.length) === 1 ? '' : 's'} excluded.`
+            : 'No net changes to review.',
+          previewSession: null,
         });
         return;
       }
 
       updateState({
-        ...(normalization.changed ? { aiInput: parseInput } : {}),
+        reviewItems: adapted.reviewItems,
+        reviewFiles: adapted.reviewFiles,
         parseErrors: [],
-        parseWarnings,
-        parsedBlocks: parseResult.blocks || [],
-        statusMessage: 'Validating blocks...'
-      });
-
-      // Validate blocks
-      const validationErrors = await window.inscribeAPI.validateBlocks(
-        parseResult.blocks || []
-      );
-
-      // Build review items
-      const reviewItems = buildReviewItems(parseResult.blocks || [], validationErrors || []);
-
-      const errorCount = validationErrors?.length || 0;
-      updateState({
-        validationErrors: validationErrors || [],
-        reviewItems,
-        v2ReviewFiles: [],
-        selectedItemId: reviewItems.length > 0 ? reviewItems[0].id : null,
-        selectedV2FileId: null,
-        mode: 'review',
-        pipelineStatus: 'parse-success',
+        parseWarnings: [],
+        previewDiagnostics: response.errors,
+        selectedReviewFileId: adapted.reviewFiles[0].id,
+        selectedIntakeBlockId: response.partial ? firstDiagnosticTarget?.blockId ?? null : state.selectedIntakeBlockId,
+        selectedIntakeLineIndex: response.partial ? firstDiagnosticTarget?.lineIndex ?? null : null,
+        rightPanelOwner: 'inspector',
+        rightPanelView: response.partial ? 'diagnostics' : 'properties',
+        selectedHunkId: null,
+        collapsedHunkIdsByFile: {},
+        collapsedDiffGroupIdsByFile: {},
+        reviewView: 'unified',
+        mode: response.partial ? 'intake' : 'review',
+        pipelineStatus: response.partial ? 'parse-partial' : 'parse-success',
         isParsingInProgress: false,
-        statusMessage: errorCount > 0 
-          ? `Ready to review: ${reviewItems.length} files, ${errorCount} validation error(s)`
-          : `Ready to review: ${reviewItems.length} files`
+        statusMessage: response.partial
+          ? `Previewed ${adapted.reviewFiles.length} final file${adapted.reviewFiles.length === 1 ? '' : 's'}; ${excludedBlockCount || response.errors.length} block${(excludedBlockCount || response.errors.length) === 1 ? '' : 's'} excluded.`
+          : `Ready to review: ${adapted.reviewFiles.length} file${adapted.reviewFiles.length === 1 ? '' : 's'}`,
+        previewSession: {
+          previewToken: response.previewToken,
+          expiresAt: response.expiresAt,
+        },
       });
     } catch (error) {
-      console.error('Failed to parse blocks:', error);
+      console.error('Failed preview:', error);
       updateState({
-        parseErrors: [String(error)],
-        statusMessage: 'Failed to parse blocks',
+        reviewItems: [],
+        reviewFiles: [],
+        selectedReviewFileId: null,
+        selectedIntakeLineIndex: null,
+        rightPanelOwner: 'inspector',
+        rightPanelView: 'diagnostics',
+        selectedHunkId: null,
+        collapsedHunkIdsByFile: {},
+        collapsedDiffGroupIdsByFile: {},
+        parseErrors: [],
+        parseWarnings: [],
+        previewDiagnostics: [{
+          type: 'system',
+          code: 'PREVIEW_REQUEST_FAILED',
+          message: 'preview request failed.',
+        }],
+        reviewView: 'unified',
+        statusMessage: 'Failed preview',
         pipelineStatus: 'parse-failure',
-        isParsingInProgress: false
+        isParsingInProgress: false,
+        mode: 'intake',
+        previewSession: null,
       });
     }
   };
 
-  return {
-    handleParseBlocks,
-  };
+  return { handleParseBlocks };
 }

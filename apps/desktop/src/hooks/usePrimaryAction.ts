@@ -12,7 +12,7 @@ export function usePrimaryAction(): {
   const { state, updateState } = useAppStateContext();
   const { handleParseBlocks } = useParsingActions();
   const { handleApplyAll } = useApplyActions();
-  const { restoreV2ReviewedAction } = useHistoryActions();
+  const { restoreReviewedAction } = useHistoryActions();
   const action = resolvePrimaryAction(state);
 
   const run = useCallback(() => {
@@ -22,23 +22,23 @@ export function usePrimaryAction(): {
       case 'parse':
         void handleParseBlocks();
         break;
-      case 'review-v2-partial':
+      case 'review-partial':
         updateState({
           mode: 'review',
           rightPanelView: 'properties',
-          statusMessage: `Reviewing ${state.v2ReviewFiles.length} final file${state.v2ReviewFiles.length === 1 ? '' : 's'}; excluded blocks remain unapplied.`,
+          statusMessage: `Reviewing ${state.reviewFiles.length} final file${state.reviewFiles.length === 1 ? '' : 's'}; excluded blocks remain unapplied.`,
         });
         break;
       case 'apply-all':
         void handleApplyAll();
         break;
       case 'history-restore':
-        void restoreV2ReviewedAction();
+        void restoreReviewedAction();
         break;
       case 'none':
         break;
     }
-  }, [action, handleApplyAll, handleParseBlocks, restoreV2ReviewedAction, state.v2ReviewFiles.length, updateState]);
+  }, [action, handleApplyAll, handleParseBlocks, restoreReviewedAction, state.reviewFiles.length, updateState]);
 
   return { action, run };
 }

@@ -4,7 +4,6 @@ import * as path from 'path';
 import { createHash } from 'crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyPreparedFileMutations, PreparedFileMutation } from './applyPreparedFileMutations';
-import { restoreEntry } from '../history/restoreEntry';
 import * as writeExecutionsModule from './writeExecutions';
 import * as historyStoreModule from '../repo/historyStore';
 
@@ -232,83 +231,6 @@ describe('applyPreparedFileMutations', () => {
       expect(res.historyEntries.length).toBe(2);
       expect(res.historyEntries[0].mode).toBe('create_file');
       expect(res.historyEntries[1].mode).toBe('create_file');
-    }
-  });
-
-  it('restore compatibility for create', () => {
-    const filePath = 'new_file.txt';
-    const mutation: PreparedFileMutation = {
-      filePath,
-      type: 'create',
-      beforeExists: false,
-      afterExists: true,
-      beforeContent: '',
-      afterContent: 'content',
-      beforeFileHash: hashContent(''),
-      afterFileHash: hashContent('content'),
-    };
-
-    const applyRes = applyPreparedFileMutations(repoRoot, [mutation]);
-    expect(applyRes.ok).toBe(true);
-    expect(fs.existsSync(resolveRepoPath(filePath))).toBe(true);
-
-    if (applyRes.ok) {
-      const restoreRes = restoreEntry({ entryId: applyRes.historyEntries[0].id }, repoRoot);
-      expect(restoreRes.success).toBe(true);
-      expect(fs.existsSync(resolveRepoPath(filePath))).toBe(false);
-    }
-  });
-
-  it('restore compatibility for replace', () => {
-    const filePath = 'replace_file.txt';
-    fs.writeFileSync(resolveRepoPath(filePath), 'original');
-
-    const mutation: PreparedFileMutation = {
-      filePath,
-      type: 'replace',
-      beforeExists: true,
-      afterExists: true,
-      beforeContent: 'original',
-      afterContent: 'replaced',
-      beforeFileHash: hashContent('original'),
-      afterFileHash: hashContent('replaced'),
-    };
-
-    const applyRes = applyPreparedFileMutations(repoRoot, [mutation]);
-    expect(applyRes.ok).toBe(true);
-    expect(fs.readFileSync(resolveRepoPath(filePath), 'utf-8')).toBe('replaced');
-
-    if (applyRes.ok) {
-      const restoreRes = restoreEntry({ entryId: applyRes.historyEntries[0].id }, repoRoot);
-      expect(restoreRes.success).toBe(true);
-      expect(fs.readFileSync(resolveRepoPath(filePath), 'utf-8')).toBe('original');
-    }
-  });
-
-  it('restore compatibility for delete', () => {
-    const filePath = 'delete_file.txt';
-    fs.writeFileSync(resolveRepoPath(filePath), 'extant');
-
-    const mutation: PreparedFileMutation = {
-      filePath,
-      type: 'delete',
-      beforeExists: true,
-      afterExists: false,
-      beforeContent: 'extant',
-      afterContent: '',
-      beforeFileHash: hashContent('extant'),
-      afterFileHash: hashContent(''),
-    };
-
-    const applyRes = applyPreparedFileMutations(repoRoot, [mutation]);
-    expect(applyRes.ok).toBe(true);
-    expect(fs.existsSync(resolveRepoPath(filePath))).toBe(false);
-
-    if (applyRes.ok) {
-      const restoreRes = restoreEntry({ entryId: applyRes.historyEntries[0].id }, repoRoot);
-      expect(restoreRes.success).toBe(true);
-      expect(fs.existsSync(resolveRepoPath(filePath))).toBe(true);
-      expect(fs.readFileSync(resolveRepoPath(filePath), 'utf-8')).toBe('extant');
     }
   });
 

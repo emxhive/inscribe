@@ -1,4 +1,4 @@
-import { V2MatchMetadata } from '@inscribe/shared';
+import { MatchMetadata } from '@inscribe/shared';
 import { findFallbackMatch } from './fallbackMatch';
 
 export function findExactMatch(content: string, search: string): number {
@@ -20,7 +20,7 @@ export interface ReplacementResult {
   afterContent: string;
   beforeRange: { start: number; end: number };
   afterRange: { start: number; end: number };
-  matchMetadata: V2MatchMetadata;
+  matchMetadata: MatchMetadata;
 }
 
 export function performReplaceText(content: string, search: string, replacement: string): ReplacementResult {

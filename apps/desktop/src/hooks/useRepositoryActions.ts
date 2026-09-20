@@ -1,7 +1,7 @@
 import { normalizeRelativePath } from '@inscribe/shared';
-import type { HistoryEntry, ParsedBlock } from '@inscribe/shared';
+import type { HistoryEntry } from '@inscribe/shared';
 import { useRef } from 'react';
-import { buildReviewItems, decorateHistoryEntries } from '@/utils';
+import { decorateHistoryEntries } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 import { initialState } from './useAppState';
 import type { AppState } from '@/types';
@@ -65,66 +65,23 @@ export function useRepositoryActions() {
       aiInput: '',
       parseErrors: [],
       parseWarnings: [],
-      v2PreviewDiagnostics: [],
-      parsedBlocks: [],
-      validationErrors: [],
+      previewDiagnostics: [],
       reviewItems: [],
-      v2ReviewFiles: [],
-      selectedItemId: null,
-      selectedV2FileId: null,
+      reviewFiles: [],
+      selectedReviewFileId: null,
       selectedIntakeBlockId: null,
       selectedIntakeLineIndex: null,
       rightPanelOwner: 'inspector',
       rightPanelView: 'properties',
-      reviewComparisonError: null,
-      reviewPreflightByItem: {},
-      isEditing: false,
       pipelineStatus: 'idle',
       isParsingInProgress: false,
       isApplyingInProgress: false,
       isRestoringInProgress: false,
-      lastAppliedPlan: null,
-      canRedo: false,
-      lastApplyId: null,
-      canUndoApply: false,
       historyItems: [],
-      v2HistoryReview: initialState.v2HistoryReview,
-      legacyHistoryReview: initialState.legacyHistoryReview,
-      collapsedHunkIdsByItem: {},
+      historyReview: initialState.historyReview,
       collapsedHunkIdsByFile: {},
-      collapsedDiffGroupIdsByItem: {},
       collapsedDiffGroupIdsByFile: {},
       statusMessage,
-    });
-  };
-  const revalidateParsedBlocks = async (repoRoot: string, parsedBlocks: ParsedBlock[]) => {
-    if (parsedBlocks.length === 0) return;
-
-    updateState({ statusMessage: 'Re-validating blocks...' });
-
-    const [validationErrors, applyPlan] = await Promise.all([
-      window.inscribeAPI.validateBlocks(parsedBlocks),
-      window.inscribeAPI.validateAndBuildApplyPlan(parsedBlocks),
-    ]);
-
-    const combinedErrors = validationErrors.length > 0 ? validationErrors : applyPlan.errors || [];
-    const reviewItems = buildReviewItems(parsedBlocks, combinedErrors);
-    const errorCount = combinedErrors.length;
-    const nextSelectedId = state.selectedItemId && reviewItems.some(item => item.id === state.selectedItemId)
-      ? state.selectedItemId
-      : reviewItems.length > 0
-        ? reviewItems[0].id
-        : null;
-
-    updateState({
-      validationErrors: combinedErrors,
-      reviewItems,
-      selectedItemId: nextSelectedId,
-      mode: 'review',
-      pipelineStatus: 'parse-success',
-      statusMessage: errorCount > 0
-        ? `Ready to review: ${reviewItems.length} files, ${errorCount} validation error(s)`
-        : `Ready to review: ${reviewItems.length} files`
     });
   };
   const handleBrowseRepo = async () => {
@@ -205,9 +162,6 @@ export function useRepositoryActions() {
           indexStatus: result.indexStatus || { state: 'complete' },
           statusMessage: `Ignore rules updated: ${indexedFileState.indexedFiles.length} files indexed`
         });
-        if (state.mode === 'review') {
-          await revalidateParsedBlocks(state.repoRoot, state.parsedBlocks);
-        }
       } else {
         updateState({ statusMessage: `Failed to update ignore rules: ${result.error || 'Unknown error'}` });
       }

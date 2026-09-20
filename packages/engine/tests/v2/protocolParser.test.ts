@@ -3,10 +3,10 @@ import {
   parseInscribeBlocks,
   parseInscribeBlocksRecovering,
 } from '../../src/v2/protocol/parseInscribeBlocks';
-import { V2ProtocolError } from '../../src/v2/protocol/protocolErrors';
+import { ProtocolError } from '../../src/v2/protocol/protocolErrors';
 import { resolvePlan } from '../../src/v2/execution/resolvePlan';
 
-describe('V2 Inscribe Block Parser', () => {
+describe('Inscribe Block Parser', () => {
   it('recovers valid blocks before and after an invalid block', () => {
     const input = `<<<INSCRIBE
 FILE: first.ts
@@ -75,7 +75,7 @@ INSCRIBE>>>`;
     expect(result.diagnostics).toMatchObject([
       { code: 'MALFORMED_MARKER', line: 1 },
     ]);
-    expect(() => parseInscribeBlocks(input)).toThrowError(V2ProtocolError);
+    expect(() => parseInscribeBlocks(input)).toThrowError(ProtocolError);
   });
 
   it('keeps strict parser diagnostics source-attributed', () => {
@@ -92,7 +92,7 @@ INSCRIBE>>>`;
       parseInscribeBlocks(input);
       throw new Error('Expected strict parsing to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(V2ProtocolError);
+      expect(error).toBeInstanceOf(ProtocolError);
       expect(error).toMatchObject({ code: 'INVALID_MODE', blockIndex: 1, line: 7 });
     }
   });
@@ -640,7 +640,7 @@ INSCRIBE>>>`;
         parseInscribeBlocks(input);
         fail('Should have thrown');
       } catch (err: any) {
-        expect(err).toBeInstanceOf(V2ProtocolError);
+        expect(err).toBeInstanceOf(ProtocolError);
         expect(err.code).toBe('EMPTY_SELECTOR');
         expect(err.blockIndex).toBe(1);
         expect(err.line).toBe(9); // SELECTOR line is line 9

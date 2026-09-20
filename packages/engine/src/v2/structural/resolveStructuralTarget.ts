@@ -2,12 +2,12 @@ import * as path from 'path';
 import {
   StructuralSelector,
   StructuralNodeMatch,
-  isV2StructuralKind,
+  isStructuralKind,
 } from './types';
 import { matchesStartsWith } from './startsWithQualifier';
-import { V2LanguageRegistry } from '../languages/registry';
+import { LanguageRegistry } from '../languages/registry';
 import {
-  hasV2StructuralCapabilities,
+  hasStructuralCapabilities,
   StructuralCandidate,
   StructuralCandidateDiscovery,
   StructuralCandidateResolution,
@@ -56,7 +56,7 @@ export function validateStructuralSelector(selector: StructuralSelector): void {
   }
 
   for (const segment of selector.path) {
-    if (!segment || !isV2StructuralKind(segment.kind)) {
+    if (!segment || !isStructuralKind(segment.kind)) {
       throw new Error('INVALID_SELECTOR');
     }
     if (
@@ -75,7 +75,7 @@ function validateStructuralCandidate(
 ): void {
   if (
     !candidate ||
-    !isV2StructuralKind(candidate.kind) ||
+    !isStructuralKind(candidate.kind) ||
     !Number.isInteger(candidate.start) ||
     !Number.isInteger(candidate.end) ||
     candidate.start < 0 ||
@@ -92,7 +92,7 @@ function validateStructuralCandidate(
 }
 
 /**
- * Applies V2 selector policy to language-neutral candidates. Adapters only
+ * Applies selector policy to language-neutral candidates. Adapters only
  * discover candidates; STARTS_WITH, not-found, ambiguity, and winner choice
  * remain owned by this core function.
  */
@@ -168,15 +168,15 @@ export function selectStructuralCandidate(
 }
 
 /**
- * Creates the adapter-backed resolver used by V2 replace_node.
+ * Creates the adapter-backed resolver used by replace_node.
  */
 export function createAdapterStructuralResolver(
-  registry: V2LanguageRegistry,
+  registry: LanguageRegistry,
 ): StructuralResolver {
   return async (options): Promise<StructuralNodeMatch> => {
     validateStructuralSelector(options.selector);
     const adapter = registry.resolve(options.filePath);
-    if (!adapter || !hasV2StructuralCapabilities(adapter)) {
+    if (!adapter || !hasStructuralCapabilities(adapter)) {
       throw new Error('UNSUPPORTED_EXTENSION');
     }
 

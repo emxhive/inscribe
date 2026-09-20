@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { ApplyPlan } from '@inscribe/shared';
-import type { AppState, ReviewItem } from '@/types';
+import type { AppState } from '@/types';
 import { applyAppStateUpdates } from './appStateUtils';
 
 export const initialState: AppState = {
@@ -17,17 +16,13 @@ export const initialState: AppState = {
   aiInput: '',
   parseErrors: [],
   parseWarnings: [],
-  v2PreviewDiagnostics: [],
-  parsedBlocks: [],
-  validationErrors: [],
+  previewDiagnostics: [],
   reviewItems: [],
-  selectedItemId: null,
-  v2ReviewFiles: [],
-  selectedV2FileId: null,
+  reviewFiles: [],
+  selectedReviewFileId: null,
   selectedIntakeBlockId: null,
   selectedIntakeLineIndex: null,
 
-  isEditing: false,
   statusMessage: 'Restoring last repository...',
   pipelineStatus: 'idle',
   isParsingInProgress: false,
@@ -36,28 +31,17 @@ export const initialState: AppState = {
   isRestoringRepo: true,
   reviewView: 'unified',
   selectedHunkId: null,
-  reviewComparisonError: null,
-  reviewPreflightByItem: {},
-  reviewComparisonByItem: {},
   isLeftPanelCollapsed: false,
   isRightPanelCollapsed: false,
   rightPanelOwner: 'inspector',
   rightPanelView: 'properties',
-  collapsedHunkIdsByItem: {},
   collapsedHunkIdsByFile: {},
-  collapsedDiffGroupIdsByItem: {},
   collapsedDiffGroupIdsByFile: {},
   isTerminalOpen: false,
   terminalCommandSuggestions: [],
-  terminalSuggestionSourceApplyId: null,
-
-  lastAppliedPlan: null,
-  canRedo: false,
-  lastApplyId: null,
-  canUndoApply: false,
-  v2PreviewSession: null,
+  previewSession: null,
   historyItems: [],
-  v2HistoryReview: {
+  historyReview: {
     actionId: null,
     requestId: null,
     selectedEntryId: null,
@@ -65,10 +49,6 @@ export const initialState: AppState = {
     isLoading: false,
     isRestoring: false,
     error: null,
-  },
-  legacyHistoryReview: {
-    applyId: null,
-    selectedEntryId: null,
   },
 };
 
@@ -83,45 +63,8 @@ export function useAppState() {
     });
   }, []);
 
-  // Specialized updaters for complex operations
-  const updateReviewItemContent = useCallback((id: string, editedContent: string) => {
-    setState((prev) => {
-      const { [id]: _cleared, ...reviewPreflightByItem } = prev.reviewPreflightByItem;
-      const { [id]: _clearedComparison, ...reviewComparisonByItem } = prev.reviewComparisonByItem;
-      return {
-        ...prev,
-        reviewComparisonError: prev.selectedItemId === id ? null : prev.reviewComparisonError,
-        reviewPreflightByItem,
-        reviewComparisonByItem,
-        reviewItems: prev.reviewItems.map((item) => {
-          if (item.id !== id) {
-            return item;
-          }
-          const status: ReviewItem['status'] =
-            item.status === 'invalid' ? 'invalid' : 'pending';
-          return {
-            ...item,
-            editedContent,
-            status,
-          };
-        }),
-      };
-    });
-  }, []);
-
-  const setLastAppliedPlan = useCallback((plan: ApplyPlan | null) => {
-    setState((prev) => ({ ...prev, lastAppliedPlan: plan, canRedo: plan !== null }));
-  }, []);
-
-  const clearRedo = useCallback(() => {
-    setState((prev) => ({ ...prev, canRedo: false }));
-  }, []);
-
   return {
     state,
     updateState,
-    updateReviewItemContent,
-    setLastAppliedPlan,
-    clearRedo,
   };
 }

@@ -12,6 +12,6 @@ Shortcuts yield to focused editors, inputs, controls, the embedded terminal, and
 | `Ctrl+Shift+O` | Open Intake File | Loads a Markdown file into Intake outside editable or interactive controls. |
 | `Ctrl+\`` | Toggle Terminal | Shows or hides the repository terminal from any context. |
 | `Ctrl+/` | Show Keyboard Shortcuts | Opens the in-app shortcut reference outside editable or interactive controls. |
-| `Ctrl+↵` | Primary Action | Runs the currently enabled primary workspace action—Parse, review a partial V2 preview, or apply the current V1/V2 review. Does nothing when unavailable. |
+| `Ctrl+↵` | Primary Action | Runs the currently enabled primary workspace action—preview intake, review a partial preview, or apply the current review. Does nothing when unavailable. |
 
 The in-app reference is available from the keyboard icon in the workspace toolbar or with `Ctrl+/`.

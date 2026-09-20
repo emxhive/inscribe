@@ -2,14 +2,14 @@ import { StructuralKind, StructuralSelectorSegment, StructuralSelector } from '@
 import {
   StructuralCandidate,
   FLUTTER_STRUCTURAL_KINDS,
-  V2_STRUCTURAL_KINDS,
-  isV2StructuralKind,
+  STRUCTURAL_KINDS,
+  isStructuralKind,
 } from '../languages/types';
 export { StructuralKind, StructuralSelectorSegment, StructuralSelector };
 export {
-  V2_STRUCTURAL_KINDS,
+  STRUCTURAL_KINDS,
   FLUTTER_STRUCTURAL_KINDS,
-  isV2StructuralKind,
+  isStructuralKind,
 };
 export type { StructuralCandidate } from '../languages/types';
 

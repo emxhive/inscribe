@@ -1,11 +1,5 @@
 import { BrowserWindow, ipcMain, dialog } from 'electron';
 import { readFile } from 'fs/promises';
-import type { AppliedAiInputRecord } from '@inscribe/shared';
-
-function formatAppliedAt(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? value : date.toLocaleString();
-}
 
 /**
  * Register dialog-related IPC handlers
@@ -44,29 +38,5 @@ export function registerDialogHandlers() {
       path: result.filePaths[0],
       content: await readFile(result.filePaths[0], 'utf8'),
     };
-  });
-
-  ipcMain.handle('confirm-previously-applied-ai-input-parse', async (event, record: AppliedAiInputRecord) => {
-    const options = {
-      type: 'warning' as const,
-      buttons: ['Cancel', 'Parse Anyway'],
-      defaultId: 0,
-      cancelId: 0,
-      title: 'AI input already applied',
-      message: 'This AI input was already applied to this repository.',
-      detail: [
-        `First applied: ${formatAppliedAt(record.firstAppliedAt)}`,
-        `Last applied: ${formatAppliedAt(record.lastAppliedAt)}`,
-        `Times applied: ${record.timesApplied}`,
-        `Last applied blocks: ${record.appliedBlockCount}`,
-        '',
-        'Parse it again anyway?',
-      ].join('\n'),
-    };
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const result = win
-      ? await dialog.showMessageBox(win, options)
-      : await dialog.showMessageBox(options);
-    return result.response === 1;
   });
 }

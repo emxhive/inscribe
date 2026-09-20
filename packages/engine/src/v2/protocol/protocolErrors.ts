@@ -1,4 +1,4 @@
-export type V2ProtocolErrorCode =
+export type ProtocolErrorCode =
   | 'NO_INSCRIBE_BLOCKS'
   | 'UNTERMINATED_INSCRIBE_BLOCK'
   | 'UNKNOWN_DIRECTIVE'
@@ -19,15 +19,15 @@ export type V2ProtocolErrorCode =
   | 'MALFORMED_MARKER'
   | 'MALFORMED_WRAPPER_FENCE';
 
-export class V2ProtocolError extends Error {
+export class ProtocolError extends Error {
   constructor(
-    public code: V2ProtocolErrorCode,
+    public code: ProtocolErrorCode,
     public blockIndex: number,
     public line: number,
     public context?: string
   ) {
     super(`[Block ${blockIndex}, Line ${line}] ${code}: ${context || ''}`);
-    this.name = 'V2ProtocolError';
-    Object.setPrototypeOf(this, V2ProtocolError.prototype);
+    this.name = 'ProtocolError';
+    Object.setPrototypeOf(this, ProtocolError.prototype);
   }
 }

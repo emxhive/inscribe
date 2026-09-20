@@ -3,7 +3,7 @@ import { detectDestinationEOL, normalizeLineEndings } from '../../src/v2/executi
 import { resolveOperation } from '../../src/v2/execution/resolveOperation';
 import { hashContent } from '../../src/v2/execution/virtualFileState';
 
-describe('V2 Line Ending Normalization', () => {
+describe('Line Ending Normalization', () => {
   it('detects CRLF for file containing only CRLF', () => {
     const file = 'line1\r\nline2\r\n';
     const payload = 'line3\n';

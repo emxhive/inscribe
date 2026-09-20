@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createFlutterLanguageAdapter,
   createTypeScriptLanguageAdapter,
-  createV2LanguageRegistry,
+  createLanguageRegistry,
 } from '../../src/v2/languages';
 import { resolveOperation } from '../../src/v2/execution/resolveOperation';
 import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
@@ -28,7 +28,7 @@ const ASSETS = {
   },
 };
 
-const registry = createV2LanguageRegistry([
+const registry = createLanguageRegistry([
   createTypeScriptLanguageAdapter(ASSETS),
   createFlutterLanguageAdapter(ASSETS),
 ]);

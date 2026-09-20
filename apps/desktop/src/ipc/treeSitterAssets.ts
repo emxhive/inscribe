@@ -1,15 +1,15 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import type { v2 } from '@inscribe/engine';
+import type { TreeSitterAssetPaths } from '@inscribe/engine';
 
 export interface TreeSitterAssetDerivationOptions {
-  devPaths?: Partial<v2.TreeSitterAssetPaths>;
-  prodPaths?: Partial<v2.TreeSitterAssetPaths>;
+  devPaths?: Partial<TreeSitterAssetPaths>;
+  prodPaths?: Partial<TreeSitterAssetPaths>;
   isPackaged?: boolean;
   resourcesPath?: string;
 }
 
-export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptions): v2.TreeSitterAssetPaths {
+export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptions): TreeSitterAssetPaths {
   const monorepoRoot = path.resolve(__dirname, '../../../..');
 
   const coreWasmCandidates = [
@@ -37,7 +37,7 @@ export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptio
   ];
   const dartGrammarPath = dartCandidates.find((c) => fs.existsSync(c)) || dartCandidates[0];
 
-  const devPaths: v2.TreeSitterAssetPaths = {
+  const devPaths: TreeSitterAssetPaths = {
     coreWasmPath,
     languageWasmPaths: {
       typescript: typescriptGrammarPath,
@@ -70,7 +70,7 @@ export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptio
 
   if (isPackaged) {
     const resourcesPath = options?.resourcesPath || (process as any).resourcesPath || '';
-    const prodPaths: v2.TreeSitterAssetPaths = {
+    const prodPaths: TreeSitterAssetPaths = {
       coreWasmPath: path.resolve(resourcesPath, 'tree-sitter.wasm'),
       languageWasmPaths: {
         typescript: path.resolve(resourcesPath, 'tree-sitter-typescript.wasm'),

@@ -1,23 +1,23 @@
 import {
-  V2OperationStrategy,
-  V2RawPayload,
-  V2NormalizedPayload,
-  V2TargetScope,
-  V2DiffHunk
+  OperationStrategy,
+  RawPayload,
+  NormalizedPayload,
+  TargetScope,
+  DiffHunk
 } from '@inscribe/shared';
 
 export interface CanonicalExecution {
   executionId: string;
   filePath: string;
-  strategy: V2OperationStrategy;
-  targetScope: V2TargetScope;
-  rawPayload: V2RawPayload;
-  normalizedPayload: V2NormalizedPayload;
+  strategy: OperationStrategy;
+  targetScope: TargetScope;
+  rawPayload: RawPayload;
+  normalizedPayload: NormalizedPayload;
   beforeExists: boolean;
   afterExists: boolean;
   beforeContent: string;
   afterContent: string;
-  actualDiffHunks: V2DiffHunk[];
+  actualDiffHunks: DiffHunk[];
   beforeFileHash: string;
   afterFileHash: string;
 }

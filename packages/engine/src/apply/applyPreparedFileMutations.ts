@@ -5,7 +5,7 @@ import { buildRestoreEntry } from '../history/restoreHistory';
 import { enforcePathPolicy } from '../paths/pathPolicy';
 import { appendHistoryEntries } from '../repo/historyStore';
 import { rollbackExecutions, writeExecutions } from './writeExecutions';
-import type { PreflightExecution } from '../preflight/preflight';
+import type { PreflightExecution } from './executionTypes';
 
 export interface PreparedFileMutation {
   filePath: string;
@@ -400,11 +400,11 @@ export function applyPreparedFileMutations(
   const historyEntries: HistoryEntry[] = [];
 
   for (const execution of executions) {
-    const restoreEntry = buildRestoreEntry(execution, repoRoot, applyId, appliedAt, {
+    const historyEntry = buildRestoreEntry(execution, repoRoot, applyId, appliedAt, {
       protocol: 'v2',
       actionType: 'apply',
     });
-    historyEntries.push(restoreEntry);
+    historyEntries.push(historyEntry);
   }
 
   try {

@@ -4,7 +4,7 @@ import {
   createAdapterSyntaxValidator,
   createDartLanguageAdapter,
   createTypeScriptLanguageAdapter,
-  createV2LanguageRegistry,
+  createLanguageRegistry,
 } from '../../src/v2/languages';
 import { createFlutterLanguageAdapter } from '../../src/v2/languages/flutter/flutterAdapter';
 import { resolveOperation } from '../../src/v2/execution/resolveOperation';
@@ -25,11 +25,11 @@ const ASSETS = {
   },
 };
 
-describe('V2 language capability boundaries', () => {
+describe('language capability boundaries', () => {
   it('does not expose Tree-sitter as an authoritative syntax validator', async () => {
     const typescript = createTypeScriptLanguageAdapter(ASSETS);
     const dart = createDartLanguageAdapter(ASSETS);
-    const registry = createV2LanguageRegistry([typescript, dart]);
+    const registry = createLanguageRegistry([typescript, dart]);
     const validator = createAdapterSyntaxValidator(registry);
 
     expect('validateSyntax' in typescript).toBe(false);
@@ -51,7 +51,7 @@ describe('V2 language capability boundaries', () => {
     const validateSyntax = vi.fn(async () => {
       throw new Error('AUTHORITATIVE_VALIDATOR_REJECTED');
     });
-    const registry = createV2LanguageRegistry([{
+    const registry = createLanguageRegistry([{
       id: 'syntax-only',
       extensions: ['.syntax'],
       validateSyntax,
@@ -67,7 +67,7 @@ describe('V2 language capability boundaries', () => {
   });
 
   it('does not make textual or file operations depend on a structural grammar', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const syntaxValidator = createAdapterSyntaxValidator(registry);
     const context = { syntaxValidator };
 
@@ -94,7 +94,7 @@ describe('V2 language capability boundaries', () => {
   });
 
   it('keeps structural replacement available without claiming the replacement is syntax-valid', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const structuralResolver = createAdapterStructuralResolver(registry);
 
     await expect(resolveOperation({
@@ -109,7 +109,7 @@ describe('V2 language capability boundaries', () => {
   });
 
   it('keeps a structurally clear Dart function editable despite interior parser limitations', async () => {
-    const registry = createV2LanguageRegistry([createDartLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createDartLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `String paymentLabel(PaymentState state) => switch (state) {
   PaymentState.pending => 'pending',
@@ -131,7 +131,7 @@ describe('V2 language capability boundaries', () => {
   });
 
   it('allows a trustworthy target beside unrelated recoverable parser damage', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function broken() {
   const value = ;
@@ -151,7 +151,7 @@ function intact() {
   });
 
   it('keeps a clean statement editable beside an unrelated broken initializer', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function run() {
   if (a) {
@@ -176,7 +176,7 @@ function intact() {
   });
 
   it('replaces a complete function whose body contains broken syntax', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const structuralResolver = createAdapterStructuralResolver(registry);
     const source = `function run() {
   const value = ;
@@ -195,7 +195,7 @@ function intact() {
   });
 
   it('keeps a clean loop editable beside a broken sibling expression', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function run() {
   for (const item of items) {
@@ -220,7 +220,7 @@ function intact() {
   });
 
   it('keeps declaration identity trustworthy when recovery is confined to parameters', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function run(value = ) {
   return 1;
@@ -236,7 +236,7 @@ function intact() {
   });
 
   it('fails closed when superclass recovery can hide another Flutter widget candidate', async () => {
-    const registry = createV2LanguageRegistry([createFlutterLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createFlutterLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `import 'package:flutter/widgets.dart';
 
@@ -262,7 +262,7 @@ class App extends StatelessWidget {
   });
 
   it('fails closed when recovery reaches a candidate boundary that can hide structure', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function run() {
   if (ready) {
@@ -285,7 +285,7 @@ class App extends StatelessWidget {
   });
 
   it('does not discard a named candidate when recovery damages its identity', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function ?other() {
   return 1;
@@ -303,7 +303,7 @@ function run() {
   });
 
   it('ignores recovery inside a nested owner that the traversal deliberately skips', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function run() {
   function nested() {
@@ -330,7 +330,7 @@ function run() {
   });
 
   it('ignores interior recovery contained by a known candidate for sibling discovery', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function run() {
   if (a) {
@@ -358,7 +358,7 @@ function run() {
   });
 
   it('does not let recovery in another structural owner poison the requested owner', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function broken() {
   if (a) {
@@ -387,7 +387,7 @@ function run() {
   });
 
   it('allows trustworthy target absence when unrelated owner recovery is contained', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
 
     await expect(resolver({
@@ -402,7 +402,7 @@ function healthy() {}`,
   });
 
   it('does not treat unrelated top-level recovery as hidden function discovery', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
 
     await expect(resolver({
@@ -415,7 +415,7 @@ function healthy() {}`,
   });
 
   it('keeps target absence uncertain when recovery is in the actual search space', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
 
     await expect(resolver({
@@ -426,7 +426,7 @@ function healthy() {}`,
   });
 
   it('fails closed when recovery can hide another candidate of the requested kind', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
 
     await expect(resolver({
@@ -439,7 +439,7 @@ function run() { return 2; }`,
   });
 
   it('applies STARTS_WITH before rejecting an unreliable sibling candidate', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function run() {
   const value = ;
@@ -487,7 +487,7 @@ function run() {
     const adapter = createTypeScriptLanguageAdapter(ASSETS);
     const source = `function run() {
   return 1;`;
-    const registry = createV2LanguageRegistry([adapter]);
+    const registry = createLanguageRegistry([adapter]);
     const resolver = createAdapterStructuralResolver(registry);
 
     await expect(resolver({
@@ -507,7 +507,7 @@ function run() {
   });
 
   it('preserves ambiguity when parser damage does not make candidate qualification uncertain', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = `function run() {
   const value = ;
@@ -525,7 +525,7 @@ function run() {
   });
 
   it('bounds structural parser diagnostic context and payload size', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const resolver = createAdapterStructuralResolver(registry);
     const source = Array.from(
       { length: 50 },
@@ -546,7 +546,7 @@ function run() {
   });
 
   it('taints only the failed file while preserving parser diagnostics', async () => {
-    const registry = createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
+    const registry = createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]);
     const structuralResolver = createAdapterStructuralResolver(registry);
     const syntaxValidator = createAdapterSyntaxValidator(registry);
     const plan = await resolvePlan([
@@ -575,7 +575,7 @@ function run() {
       stepIndex: 0,
       code: 'STRUCTURAL_TARGET_UNRELIABLE',
       structuralParser: {
-        adapterId: 'typescript-v2',
+        adapterId: 'typescript',
         grammarId: 'typescript',
         diagnostics: expect.arrayContaining([
           expect.objectContaining({ condition: expect.stringMatching(/ERROR_NODE|MISSING_NODE/) }),

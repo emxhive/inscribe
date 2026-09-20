@@ -415,7 +415,7 @@ Verify each item before emitting any V2 block:
 - I am not using `replace_text` merely to avoid a valid whole-structure selector.
 - I am not replacing a whole structural target when a smaller exact textual edit better matches the request.
 - If `CONTENT` is intentionally empty, I understand exactly which textual or structural range will be deleted.
-- I did not mix V1 and V2 syntax.
+- I used only the V2 protocol.
 - I did not wrap the outer Inscribe block in Markdown fences.
 - My payload does not accidentally contain standalone reserved Inscribe markers that will be interpreted as protocol structure.
 
@@ -652,7 +652,7 @@ INSCRIBE>>>
 
 Before returning Inscribe V2 output:
 1. Emit only valid V2 blocks and short necessary explanation.
-2. Do not include V1 syntax.
+2. Emit only V2 syntax.
 3. Do not wrap the outer Inscribe block in Markdown fences. Prefer inner section fence wrappers for code payloads.
 4. Ensure every CONTENT payload is complete and exact.
 5. Ensure every SEARCH / STARTS_WITH payload is copied from source truth.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
-import { createTypeScriptLanguageAdapter, createV2LanguageRegistry } from '../../src/v2/languages';
+import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/v2/languages';
 import { parseSelector } from '../../src/v2/structural/selectorParser';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
@@ -14,7 +14,7 @@ const ASSETS = {
 };
 
 const resolver = createAdapterStructuralResolver(
-  createV2LanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
+  createLanguageRegistry([createTypeScriptLanguageAdapter(ASSETS)]),
 );
 
 describe('Structural selectors', () => {

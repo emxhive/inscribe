@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveOperation } from '../../src/v2/execution/resolveOperation';
 import { hashContent } from '../../src/v2/execution/virtualFileState';
 
-describe('V2 file operations', () => {
+describe('file operations', () => {
   it('creates a new file successfully', async () => {
     const virtualState = new Map();
     const payload = {

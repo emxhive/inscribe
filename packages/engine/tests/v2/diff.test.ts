@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeDiffHunks } from '../../src/v2/diff';
 
-describe('V2 Diff Hunks generator', () => {
+describe('Diff Hunks generator', () => {
   it('produces no hunks when content is identical', () => {
     const content = 'line 1\nline 2\n';
     const hunks = computeDiffHunks(content, content);

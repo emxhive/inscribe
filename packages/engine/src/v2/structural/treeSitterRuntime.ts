@@ -2,7 +2,7 @@ import Parser from 'web-tree-sitter';
 
 export interface TreeSitterAssetPaths {
   coreWasmPath: string;
-  /** Generic grammar id to WASM path mapping used by V2 language adapters. */
+  /** Generic grammar id to WASM path mapping used by language adapters. */
   languageWasmPaths: Readonly<Record<string, string>>;
 }
 

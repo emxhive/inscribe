@@ -1,19 +1,19 @@
-export const V2_BLOCK_OPEN = '<<<INSCRIBE';
-export const V2_BLOCK_CLOSE = 'INSCRIBE>>>';
+export const INSCRIBE_BLOCK_OPEN = '<<<INSCRIBE';
+export const INSCRIBE_BLOCK_CLOSE = 'INSCRIBE>>>';
 
-export const V2_SECTION_NAMES = [
+export const SECTION_NAMES = [
   'CONTENT',
   'SEARCH',
   'STARTS_WITH',
 ] as const;
 
-export const V2_DIRECTIVE_KEYS = [
+export const DIRECTIVE_KEYS = [
   'FILE',
   'MODE',
   'SELECTOR',
 ] as const;
 
-export const V2_OPERATION_MODES = [
+export const PROTOCOL_OPERATION_MODES = [
   'create_file',
   'replace_file',
   'delete_file',
@@ -21,25 +21,25 @@ export const V2_OPERATION_MODES = [
   'replace_node',
 ] as const;
 
-export type V2SectionName = (typeof V2_SECTION_NAMES)[number];
-export type V2DirectiveKey = (typeof V2_DIRECTIVE_KEYS)[number];
-export type V2OperationMode = (typeof V2_OPERATION_MODES)[number];
+export type SectionName = (typeof SECTION_NAMES)[number];
+export type DirectiveKey = (typeof DIRECTIVE_KEYS)[number];
+export type InscribeOperationMode = (typeof PROTOCOL_OPERATION_MODES)[number];
 
-export const V2_SECTION_OPEN_MARKERS = V2_SECTION_NAMES.map(name => `<<<${name}`);
-export const V2_SECTION_CLOSE_MARKERS = V2_SECTION_NAMES.map(name => `${name}>>>`);
+export const SECTION_OPEN_MARKERS = SECTION_NAMES.map(name => `<<<${name}`);
+export const SECTION_CLOSE_MARKERS = SECTION_NAMES.map(name => `${name}>>>`);
 
-export const V2_RESERVED_MARKERS = new Set<string>([
-  V2_BLOCK_OPEN,
-  V2_BLOCK_CLOSE,
-  ...V2_SECTION_OPEN_MARKERS,
-  ...V2_SECTION_CLOSE_MARKERS,
+export const RESERVED_MARKERS = new Set<string>([
+  INSCRIBE_BLOCK_OPEN,
+  INSCRIBE_BLOCK_CLOSE,
+  ...SECTION_OPEN_MARKERS,
+  ...SECTION_CLOSE_MARKERS,
 ]);
 
-export function isExactV2MarkerLine(line: string): boolean {
-  return V2_RESERVED_MARKERS.has(line.trim());
+export function isExactMarkerLine(line: string): boolean {
+  return RESERVED_MARKERS.has(line.trim());
 }
 
-export function validateV2RelativeFilePath(filePath: string): string | null {
+export function validateRelativeFilePath(filePath: string): string | null {
   const trimmed = filePath.trim();
   if (!trimmed) {
     return 'empty path';
@@ -101,15 +101,15 @@ export function validateV2RelativeFilePath(filePath: string): string | null {
   return null;
 }
 
-export interface V2ModeRule {
-  requiredDirectives: readonly V2DirectiveKey[];
-  forbiddenDirectives: readonly V2DirectiveKey[];
-  requiredSections: readonly V2SectionName[];
-  forbiddenSections: readonly V2SectionName[];
-  nonEmptyWhenPresentSections: readonly V2SectionName[];
+export interface ModeRule {
+  requiredDirectives: readonly DirectiveKey[];
+  forbiddenDirectives: readonly DirectiveKey[];
+  requiredSections: readonly SectionName[];
+  forbiddenSections: readonly SectionName[];
+  nonEmptyWhenPresentSections: readonly SectionName[];
 }
 
-export const V2_MODE_RULES: Record<V2OperationMode, V2ModeRule> = {
+export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
   create_file: {
     requiredDirectives: ['FILE', 'MODE'],
     forbiddenDirectives: ['SELECTOR'],

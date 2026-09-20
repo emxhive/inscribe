@@ -5,7 +5,7 @@ import {
   StructuralCandidateQuery,
   StructuralKind,
   TreeSitterLanguageAdapter,
-  V2_STRUCTURAL_KINDS,
+  STRUCTURAL_KINDS,
 } from '../types';
 import {
   createTreeSitterLanguageAdapter,
@@ -66,9 +66,9 @@ export function createFlutterLanguageAdapter(
   assets: TreeSitterAssetPaths,
 ): TreeSitterLanguageAdapter {
   return createTreeSitterLanguageAdapter({
-    id: 'flutter-v2',
+    id: 'flutter',
     extensions: DART_EXTENSIONS,
-    supportedKinds: [...V2_STRUCTURAL_KINDS, ...FLUTTER_STRUCTURAL_KINDS],
+    supportedKinds: [...STRUCTURAL_KINDS, ...FLUTTER_STRUCTURAL_KINDS],
     grammarIdForFile,
     collectCandidates,
   }, assets);

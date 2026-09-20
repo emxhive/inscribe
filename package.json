@@ -8,7 +8,6 @@
         "packages/*"
     ],
     "scripts": {
-        "check:no-legacy-imports": "node scripts/check-legacy-imports.js",
         "build": "npm run build -w packages/shared && npm run build -w packages/engine && npm run build -w apps/desktop",
         "test:engine": "npm run test -w packages/engine",
         "dev:engine": "npm run dev -w packages/engine",

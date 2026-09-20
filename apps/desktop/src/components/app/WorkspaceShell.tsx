@@ -13,40 +13,31 @@ import {
   Loader2,
   PanelLeft,
   PanelRight,
-  Save,
   Settings,
   SquareTerminal,
   Trash2,
   Upload,
 } from 'lucide-react';
-import { DIRECTIVE_KEYS, HEADER_KEYS, OPERATION_MODES, type DirectiveKey, type HeaderKey } from '@inscribe/shared';
+import type { ReviewFile, ReviewItem } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/common';
-import { FileListEntry } from '@/components/common/FileListEntry';
-import { useAppStateContext, useApplyActions, useIntakeBlocks, useParsingActions, usePrimaryAction, useRepositoryActions, useReviewActions, useHistoryActions } from '@/hooks';
+import { useAppStateContext, useIntakeBlocks, useParsingActions, usePrimaryAction, useRepositoryActions, useReviewActions, useHistoryActions } from '@/hooks';
 import {
   getLanguageFromFilename,
   getPathBasename,
-  getReviewApplySummary,
-  getReviewItemApplyState,
   parseLiveIntakeStructure,
   removeIntakeBlockFromText,
   toSentenceCase,
 } from '@/utils';
-import { updateDirectiveInText } from '@/utils/intake';
 import { FileSidebar, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from './FileSidebar';
 import { IntakePanel } from './IntakePanel';
 import { ReviewPanel } from './ReviewPanel';
 import { HistoryReviewPanel } from './HistoryReviewPanel';
-import { LegacyHistoryReviewPanel } from './LegacyHistoryReviewPanel';
-import { HeaderDirectiveEditor } from './HeaderDirectiveEditor';
 import { KeyboardShortcutsModal } from '../KeyboardShortcutsModal';
 
 import { TerminalPanel } from './TerminalPanel';
 import { cn } from '@/lib/utils';
 import { getNextRecentRepositoryIndex } from '@/utils/recentRepositories';
-import type { AppState, V1ReviewItem, V2ReviewFile, V2ReviewItem } from '@/types';
 import type { PrimaryAction } from '@/utils/primaryAction';
 import { buildDiagnosticGroups, formatDiagnosticGroupForClipboard, type DiagnosticGroup } from '@/utils/diagnostics';
 import { PanelTabs } from '@/components/ui/panel-tabs';
@@ -82,10 +73,6 @@ type WorkspaceTopBarProps = WorkspaceShellProps & {
   onShowRecentRepositoriesChange: (open: boolean) => void;
   onShowKeyboardShortcuts: () => void;
 };
-
-function isV1ReviewItem(item: AppState['reviewItems'][number]): item is V1ReviewItem {
-  return item.engineVersion !== 'v2';
-}
 
 export function WorkspaceShell({
   onOpenIgnore,
@@ -245,10 +232,9 @@ export function WorkspaceShell({
               Restoring last repository...
             </div>
           )}
-          {!state.isRestoringRepo && state.v2HistoryReview.actionId && <HistoryReviewPanel />}
-          {!state.isRestoringRepo && !state.v2HistoryReview.actionId && state.legacyHistoryReview.applyId && <LegacyHistoryReviewPanel />}
-          {!state.isRestoringRepo && !state.v2HistoryReview.actionId && !state.legacyHistoryReview.applyId && state.mode === 'intake' && <IntakePanel />}
-          {!state.isRestoringRepo && !state.v2HistoryReview.actionId && !state.legacyHistoryReview.applyId && state.mode === 'review' && <ReviewPanel />}
+          {!state.isRestoringRepo && state.historyReview.actionId && <HistoryReviewPanel />}
+          {!state.isRestoringRepo && !state.historyReview.actionId && state.mode === 'intake' && <IntakePanel />}
+          {!state.isRestoringRepo && !state.historyReview.actionId && state.mode === 'review' && <ReviewPanel />}
         </main>
         {!state.isRightPanelCollapsed && <RightPanel />}
       </div>
@@ -270,7 +256,6 @@ export function WorkspaceShell({
     </div>
   );
 }
-
 function useReplaceIntakeFromClipboard() {
   const { updateState } = useAppStateContext();
 
@@ -305,33 +290,19 @@ function replaceIntake(
     aiInput: content,
     parseErrors: [],
     parseWarnings: [],
-    v2PreviewDiagnostics: [],
-    parsedBlocks: [],
-    validationErrors: [],
+    previewDiagnostics: [],
     reviewItems: [],
-    v2ReviewFiles: [],
-    selectedItemId: null,
-    selectedV2FileId: null,
+    reviewFiles: [],
+    selectedReviewFileId: null,
     selectedIntakeBlockId: null,
     selectedIntakeLineIndex: null,
     rightPanelOwner: 'inspector',
     rightPanelView: 'properties',
-    isEditing: false,
     pipelineStatus: 'idle',
-    reviewComparisonError: null,
-    reviewPreflightByItem: {},
-    reviewComparisonByItem: {},
-    collapsedHunkIdsByItem: {},
     collapsedHunkIdsByFile: {},
-    collapsedDiffGroupIdsByItem: {},
     collapsedDiffGroupIdsByFile: {},
     terminalCommandSuggestions: [],
-    terminalSuggestionSourceApplyId: null,
-    lastAppliedPlan: null,
-    canRedo: false,
-    lastApplyId: null,
-    canUndoApply: false,
-    v2PreviewSession: null,
+    previewSession: null,
     statusMessage,
   });
 }
@@ -655,41 +626,17 @@ function WorkspaceBottomBar({
 }) {
   const { state, updateState } = useAppStateContext();
   const { handleParseBlocks } = useParsingActions();
-  const applyActions = useApplyActions();
-  const { restoreItem, restoreGroup, closeHistoryReview } = useHistoryActions();
-  const selectedItem = state.reviewItems.find(
-    (item): item is V1ReviewItem => item.id === state.selectedItemId && isV1ReviewItem(item),
-  ) ?? null;
-  const hasV2Review = state.v2ReviewFiles.length > 0;
-  const applySummary = getReviewApplySummary(state.reviewItems, state.reviewPreflightByItem);
-  const selectedIsApplied = selectedItem?.status === 'applied';
-  const selectedApplyState = selectedItem ? getReviewItemApplyState(selectedItem, state.reviewPreflightByItem) : null;
-  const canApplySelected = Boolean(selectedApplyState?.applyable) && !state.isApplyingInProgress;
-  const canUndoSelected =
-    Boolean(selectedItem) &&
-    selectedIsApplied &&
-    state.historyItems.some(
-      (item) => item.file === selectedItem.file && item.blockIndex === selectedItem.blockIndex && !item.restoredAt,
-    );
+  const { closeHistoryReview } = useHistoryActions();
 
-  const hasPartialV2Preview =
-    primaryAction.id === 'review-v2-partial';
+  const hasPartialPreview =
+    primaryAction.id === 'review-partial';
   const canReturnToPartialIntake =
     state.mode === 'review' &&
-    Boolean(state.v2PreviewSession) &&
-    state.v2PreviewDiagnostics.length > 0 &&
+    Boolean(state.previewSession) &&
+    state.previewDiagnostics.length > 0 &&
     state.reviewItems.length > 0 &&
-    state.reviewItems.every((item) => item.engineVersion === 'v2' && item.status === 'pending');
-  const isHistoryReviewActive = Boolean(state.v2HistoryReview.actionId || state.legacyHistoryReview.applyId);
-  const legacyHistoryItems = state.historyItems
-    .filter((item) => item.applyId === state.legacyHistoryReview.applyId)
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
-  const selectedLegacyHistoryItem = legacyHistoryItems.find((item) => item.id === state.legacyHistoryReview.selectedEntryId) ?? null;
-  const restorableLegacyHistoryItems = legacyHistoryItems.filter((item) => !item.restoredAt);
-
-  const selectedHunkIndex = state.selectedHunkId
-    ? 0
-    : -1;
+    state.reviewItems.every((item) => item.status === 'pending');
+  const isHistoryReviewActive = Boolean(state.historyReview.actionId);
 
   const statusIcon = (() => {
     switch (state.pipelineStatus) {
@@ -730,47 +677,21 @@ function WorkspaceBottomBar({
           >
             Back to History
           </Button>
-          {state.v2HistoryReview.actionId ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={onRunPrimaryAction}
-              disabled={!primaryAction.enabled}
-              title={!primaryAction.enabled && primaryAction.label === 'Restore unavailable' ? 'Restore is unavailable for the current repository state' : undefined}
-            >
-              <PrimaryActionButtonLabel label={primaryAction.label} />
-            </Button>
-          ) : (
-            <>
-              {selectedLegacyHistoryItem && !selectedLegacyHistoryItem.restoredAt && (
-                <Button
-                  variant="outline"
-                  type="button"
-                  size="sm"
-                  onClick={() => void restoreItem(selectedLegacyHistoryItem)}
-                  disabled={state.isRestoringInProgress}
-                >
-                  Restore file
-                </Button>
-              )}
-              {restorableLegacyHistoryItems.length > 1 && (
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void restoreGroup(state.legacyHistoryReview.applyId!)}
-                  disabled={state.isRestoringInProgress}
-                >
-                  Restore available files
-                </Button>
-              )}
-            </>
-          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={onRunPrimaryAction}
+            disabled={!primaryAction.enabled}
+            title={!primaryAction.enabled && primaryAction.label === 'Restore unavailable' ? 'Restore is unavailable for the current repository state' : undefined}
+          >
+            <PrimaryActionButtonLabel label={primaryAction.label} />
+          </Button>
         </>
       )}
 
       {!isHistoryReviewActive && state.mode === 'intake' && (
         <>
-          {hasPartialV2Preview && (
+          {hasPartialPreview && (
             <Button
               variant="default"
               type="button"
@@ -806,55 +727,15 @@ function WorkspaceBottomBar({
               onClick={() => updateState({
                 mode: 'intake',
                 pipelineStatus: 'parse-partial',
-                statusMessage: 'Partial V2 preview preserved. Select Review valid blocks to return.',
+                statusMessage: 'Partial preview preserved. Select Review valid blocks to return.',
               })}
             >
               Back to Intake
             </Button>
           )}
           <span className="text-xs text-muted-foreground">
-            {selectedHunkIndex >= 0 ? 'Hunk selected' : 'N / Shift+N navigates hunks'}
+            N / Shift+N navigates hunks
           </span>
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onClick={applyActions.handleUndoSelected}
-            disabled={!canUndoSelected || state.isApplyingInProgress || state.isRestoringInProgress}
-          >
-            Undo Selected
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onClick={applyActions.handleUndoAll}
-            disabled={!state.canUndoApply || state.isApplyingInProgress || state.isRestoringInProgress}
-          >
-            Undo All
-          </Button>
-          {!hasV2Review && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={applyActions.handleApplySelected}
-                disabled={!canApplySelected}
-              >
-                {state.isApplyingInProgress ? 'Applying...' : 'Apply Selected'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={applyActions.handleApplyValidBlocks}
-                disabled={!applySummary.canApplyValid || state.isApplyingInProgress}
-              >
-                Apply Valid
-              </Button>
-            </>
-          )}
           <Button
             type="button"
             size="sm"
@@ -887,7 +768,7 @@ function PrimaryActionButtonLabel({ label }: { label: string }) {
 
 function RightPanel() {
   const { state } = useAppStateContext();
-  if (state.v2HistoryReview.actionId || state.legacyHistoryReview.applyId) {
+  if (state.historyReview.actionId) {
     return <HistoryReviewInspector />;
   }
   return state.rightPanelOwner === 'history' ? <HistoryRightPanel /> : <InspectorRightPanel />;
@@ -895,21 +776,15 @@ function RightPanel() {
 
 function HistoryReviewInspector() {
   const { state } = useAppStateContext();
-  const preview = state.v2HistoryReview.preview;
-  const selectedV2File = preview?.files.find((file) => file.entryId === state.v2HistoryReview.selectedEntryId) ?? null;
-  const legacyItems = state.historyItems
-    .filter((item) => item.applyId === state.legacyHistoryReview.applyId)
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
-  const selectedLegacyItem = legacyItems.find((item) => item.id === state.legacyHistoryReview.selectedEntryId) ?? null;
-  const isV2 = Boolean(state.v2HistoryReview.actionId);
-  const createdAt = preview?.createdAt ?? selectedLegacyItem?.createdAt;
-  const actionType = preview?.actionType ?? (selectedLegacyItem?.actionType === 'restore' ? 'restore' : 'apply');
+  const preview = state.historyReview.preview;
+  const selectedReviewFile = preview?.files.find((file) => file.entryId === state.historyReview.selectedEntryId) ?? null;
+  const createdAt = preview?.createdAt;
+  const actionType = preview?.actionType ?? 'apply';
 
   return (
     <aside className="flex min-h-0 flex-col border-l border-border bg-card">
       <div className="flex h-10 flex-shrink-0 items-center justify-between border-b border-border px-3">
         <p className="text-xs font-semibold text-foreground">History Review</p>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{isV2 ? 'V2' : 'Legacy'}</span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <div className="space-y-4">
@@ -917,46 +792,27 @@ function HistoryReviewInspector() {
             <dl className="divide-y divide-border text-xs">
               <InspectorRow label="Type" value={actionType === 'restore' ? 'Restore / reversal' : 'Apply'} />
               <InspectorRow label="When" value={formatHistoryTimestamp(createdAt)} />
-              <InspectorRow label="Files" value={String(preview?.files.length ?? legacyItems.length)} />
+              <InspectorRow label="Files" value={String(preview?.files.length ?? 0)} />
               {preview?.sourceActionId && <InspectorRow label="Reverses action" value={preview.sourceActionId} mono />}
-              {!isV2 && selectedLegacyItem?.sourceActionId && (
-                <InspectorRow label="Reverses action" value={selectedLegacyItem.sourceActionId} mono />
-              )}
-              {!isV2 && selectedLegacyItem?.sourceEntryId && (
-                <InspectorRow label="Reverses entry" value={selectedLegacyItem.sourceEntryId} mono />
-              )}
             </dl>
           </InspectorPropertyGroup>
 
-          {isV2 && selectedV2File && (
+          {selectedReviewFile && (
             <InspectorPropertyGroup title="Restore safety">
               <dl className="divide-y divide-border text-xs">
-                <InspectorRow label="Eligibility" value={selectedV2File.eligible ? 'Eligible' : 'Unavailable'} />
-                <InspectorRow label="Current state" value={selectedV2File.currentExists ? 'Present' : 'Absent'} />
-                <InspectorRow label="Proposed state" value={selectedV2File.restoredState ? selectedV2File.restoredState.exists ? 'Present' : 'Absent' : 'Unavailable'} />
-                {selectedV2File.sourceEntryId && <InspectorRow label="Source entry" value={selectedV2File.sourceEntryId} mono />}
+                <InspectorRow label="Eligibility" value={selectedReviewFile.eligible ? 'Eligible' : 'Unavailable'} />
+                <InspectorRow label="Current state" value={selectedReviewFile.currentExists ? 'Present' : 'Absent'} />
+                <InspectorRow label="Proposed state" value={selectedReviewFile.restoredState ? selectedReviewFile.restoredState.exists ? 'Present' : 'Absent' : 'Unavailable'} />
+                {selectedReviewFile.sourceEntryId && <InspectorRow label="Source entry" value={selectedReviewFile.sourceEntryId} mono />}
               </dl>
-              {!selectedV2File.eligible && selectedV2File.error && (
+              {!selectedReviewFile.eligible && selectedReviewFile.error && (
                 <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-xs text-destructive">
-                  {selectedV2File.error}
+                  {selectedReviewFile.error}
                 </p>
               )}
             </InspectorPropertyGroup>
           )}
 
-          {!isV2 && (
-            <InspectorPropertyGroup title="Legacy restore">
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Legacy history does not contain a live final-file snapshot. The center shows the stored target only; the existing legacy restore checks remain the source of truth when you continue.
-              </p>
-              {selectedLegacyItem && (
-                <dl className="mt-3 divide-y divide-border text-xs">
-                  <InspectorRow label="Status" value={selectedLegacyItem.restoredAt ? 'Already restored' : 'Available'} />
-                  <InspectorRow label="Mode" value={selectedLegacyItem.mode} />
-                </dl>
-              )}
-            </InspectorPropertyGroup>
-          )}
         </div>
       </div>
     </aside>
@@ -996,37 +852,28 @@ function InspectorRightPanel() {
   const { state, updateState } = useAppStateContext();
   const { blocks, warnings: globalWarnings } = useIntakeBlocks();
   const selectedBlock = blocks.find((block) => block.id === state.selectedIntakeBlockId) ?? null;
-  const selectedItem = state.reviewItems.find(
-    (item): item is V1ReviewItem => item.id === state.selectedItemId && isV1ReviewItem(item),
-  ) ?? null;
-  const selectedV2File = state.v2ReviewFiles.find((file) => file.id === state.selectedV2FileId) ?? null;
-  const selectedV2Operations: V2ReviewItem[] = selectedV2File
-    ? state.reviewItems.filter(
-        (item): item is V2ReviewItem =>
-          item.engineVersion === 'v2' && selectedV2File.operationIds.includes(item.id),
-      )
+  const selectedReviewFile = state.reviewFiles.find((file) => file.id === state.selectedReviewFileId) ?? null;
+  const selectedReviewOperations: ReviewItem[] = selectedReviewFile
+    ? state.reviewItems.filter((item) => selectedReviewFile.operationIds.includes(item.id))
     : [];
   const [blockPendingRemoval, setBlockPendingRemoval] = useState<typeof selectedBlock>(null);
-  const reviewActions = useReviewActions();
   const diagnostics = buildDiagnosticGroups(state, blocks, { mode: state.mode, globalWarnings });
   const diagnosticCount = diagnostics.reduce((sum, group) => sum + group.messages.length, 0);
   const selectionLabel = state.mode === 'intake'
     ? selectedBlock?.label ?? 'No block selected'
-    : selectedV2File?.filePath ?? selectedItem?.file ?? 'No change selected';
+    : selectedReviewFile?.filePath ?? 'No change selected';
   const selectionStatus = state.mode === 'intake'
     ? selectedBlock?.status
-    : selectedV2File
-      ? selectedV2Operations.every((item) => item.status === 'applied') ? 'applied' : 'pending'
-      : selectedItem?.status;
+    : selectedReviewFile
+      ? selectedReviewOperations.every((item) => item.status === 'applied') ? 'applied' : 'pending'
+      : undefined;
   const selectionMeta = state.mode === 'intake'
     ? selectedBlock
       ? `${toSentenceCase(selectedBlock.status)} · Block ${selectedBlock.index + 1}`
       : 'Select a block from the sidebar'
-    : selectedV2File
-      ? `${toSentenceCase(selectedV2Operations.every((item) => item.status === 'applied') ? 'applied' : 'pending')} · ${selectedV2Operations.length} operation${selectedV2Operations.length === 1 ? '' : 's'}`
-      : selectedItem
-        ? `${toSentenceCase(selectedItem.status)} · Change ${state.reviewItems.findIndex((item) => item.id === selectedItem.id) + 1}`
-        : 'Select a change from the sidebar';
+    : selectedReviewFile
+      ? `${toSentenceCase(selectedReviewOperations.every((item) => item.status === 'applied') ? 'applied' : 'pending')} · ${selectedReviewOperations.length} operation${selectedReviewOperations.length === 1 ? '' : 's'}`
+      : 'Select a change from the sidebar';
   const tabs = [
     { id: 'properties' as const, label: 'Properties' },
     { id: 'diagnostics' as const, label: 'Diagnostics', count: diagnosticCount },
@@ -1060,26 +907,18 @@ function InspectorRightPanel() {
       mode: 'intake',
       parseErrors: [],
       parseWarnings: [],
-      v2PreviewDiagnostics: [],
-      parsedBlocks: [],
-      validationErrors: [],
+      previewDiagnostics: [],
       reviewItems: [],
-      v2ReviewFiles: [],
-      selectedItemId: null,
-      selectedV2FileId: null,
+      reviewFiles: [],
+      selectedReviewFileId: null,
       selectedIntakeBlockId: nextSelection,
       selectedIntakeLineIndex: null,
       rightPanelOwner: 'inspector',
       rightPanelView: 'properties',
       selectedHunkId: null,
-      reviewComparisonError: null,
-      reviewPreflightByItem: {},
-      reviewComparisonByItem: {},
-      collapsedHunkIdsByItem: {},
       collapsedHunkIdsByFile: {},
-      collapsedDiffGroupIdsByItem: {},
       collapsedDiffGroupIdsByFile: {},
-      v2PreviewSession: null,
+      previewSession: null,
       pipelineStatus: 'idle',
       statusMessage: `Removed ${blockPendingRemoval.label}. Preview the remaining blocks again.`,
     });
@@ -1104,7 +943,7 @@ function InspectorRightPanel() {
             <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground" title={selectionLabel}>
               {selectionLabel}
             </p>
-            {state.mode === 'intake' && selectedBlock?.protocol === 'v2' && (
+            {state.mode === 'intake' && selectedBlock && (
               <button
                 type="button"
                 className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -1121,7 +960,7 @@ function InspectorRightPanel() {
               <span
                 className={cn(
                   'h-1.5 w-1.5 rounded-full',
-                  selectionStatus === 'error' || selectionStatus === 'invalid'
+                  selectionStatus === 'error'
                     ? 'bg-destructive'
                     : selectionStatus === 'warning' || selectionStatus === 'incomplete'
                       ? 'bg-amber-500'
@@ -1146,16 +985,8 @@ function InspectorRightPanel() {
             <div className="px-3 py-3">
               {state.mode === 'intake' ? (
                 selectedBlock ? <IntakeDirectiveSection selectedBlock={selectedBlock} /> : <InspectorEmptyState message="Select a block to inspect its properties." />
-              ) : selectedV2File ? (
-                <ReviewFileProperties file={selectedV2File} operations={selectedV2Operations} />
-              ) : selectedItem ? (
-                <div className="space-y-4">
-                  <ReviewProperties selectedItem={selectedItem} />
-                  <ReviewDirectiveEditor
-                    item={selectedItem}
-                    onSave={(updates) => reviewActions.handleUpdateDirectives(selectedItem.id, updates)}
-                  />
-                </div>
+              ) : selectedReviewFile ? (
+                <ReviewFileProperties file={selectedReviewFile} operations={selectedReviewOperations} />
               ) : (
                 <InspectorEmptyState message="Select a change to inspect its properties." />
               )}
@@ -1188,7 +1019,7 @@ function InspectorRightPanel() {
         {blockPendingRemoval && (
           <div className="space-y-3 text-sm">
             <p className="text-foreground">
-              This removes the complete V2 block from the intake text. The remaining blocks will need to be previewed again.
+              This removes the complete block from the intake text. The remaining blocks will need to be previewed again.
             </p>
             <div className="rounded-md border border-border bg-secondary/50 p-3">
               <p className="break-all text-xs font-medium text-foreground">{blockPendingRemoval.label}</p>
@@ -1204,13 +1035,13 @@ function InspectorRightPanel() {
   );
 }
 
-function V2IntakeInspector({ selectedBlock }: { selectedBlock: NonNullable<ReturnType<typeof useIntakeBlocks>['blocks'][number]> }) {
+function IntakeInspector({ selectedBlock }: { selectedBlock: NonNullable<ReturnType<typeof useIntakeBlocks>['blocks'][number]> }) {
   const sectionsList = selectedBlock.sections ? Object.keys(selectedBlock.sections).join(', ') : '';
 
   return (
     <InspectorPropertyGroup title="Block">
       <dl className="divide-y divide-border text-xs">
-        <InspectorRow label="Protocol" value="V2" />
+        <InspectorRow label="Protocol" value="Inscribe" />
         <InspectorRow label="Mode" value={selectedBlock.mode || '(none)'} />
         {selectedBlock.selectorText && (
           <InspectorRow label="Selector" value={selectedBlock.selectorText} mono />
@@ -1225,50 +1056,16 @@ function V2IntakeInspector({ selectedBlock }: { selectedBlock: NonNullable<Retur
 }
 
 function IntakeDirectiveSection({ selectedBlock }: { selectedBlock: ReturnType<typeof useIntakeBlocks>['blocks'][number] | null }) {
-  const { state, updateState } = useAppStateContext();
-
-  const handleHeaderChange = (key: HeaderKey, value: string) => {
-    if (!selectedBlock) return;
-    updateState((prev) => ({
-      aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, value, { keepEmpty: true }),
-    }));
-  };
-  const handleDirectiveChange = (key: DirectiveKey, value: string) => {
-    if (!selectedBlock) return;
-    updateState((prev) => ({
-      aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, value),
-    }));
-  };
-
-  const handleAddDirective = (key: DirectiveKey) => {
-    if (!selectedBlock || selectedBlock.directives[key]) return;
-    updateState((prev) => ({
-      aiInput: updateDirectiveInText(prev.aiInput, selectedBlock, key, '', { allowEmptyInsert: true }),
-    }));
-  };
-
   if (!selectedBlock) return null;
-
-  if (selectedBlock.protocol === 'v2') {
-    return <V2IntakeInspector selectedBlock={selectedBlock} />;
-  }
-
-  return (
-    <HeaderDirectiveEditor
-      block={selectedBlock}
-      onHeaderChange={handleHeaderChange}
-      onDirectiveChange={handleDirectiveChange}
-      onAddDirective={handleAddDirective}
-    />
-  );
+  return <IntakeInspector selectedBlock={selectedBlock} />;
 }
 
 function ReviewFileProperties({
   file,
   operations,
 }: {
-  file: V2ReviewFile;
-  operations: V2ReviewItem[];
+  file: ReviewFile;
+  operations: ReviewItem[];
 }) {
   const diffHunks = file.comparison.diffHunks ?? [];
   const countChangedLines = (text: string) => {
@@ -1353,343 +1150,63 @@ function ReviewFileProperties({
   );
 }
 
-function ReviewProperties({ selectedItem }: { selectedItem: V1ReviewItem }) {
-  const { state } = useAppStateContext();
-  const itemState = getReviewItemApplyState(selectedItem, state.reviewPreflightByItem);
-  const comparison = state.reviewComparisonByItem[selectedItem.id]?.comparison;
-  const diffHunks = comparison?.diffHunks ?? [];
-  const countChangedLines = (text: string) => {
-    if (!text) return 0;
-    const withoutTrailingNewline = text.endsWith('\n') ? text.slice(0, -1) : text;
-    return withoutTrailingNewline.length === 0 ? 1 : withoutTrailingNewline.split('\n').length;
-  };
-  const addedCount = diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.newText), 0);
-  const removedCount = diffHunks.reduce((sum, hunk) => sum + countChangedLines(hunk.oldText), 0);
-  const status =
-    itemState.kind === 'pending-applyable'
-      ? 'Ready to apply'
-      : itemState.kind === 'blocked-static-validation'
-        ? 'Blocked by validation'
-        : itemState.kind === 'blocked-preflight'
-          ? 'Blocked by preflight'
-          : itemState.kind === 'pending-preflight'
-            ? 'Awaiting preflight'
-            : itemState.kind === 'blocked-v2-apply'
-              ? 'Preview only'
-              : 'Applied';
-
-  const mode = selectedItem.mode;
-
-  return (
-    <div className="space-y-5">
-      <InspectorPropertyGroup title="Change">
-        <dl className="divide-y divide-border text-xs">
-          <InspectorRow label="Status" value={status} />
-          <InspectorRow label="File" value={selectedItem.file} mono />
-          <InspectorRow label="Mode" value={mode} />
-          <div className="grid min-h-8 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1.5">
-            <dt className="text-muted-foreground">Change</dt>
-            <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">
-                +{addedCount}
-              </span>
-              <span className="font-mono font-semibold text-destructive">
-                −{removedCount}
-              </span>
-              <span className="text-muted-foreground">
-                {diffHunks.length} hunk{diffHunks.length === 1 ? '' : 's'}
-              </span>
-            </dd>
-          </div>
-          <InspectorRow label="Source block" value={String(selectedItem.blockIndex + 1)} />
-          {state.selectedHunkId && <InspectorRow label="Hunk" value={state.selectedHunkId} mono />}
-        </dl>
-      </InspectorPropertyGroup>
-
-    </div>
-  );
-}
-
-function ReviewDirectiveEditor({
-  item,
-  onSave,
-}: {
-  item: V1ReviewItem;
-  onSave: (updates: Partial<Record<HeaderKey | DirectiveKey, string>>) => void;
-}) {
-  const [draft, setDraft] = useState<Partial<Record<HeaderKey | DirectiveKey, string>>>({});
-
-  useEffect(() => {
-    const nextDraft: Partial<Record<HeaderKey | DirectiveKey, string>> = {
-      FILE: item.file,
-      MODE: item.mode,
-    };
-    DIRECTIVE_KEYS.forEach((key) => {
-      if (item.directives[key]) nextDraft[key] = item.directives[key];
-    });
-    setDraft(nextDraft);
-  }, [item]);
-
-  const presentDirectiveKeys = DIRECTIVE_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(draft, key));
-  const missingDirectiveKeys = DIRECTIVE_KEYS.filter((key) => !Object.prototype.hasOwnProperty.call(draft, key));
-
-  if (item.status === 'applied') {
-    return (
-      <div>
-        <p className="text-xs text-muted-foreground">
-          Applied changes cannot be edited.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <InspectorPropertyGroup title="Editable">
-      <div className="divide-y divide-border border-y border-border">
-        {HEADER_KEYS.map((key) => (
-          <label key={key} className="grid min-h-9 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1">
-            <span className="text-xs text-muted-foreground">{key === 'FILE' ? 'File' : 'Mode'}</span>
-            {key === 'MODE' ? (
-              <Select
-                className="h-7 font-mono text-xs"
-                value={draft.MODE ?? ''}
-                placeholder="Select mode"
-                options={OPERATION_MODES.map((mode) => ({ value: mode, label: mode }))}
-                onChange={(event) => setDraft((prev) => ({ ...prev, MODE: event.target.value }))}
-              />
-            ) : (
-              <input
-                value={draft[key] ?? ''}
-                onChange={(event) => setDraft((prev) => ({ ...prev, [key]: event.target.value }))}
-                className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Relative path"
-              />
-            )}
-          </label>
-        ))}
-        {presentDirectiveKeys.map((key) => (
-          <label key={key} className="grid min-h-9 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1">
-            <span className="text-xs text-muted-foreground">{key}</span>
-            <input
-              value={draft[key] ?? ''}
-              onChange={(event) => setDraft((prev) => ({ ...prev, [key]: event.target.value }))}
-              className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder={key}
-            />
-          </label>
-        ))}
-        {missingDirectiveKeys.length > 0 && <label className="grid min-h-9 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2 py-1">
-          <span className="text-xs text-muted-foreground">Add</span>
-          <Select
-            className="h-7 text-xs"
-            value=""
-            placeholder="Directive"
-            options={missingDirectiveKeys.map((key) => ({ value: key, label: key }))}
-            onChange={(event) => {
-              if (event.target.value) {
-                const key = event.target.value as DirectiveKey;
-                setDraft((prev) => ({ ...prev, [key]: prev[key] ?? '' }));
-              }
-            }}
-          />
-        </label>}
-        <div className="flex justify-end py-1.5">
-          <Button
-            size="icon"
-            type="button"
-            className="h-7 w-7"
-            onClick={() => onSave(draft)}
-            aria-label="Save directives"
-            title="Save directives"
-          >
-            <Save className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-    </InspectorPropertyGroup>
-  );
-}
-
 function HistoryPanelContent() {
   const { state } = useAppStateContext();
-  const { openV2RestoreReview, openLegacyHistoryReview } = useHistoryActions();
-  const v2Items = state.historyItems.filter((item) => item.protocol === 'v2');
-  const legacyItems = state.historyItems.filter((item) => item.protocol !== 'v2');
-  const activeLegacyItems = legacyItems.filter((item) => !item.restoredAt);
-  const restoredLegacyItems = legacyItems.filter((item) => Boolean(item.restoredAt));
+  const { openRestoreReview } = useHistoryActions();
 
   const groupedHistory = useMemo(() => {
-    const groups = new Map<string, typeof v2Items>();
-    v2Items.forEach((item) => {
+    const groups = new Map<string, typeof state.historyItems>();
+    state.historyItems.forEach((item) => {
       const actionId = item.actionId ?? item.applyId;
       const group = groups.get(actionId) ?? [];
       group.push(item);
       groups.set(actionId, group);
     });
-    return Array.from(groups.entries()).map(([actionId, items]) => ({
-      actionId,
-      items,
-      createdAt: items[0]?.createdAt,
-      actionType: items[0]?.actionType ?? 'apply',
-    })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [v2Items]);
-
-  const groupedLegacyHistory = useMemo(() => {
-    const groups = new Map<string, typeof activeLegacyItems>();
-    activeLegacyItems.forEach((item) => {
-      const group = groups.get(item.applyId) ?? [];
-      group.push(item);
-      groups.set(item.applyId, group);
-    });
-    return Array.from(groups.entries()).map(([applyId, items]) => ({
-      applyId,
-      items,
-      createdAt: items[0]?.createdAt,
-    })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [activeLegacyItems]);
+    return Array.from(groups.entries())
+      .map(([actionId, items]) => ({
+        actionId,
+        items,
+        createdAt: items[0]?.createdAt,
+        actionType: items[0]?.actionType ?? 'apply',
+      }))
+      .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''));
+  }, [state.historyItems]);
 
   const formatTimestamp = (timestamp?: string) => {
     if (!timestamp) return 'Unknown time';
     const date = new Date(timestamp);
-    if (Number.isNaN(date.valueOf())) return timestamp;
-    return date.toLocaleString();
+    return Number.isNaN(date.valueOf()) ? timestamp : date.toLocaleString();
   };
 
   return (
     <div className="space-y-4 py-3">
-      {groupedHistory.length === 0 && groupedLegacyHistory.length === 0 && restoredLegacyItems.length === 0 && (
-        <p className="py-3 text-xs text-muted-foreground">No history recorded yet.</p>
-      )}
-
+      {groupedHistory.length === 0 && <p className="py-3 text-xs text-muted-foreground">No history recorded yet.</p>}
       {groupedHistory.map((group) => (
         <button
           key={group.actionId}
           type="button"
           className={cn(
             'w-full border-b border-border px-1 pb-3 text-left transition-colors hover:bg-secondary/40',
-            state.v2HistoryReview.actionId === group.actionId && 'bg-primary/5',
+            state.historyReview.actionId === group.actionId && 'bg-primary/5',
           )}
-          onClick={() => openV2RestoreReview(group.actionId)}
-          disabled={state.isRestoringInProgress || state.v2HistoryReview.isLoading || state.v2HistoryReview.isRestoring}
+          onClick={() => void openRestoreReview(group.actionId)}
+          disabled={state.isRestoringInProgress || state.historyReview.isLoading || state.historyReview.isRestoring}
         >
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-[10px] text-muted-foreground">
                 {group.actionType === 'restore' ? 'Restored' : 'Applied'} {formatTimestamp(group.createdAt)}
               </p>
-              <p className="text-xs font-semibold">
-                {group.items.length} file{group.items.length === 1 ? '' : 's'}
-              </p>
+              <p className="text-xs font-semibold">{group.items.length} file{group.items.length === 1 ? '' : 's'}</p>
             </div>
             <span className="text-[10px] text-muted-foreground">Inspect</span>
           </div>
-          <p className="mt-1 truncate text-[11px] text-muted-foreground">
-            {group.items.map((item) => item.file).join(', ')}
-          </p>
+          <p className="mt-1 truncate text-[11px] text-muted-foreground">{group.items.map((item) => item.file).join(', ')}</p>
           {group.actionType === 'restore' && group.items[0]?.sourceActionId && (
-            <p className="mt-1 truncate text-[10px] text-primary/80">
-              Reverses action {group.items[0].sourceActionId}
-            </p>
+            <p className="mt-1 truncate text-[10px] text-primary/80">Reverses action {group.items[0].sourceActionId}</p>
           )}
         </button>
       ))}
-
-      {groupedLegacyHistory.length > 0 && (
-        <section className="border-t border-border pt-3">
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Legacy history</p>
-          <div className="space-y-4">
-            {groupedLegacyHistory.map((group) => (
-              <div
-                key={group.applyId}
-                role="button"
-                tabIndex={state.isRestoringInProgress ? -1 : 0}
-                aria-disabled={state.isRestoringInProgress}
-                className={cn(
-                  'w-full border-b border-border pb-4 text-left transition-colors hover:bg-secondary/40',
-                  state.isRestoringInProgress && 'pointer-events-none opacity-60',
-                )}
-                onClick={() => {
-                  if (!state.isRestoringInProgress) openLegacyHistoryReview(group.applyId);
-                }}
-                onKeyDown={(event) => {
-                  if (!state.isRestoringInProgress && (event.key === 'Enter' || event.key === ' ')) {
-                    event.preventDefault();
-                    openLegacyHistoryReview(group.applyId);
-                  }
-                }}
-              >
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground">Applied {formatTimestamp(group.createdAt)}</p>
-                    <p className="text-xs font-semibold">{group.items.length} block{group.items.length === 1 ? '' : 's'}</p>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">Inspect</span>
-                </div>
-                <div className="space-y-1">
-                  {group.items.map((item) => {
-                    const meta = item.restoreMeta ?? {
-                      file: item.file,
-                      lineCount: item.restoreOperation?.content.split('\n').length ?? 0,
-                      language: getLanguageFromFilename(item.file),
-                      mode: item.mode,
-                    };
-                    return (
-                      <FileListEntry
-                        key={item.id}
-                        file={meta.file}
-                        lineCount={meta.lineCount}
-                        language={meta.language}
-                        mode={meta.mode}
-                        status="applied"
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {restoredLegacyItems.length > 0 && (
-        <section className="mt-6 border-t border-border pt-3">
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Restored legacy history</p>
-          <div className="space-y-1 opacity-60 grayscale-[0.5]">
-            {restoredLegacyItems.sort((a, b) => (b.restoredAt || '').localeCompare(a.restoredAt || '')).map((item) => (
-              <div
-                key={item.id}
-                role="button"
-                tabIndex={state.isRestoringInProgress ? -1 : 0}
-                aria-disabled={state.isRestoringInProgress}
-                className={cn(
-                  'w-full text-left transition-colors hover:bg-secondary/40',
-                  state.isRestoringInProgress && 'pointer-events-none opacity-60',
-                )}
-                onClick={() => {
-                  if (!state.isRestoringInProgress) openLegacyHistoryReview(item.applyId);
-                }}
-                onKeyDown={(event) => {
-                  if (!state.isRestoringInProgress && (event.key === 'Enter' || event.key === ' ')) {
-                    event.preventDefault();
-                    openLegacyHistoryReview(item.applyId);
-                  }
-                }}
-              >
-                <FileListEntry
-                  file={item.file}
-                  lineCount={item.restoreOperation?.content.split('\n').length ?? 0}
-                  language={getLanguageFromFilename(item.file)}
-                  mode={item.mode}
-                  status="applied"
-                />
-                <div className="mt-0.5 px-2 text-[9px] text-muted-foreground">
-                  Restored {formatTimestamp(item.restoredAt)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
@@ -1704,10 +1221,10 @@ function DiagnosticsSection({
   const { state, updateState } = useAppStateContext();
   const handleCopy = async (group: DiagnosticGroup) => {
     const summary = formatDiagnosticGroupForClipboard(group);
-    const v2Details = state.v2PreviewDiagnostics.length > 0
-      ? `\n\nV2 Preview Diagnostic Details\n${JSON.stringify(state.v2PreviewDiagnostics, null, 2)}`
+    const previewDetails = state.previewDiagnostics.length > 0
+      ? `\n\nPreview Diagnostic Details\n${JSON.stringify(state.previewDiagnostics, null, 2)}`
       : '';
-    const text = `${summary}${v2Details}`;
+    const text = `${summary}${previewDetails}`;
 
     try {
       await navigator.clipboard.writeText(text);

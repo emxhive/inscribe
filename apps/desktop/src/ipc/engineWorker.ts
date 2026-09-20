@@ -4,13 +4,8 @@ if (workerData) {
   process.env.INSCRIBE_USER_DATA = workerData;
 }
 
-import {
-  applyChanges,
-  buildOperationComparison,
-  restoreEntry,
-} from '@inscribe/engine';
-import { runPreviewV2Worker } from './previewV2Worker';
-import { runApplyV2Worker } from './applyV2Worker';
+import { runPreviewWorker } from './previewWorker';
+import { runApplyWorker } from './applyWorker';
 
 if (!parentPort) {
   process.exit(1);
@@ -21,20 +16,11 @@ parentPort.on('message', async (message: { id: string; action: string; payload: 
 
   try {
     let result: any;
-    if (action === 'compare-operation') {
-      result = buildOperationComparison(payload.operation, payload.repoRoot);
+    if (action === 'preview') {
+      const result = await runPreviewWorker(payload);
       parentPort!.postMessage({ id, success: true, result });
-    } else if (action === 'apply-changes') {
-      result = applyChanges(payload.plan, payload.repoRoot);
-      parentPort!.postMessage({ id, success: true, result });
-    } else if (action === 'restore-entry') {
-      result = restoreEntry(payload.request, payload.repoRoot);
-      parentPort!.postMessage({ id, success: true, result });
-    } else if (action === 'preview_v2') {
-      const result = await runPreviewV2Worker(payload);
-      parentPort!.postMessage({ id, success: true, result });
-    } else if (action === 'apply_v2') {
-      const result = await runApplyV2Worker(payload);
+    } else if (action === 'apply') {
+      const result = await runApplyWorker(payload);
       parentPort!.postMessage({ id, success: true, result });
     } else {
       throw new Error(`Unknown worker action: ${action}`);

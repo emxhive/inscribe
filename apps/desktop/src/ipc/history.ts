@@ -1,9 +1,8 @@
 import { ipcMain } from 'electron';
 import {
   getHistoryEntries,
-  markHistoryEntryRestored,
-  previewV2RestoreAction,
-  restoreV2Action,
+  previewRestoreAction,
+  restoreAction,
 } from '@inscribe/engine';
 import { requireTrustedRepoRoot } from './trustedRepo';
 
@@ -17,26 +16,18 @@ export function registerHistoryHandlers() {
   });
 
   ipcMain.handle(
-    'history-mark-restored',
-    async (event, suppliedRepoRoot: string | undefined, entryId: string, restoredAt: string) => {
-      const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
-      return markHistoryEntryRestored(repoRoot, entryId, restoredAt);
-    }
-  );
-
-  ipcMain.handle(
-    'history-v2-preview-restore',
+    'history-preview-restore',
     async (event, suppliedRepoRoot: string | undefined, actionId: string) => {
       const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
-      return previewV2RestoreAction(actionId, repoRoot);
+      return previewRestoreAction(actionId, repoRoot);
     },
   );
 
   ipcMain.handle(
-    'history-v2-restore',
+    'history-restore',
     async (event, suppliedRepoRoot: string | undefined, actionId: string) => {
       const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
-      return restoreV2Action(actionId, repoRoot);
+      return restoreAction(actionId, repoRoot);
     },
   );
 }

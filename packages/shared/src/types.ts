@@ -2,25 +2,9 @@
  * Shared types for Inscribe
  */
 
-import { type DiagnosticCode } from './diagnostics';
 import { OperationMode } from './modes';
 
 export type Mode = OperationMode;
-
-export interface ParsedBlock {
-  file: string;
-  mode: Mode;
-  directives: Record<string, string>;
-  content: string;
-  blockIndex: number;
-}
-
-export interface ValidationError {
-  blockIndex: number;
-  file: string;
-  message: string;
-  code?: DiagnosticCode;
-}
 
 export interface Operation {
   type: Mode;
@@ -28,16 +12,6 @@ export interface Operation {
   content: string;
   directives?: Record<string, string>;
   blockIndex?: number;
-}
-
-export interface OperationPreview {
-  type: Mode;
-  file: string;
-  content: string;
-  insert: string;
-  replaceStart: number;
-  replaceEnd: number;
-  removed: string;
 }
 
 /**
@@ -129,24 +103,10 @@ export interface OperationComparison {
   regions: OperationComparisonRegion[];
 }
 
-export interface ApplyPlan {
-  operations: Operation[];
-  errors?: ValidationError[];
-}
-
 export interface ApplyResult {
   success: boolean;
   errors?: string[];
   historyEntries?: HistoryEntry[];
-}
-
-export interface AppliedAiInputRecord {
-  inputHash: string;
-  firstAppliedAt: string;
-  lastAppliedAt: string;
-  timesApplied: number;
-  appliedBlockCount: number;
-  lastApplyId?: string;
 }
 
 export interface RestoreWindow {
@@ -175,28 +135,23 @@ export interface RestorePayloadV2 {
 export interface HistoryEntry {
   id: string;
   applyId: string;
-  /** V2 action identity. Older entries use applyId as their action identity. */
+    /** Immutable action identity. */
   actionId?: string;
-  /** Immutable V2 timeline event kind. */
+    /** Immutable timeline event kind. */
   actionType?: 'apply' | 'restore';
-  /** The V2 history entry/action this restore reverses. */
+    /** The history entry/action this restore reverses. */
   sourceEntryId?: string;
   sourceActionId?: string;
-  /** Identifies entries written by the current V2 apply path. */
+    /** Identifies entries written by the supported history path. */
   protocol?: 'v2';
   file: string;
   mode: Mode;
   createdAt: string;
-  /**
-   * @deprecated Use internal restore path based on restorePayload
-   */
-  restoreOperation: Operation;
   restorePayload?: RestorePayloadV2;
   blockIndex?: number;
-  restoredAt?: string;
 }
 
-export interface V2RestorePreviewFile {
+export interface RestorePreviewFile {
   entryId: string;
   sourceEntryId?: string;
   file: string;
@@ -207,30 +162,19 @@ export interface V2RestorePreviewFile {
     exists: boolean;
     content: string;
   };
-  diffHunks?: import('./v2/comparisons').V2DiffHunk[];
+  diffHunks?: import('./v2/comparisons').DiffHunk[];
   eligible: boolean;
   error?: string;
 }
 
-export interface V2RestorePreview {
+export interface RestorePreview {
   actionId: string;
   actionType?: 'apply' | 'restore';
   createdAt?: string;
   sourceActionId?: string;
-  files: V2RestorePreviewFile[];
+  files: RestorePreviewFile[];
   eligible: boolean;
   error?: string;
-}
-
-export interface ParseWarning {
-  blockIndex?: number;
-  message: string;
-}
-
-export interface ParseResult {
-  blocks: ParsedBlock[];
-  errors: string[];
-  warnings: ParseWarning[];
 }
 
 export type IndexState = 'idle' | 'running' | 'complete' | 'error';

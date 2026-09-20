@@ -292,7 +292,7 @@
           "id": "tsx.class-component-constructor",
           "mode": "selector",
           "fixture": "operations-dashboard",
-          "intent": "Target a legacy class component constructor with its modifier and JSX render method nearby.",
+          "intent": "Target a class component constructor with its modifier and JSX render method nearby.",
           "selector": "class:LegacyDashboard > constructor",
           "assertions": {
             "kind": "constructor",

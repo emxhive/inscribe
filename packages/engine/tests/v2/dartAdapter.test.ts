@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import * as path from 'path';
 import {
   createDartLanguageAdapter,
-  createV2LanguageRegistry,
-  V2_STRUCTURAL_KINDS,
+  createLanguageRegistry,
+  STRUCTURAL_KINDS,
 } from '../../src/v2/languages';
 import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
 
@@ -34,15 +34,15 @@ Widget makeWidget() {
 `;
 
 const resolver = createAdapterStructuralResolver(
-  createV2LanguageRegistry([createDartLanguageAdapter(ASSETS)]),
+  createLanguageRegistry([createDartLanguageAdapter(ASSETS)]),
 );
 
-describe('Dart V2 language adapter', () => {
-  it('registers Dart with the canonical V2 structural capability set', () => {
+describe('Dart language adapter', () => {
+  it('registers Dart with the canonical structural capability set', () => {
     const adapter = createDartLanguageAdapter(ASSETS);
 
     expect(adapter.extensions).toEqual(['.dart']);
-    expect(adapter.structural.supportedKinds).toEqual(V2_STRUCTURAL_KINDS);
+    expect(adapter.structural.supportedKinds).toEqual(STRUCTURAL_KINDS);
     expect(adapter.grammarIdForFile('lib/widget.dart')).toBe('dart');
   });
 

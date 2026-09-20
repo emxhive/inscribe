@@ -4,12 +4,11 @@ This document describes the architectural principles and design constraints for 
 
 ## Principles & Constraints
 
-- **No Legacy Imports**: V2 code must never import from any legacy code directories (`legacy/` or archived folders).
 - **Logical Syntax Node Targets**: Structural operations target logical syntax nodes (such as classes, methods, functions, constructors, loops, blocks) rather than coordinate ranges.
 - **Strict Text-Matching Fallback**: If logical structural matching fails, exact anchored text matching is used strictly as a fallback.
 - **Normalization First**: The raw payload is fully normalized (including line-ending normalization) before any candidate file content is constructed.
 - **Precise Diff Descriptions**: Generated diffs must describe actual textual changes (line-by-line / character-by-character) instead of merely reflecting the operational node scope.
-- **Shared Execution Semantics**: Both previewing (`buildOperationPreview`, `buildOperationComparison`) and applying changes (`applyChanges`) must share identical canonical execution semantics. Note that this is a V2 integration requirement, not active runtime wiring yet.
+- **Shared Execution Semantics**: Previewing and applying changes share identical canonical structural execution semantics.
 - **Optional Authoritative Validation**: The shared candidate-validation boundary invokes an adapter's syntax validator only when that capability is explicitly provided. A language without a trustworthy validator remains usable without pretending that structural parsing proves syntax validity.
 - **Worker Isolation**: Worker thread execution and environment boundary safety remain outside the engine logic itself (managed via IPC/engineWorker boundaries in the application).
 - **Tree-sitter Role**: Tree-sitter provides logical structural discovery and parser diagnostics for registered V2 languages. It is not an authoritative syntax validator. Compiler and type-checker concerns remain outside V2.

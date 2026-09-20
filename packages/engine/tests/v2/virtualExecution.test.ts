@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolvePlan } from '../../src/v2/execution/resolvePlan';
 
-describe('V2 virtual sequential execution plan', () => {
+describe('virtual sequential execution plan', () => {
   it('runs multiple sequential operations against one virtual file', async () => {
     const initialFiles = new Map();
     const payloads = [

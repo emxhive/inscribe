@@ -1,4 +1,4 @@
-// V2 shared entry point
+// Shared protocol entry point. The physical directory remains versioned for now.
 export * from './operations';
 export * from './targets';
 export * from './comparisons';

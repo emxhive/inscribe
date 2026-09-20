@@ -1,12 +1,11 @@
 import { Worker } from 'worker_threads';
 import * as path from 'path';
 import { app } from 'electron';
-import type { PreviewV2WorkerPayload, PreviewV2WorkerResponse } from './previewV2Types';
-import type { ApplyV2WorkerPayload, ApplyV2WorkerResponse } from './applyV2Types';
+import type { PreviewWorkerPayload, PreviewWorkerResponse } from './previewTypes';
+import type { ApplyWorkerPayload, ApplyWorkerResponse } from './applyTypes';
 
 let worker: Worker | null = null;
 const pendingRequests = new Map<string, { resolve: (val: any) => void; reject: (err: any) => void }>();
-const inFlightComparisons = new Map<string, Promise<any>>();
 let requestIdCounter = 0;
 
 function nextRequestId(): string {
@@ -19,9 +18,8 @@ function handleWorkerCrash(err: Error) {
   for (const pending of pendingRequests.values()) {
     pending.reject(new Error(`Worker crashed: ${err.message}`));
   }
-  // Clear pending maps and comparison dedupe entries
+  // Clear pending requests before terminating the failed worker.
   pendingRequests.clear();
-  inFlightComparisons.clear();
 
   // Dispose of the failed worker reference
   if (worker) {
@@ -66,22 +64,6 @@ function getWorker(): Worker {
   return worker;
 }
 
-function getCompareKey(repoRoot: string, operation: any): string {
-  const directives = operation.directives || {};
-  const sortedKeys = Object.keys(directives).sort();
-  const sortedDirectives: Record<string, any> = {};
-  for (const key of sortedKeys) {
-    sortedDirectives[key] = directives[key];
-  }
-  return JSON.stringify({
-    repoRoot,
-    file: operation.file,
-    type: operation.type,
-    content: operation.content,
-    directives: sortedDirectives,
-  });
-}
-
 function executeOnWorker(action: string, payload: any): Promise<any> {
   return new Promise((resolve, reject) => {
     try {
@@ -96,64 +78,23 @@ function executeOnWorker(action: string, payload: any): Promise<any> {
 }
 
 /**
- * Executes a compare-operation on the worker with in-flight deduplication.
+ * Executes preview operations on the worker.
  */
-export function compareOperation(operation: any, repoRoot: string): Promise<any> {
-  const key = getCompareKey(repoRoot, operation);
-  const existing = inFlightComparisons.get(key);
-  if (existing) {
-    return existing;
-  }
-
-  const promise = executeOnWorker('compare-operation', { operation, repoRoot })
-    .then((res) => {
-      inFlightComparisons.delete(key);
-      return res;
-    })
-    .catch((err) => {
-      inFlightComparisons.delete(key);
-      throw err;
-    });
-
-  inFlightComparisons.set(key, promise);
-  return promise;
+export function previewOnWorker(payload: PreviewWorkerPayload): Promise<PreviewWorkerResponse> {
+  return executeOnWorker('preview', payload);
 }
 
 /**
- * Executes apply-changes on the worker.
+ * Executes apply operations on the worker.
  */
-export function applyChangesOnWorker(plan: any, repoRoot: string): Promise<any> {
-  return executeOnWorker('apply-changes', { plan, repoRoot });
-}
-
-/**
- * Executes restore-entry on the worker.
- */
-export function restoreEntryOnWorker(request: any, repoRoot: string): Promise<any> {
-  return executeOnWorker('restore-entry', { request, repoRoot });
-}
-
-
-
-/**
- * Executes V2 preview operations on the worker.
- */
-export function previewV2OnWorker(payload: PreviewV2WorkerPayload): Promise<PreviewV2WorkerResponse> {
-  return executeOnWorker('preview_v2', payload);
-}
-
-/**
- * Executes V2 apply operations on the worker.
- */
-export function applyV2OnWorker(payload: ApplyV2WorkerPayload): Promise<ApplyV2WorkerResponse> {
-  return executeOnWorker('apply_v2', payload);
+export function applyOnWorker(payload: ApplyWorkerPayload): Promise<ApplyWorkerResponse> {
+  return executeOnWorker('apply', payload);
 }
 
 /**
  * Disposes the worker thread client and terminates the worker.
  */
 export function dispose() {
-  inFlightComparisons.clear();
   for (const pending of pendingRequests.values()) {
     pending.reject(new Error('Worker disposed'));
   }

@@ -98,7 +98,7 @@ export interface TreeSitterLanguageAdapterDefinition {
 }
 
 /**
- * Builds a V2 adapter around a Tree-sitter grammar.
+ * Builds an adapter around a Tree-sitter grammar.
  *
  * Tree-sitter nodes are confined to the collector callback. The adapter's
  * public result is converted immediately to logical JS UTF-16 ranges.

@@ -11,5 +11,4 @@ export { getIndexStatus } from './repo/statusStore';
 export {
   getHistoryEntries,
   appendHistoryEntries,
-  markHistoryEntryRestored,
 } from './repo/historyStore';

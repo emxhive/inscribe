@@ -1,13 +1,13 @@
 import { diffLinesStable } from '../../diff/lineDiff';
-import { V2DiffHunk } from '@inscribe/shared';
+import { DiffHunk } from '@inscribe/shared';
 
-export function computeDiffHunks(oldContent: string, newContent: string): V2DiffHunk[] {
+export function computeDiffHunks(oldContent: string, newContent: string): DiffHunk[] {
   if (oldContent === newContent) {
     return [];
   }
 
   const parts = diffLinesStable(oldContent, newContent);
-  const hunks: V2DiffHunk[] = [];
+  const hunks: DiffHunk[] = [];
 
   let oldOffset = 0;
   let newOffset = 0;

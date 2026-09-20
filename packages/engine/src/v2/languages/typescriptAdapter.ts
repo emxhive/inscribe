@@ -18,7 +18,7 @@ import {
   StructuralCandidateQuery,
   StructuralSelectorSegment,
   TreeSitterLanguageAdapter,
-  V2_STRUCTURAL_KINDS,
+  STRUCTURAL_KINDS,
 } from './types';
 import {
   createTreeSitterLanguageAdapter,
@@ -307,9 +307,9 @@ export function createTypeScriptLanguageAdapter(
   assets: TreeSitterAssetPaths,
 ): TreeSitterLanguageAdapter {
   return createTreeSitterLanguageAdapter({
-    id: 'typescript-v2',
+    id: 'typescript',
     extensions: TYPESCRIPT_EXTENSIONS,
-    supportedKinds: V2_STRUCTURAL_KINDS,
+    supportedKinds: STRUCTURAL_KINDS,
     grammarIdForFile,
     collectCandidates,
   }, assets);

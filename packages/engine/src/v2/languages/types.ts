@@ -1,9 +1,9 @@
 import { StructuralKind, StructuralSelectorSegment } from '@inscribe/shared';
-import type { V2StructuralParserFailure } from '@inscribe/shared';
+import type { StructuralParserFailure } from '@inscribe/shared';
 
 export { StructuralKind, StructuralSelectorSegment };
 
-export const V2_STRUCTURAL_KINDS: readonly StructuralKind[] = [
+export const STRUCTURAL_KINDS: readonly StructuralKind[] = [
   'class',
   'constructor',
   'method',
@@ -25,17 +25,17 @@ export const FLUTTER_STRUCTURAL_KINDS: readonly StructuralKind[] = [
   'builder_branch',
 ];
 
-export const ALL_V2_STRUCTURAL_KINDS: readonly StructuralKind[] = [
-  ...V2_STRUCTURAL_KINDS,
+export const ALL_STRUCTURAL_KINDS: readonly StructuralKind[] = [
+  ...STRUCTURAL_KINDS,
   ...FLUTTER_STRUCTURAL_KINDS,
 ];
 
-export function isV2StructuralKind(value: unknown): value is StructuralKind {
-  return typeof value === 'string' && ALL_V2_STRUCTURAL_KINDS.includes(value as StructuralKind);
+export function isStructuralKind(value: unknown): value is StructuralKind {
+  return typeof value === 'string' && ALL_STRUCTURAL_KINDS.includes(value as StructuralKind);
 }
 
 /**
- * A structural candidate returned by a V2 language adapter.
+ * A structural candidate returned by a language adapter.
  *
  * The range is expressed in JavaScript UTF-16 code-unit offsets and follows
  * the usual half-open interval convention: [start, end). Tree-sitter nodes
@@ -61,7 +61,7 @@ export interface StructuralCandidateReliability {
   qualification: StructuralTrust;
   /** Whether the candidate's complete range and ownership can safely mutate. */
   replacement: StructuralTrust;
-  structuralParser?: V2StructuralParserFailure;
+  structuralParser?: StructuralParserFailure;
 }
 
 export interface StructuralCandidateDiscovery {
@@ -72,7 +72,7 @@ export interface StructuralCandidateDiscovery {
    * per-candidate reliability because the uncertainty belongs to the search
    * scope, not to one candidate.
    */
-  discoveryUncertainty?: V2StructuralParserFailure;
+  discoveryUncertainty?: StructuralParserFailure;
 }
 
 export type StructuralCandidateResolution =
@@ -84,7 +84,7 @@ export interface StructuralCandidateQuery {
   source: string;
   /** Original path is required so adapters can select grammar variants. */
   filePath: string;
-  /** Lowercase extension extracted by the V2 core, including the leading dot. */
+  /** Lowercase extension extracted by the core, including the leading dot. */
   extension: string;
   path: readonly StructuralSelectorSegment[];
 }
@@ -92,17 +92,17 @@ export interface StructuralCandidateQuery {
 export interface SyntaxValidationQuery {
   source: string;
   filePath: string;
-  /** Lowercase extension extracted by the V2 core, including the leading dot. */
+  /** Lowercase extension extracted by the core, including the leading dot. */
   extension: string;
 }
 
 /**
- * Language-specific structural discovery for V2 replace_node.
+ * Language-specific structural discovery for replace_node.
  *
  * Phase A adapters use Tree-sitter internally. Their public result is
- * deliberately parser-agnostic so selector policy remains in the V2 core.
+ * deliberately parser-agnostic so selector policy remains in the core.
  */
-export interface V2StructuralCapabilities {
+export interface StructuralCapabilities {
   readonly supportedKinds: readonly StructuralKind[];
   resolveCandidates(
     query: StructuralCandidateQuery,
@@ -110,28 +110,28 @@ export interface V2StructuralCapabilities {
 }
 
 /**
- * Shared language identity plus independently-optional V2 capabilities.
+ * Shared language identity plus independently-optional structural capabilities.
  * A syntax-only adapter does not need to expose unused structural members.
  */
-export interface V2LanguageAdapter {
+export interface LanguageAdapter {
   readonly id: string;
   readonly extensions: readonly string[];
-  readonly structural?: V2StructuralCapabilities;
+  readonly structural?: StructuralCapabilities;
   /** Optional syntax-only validation for the adapter's supported files. */
   validateSyntax?(query: SyntaxValidationQuery): void | Promise<void>;
 }
 
-export interface V2StructuralLanguageAdapter extends V2LanguageAdapter {
-  readonly structural: V2StructuralCapabilities;
+export interface StructuralLanguageAdapter extends LanguageAdapter {
+  readonly structural: StructuralCapabilities;
 }
 
-export function hasV2StructuralCapabilities(
-  adapter: V2LanguageAdapter,
-): adapter is V2StructuralLanguageAdapter {
+export function hasStructuralCapabilities(
+  adapter: LanguageAdapter,
+): adapter is StructuralLanguageAdapter {
   return adapter.structural !== undefined;
 }
 
-export interface TreeSitterLanguageAdapter extends V2StructuralLanguageAdapter {
+export interface TreeSitterLanguageAdapter extends StructuralLanguageAdapter {
   /** Selects the grammar asset for the concrete file variant being resolved. */
   readonly grammarIdForFile: (filePath: string) => string;
 }

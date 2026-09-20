@@ -1,2 +1,2 @@
-// V2 preflight placeholder
+// Preflight entry point reserved for future shared exports.
 export {};

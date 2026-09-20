@@ -12,6 +12,6 @@ export default defineConfig({
     root: path.resolve(__dirname, '../..'),
     environment: 'node',
     include: ['apps/desktop/src/**/*.test.ts'],
-    exclude: ['legacy/**', '**/node_modules/**'],
+    exclude: ['**/node_modules/**'],
   },
 });

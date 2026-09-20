@@ -1,12 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type {
-  ApplyPlan,
-  ApplyResult,
-  ParseResult,
-  Operation,
-  ParsedBlock,
-  ValidationError,
-} from '@inscribe/shared';
+import type { ApplyResult } from '@inscribe/shared';
 import type {
   IgnoreWriteResult,
   ReadIgnoreRawResult,
@@ -31,12 +24,6 @@ const api = {
 
   getWindowRepo: (): Promise<string | null> =>
     ipcRenderer.invoke('get-window-repo'),
-
-  getAppliedAiInput: (rawInput: string, repoRoot: string) =>
-    ipcRenderer.invoke('applied-ai-input-get', rawInput, repoRoot),
-
-  confirmPreviouslyAppliedAiInputParse: (record: import('@inscribe/shared').AppliedAiInputRecord): Promise<boolean> =>
-    ipcRenderer.invoke('confirm-previously-applied-ai-input-parse', record),
 
   readClipboardText: (): Promise<string> =>
     ipcRenderer.invoke('clipboard-read-text'),
@@ -71,35 +58,14 @@ const api = {
   indexStatus: (repoRoot: string): Promise<RepoInitResult['indexStatus']> =>
     ipcRenderer.invoke('index-status', repoRoot),
 
-  parseBlocks: (content: string): Promise<ParseResult> =>
-    ipcRenderer.invoke('parse-blocks', content),
-
-  validateBlocks: (blocks: ParsedBlock[]): Promise<ValidationError[]> =>
-    ipcRenderer.invoke('validate-blocks', blocks),
-
-  validateAndBuildApplyPlan: (blocks: ParsedBlock[]): Promise<ApplyPlan> =>
-    ipcRenderer.invoke('validate-and-build-apply-plan', blocks),
-
-  applyChanges: (plan: ApplyPlan, repoRoot: string, rawAiInput?: string): Promise<ApplyResult> =>
-    ipcRenderer.invoke('apply-changes', plan, repoRoot, rawAiInput),
-
-  restoreEntry: (request: import('@inscribe/engine').RestoreRequest, repoRoot: string): Promise<ApplyResult> =>
-    ipcRenderer.invoke('restore-entry', request, repoRoot),
-
-  compareOperation: (operation: Operation, repoRoot: string) =>
-    ipcRenderer.invoke('compare-operation', operation, repoRoot),
-
   getHistoryEntries: (repoRoot: string) =>
     ipcRenderer.invoke('history-get', repoRoot),
 
-  markHistoryEntryRestored: (repoRoot: string, entryId: string, restoredAt: string) =>
-    ipcRenderer.invoke('history-mark-restored', repoRoot, entryId, restoredAt),
+  previewRestore: (repoRoot: string, actionId: string) =>
+    ipcRenderer.invoke('history-preview-restore', repoRoot, actionId),
 
-  previewV2Restore: (repoRoot: string, actionId: string) =>
-    ipcRenderer.invoke('history-v2-preview-restore', repoRoot, actionId),
-
-  restoreV2Action: (repoRoot: string, actionId: string): Promise<ApplyResult> =>
-    ipcRenderer.invoke('history-v2-restore', repoRoot, actionId),
+  restoreAction: (repoRoot: string, actionId: string): Promise<ApplyResult> =>
+    ipcRenderer.invoke('history-restore', repoRoot, actionId),
 
   terminalCreate: (options: import('./types').TerminalCreateOptions) =>
     ipcRenderer.invoke('terminal-create', options),
@@ -125,11 +91,11 @@ const api = {
     return () => ipcRenderer.removeListener('terminal:session-exit', subscription);
   },
 
-  previewV2: (args: import('./ipc/previewV2Types').PreviewV2IpcArgs): Promise<import('./ipc/previewV2Types').PreviewV2WorkerResponse> =>
-    ipcRenderer.invoke('preview-v2', args),
+  preview: (args: import('./ipc/previewTypes').PreviewIpcArgs): Promise<import('./ipc/previewTypes').PreviewWorkerResponse> =>
+    ipcRenderer.invoke('preview', args),
 
-  applyV2: (args: import('./ipc/applyV2Types').ApplyV2IpcArgs): Promise<import('./ipc/applyV2Types').ApplyV2WorkerResponse> =>
-    ipcRenderer.invoke('apply-v2', args),
+  apply: (args: import('./ipc/applyTypes').ApplyIpcArgs): Promise<import('./ipc/applyTypes').ApplyWorkerResponse> =>
+    ipcRenderer.invoke('apply', args),
 };
 
 contextBridge.exposeInMainWorld('inscribeAPI', api);

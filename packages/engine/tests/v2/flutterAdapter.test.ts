@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   createFlutterLanguageAdapter,
-  createV2LanguageRegistry,
+  createLanguageRegistry,
   FLUTTER_STRUCTURAL_KINDS,
 } from '../../src/v2/languages';
 import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
@@ -25,10 +25,10 @@ const activityFeed = fs.readFileSync(
 );
 
 const resolver = createAdapterStructuralResolver(
-  createV2LanguageRegistry([createFlutterLanguageAdapter(ASSETS)]),
+  createLanguageRegistry([createFlutterLanguageAdapter(ASSETS)]),
 );
 
-describe('Flutter V2 structural adapter', () => {
+describe('Flutter structural adapter', () => {
   it('publishes only the semantic Flutter capability vocabulary', () => {
     expect(createFlutterLanguageAdapter(ASSETS).structural.supportedKinds).toEqual([
       'class',

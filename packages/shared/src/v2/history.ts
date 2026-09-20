@@ -1,10 +1,10 @@
-import { V2OperationStrategy } from './operations';
+import { OperationStrategy } from './operations';
 
 export interface V2RestorePayload {
   schemaVersion: 2;
   executionId: string;
   filePath: string;
-  strategy: V2OperationStrategy;
+  strategy: OperationStrategy;
   beforeContent: string;
   afterContent: string;
   beforeHash: string;

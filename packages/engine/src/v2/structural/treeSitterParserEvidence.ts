@@ -1,10 +1,9 @@
-import Parser from 'web-tree-sitter';
+import Parser from "web-tree-sitter";
 import type {
   StructuralParserDiagnostic,
   StructuralParserFailure,
-} from '@inscribe/shared';
-import type { StructuralKind } from '@inscribe/shared';
-import { treeSitterRangeToJsRange } from './treeSitterRangeToJsRange';
+} from "@inscribe/shared";
+import { treeSitterRangeToJsRange } from "./treeSitterRangeToJsRange";
 
 export interface TreeSitterParserEvidence {
   diagnostics: readonly StructuralParserDiagnostic[];
@@ -31,7 +30,7 @@ export function collectTreeSitterParserEvidence(
   const recoveryNodes: Parser.SyntaxNode[] = [];
 
   function visit(node: Parser.SyntaxNode): void {
-    const isError = node.type === 'ERROR';
+    const isError = node.type === "ERROR";
     const isMissing = node.isMissing();
     if (isError || isMissing) {
       recoveryNodes.push(node);
@@ -39,7 +38,7 @@ export function collectTreeSitterParserEvidence(
       const start = pointForOffset(source, range.start);
       const end = pointForOffset(source, range.end);
       diagnostics.push({
-        condition: isMissing ? 'MISSING_NODE' : 'ERROR_NODE',
+        condition: isMissing ? "MISSING_NODE" : "ERROR_NODE",
         nodeType: node.type,
         startIndex: range.start,
         endIndex: range.end,
@@ -72,12 +71,14 @@ export function createTreeSitterParserFailure(
 ): StructuralParserFailure {
   const limitedDiagnostics = diagnostics.slice(0, MAX_DIAGNOSTICS_IN_FAILURE);
   return {
-    parser: 'tree-sitter',
+    parser: "tree-sitter",
     adapterId,
     grammarId,
     diagnostics: [...limitedDiagnostics],
     totalDiagnostics,
-    diagnosticsTruncated: diagnostics.length > limitedDiagnostics.length || totalDiagnostics > diagnostics.length,
+    diagnosticsTruncated:
+      diagnostics.length > limitedDiagnostics.length ||
+      totalDiagnostics > diagnostics.length,
   };
 }
 
@@ -89,7 +90,7 @@ export function createTreeSitterRecoveryDiagnostic(
   const start = pointForOffset(source, range.start);
   const end = pointForOffset(source, range.end);
   return {
-    condition: node.isMissing() ? 'MISSING_NODE' : 'ERROR_NODE',
+    condition: node.isMissing() ? "MISSING_NODE" : "ERROR_NODE",
     nodeType: node.type,
     startIndex: range.start,
     endIndex: range.end,
@@ -101,92 +102,29 @@ export function createTreeSitterRecoveryDiagnostic(
   };
 }
 
-/** Reports whether parser recovery intersects a language-supplied structural fact. */
-export function hasTreeSitterRecoveryInRange(
+function pointForOffset(
   source: string,
-  evidence: TreeSitterParserEvidence,
-  range: TreeSitterJsRange,
-): boolean {
-  return evidence.recoveryNodes.some((node) => {
-    const nodeRange = treeSitterRangeToJsRange(source, node);
-    if (nodeRange.start === nodeRange.end) {
-      return nodeRange.start >= range.start && nodeRange.start < range.end;
-    }
-    return nodeRange.start < range.end && nodeRange.end > range.start;
-  });
-}
-
-export function hasTreeSitterRecoveryAdjacentToNode(
-  evidence: TreeSitterParserEvidence,
-  node: Parser.SyntaxNode,
-): boolean {
-  return [node.previousSibling, node.nextSibling].some((sibling) =>
-    sibling !== null && evidence.recoveryNodes.some((recoveryNode) =>
-      isSameTreeSitterNode(recoveryNode, sibling),
-    ),
-  );
-}
-
-export type TreeSitterDiscoveryRiskPredicate = (
-  recoveryNode: Parser.SyntaxNode,
-  candidateKind: StructuralKind,
-) => boolean;
-
-/**
- * Returns only recovery regions that are both actually traversed and
- * language-identified as capable of hiding the requested candidate kind.
- */
-export function collectTreeSitterDiscoveryRiskNodes(
-  evidence: TreeSitterParserEvidence,
-  traversedNodes: readonly Parser.SyntaxNode[],
-  skippedNodes: readonly Parser.SyntaxNode[],
-  candidateKind: StructuralKind,
-  canHideCandidate: TreeSitterDiscoveryRiskPredicate,
-): readonly Parser.SyntaxNode[] {
-  return evidence.recoveryNodes.filter((node) => {
-    if (!isWithinTreeSitterTraversal(node, traversedNodes, skippedNodes)) return false;
-    return canHideCandidate(node, candidateKind);
-  });
-}
-
-function isWithinTreeSitterTraversal(
-  recoveryNode: Parser.SyntaxNode,
-  traversedNodes: readonly Parser.SyntaxNode[],
-  skippedNodes: readonly Parser.SyntaxNode[],
-): boolean {
-  let current: Parser.SyntaxNode | null = recoveryNode;
-  while (current) {
-    if (skippedNodes.some((node) => isSameTreeSitterNode(current!, node))) return false;
-    if (traversedNodes.some((node) => isSameTreeSitterNode(current!, node))) return true;
-    current = current.parent;
-  }
-  return false;
-}
-
-function isSameTreeSitterNode(
-  first: Parser.SyntaxNode,
-  second: Parser.SyntaxNode,
-): boolean {
-  return (
-    first.type === second.type &&
-    first.startIndex === second.startIndex &&
-    first.endIndex === second.endIndex
-  );
-}
-
-function pointForOffset(source: string, offset: number): { line: number; column: number } {
+  offset: number,
+): { line: number; column: number } {
   const safeOffset = Math.max(0, Math.min(source.length, offset));
   const before = source.slice(0, safeOffset);
-  const lastNewline = before.lastIndexOf('\n');
+  const lastNewline = before.lastIndexOf("\n");
   return {
-    line: before.split('\n').length,
+    line: before.split("\n").length,
     column: safeOffset - (lastNewline + 1),
   };
 }
 
-function createDiagnosticContext(source: string, start: number, end: number): string {
+function createDiagnosticContext(
+  source: string,
+  start: number,
+  end: number,
+): string {
   const contextStart = Math.max(0, start - DIAGNOSTIC_CONTEXT_RADIUS);
-  const contextEnd = Math.min(source.length, Math.max(end, start) + DIAGNOSTIC_CONTEXT_RADIUS);
+  const contextEnd = Math.min(
+    source.length,
+    Math.max(end, start) + DIAGNOSTIC_CONTEXT_RADIUS,
+  );
   const context = source.slice(contextStart, contextEnd);
   if (context.length <= MAX_DIAGNOSTIC_CONTEXT_LENGTH) return context;
 

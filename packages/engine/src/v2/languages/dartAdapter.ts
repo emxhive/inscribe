@@ -1,72 +1,60 @@
-import Parser from 'web-tree-sitter';
-import { treeSitterRangeToJsRange } from '../structural/treeSitterRangeToJsRange';
-import {
-  collectTreeSitterDiscoveryRiskNodes,
-  hasTreeSitterRecoveryAdjacentToNode,
-  hasTreeSitterRecoveryInRange,
-} from '../structural/treeSitterParserEvidence';
-import type { TreeSitterParserEvidence } from '../structural/treeSitterParserEvidence';
-import { TreeSitterAssetPaths } from '../structural/treeSitterRuntime';
+import Parser from "web-tree-sitter";
+import { treeSitterRangeToJsRange } from "../structural/treeSitterRangeToJsRange";
+import type { TreeSitterParserEvidence } from "../structural/treeSitterParserEvidence";
+import { TreeSitterAssetPaths } from "../structural/treeSitterRuntime";
 import {
   StructuralCandidateQuery,
   StructuralKind,
   StructuralSelectorSegment,
   TreeSitterLanguageAdapter,
   STRUCTURAL_KINDS,
-} from './types';
+} from "./types";
 import {
   createTreeSitterLanguageAdapter,
-  TreeSitterCandidateCollection,
   TreeSitterReplacementCandidate,
   TreeSitterReplacementRange,
-  TreeSitterStructuralSearchScope,
-} from './treeSitterAdapter';
+} from "./treeSitterAdapter";
 
-const DART_EXTENSIONS = ['.dart'] as const;
+const DART_EXTENSIONS = [".dart"] as const;
 
 export interface DartStructuralMatch {
   kind: StructuralKind;
   name?: string;
   traversalNode: Parser.SyntaxNode;
-  replacement: TreeSitterReplacementCandidate['replacement'];
+  replacement: TreeSitterReplacementCandidate["replacement"];
   identityRange?: TreeSitterReplacementRange;
   identityNode?: Parser.SyntaxNode;
   discoveryScope?: Parser.SyntaxNode;
 }
 
 function grammarIdForFile(_filePath: string): string {
-  return 'dart';
+  return "dart";
 }
 
 export function collectDartCandidates(
   rootNode: Parser.SyntaxNode,
   query: StructuralCandidateQuery,
 ): readonly TreeSitterReplacementCandidate[] {
-  return collectDartCandidateCollection(rootNode, query).candidates;
+  return collectDartCandidateCollection(rootNode, query);
 }
 
 export function collectDartCandidateCollection(
   rootNode: Parser.SyntaxNode,
   query: StructuralCandidateQuery,
-  parserEvidence?: TreeSitterParserEvidence,
-): TreeSitterCandidateCollection {
+  _parserEvidence?: TreeSitterParserEvidence,
+): readonly TreeSitterReplacementCandidate[] {
   const matches: DartStructuralMatch[] = [];
-  const searchScopes: TreeSitterStructuralSearchScope[] = [];
-  collectDartMatches(rootNode, query.path, 0, matches, query.source, searchScopes, parserEvidence);
+  collectDartMatches(rootNode, query.path, 0, matches, query.source);
 
-  return {
-    candidates: matches.map((match) => ({
-      kind: match.kind,
-      name: match.name,
-      replacement: match.replacement,
-      reliabilityNode: match.traversalNode,
-      identityRange: match.identityRange,
-      identityNode: match.identityNode,
-      discoveryScope: match.discoveryScope,
-    })),
-    searchScopes,
-    discoveryComplete: true,
-  };
+  return matches.map((match) => ({
+    kind: match.kind,
+    name: match.name,
+    replacement: match.replacement,
+    reliabilityNode: match.traversalNode,
+    identityRange: match.identityRange,
+    identityNode: match.identityNode,
+    discoveryScope: match.discoveryScope,
+  }));
 }
 
 export function collectDartMatches(
@@ -75,54 +63,32 @@ export function collectDartMatches(
   depth: number,
   results: DartStructuralMatch[],
   source: string,
-  searchScopes: TreeSitterStructuralSearchScope[] = [],
-  parserEvidence?: TreeSitterParserEvidence,
 ): void {
   const segment = selectorPath[depth];
   const isLast = depth === selectorPath.length - 1;
   const candidates: DartStructuralMatch[] = [];
-  const protectedNodes: Parser.SyntaxNode[] = [];
-  const identityUncertainNodes: Parser.SyntaxNode[] = [];
-  const traversedNodes: Parser.SyntaxNode[] = [];
-  const skippedNodes: Parser.SyntaxNode[] = [];
-
   function traverse(node: Parser.SyntaxNode): void {
-    traversedNodes.push(node);
     for (let index = 0; index < node.namedChildCount; index++) {
       const child = node.namedChild(index);
       if (!child) continue;
 
-      const structuralMatch = getDartStructuralMatch(child, source, segment.kind);
-      const identityUncertain = Boolean(
-        structuralMatch &&
-        segment.name &&
-        structuralMatch.name !== segment.name &&
-        parserEvidence &&
-        (
-          (structuralMatch.identityRange !== undefined &&
-            hasTreeSitterRecoveryInRange(source, parserEvidence, {
-              start: structuralMatch.identityRange.startIndex,
-              end: structuralMatch.identityRange.endIndex,
-            })) ||
-          (structuralMatch.identityNode !== undefined &&
-            hasTreeSitterRecoveryAdjacentToNode(parserEvidence, structuralMatch.identityNode))
-        ),
+      const structuralMatch = getDartStructuralMatch(
+        child,
+        source,
+        segment.kind,
       );
-      if (structuralMatch?.kind === segment.kind && identityUncertain) {
-        identityUncertainNodes.push(child);
-      } else if (structuralMatch?.kind === segment.kind) {
-        protectedNodes.push(child);
-      }
       const isMatch =
         structuralMatch?.kind === segment.kind &&
-        (!segment.name || structuralMatch.name === segment.name || identityUncertain);
+        (!segment.name || structuralMatch.name === segment.name);
 
       if (isMatch) {
         candidates.push(structuralMatch);
       }
 
-      if (depth > 0 && (isDartStructuralOwner(child) || isOwnedFunctionBody(child))) {
-        skippedNodes.push(child);
+      if (
+        depth > 0 &&
+        (isDartStructuralOwner(child) || isOwnedFunctionBody(child))
+      ) {
         continue;
       }
 
@@ -131,30 +97,6 @@ export function collectDartMatches(
   }
 
   traverse(currentNode);
-
-  searchScopes.push({
-    node: currentNode,
-    candidateKind: segment.kind,
-    protectedNodes,
-    traversedNodes,
-    skippedNodes,
-    discoveryRiskNodes: parserEvidence
-      ? [
-        ...collectTreeSitterDiscoveryRiskNodes(
-          parserEvidence,
-          traversedNodes,
-          skippedNodes,
-          segment.kind,
-          canHideDartCandidate,
-        ),
-        ...parserEvidence.recoveryNodes.filter((recoveryNode) =>
-          identityUncertainNodes.some((node) =>
-            node.startIndex <= recoveryNode.startIndex && node.endIndex >= recoveryNode.endIndex,
-          ),
-        ),
-      ]
-      : [],
-  });
 
   for (const candidate of candidates) {
     if (isLast) {
@@ -166,34 +108,9 @@ export function collectDartMatches(
         depth + 1,
         results,
         source,
-        searchScopes,
-        parserEvidence,
       );
     }
   }
-}
-
-export function canHideDartCandidate(
-  recoveryNode: Parser.SyntaxNode,
-  candidateKind: StructuralSelectorSegment['kind'],
-): boolean {
-  const text = recoveryNode.text;
-  const keywords = new Map<StructuralSelectorSegment['kind'], RegExp>([
-    ['class', /\b(?:class|mixin|enum|extension)\b/],
-    ['if_statement', /\bif\b/],
-    ['for_statement', /\bfor\b/],
-    ['while_statement', /\bwhile\b/],
-    ['switch_statement', /\bswitch\b/],
-  ]);
-  const keyword = keywords.get(candidateKind);
-  if (keyword?.test(text)) return true;
-  if (candidateKind !== 'function' && candidateKind !== 'method' && candidateKind !== 'constructor') {
-    return false;
-  }
-  if (/=>/.test(text)) return true;
-  let parent = recoveryNode.parent;
-  while (parent && (parent.type === 'ERROR' || parent.isMissing())) parent = parent.parent;
-  return parent?.type === 'program' || parent?.type === 'class_body';
 }
 
 export function getDartStructuralMatch(
@@ -201,20 +118,24 @@ export function getDartStructuralMatch(
   source: string,
   requestedKind: StructuralKind,
 ): DartStructuralMatch | undefined {
-  if (node.type === 'class_definition') {
+  if (node.type === "class_definition") {
     return {
-      kind: 'class',
+      kind: "class",
       name: getDeclaredName(node),
       traversalNode: node,
       replacement: {
-        type: 'range',
-        range: createNormalizedNodeRange(source, findDeclarationStartNode(node), node),
+        type: "range",
+        range: createNormalizedNodeRange(
+          source,
+          findDeclarationStartNode(node),
+          node,
+        ),
       },
       identityRange: createNamedIdentityRange(
         source,
         node,
         findDeclarationStartNode(node),
-        node.childForFieldName('body') ?? node,
+        node.childForFieldName("body") ?? node,
       ),
       identityNode: getDeclaredNameNode(node),
     };
@@ -222,84 +143,105 @@ export function getDartStructuralMatch(
 
   const constructorSignature = getConstructorSignature(node);
   if (constructorSignature) {
-    if (requestedKind === 'constructor') {
+    if (requestedKind === "constructor") {
       return createConstructorMatch(node, constructorSignature, source);
     }
-    if (requestedKind === 'method' && node.type === 'method_signature') {
+    if (requestedKind === "method" && node.type === "method_signature") {
       return createMethodMatch(node, source);
     }
     return undefined;
   }
 
-  if (node.type === 'method_signature') {
+  if (node.type === "method_signature") {
     const body = findFollowingFunctionBody(node);
     if (!body) return undefined;
     return {
-      kind: 'method',
+      kind: "method",
       name: getDeclaredName(node),
       traversalNode: body,
       replacement: {
-        type: 'range',
-        range: createNormalizedNodeRange(source, findDeclarationStartNode(node), body),
+        type: "range",
+        range: createNormalizedNodeRange(
+          source,
+          findDeclarationStartNode(node),
+          body,
+        ),
       },
-      identityRange: createNamedIdentityRange(source, node, findDeclarationStartNode(node), body),
+      identityRange: createNamedIdentityRange(
+        source,
+        node,
+        findDeclarationStartNode(node),
+        body,
+      ),
       identityNode: getDeclaredNameNode(node),
     };
   }
 
-  if (node.type === 'function_signature' && node.parent?.type === 'program') {
+  if (node.type === "function_signature" && node.parent?.type === "program") {
     const body = findFollowingFunctionBody(node);
     if (!body) return undefined;
     return {
-      kind: 'function',
+      kind: "function",
       name: getDeclaredName(node),
       traversalNode: body,
       replacement: {
-        type: 'range',
-        range: createNormalizedNodeRange(source, findDeclarationStartNode(node), body),
+        type: "range",
+        range: createNormalizedNodeRange(
+          source,
+          findDeclarationStartNode(node),
+          body,
+        ),
       },
-      identityRange: createNamedIdentityRange(source, node, findDeclarationStartNode(node), body),
+      identityRange: createNamedIdentityRange(
+        source,
+        node,
+        findDeclarationStartNode(node),
+        body,
+      ),
       identityNode: getDeclaredNameNode(node),
     };
   }
 
-  if (node.type === 'if_statement') {
+  if (node.type === "if_statement") {
     return {
-      kind: 'if_statement',
+      kind: "if_statement",
       traversalNode: node,
-      replacement: { type: 'node', node },
+      replacement: { type: "node", node },
     };
   }
 
-  if (node.type === 'for_statement') {
+  if (node.type === "for_statement") {
     return {
-      kind: 'for_statement',
+      kind: "for_statement",
       traversalNode: node,
-      replacement: { type: 'node', node },
+      replacement: { type: "node", node },
     };
   }
 
-  if (node.type === 'while_statement') {
+  if (node.type === "while_statement") {
     return {
-      kind: 'while_statement',
+      kind: "while_statement",
       traversalNode: node,
-      replacement: { type: 'node', node },
+      replacement: { type: "node", node },
     };
   }
 
-  if (node.type === 'switch_statement') {
+  if (node.type === "switch_statement") {
     return {
-      kind: 'switch_statement',
+      kind: "switch_statement",
       traversalNode: node,
-      replacement: { type: 'node', node },
+      replacement: { type: "node", node },
     };
   }
 
   return undefined;
 }
 
-function getConstructorSignature(node: Parser.SyntaxNode): Parser.SyntaxNode | undefined {
-  if (node.type !== 'declaration' && node.type !== 'method_signature') return undefined;
+function getConstructorSignature(
+  node: Parser.SyntaxNode,
+): Parser.SyntaxNode | undefined {
+  if (node.type !== "declaration" && node.type !== "method_signature")
+    return undefined;
 
   const visit = (current: Parser.SyntaxNode): Parser.SyntaxNode | undefined => {
     if (isConstructorSignatureType(current.type)) return current;
@@ -317,10 +259,10 @@ function getConstructorSignature(node: Parser.SyntaxNode): Parser.SyntaxNode | u
 
 function isConstructorSignatureType(type: string): boolean {
   return (
-    type === 'constructor_signature' ||
-    type === 'factory_constructor_signature' ||
-    type === 'constant_constructor_signature' ||
-    type === 'redirecting_factory_constructor_signature'
+    type === "constructor_signature" ||
+    type === "factory_constructor_signature" ||
+    type === "constant_constructor_signature" ||
+    type === "redirecting_factory_constructor_signature"
   );
 }
 
@@ -329,25 +271,36 @@ function createConstructorMatch(
   signature: Parser.SyntaxNode,
   source: string,
 ): DartStructuralMatch | undefined {
-  const body = node.type === 'method_signature' ? findFollowingFunctionBody(node) : undefined;
-  const range = createNormalizedNodeRange(source, findDeclarationStartNode(node), body ?? node);
+  const body =
+    node.type === "method_signature"
+      ? findFollowingFunctionBody(node)
+      : undefined;
+  const range = createNormalizedNodeRange(
+    source,
+    findDeclarationStartNode(node),
+    body ?? node,
+  );
   const endIndex = body
     ? range.endIndex
     : findBodylessDeclarationEnd(source, range.endIndex);
   const identityNodes = getConstructorIdentifierNodes(signature);
 
   return {
-    kind: 'constructor',
+    kind: "constructor",
     name: getConstructorName(signature),
     traversalNode: body ?? node,
     replacement: {
-      type: 'range',
+      type: "range",
       range: {
         ...range,
         endIndex,
       },
     },
-    identityRange: createConstructorIdentityRange(source, findDeclarationStartNode(node), signature),
+    identityRange: createConstructorIdentityRange(
+      source,
+      findDeclarationStartNode(node),
+      signature,
+    ),
     identityNode: identityNodes[1] ?? identityNodes[0],
   };
 }
@@ -359,36 +312,53 @@ function createMethodMatch(
   const body = findFollowingFunctionBody(node);
   if (!body) return undefined;
   return {
-    kind: 'method',
+    kind: "method",
     name: getDeclaredName(node),
     traversalNode: body,
     replacement: {
-      type: 'range',
-      range: createNormalizedNodeRange(source, findDeclarationStartNode(node), body),
+      type: "range",
+      range: createNormalizedNodeRange(
+        source,
+        findDeclarationStartNode(node),
+        body,
+      ),
     },
-    identityRange: createNamedIdentityRange(source, node, findDeclarationStartNode(node), body),
+    identityRange: createNamedIdentityRange(
+      source,
+      node,
+      findDeclarationStartNode(node),
+      body,
+    ),
     identityNode: getDeclaredNameNode(node),
   };
 }
 
 function getConstructorName(signature: Parser.SyntaxNode): string {
-  const identifiers = getConstructorIdentifierNodes(signature).map((node) => node.text);
-  return identifiers[1] ?? 'new';
+  const identifiers = getConstructorIdentifierNodes(signature).map(
+    (node) => node.text,
+  );
+  return identifiers[1] ?? "new";
 }
 
-function getConstructorIdentifierNodes(signature: Parser.SyntaxNode): Parser.SyntaxNode[] {
+function getConstructorIdentifierNodes(
+  signature: Parser.SyntaxNode,
+): Parser.SyntaxNode[] {
   const identifiers: Parser.SyntaxNode[] = [];
   for (let index = 0; index < signature.namedChildCount; index++) {
     const child = signature.namedChild(index);
     if (!child) continue;
-    if (child.type === 'identifier') {
+    if (child.type === "identifier") {
       identifiers.push(child);
       continue;
     }
-    if (child.type === 'qualified') {
-      for (let nestedIndex = 0; nestedIndex < child.namedChildCount; nestedIndex++) {
+    if (child.type === "qualified") {
+      for (
+        let nestedIndex = 0;
+        nestedIndex < child.namedChildCount;
+        nestedIndex++
+      ) {
         const nested = child.namedChild(nestedIndex);
-        if (nested?.type === 'identifier') identifiers.push(nested);
+        if (nested?.type === "identifier") identifiers.push(nested);
       }
     }
   }
@@ -404,11 +374,11 @@ function createNormalizedNodeRange(
   source: string,
   startNode: Parser.SyntaxNode,
   endNode: Parser.SyntaxNode,
-): { startIndex: number; endIndex: number; coordinateSpace: 'js-utf16' } {
+): { startIndex: number; endIndex: number; coordinateSpace: "js-utf16" } {
   return {
     startIndex: treeSitterRangeToJsRange(source, startNode).start,
     endIndex: treeSitterRangeToJsRange(source, endNode).end,
-    coordinateSpace: 'js-utf16',
+    coordinateSpace: "js-utf16",
   };
 }
 
@@ -420,7 +390,7 @@ function createIdentityRange(
   return {
     startIndex: treeSitterRangeToJsRange(source, startNode).start,
     endIndex: treeSitterRangeToJsRange(source, endNode).start,
-    coordinateSpace: 'js-utf16',
+    coordinateSpace: "js-utf16",
   };
 }
 
@@ -436,7 +406,7 @@ function createNamedIdentityRange(
     return {
       startIndex: range.start,
       endIndex: range.end,
-      coordinateSpace: 'js-utf16',
+      coordinateSpace: "js-utf16",
     };
   }
   return createIdentityRange(source, fallbackStartNode, fallbackEndNode);
@@ -454,7 +424,7 @@ function createConstructorIdentityRange(
     return {
       startIndex: identity.start,
       endIndex: identity.end,
-      coordinateSpace: 'js-utf16',
+      coordinateSpace: "js-utf16",
     };
   }
   return createIdentityRange(source, fallbackStartNode, signature);
@@ -469,14 +439,14 @@ function findBodylessDeclarationEnd(source: string, jsEnd: number): number {
       continue;
     }
 
-    if (source.startsWith('//', cursor)) {
-      const newline = source.indexOf('\n', cursor + 2);
+    if (source.startsWith("//", cursor)) {
+      const newline = source.indexOf("\n", cursor + 2);
       cursor = newline === -1 ? source.length : newline + 1;
       continue;
     }
 
-    if (source.startsWith('/*', cursor)) {
-      const commentEnd = source.indexOf('*/', cursor + 2);
+    if (source.startsWith("/*", cursor)) {
+      const commentEnd = source.indexOf("*/", cursor + 2);
       cursor = commentEnd === -1 ? source.length : commentEnd + 2;
       continue;
     }
@@ -484,29 +454,31 @@ function findBodylessDeclarationEnd(source: string, jsEnd: number): number {
     break;
   }
 
-  if (source[cursor] !== ';') return jsEnd;
+  if (source[cursor] !== ";") return jsEnd;
 
   return cursor + 1;
 }
 
 export function isDartStructuralOwner(node: Parser.SyntaxNode): boolean {
   return (
-    node.type === 'class_definition' ||
-    node.type === 'method_signature' ||
+    node.type === "class_definition" ||
+    node.type === "method_signature" ||
     isConstructorDeclaration(node) ||
-    node.type === 'function_signature' ||
-    node.type === 'function_expression' ||
-    node.type === 'lambda_expression' ||
-    node.type === 'local_function_declaration'
+    node.type === "function_signature" ||
+    node.type === "function_expression" ||
+    node.type === "lambda_expression" ||
+    node.type === "local_function_declaration"
   );
 }
 
 function isConstructorDeclaration(node: Parser.SyntaxNode): boolean {
-  return node.type === 'declaration' && getConstructorSignature(node) !== undefined;
+  return (
+    node.type === "declaration" && getConstructorSignature(node) !== undefined
+  );
 }
 
 function isOwnedFunctionBody(node: Parser.SyntaxNode): boolean {
-  if (node.type !== 'function_body') return false;
+  if (node.type !== "function_body") return false;
   const parent = node.parent;
   if (!parent) return false;
 
@@ -518,7 +490,9 @@ function isOwnedFunctionBody(node: Parser.SyntaxNode): boolean {
   return false;
 }
 
-function findFollowingFunctionBody(node: Parser.SyntaxNode): Parser.SyntaxNode | undefined {
+function findFollowingFunctionBody(
+  node: Parser.SyntaxNode,
+): Parser.SyntaxNode | undefined {
   const parent = node.parent;
   if (!parent) return undefined;
 
@@ -534,7 +508,7 @@ function findFollowingFunctionBody(node: Parser.SyntaxNode): Parser.SyntaxNode |
   for (let index = nodeIndex + 1; index < parent.namedChildCount; index++) {
     const sibling = parent.namedChild(index);
     if (!sibling) continue;
-    if (sibling.type === 'function_body') return sibling;
+    if (sibling.type === "function_body") return sibling;
     if (sibling.startIndex >= node.endIndex) break;
   }
   return undefined;
@@ -563,21 +537,23 @@ function findDeclarationStartNode(node: Parser.SyntaxNode): Parser.SyntaxNode {
 }
 
 function isDartAnnotation(node: Parser.SyntaxNode): boolean {
-  return node.type === 'annotation' || node.type === 'marker_annotation';
+  return node.type === "annotation" || node.type === "marker_annotation";
 }
 
 function getDeclaredName(node: Parser.SyntaxNode): string | undefined {
   return getDeclaredNameNode(node)?.text;
 }
 
-function getDeclaredNameNode(node: Parser.SyntaxNode): Parser.SyntaxNode | undefined {
-  const directName = node.childForFieldName('name');
+function getDeclaredNameNode(
+  node: Parser.SyntaxNode,
+): Parser.SyntaxNode | undefined {
+  const directName = node.childForFieldName("name");
   if (directName) return directName;
 
   for (let index = 0; index < node.namedChildCount; index++) {
     const child = node.namedChild(index);
     if (!child) continue;
-    const nestedName = child.childForFieldName('name');
+    const nestedName = child.childForFieldName("name");
     if (nestedName) return nestedName;
   }
   return undefined;
@@ -586,11 +562,14 @@ function getDeclaredNameNode(node: Parser.SyntaxNode): Parser.SyntaxNode | undef
 export function createDartLanguageAdapter(
   assets: TreeSitterAssetPaths,
 ): TreeSitterLanguageAdapter {
-  return createTreeSitterLanguageAdapter({
-    id: 'dart',
-    extensions: DART_EXTENSIONS,
-    supportedKinds: STRUCTURAL_KINDS,
-    grammarIdForFile,
-    collectCandidates: collectDartCandidateCollection,
-  }, assets);
+  return createTreeSitterLanguageAdapter(
+    {
+      id: "dart",
+      extensions: DART_EXTENSIONS,
+      supportedKinds: STRUCTURAL_KINDS,
+      grammarIdForFile,
+      collectCandidates: collectDartCandidateCollection,
+    },
+    assets,
+  );
 }

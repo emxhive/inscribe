@@ -143,6 +143,45 @@ describe('Structural selectors', () => {
     expect(sliced).not.toContain('Missing name');
   });
 
+  it('keeps fuzzy STARTS_WITH ambiguity in the structural core', async () => {
+    const source = `
+      function saveUser() {
+        if (ready) {
+          savePrimary();
+        }
+        if(ready){
+          saveSecondary();
+        }
+      }
+    `;
+    const selector = parseSelector(
+      'function:saveUser > if_statement',
+      'if (ready) {',
+    );
+
+    await expect(resolver({ source, filePath: 'test.ts', selector })).rejects.toThrow(
+      'TARGET_AMBIGUOUS',
+    );
+  });
+
+  it('reports no qualifying candidate when fuzzy STARTS_WITH matches none', async () => {
+    const source = `
+      function saveUser() {
+        if (customer == null) {
+          saveCustomer();
+        }
+      }
+    `;
+    const selector = parseSelector(
+      'function:saveUser > if_statement',
+      'if (supplier != null) {',
+    );
+
+    await expect(resolver({ source, filePath: 'test.ts', selector })).rejects.toThrow(
+      'TARGET_QUALIFIER_NOT_MATCHED',
+    );
+  });
+
   it('uniquely resolves components/methods in TSX file', async () => {
     const source = `
       function MyComponent() {

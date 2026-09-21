@@ -1,14 +1,9 @@
-import Parser from 'web-tree-sitter';
-import type { StructuralCandidateReliability, StructuralTrust } from './types';
-import type { TreeSitterReplacementCandidate } from './treeSitterAdapter';
-import {
-  createTreeSitterParserFailure,
-} from '../structural/treeSitterParserEvidence';
-import type {
-  TreeSitterParserEvidence,
-} from '../structural/treeSitterParserEvidence';
-import type { StructuralParserFailure } from '@inscribe/shared';
-import { treeSitterRangeToJsRange } from '../structural/treeSitterRangeToJsRange';
+import Parser from "web-tree-sitter";
+import type { StructuralCandidateReliability } from "./types";
+import type { TreeSitterReplacementCandidate } from "./treeSitterAdapter";
+import { createTreeSitterParserFailure } from "../structural/treeSitterParserEvidence";
+import type { TreeSitterParserEvidence } from "../structural/treeSitterParserEvidence";
+import { treeSitterRangeToJsRange } from "../structural/treeSitterRangeToJsRange";
 
 interface JsRange {
   start: number;
@@ -28,20 +23,24 @@ export function assessTreeSitterCandidateReliability(
   replacementRange: JsRange,
   evidence: TreeSitterParserEvidence,
 ): StructuralCandidateReliability | undefined {
-  const replacementNode = candidate.replacement.type === 'node'
-    ? candidate.replacement.node
-    : undefined;
+  const replacementNode =
+    candidate.replacement.type === "node"
+      ? candidate.replacement.node
+      : undefined;
   const reliabilityNode = candidate.reliabilityNode ?? replacementNode;
   if (!reliabilityNode) return undefined;
 
   const reliabilityRange = treeSitterRangeToJsRange(source, reliabilityNode);
-  if (reliabilityRange.start >= replacementRange.start && reliabilityRange.end <= replacementRange.end) {
+  if (
+    reliabilityRange.start >= replacementRange.start &&
+    reliabilityRange.end <= replacementRange.end
+  ) {
     return undefined;
   }
 
   return {
-    qualification: 'uncertain',
-    replacement: 'uncertain',
+    qualification: "trustworthy",
+    replacement: "uncertain",
     structuralParser: createTreeSitterParserFailure(
       adapterId,
       grammarId,

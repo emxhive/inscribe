@@ -1,28 +1,28 @@
-import { StructuralKind, StructuralSelectorSegment } from '@inscribe/shared';
-import type { StructuralParserFailure } from '@inscribe/shared';
+import { StructuralKind, StructuralSelectorSegment } from "@inscribe/shared";
+import type { StructuralParserFailure } from "@inscribe/shared";
 
 export { StructuralKind, StructuralSelectorSegment };
 
 export const STRUCTURAL_KINDS: readonly StructuralKind[] = [
-  'class',
-  'constructor',
-  'method',
-  'function',
-  'for_statement',
-  'while_statement',
-  'switch_statement',
-  'if_statement',
+  "class",
+  "constructor",
+  "method",
+  "function",
+  "for_statement",
+  "while_statement",
+  "switch_statement",
+  "if_statement",
 ];
 
 /** Flutter semantics layered on top of the Dart Tree-sitter adapter. */
 export const FLUTTER_STRUCTURAL_KINDS: readonly StructuralKind[] = [
-  'widget',
-  'widget_subtree',
-  'builder_callback',
-  'event_callback',
-  'collection_if',
-  'collection_for',
-  'builder_branch',
+  "widget",
+  "widget_subtree",
+  "builder_callback",
+  "event_callback",
+  "collection_if",
+  "collection_for",
+  "builder_branch",
 ];
 
 export const ALL_STRUCTURAL_KINDS: readonly StructuralKind[] = [
@@ -31,7 +31,10 @@ export const ALL_STRUCTURAL_KINDS: readonly StructuralKind[] = [
 ];
 
 export function isStructuralKind(value: unknown): value is StructuralKind {
-  return typeof value === 'string' && ALL_STRUCTURAL_KINDS.includes(value as StructuralKind);
+  return (
+    typeof value === "string" &&
+    ALL_STRUCTURAL_KINDS.includes(value as StructuralKind)
+  );
 }
 
 /**
@@ -47,14 +50,15 @@ export interface StructuralCandidate {
   start: number;
   end: number;
   /**
-   * Optional adapter evidence used by the core resolver at the two structural
-   * trust boundaries. Uncertain candidates stay in the set so they cannot be
-   * silently discarded and turn an ambiguous selector into a unique one.
+   * Optional adapter evidence used by the core resolver when a required
+   * structural fact is genuinely indeterminate. Uncertain candidates stay in
+   * the set so they cannot be silently discarded and turn an ambiguous
+   * selector into a unique one.
    */
   reliability?: StructuralCandidateReliability;
 }
 
-export type StructuralTrust = 'trustworthy' | 'uncertain';
+export type StructuralTrust = "trustworthy" | "uncertain";
 
 export interface StructuralCandidateReliability {
   /** Whether the candidate's identity and range can safely qualify a selector. */
@@ -64,21 +68,7 @@ export interface StructuralCandidateReliability {
   structuralParser?: StructuralParserFailure;
 }
 
-export interface StructuralCandidateDiscovery {
-  candidates: readonly StructuralCandidate[];
-  /**
-   * Parser evidence showing that the candidate set or its cardinality cannot
-   * be trusted for this structural query. This is intentionally separate from
-   * per-candidate reliability because the uncertainty belongs to the search
-   * scope, not to one candidate.
-   */
-  discoveryUncertainty?: StructuralParserFailure;
-}
-
-export type StructuralCandidateResolution =
-  | StructuralCandidate[]
-  | readonly StructuralCandidate[]
-  | StructuralCandidateDiscovery;
+export type StructuralCandidateResolution = readonly StructuralCandidate[];
 
 export interface StructuralCandidateQuery {
   source: string;

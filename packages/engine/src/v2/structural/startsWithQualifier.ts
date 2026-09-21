@@ -1,3 +1,5 @@
+import { findFallbackMatch } from "../text/fallbackMatch";
+
 function normalizeLineEndings(str: string): string {
   return str.replace(/\r\n|\r/g, '\n');
 }
@@ -47,5 +49,12 @@ export function dedent(str: string): string {
 export function matchesStartsWith(candidateSource: string, snippet: string): boolean {
   const normalizedCandidate = dedent(candidateSource);
   const normalizedSnippet = dedent(snippet);
-  return normalizedCandidate.startsWith(normalizedSnippet);
+  if (normalizedCandidate.startsWith(normalizedSnippet)) {
+    return true;
+  }
+
+  return findFallbackMatch(normalizedCandidate, normalizedSnippet, {
+    anchored: true,
+    minimumMeaningfulTokens: 0,
+  }).length > 0;
 }

@@ -1,29 +1,27 @@
-import Parser from 'web-tree-sitter';
-import { getDartStructuralMatch } from '../dartAdapter';
-import { StructuralKind } from '../types';
+import Parser from "web-tree-sitter";
+import { getDartStructuralMatch } from "../dartAdapter";
+import { StructuralKind } from "../types";
 import {
   TreeSitterReplacement,
   TreeSitterReplacementRange,
-} from '../treeSitterAdapter';
-import { treeSitterRangeToJsRange } from '../../structural/treeSitterRangeToJsRange';
-import {
-  hasTreeSitterRecoveryAdjacentToNode,
-  hasTreeSitterRecoveryInRange,
-} from '../../structural/treeSitterParserEvidence';
-import type { TreeSitterParserEvidence } from '../../structural/treeSitterParserEvidence';
+} from "../treeSitterAdapter";
+import { treeSitterRangeToJsRange } from "../../structural/treeSitterRangeToJsRange";
 import {
   findInvocationSelector,
   getConstructorTypeName,
   getNamedArgumentFunction,
   getNamedArgumentLabel,
   getNamedArgumentLabelNode,
-} from './flutterAst';
-import { FlutterSourceContext, isFlutterWidgetSuperclass } from './flutterContext';
+} from "./flutterAst";
+import {
+  FlutterSourceContext,
+  isFlutterWidgetSuperclass,
+} from "./flutterContext";
 import {
   isRequestedCallbackLabel,
   isWidgetCollectionContext,
   isWidgetValueExpression,
-} from './flutterSemantics';
+} from "./flutterSemantics";
 
 export interface FlutterStructuralMatch {
   kind: StructuralKind;
@@ -40,29 +38,32 @@ export function getFlutterStructuralMatch(
   source: string,
   requestedKind: StructuralKind,
   context: FlutterSourceContext,
-  parserEvidence?: TreeSitterParserEvidence,
 ): FlutterStructuralMatch | undefined {
-  if (requestedKind === 'widget' && node.type === 'class_definition') {
-  const superclass = node.childForFieldName('superclass');
-  if (!superclass || !isFlutterWidgetSuperclass(superclass, context)) return undefined;
+  if (requestedKind === "widget" && node.type === "class_definition") {
+    const superclass = node.childForFieldName("superclass");
+    if (!superclass || !isFlutterWidgetSuperclass(superclass, context))
+      return undefined;
 
-  const dartClass = getDartStructuralMatch(node, source, 'class');
-  if (!dartClass) return undefined;
-  const identityRange = dartClass.identityNode
-    ? createIdentityRange(source, dartClass.identityNode, superclass)
-    : dartClass.identityRange;
-  return {
-    kind: 'widget',
-    name: dartClass.name,
-    traversalNode: node,
-    replacement: dartClass.replacement,
-    identityRange,
-    identityNode: dartClass.identityNode,
-  };
-}
+    const dartClass = getDartStructuralMatch(node, source, "class");
+    if (!dartClass) return undefined;
+    const identityRange = dartClass.identityNode
+      ? createIdentityRange(source, dartClass.identityNode, superclass)
+      : dartClass.identityRange;
+    return {
+      kind: "widget",
+      name: dartClass.name,
+      traversalNode: node,
+      replacement: dartClass.replacement,
+      identityRange,
+      identityNode: dartClass.identityNode,
+    };
+  }
 
-  if (requestedKind === 'builder_callback' || requestedKind === 'event_callback') {
-    if (node.type !== 'named_argument') return undefined;
+  if (
+    requestedKind === "builder_callback" ||
+    requestedKind === "event_callback"
+  ) {
+    if (node.type !== "named_argument") return undefined;
     const label = getNamedArgumentLabel(node);
     const callback = getNamedArgumentFunction(node);
     if (!callback) return undefined;
@@ -70,46 +71,47 @@ export function getFlutterStructuralMatch(
     const identityRange = identityNode
       ? createIdentityRange(source, identityNode, identityNode)
       : createIdentityPrefixRange(source, node, callback);
-    const identityUncertain = parserEvidence && (
-      hasTreeSitterRecoveryInRange(
-        source,
-        parserEvidence,
-        {
-          start: identityRange.startIndex,
-          end: identityRange.endIndex,
-        },
-      ) ||
-      (identityNode !== undefined && hasTreeSitterRecoveryAdjacentToNode(parserEvidence, identityNode))
-    );
-    if ((!label || !isRequestedCallbackLabel(label, requestedKind)) && !identityUncertain) {
+    if (!label || !isRequestedCallbackLabel(label, requestedKind)) {
       return undefined;
     }
     return {
       kind: requestedKind,
       name: label,
       traversalNode: callback,
-      replacement: { type: 'node', node: callback },
+      replacement: { type: "node", node: callback },
       identityRange,
       identityNode,
     };
   }
 
-  if (requestedKind === 'collection_if' && node.type === 'if_element') {
+  if (requestedKind === "collection_if" && node.type === "if_element") {
     if (!isWidgetCollectionContext(node)) return undefined;
-    return { kind: requestedKind, traversalNode: node, replacement: { type: 'node', node } };
+    return {
+      kind: requestedKind,
+      traversalNode: node,
+      replacement: { type: "node", node },
+    };
   }
 
-  if (requestedKind === 'collection_for' && node.type === 'for_element') {
+  if (requestedKind === "collection_for" && node.type === "for_element") {
     if (!isWidgetCollectionContext(node)) return undefined;
-    return { kind: requestedKind, traversalNode: node, replacement: { type: 'node', node } };
+    return {
+      kind: requestedKind,
+      traversalNode: node,
+      replacement: { type: "node", node },
+    };
   }
 
-  if (requestedKind === 'builder_branch' && node.type === 'if_statement') {
+  if (requestedKind === "builder_branch" && node.type === "if_statement") {
     if (!findOwningBuilderCallback(node)) return undefined;
-    return { kind: requestedKind, traversalNode: node, replacement: { type: 'node', node } };
+    return {
+      kind: requestedKind,
+      traversalNode: node,
+      replacement: { type: "node", node },
+    };
   }
 
-  if (requestedKind === 'widget_subtree') {
+  if (requestedKind === "widget_subtree") {
     return getWidgetSubtreeMatch(node, source);
   }
 
@@ -120,15 +122,18 @@ function getWidgetSubtreeMatch(
   node: Parser.SyntaxNode,
   source: string,
 ): FlutterStructuralMatch | undefined {
-  if (node.type === 'const_object_expression') {
+  if (node.type === "const_object_expression") {
     const name = getConstructorTypeName(node);
-    if (!isWidgetConstructorName(name) || !isWidgetValueExpression(node)) return undefined;
-    const identityNode = node.namedChildren.find((child) => child.type === 'type_identifier');
+    if (!isWidgetConstructorName(name) || !isWidgetValueExpression(node))
+      return undefined;
+    const identityNode = node.namedChildren.find(
+      (child) => child.type === "type_identifier",
+    );
     return {
-      kind: 'widget_subtree',
+      kind: "widget_subtree",
       name,
       traversalNode: node,
-      replacement: { type: 'node', node },
+      replacement: { type: "node", node },
       identityRange: identityNode
         ? createIdentityRange(source, identityNode, identityNode)
         : createIdentityRange(source, node, node),
@@ -136,7 +141,10 @@ function getWidgetSubtreeMatch(
     };
   }
 
-  if (node.type !== 'identifier' || node.parent?.type === 'const_object_expression') {
+  if (
+    node.type !== "identifier" ||
+    node.parent?.type === "const_object_expression"
+  ) {
     return undefined;
   }
 
@@ -148,14 +156,14 @@ function getWidgetSubtreeMatch(
   const start = treeSitterRangeToJsRange(source, node).start;
   const end = treeSitterRangeToJsRange(source, invocation).end;
   return {
-    kind: 'widget_subtree',
+    kind: "widget_subtree",
     name,
     traversalNode: invocation,
     identityRange: createIdentityRange(source, node, node),
     identityNode: node,
     replacement: {
-      type: 'range',
-      range: { startIndex: start, endIndex: end, coordinateSpace: 'js-utf16' },
+      type: "range",
+      range: { startIndex: start, endIndex: end, coordinateSpace: "js-utf16" },
     },
   };
 }
@@ -168,7 +176,7 @@ function createIdentityRange(
   return {
     startIndex: treeSitterRangeToJsRange(source, startNode).start,
     endIndex: treeSitterRangeToJsRange(source, endNode).end,
-    coordinateSpace: 'js-utf16',
+    coordinateSpace: "js-utf16",
   };
 }
 
@@ -180,7 +188,7 @@ function createIdentityPrefixRange(
   return {
     startIndex: treeSitterRangeToJsRange(source, startNode).start,
     endIndex: treeSitterRangeToJsRange(source, endNode).start,
-    coordinateSpace: 'js-utf16',
+    coordinateSpace: "js-utf16",
   };
 }
 
@@ -188,14 +196,17 @@ function isWidgetConstructorName(name: string | undefined): name is string {
   return name !== undefined && /^[A-Z][A-Za-z0-9_$]*$/.test(name);
 }
 
-function findOwningBuilderCallback(node: Parser.SyntaxNode): Parser.SyntaxNode | undefined {
+function findOwningBuilderCallback(
+  node: Parser.SyntaxNode,
+): Parser.SyntaxNode | undefined {
   let current = node.parent;
   while (current) {
-    if (current.type === 'function_expression') {
+    if (current.type === "function_expression") {
       const owner = current.parent;
-      if (owner?.type === 'named_argument') {
+      if (owner?.type === "named_argument") {
         const label = getNamedArgumentLabel(owner);
-        if (label && isRequestedCallbackLabel(label, 'builder_callback')) return current;
+        if (label && isRequestedCallbackLabel(label, "builder_callback"))
+          return current;
       }
       return undefined;
     }

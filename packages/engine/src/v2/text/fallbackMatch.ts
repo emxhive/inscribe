@@ -93,6 +93,13 @@ export interface FallbackMatchResult {
   unmatchedSoftTokens: string[];
 }
 
+export interface FallbackMatchOptions {
+  /** Restrict matching to the first token in the target text. */
+  anchored?: boolean;
+  /** SEARCH uses a five-token safety threshold; anchored callers may opt out. */
+  minimumMeaningfulTokens?: number;
+}
+
 function collectLeadingSoftRun(fileTokens: Token[], startIdx: number): number[] {
   const indices: number[] = [];
   for (let t = startIdx - 1; t >= 0; t--) {
@@ -168,12 +175,16 @@ function alignBoundarySoftTokens(
   return matchedSoftCount;
 }
 
-export function findFallbackMatch(content: string, search: string): FallbackMatchResult[] {
+export function findFallbackMatch(
+  content: string,
+  search: string,
+  options: FallbackMatchOptions = {},
+): FallbackMatchResult[] {
   const searchTokens = tokenize(search).map((t, idx) => ({ ...t, originalIdx: idx }));
   const fileTokens = tokenize(content);
 
   const meaningfulSearchTokens = searchTokens.filter(t => t.isMeaningful);
-  if (meaningfulSearchTokens.length < 5) {
+  if (meaningfulSearchTokens.length < (options.minimumMeaningfulTokens ?? 5)) {
     return [];
   }
 
@@ -187,6 +198,9 @@ export function findFallbackMatch(content: string, search: string): FallbackMatc
 
   const startIndices: number[] = [];
   for (let i = 0; i < fileTokens.length; i++) {
+    if (options.anchored && i !== 0) {
+      continue;
+    }
     if (fileTokens[i].text === firstRequired.text) {
       startIndices.push(i);
     }

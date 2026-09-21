@@ -1,27 +1,23 @@
-import Parser from 'web-tree-sitter';
+import Parser from "web-tree-sitter";
 import {
   treeSitterByteRangeToJsRange,
   treeSitterRangeToJsRange,
-} from '../structural/treeSitterRangeToJsRange';
-import {
-  collectTreeSitterParserEvidence,
-} from '../structural/treeSitterParserEvidence';
-import type { TreeSitterParserEvidence } from '../structural/treeSitterParserEvidence';
+} from "../structural/treeSitterRangeToJsRange";
+import { collectTreeSitterParserEvidence } from "../structural/treeSitterParserEvidence";
+import type { TreeSitterParserEvidence } from "../structural/treeSitterParserEvidence";
 import {
   createParser,
   initTreeSitter,
   loadLanguageForGrammar,
   TreeSitterAssetPaths,
-} from '../structural/treeSitterRuntime';
+} from "../structural/treeSitterRuntime";
 import {
   StructuralCandidateQuery,
   StructuralCandidateResolution,
   StructuralKind,
   TreeSitterLanguageAdapter,
-} from './types';
-import {
-  assessTreeSitterCandidateReliability,
-} from './treeSitterReliability';
+} from "./types";
+import { assessTreeSitterCandidateReliability } from "./treeSitterReliability";
 
 /**
  * Internal Tree-sitter candidate shape used by adapter implementations.
@@ -35,12 +31,12 @@ export interface TreeSitterReplacementRange {
   startIndex: number;
   endIndex: number;
   /** Explicit ranges default to UTF-8 byte offsets for compatibility. */
-  coordinateSpace?: 'utf8-byte' | 'js-utf16';
+  coordinateSpace?: "utf8-byte" | "js-utf16";
 }
 
 export type TreeSitterReplacement =
-  | { type: 'node'; node: Parser.SyntaxNode }
-  | { type: 'range'; range: TreeSitterReplacementRange };
+  | { type: "node"; node: Parser.SyntaxNode }
+  | { type: "range"; range: TreeSitterReplacementRange };
 
 export interface TreeSitterReplacementCandidate {
   kind: StructuralKind;
@@ -48,17 +44,14 @@ export interface TreeSitterReplacementCandidate {
   /** The logical replacement boundary, never merely the semantic match node. */
   replacement: TreeSitterReplacement;
   /**
-   * Source region whose recovery could compromise selector identity. This is
-   * intentionally narrower than `replacement`: a broken body is not the same
-   * fact as an uncertain declaration name.
+   * Source region used by the adapter to derive selector identity. This is
+   * intentionally narrower than `replacement`: the declaration identity is a
+   * separate structural fact from the replacement body.
    */
   identityRange?: TreeSitterReplacementRange;
   /** The syntax node that directly supplies the selector identity, when present. */
   identityNode?: Parser.SyntaxNode;
-  /**
-   * Node whose identity, ownership and local recovery state are interpreted
-   * by the separate Tree-sitter reliability policy.
-   */
+  /** Node used to verify the adapter's structural relationship to the range. */
   reliabilityNode?: Parser.SyntaxNode;
   /** The Tree-sitter node whose traversal space was searched for this candidate. */
   discoveryScope?: Parser.SyntaxNode;
@@ -93,51 +86,68 @@ export function createTreeSitterLanguageAdapter(
       supportedKinds: definition.supportedKinds,
       async resolveCandidates(query): Promise<StructuralCandidateResolution> {
         const grammarId = definition.grammarIdForFile(query.filePath);
-        return withParsedTree(query, assets, grammarId, (rootNode, parserEvidence) => {
-          const candidates = definition.collectCandidates(rootNode, query, parserEvidence);
-          const convertedCandidates = candidates.map((candidate) => {
-            const range = candidate.replacement.type === 'node'
-              ? treeSitterRangeToJsRange(query.source, candidate.replacement.node)
-              : candidate.replacement.range.coordinateSpace === 'js-utf16'
-                ? {
-                  start: candidate.replacement.range.startIndex,
-                  end: candidate.replacement.range.endIndex,
-                }
-                : treeSitterByteRangeToJsRange(query.source, candidate.replacement.range);
+        return withParsedTree(
+          query,
+          assets,
+          grammarId,
+          (rootNode, parserEvidence) => {
+            const candidates = definition.collectCandidates(
+              rootNode,
+              query,
+              parserEvidence,
+            );
+            const convertedCandidates = candidates.map((candidate) => {
+              const range =
+                candidate.replacement.type === "node"
+                  ? treeSitterRangeToJsRange(
+                      query.source,
+                      candidate.replacement.node,
+                    )
+                  : candidate.replacement.range.coordinateSpace === "js-utf16"
+                    ? {
+                        start: candidate.replacement.range.startIndex,
+                        end: candidate.replacement.range.endIndex,
+                      }
+                    : treeSitterByteRangeToJsRange(
+                        query.source,
+                        candidate.replacement.range,
+                      );
 
-            return {
-              candidate,
-              range,
-              reliability: assessTreeSitterCandidateReliability(
-                query.source,
-                definition.id,
-                grammarId,
+              return {
                 candidate,
                 range,
-                parserEvidence,
-              ),
-            };
-          });
+                reliability: assessTreeSitterCandidateReliability(
+                  query.source,
+                  definition.id,
+                  grammarId,
+                  candidate,
+                  range,
+                  parserEvidence,
+                ),
+              };
+            });
 
-          const structuralCandidates = convertedCandidates.map(({ candidate, range, reliability }) =>
-            reliability
-              ? {
-                kind: candidate.kind,
-                name: candidate.name,
-                start: range.start,
-                end: range.end,
-                reliability,
-              }
-              : {
-                kind: candidate.kind,
-                name: candidate.name,
-                start: range.start,
-                end: range.end,
-              },
-          );
+            const structuralCandidates = convertedCandidates.map(
+              ({ candidate, range, reliability }) =>
+                reliability
+                  ? {
+                      kind: candidate.kind,
+                      name: candidate.name,
+                      start: range.start,
+                      end: range.end,
+                      reliability,
+                    }
+                  : {
+                      kind: candidate.kind,
+                      name: candidate.name,
+                      start: range.start,
+                      end: range.end,
+                    },
+            );
 
-          return structuralCandidates;
-        });
+            return structuralCandidates;
+          },
+        );
       },
     },
     grammarIdForFile: definition.grammarIdForFile,
@@ -156,14 +166,14 @@ async function withParsedTree<T>(
   try {
     await initTreeSitter(assets);
   } catch (_) {
-    throw new Error('RUNTIME_INITIALIZATION_FAILED');
+    throw new Error("RUNTIME_INITIALIZATION_FAILED");
   }
 
   let language: Parser.Language;
   try {
     language = await loadLanguageForGrammar(assets, grammarId);
   } catch (_) {
-    throw new Error('MISSING_WASM_ASSET');
+    throw new Error("MISSING_WASM_ASSET");
   }
 
   const parser = createParser();
@@ -174,9 +184,12 @@ async function withParsedTree<T>(
       parser.setLanguage(language);
       tree = parser.parse(query.source);
     } catch (_) {
-      throw new Error('RUNTIME_INITIALIZATION_FAILED');
+      throw new Error("RUNTIME_INITIALIZATION_FAILED");
     }
-    const parserEvidence = collectTreeSitterParserEvidence(tree.rootNode, query.source);
+    const parserEvidence = collectTreeSitterParserEvidence(
+      tree.rootNode,
+      query.source,
+    );
     return await callback(tree.rootNode, parserEvidence);
   } finally {
     try {

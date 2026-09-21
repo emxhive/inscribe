@@ -173,6 +173,62 @@ INSCRIBE>>>`,
     );
   });
 
+  it("preview replace_node in .php through the production registry", async () => {
+    const originalCode = `<?php
+class Controller {
+  public function index() {
+    return 'old';
+  }
+}
+
+function keepNeighbor() {
+  return 'unchanged';
+}
+`;
+    fs.writeFileSync(path.join(repoRoot, "controller.php"), originalCode);
+
+    const payload = {
+      rawInput: `<<<INSCRIBE
+FILE: controller.php
+MODE: replace_node
+SELECTOR: class:Controller > method:index
+<<<CONTENT
+public function index() {
+    return 'new';
+  }
+CONTENT>>>
+INSCRIBE>>>`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewWorker(payload);
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.executions).toHaveLength(1);
+      expect(response.executions[0].afterContent).toBe(`<?php
+class Controller {
+  public function index() {
+    return 'new';
+  }
+}
+
+function keepNeighbor() {
+  return 'unchanged';
+}
+`);
+      expect(response.executions[0].afterContent).toContain("function keepNeighbor()");
+      const beforeRange = response.executions[0].targetScope.beforeRange;
+      expect(beforeRange).toBeDefined();
+      expect(originalCode.slice(beforeRange!.start, beforeRange!.end)).toBe(
+        "public function index() {\n    return 'old';\n  }",
+      );
+    }
+    expect(fs.readFileSync(path.join(repoRoot, "controller.php"), "utf8")).toBe(
+      originalCode,
+    );
+  });
+
   it("preview replace_node in .tsx", async () => {
     const originalCode = `function App() {\n  return <div>Hello</div>;\n}`;
     fs.writeFileSync(path.join(repoRoot, "component.tsx"), originalCode);
@@ -864,6 +920,7 @@ INSCRIBE>>>`,
           typescript: "/missing/ts.wasm",
           tsx: "/missing/tsx.wasm",
           dart: "/missing/dart.wasm",
+          php: assets.languageWasmPaths.php,
         },
       },
     };

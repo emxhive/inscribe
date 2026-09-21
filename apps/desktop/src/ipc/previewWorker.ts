@@ -3,6 +3,7 @@ import {
   createLanguageRegistry,
   createTypeScriptLanguageAdapter,
   createFlutterLanguageAdapter,
+  createPhpLanguageAdapter,
   createAdapterStructuralResolver,
   createAdapterSyntaxValidator,
   resolvePlan,
@@ -80,7 +81,8 @@ export async function runPreviewWorker(
     typeof payload.assetPaths.languageWasmPaths !== 'object' ||
     typeof payload.assetPaths.languageWasmPaths.typescript !== 'string' ||
     typeof payload.assetPaths.languageWasmPaths.tsx !== 'string' ||
-    typeof payload.assetPaths.languageWasmPaths.dart !== 'string'
+    typeof payload.assetPaths.languageWasmPaths.dart !== 'string' ||
+    typeof payload.assetPaths.languageWasmPaths.php !== 'string'
   ) {
     return {
       ok: false,
@@ -182,6 +184,7 @@ export async function runPreviewWorker(
     const languageRegistry = createLanguageRegistry([
       createTypeScriptLanguageAdapter(assetPaths),
       createFlutterLanguageAdapter(assetPaths),
+      createPhpLanguageAdapter(assetPaths),
     ]);
     const structuralResolver = createAdapterStructuralResolver(languageRegistry);
     const syntaxValidator = createAdapterSyntaxValidator(languageRegistry);

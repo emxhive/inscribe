@@ -37,12 +37,19 @@ export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptio
   ];
   const dartGrammarPath = dartCandidates.find((c) => fs.existsSync(c)) || dartCandidates[0];
 
+  const phpCandidates = [
+    path.resolve(monorepoRoot, 'node_modules/tree-sitter-wasms/out/tree-sitter-php.wasm'),
+    path.resolve(monorepoRoot, 'packages/engine/node_modules/tree-sitter-wasms/out/tree-sitter-php.wasm'),
+  ];
+  const phpGrammarPath = phpCandidates.find((c) => fs.existsSync(c)) || phpCandidates[0];
+
   const devPaths: TreeSitterAssetPaths = {
     coreWasmPath,
     languageWasmPaths: {
       typescript: typescriptGrammarPath,
       tsx: tsxGrammarPath,
       dart: dartGrammarPath,
+      php: phpGrammarPath,
     },
   };
 
@@ -76,6 +83,7 @@ export function getTreeSitterAssetPaths(options?: TreeSitterAssetDerivationOptio
         typescript: path.resolve(resourcesPath, 'tree-sitter-typescript.wasm'),
         tsx: path.resolve(resourcesPath, 'tree-sitter-tsx.wasm'),
         dart: path.resolve(resourcesPath, 'tree-sitter-dart.wasm'),
+        php: path.resolve(resourcesPath, 'tree-sitter-php.wasm'),
       },
     };
     if (options?.prodPaths) {

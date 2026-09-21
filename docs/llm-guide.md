@@ -269,7 +269,7 @@ INSCRIBE>>>
 
 - `replace_node` is the structural editing operation for replacing or deleting an entire supported structural target.
 - Tree-sitter and the language adapters locate structural candidates and replacement boundaries. They do not generate replacement code, infer omitted logic, or validate business behavior.
-- Supported languages: `.ts`, `.tsx`, and `.dart`. No `.js` or `.jsx` support is claimed. Dart files may also use the Flutter-aware semantic selectors documented below.
+- Supported languages: `.ts`, `.tsx`, `.dart`, and `.php`. No `.js` or `.jsx` support is claimed. Dart files may also use the Flutter-aware semantic selectors documented below. PHP support is structural discovery through Tree-sitter; it is not PHP syntax validation.
 - When the requested edit corresponds to an entire supported structural target, prefer `replace_node` over reconstructing that same target with `replace_text`.
 - `CONTENT` replaces exactly the resolved structural range. Empty `CONTENT` deletes exactly that range.
 
@@ -342,6 +342,13 @@ and `builder_branch`. These selectors require Flutter evidence in the source; or
 selectors remain available for every Dart file. Use callback names such as `builder`,
 `itemBuilder`, or `onTap` when they are present in source, and use `STARTS_WITH` for repeated
 collection entries or builder branches.
+
+PHP files support the ordinary structural kinds listed above. PHP class
+declarations, methods, functions, constructors (`__construct`), and supported
+control-flow statements are discovered structurally. Interfaces, traits, enums,
+and namespaces are traversal/ownership structures rather than direct selector
+kinds. `foreach_statement` is not aliased to `for_statement`, and PHP syntax
+validity is not inferred from structural parsing.
 
 ## 11. STARTS_WITH rules
 

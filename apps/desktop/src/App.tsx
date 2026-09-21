@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AppStateProvider, useAppStateContext, useRepositoryActions } from './hooks';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
-import { WorkspaceShell } from './components/app/WorkspaceShell';
+import { WorkspaceShell } from './components/workspace/WorkspaceShell';
 import { getWindowTitle } from './utils';
 
 export default function App() {

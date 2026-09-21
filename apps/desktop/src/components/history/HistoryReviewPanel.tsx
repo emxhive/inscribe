@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { buildUnifiedDiffModel } from '@/utils/reviewComparison';
 import type { ReviewComparison } from '@/types';
-import { UnifiedDiffView } from './ReviewPanel';
+import { UnifiedDiffView } from '../review/ReviewPanel';
 import { useAppStateContext } from '@/hooks';
 
 /**

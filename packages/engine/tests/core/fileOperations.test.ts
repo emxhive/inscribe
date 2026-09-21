@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { resolveOperation } from '../../src/v2/execution/resolveOperation';
-import { hashContent } from '../../src/v2/execution/virtualFileState';
+import { resolveOperation } from '../../src/core/execution/resolveOperation';
+import { hashContent } from '../../src/core/execution/virtualFileState';
 
 describe('file operations', () => {
   it('creates a new file successfully', async () => {

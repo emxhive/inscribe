@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { performReplaceText } from '../../src/v2/text/exactMatch';
+import { performReplaceText } from '../../src/core/text/exactMatch';
 
 describe('replace_text strategy matching', () => {
   it('succeeds when exactly one match exists', () => {

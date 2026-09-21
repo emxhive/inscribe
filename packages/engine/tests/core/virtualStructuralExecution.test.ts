@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as path from 'path';
-import { resolvePlan } from '../../src/v2/execution/resolvePlan';
-import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
-import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/v2/languages';
-import { initTreeSitter } from '../../src/v2/structural/treeSitterRuntime';
+import { resolvePlan } from '../../src/core/execution/resolvePlan';
+import { createAdapterStructuralResolver } from '../../src/core/structural/resolveStructuralTarget';
+import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/core/languages';
+import { initTreeSitter } from '../../src/core/structural/treeSitterRuntime';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
 const TS_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm');

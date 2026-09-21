@@ -4,13 +4,13 @@ import Parser from "web-tree-sitter";
 import {
   resolveOperation,
   ExecutionContext,
-} from "../../src/v2/execution/resolveOperation";
-import { createAdapterStructuralResolver } from "../../src/v2/structural/resolveStructuralTarget";
+} from "../../src/core/execution/resolveOperation";
+import { createAdapterStructuralResolver } from "../../src/core/structural/resolveStructuralTarget";
 import {
   createTypeScriptLanguageAdapter,
   createLanguageRegistry,
-} from "../../src/v2/languages";
-import { initTreeSitter } from "../../src/v2/structural/treeSitterRuntime";
+} from "../../src/core/languages";
+import { initTreeSitter } from "../../src/core/structural/treeSitterRuntime";
 
 const CORE_WASM = path.resolve(
   __dirname,
@@ -497,7 +497,7 @@ function tail() {}`);
   });
 
   it("verifies parser and tree disposal", async () => {
-    const runtime = await import("../../src/v2/structural/treeSitterRuntime");
+    const runtime = await import("../../src/core/structural/treeSitterRuntime");
     const originalCreateParser = runtime.createParser;
     let parserDeleteSpies: any[] = [];
     let treeDeleteSpies: any[] = [];

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
-import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
-import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/v2/languages';
-import { parseSelector } from '../../src/v2/structural/selectorParser';
+import { createAdapterStructuralResolver } from '../../src/core/structural/resolveStructuralTarget';
+import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/core/languages';
+import { parseSelector } from '../../src/core/structural/selectorParser';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
 const TS_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm');

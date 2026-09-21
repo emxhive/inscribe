@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dev": "vitest",
-    "benchmark:structural-conformance": "vitest run benchmarks/v2-structural-conformance/structuralConformance.test.ts"
+    "benchmark:structural-conformance": "vitest run benchmarks/structural-conformance/structuralConformance.test.ts"
   },
   "keywords": [],
   "author": "",

@@ -6,7 +6,7 @@ import {
   indexRepository,
   getIndexStatus,
 } from '@inscribe/engine';
-import { recentProjectsManager } from '../recentProjects';
+import { recentProjectsManager } from '../electron/recentProjects';
 import { requireTrustedRepoRoot } from './trustedRepo';
 
 /**

@@ -1,4 +1,4 @@
-# V2 structural conformance benchmark
+# Structural conformance benchmark
 
 This is a standalone conformance corpus for measuring structural targeting against realistic TypeScript, TSX, Dart, and Flutter code. It is intentionally separate from `packages/engine/tests/`, and it is designed from developer targeting intent rather than from the current adapter implementation.
 
@@ -9,7 +9,7 @@ The corpus has two kinds of scenarios:
 
 The fixtures are ordinary-looking source files. They deliberately include framework conventions, modifiers, annotations, callbacks, repeated shapes, nested scopes, formatting differences, Unicode, and neighboring declarations so the benchmark does not become an implementation-shaped collection of minimal snippets.
 
-Successful selector scenarios declare independent `rangeAnchor` and `rangeEndAnchor` witnesses. Replacement scenarios run through the V2 `replace_node` operation executor and its virtual-file path. Neighbor checks use manifest-declared sentinels outside the target, so they do not compare slices that were used to construct the replacement. Capability scenarios remain descriptive until a product-level selector vocabulary exists; executable capability scenarios retain their original intent and evidence in the manifest.
+Successful selector scenarios declare independent `rangeAnchor` and `rangeEndAnchor` witnesses. Replacement scenarios run through the `replace_node` operation executor and its virtual-file path. Neighbor checks use manifest-declared sentinels outside the target, so they do not compare slices that were used to construct the replacement. Capability scenarios remain descriptive until a product-level selector vocabulary exists; executable capability scenarios retain their original intent and evidence in the manifest.
 
 ## Coverage
 
@@ -29,7 +29,7 @@ npm run benchmark:structural-conformance -w packages/engine
 The equivalent direct command is:
 
 ```powershell
-npm run test -w packages/engine -- --run benchmarks/v2-structural-conformance/structuralConformance.test.ts
+npm run test -w packages/engine -- --run benchmarks/structural-conformance/structuralConformance.test.ts
 ```
 
 The scenario source of truth is [manifest.json](./manifest.json). The benchmark is intentionally not part of the ordinary `npm run test:engine` suite.

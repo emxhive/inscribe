@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { performReplaceText } from '../../src/v2/text/exactMatch';
-import { resolveOperation } from '../../src/v2/execution/resolveOperation';
+import { performReplaceText } from '../../src/core/text/exactMatch';
+import { resolveOperation } from '../../src/core/execution/resolveOperation';
 
 describe('replace_text fallback matching', () => {
   it('performReplaceText returns exact metadata on exact matches', () => {

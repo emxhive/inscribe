@@ -1,4 +1,4 @@
-import { INSCRIBE_BLOCK_CLOSE, INSCRIBE_BLOCK_OPEN } from './v2';
+import { INSCRIBE_BLOCK_CLOSE, INSCRIBE_BLOCK_OPEN } from './protocol';
 
 export type CliCommandRisk = 'normal' | 'risky' | 'destructive';
 

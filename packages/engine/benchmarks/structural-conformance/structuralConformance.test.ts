@@ -5,10 +5,10 @@ import {
   createFlutterLanguageAdapter,
   createTypeScriptLanguageAdapter,
   createLanguageRegistry,
-} from '../../src/v2/languages';
-import { resolveOperation } from '../../src/v2/execution/resolveOperation';
-import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
-import { parseSelector } from '../../src/v2/structural/selectorParser';
+} from '../../src/core/languages';
+import { resolveOperation } from '../../src/core/execution/resolveOperation';
+import { createAdapterStructuralResolver } from '../../src/core/structural/resolveStructuralTarget';
+import { parseSelector } from '../../src/core/structural/selectorParser';
 
 const BENCHMARK_ROOT = __dirname;
 const manifest = JSON.parse(
@@ -45,7 +45,7 @@ for (const suite of manifest.suites) {
     ]),
   );
 
-  describe(`V2 structural conformance: ${suite.id}`, () => {
+  describe(`Structural conformance: ${suite.id}`, () => {
     for (const scenario of suite.scenarios) {
       if (scenario.category === 'parser-compatibility') {
         it(`${scenario.id} [${scenario.category}]: ${scenario.intent}`, async () => {

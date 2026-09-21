@@ -5,8 +5,8 @@ import {
   createFlutterLanguageAdapter,
   createLanguageRegistry,
   FLUTTER_STRUCTURAL_KINDS,
-} from '../../src/v2/languages';
-import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
+} from '../../src/core/languages';
+import { createAdapterStructuralResolver } from '../../src/core/structural/resolveStructuralTarget';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
 const DART_WASM = path.resolve(__dirname, '../../assets/tree-sitter-dart.wasm');
@@ -16,11 +16,11 @@ const ASSETS = {
 };
 
 const orderDetails = fs.readFileSync(
-  path.resolve(__dirname, '../../benchmarks/v2-structural-conformance/fixtures/flutter/order_details_page.dart'),
+  path.resolve(__dirname, '../../benchmarks/structural-conformance/fixtures/flutter/order_details_page.dart'),
   'utf8',
 );
 const activityFeed = fs.readFileSync(
-  path.resolve(__dirname, '../../benchmarks/v2-structural-conformance/fixtures/flutter/activity_feed_page.dart'),
+  path.resolve(__dirname, '../../benchmarks/structural-conformance/fixtures/flutter/activity_feed_page.dart'),
   'utf8',
 );
 

@@ -7,7 +7,7 @@ import {
   loadLanguageForGrammar,
   resetRuntimeForTesting,
   resolveGrammarWasmPath,
-} from '../../src/v2/structural/treeSitterRuntime';
+} from '../../src/core/structural/treeSitterRuntime';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
 const TS_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm');

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "v2-structural-conformance",
+  "id": "structural-conformance",
   "description": "Developer-intent structural targeting corpus for TypeScript, TSX, Dart, and Flutter.",
   "suites": [
     {

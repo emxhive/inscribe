@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeDiffHunks } from '../../src/v2/diff';
+import { computeDiffHunks } from '../../src/core/diff';
 
 describe('Diff Hunks generator', () => {
   it('produces no hunks when content is identical', () => {

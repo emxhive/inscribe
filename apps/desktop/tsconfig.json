@@ -14,10 +14,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    "src/main.ts",
-    "src/preload.ts",
-    "src/windowManager.ts",
-    "src/recentProjects.ts",
+    "src/electron/**/*.ts",
     "src/ipc/**/*.ts",
     "src/**/*.test.ts"
   ]

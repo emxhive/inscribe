@@ -24,4 +24,4 @@ export {
   restoreAction,
 } from './history/historyRestore';
 
-export * from './v2';
+export * from './core';

@@ -1,4 +1,4 @@
-// Shared protocol entry point. The physical directory remains versioned for now.
+// Shared protocol entry point.
 export * from './operations';
 export * from './targets';
 export * from './comparisons';

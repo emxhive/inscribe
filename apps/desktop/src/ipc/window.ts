@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
-import { windowManager } from '../windowManager';
-import { recentProjectsManager } from '../recentProjects';
+import { windowManager } from '../electron/windowManager';
+import { recentProjectsManager } from '../electron/recentProjects';
 
 /**
  * Register window-related IPC handlers

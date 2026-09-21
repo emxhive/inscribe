@@ -5,12 +5,12 @@ import {
   createDartLanguageAdapter,
   createTypeScriptLanguageAdapter,
   createLanguageRegistry,
-} from "../../src/v2/languages";
-import { createFlutterLanguageAdapter } from "../../src/v2/languages/flutter/flutterAdapter";
-import { resolveOperation } from "../../src/v2/execution/resolveOperation";
-import { resolvePlan } from "../../src/v2/execution/resolvePlan";
-import { createAdapterStructuralResolver } from "../../src/v2/structural/resolveStructuralTarget";
-import { createTreeSitterParserFailure } from "../../src/v2/structural/treeSitterParserEvidence";
+} from "../../src/core/languages";
+import { createFlutterLanguageAdapter } from "../../src/core/languages/flutter/flutterAdapter";
+import { resolveOperation } from "../../src/core/execution/resolveOperation";
+import { resolvePlan } from "../../src/core/execution/resolvePlan";
+import { createAdapterStructuralResolver } from "../../src/core/structural/resolveStructuralTarget";
+import { createTreeSitterParserFailure } from "../../src/core/structural/treeSitterParserEvidence";
 
 const CORE_WASM = path.resolve(
   __dirname,

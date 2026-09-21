@@ -162,7 +162,7 @@ export interface RestorePreviewFile {
     exists: boolean;
     content: string;
   };
-  diffHunks?: import('./v2/comparisons').DiffHunk[];
+  diffHunks?: import('./protocol/comparisons').DiffHunk[];
   eligible: boolean;
   error?: string;
 }

@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as path from 'path';
-import { initTreeSitter, loadLanguage, createParser } from '../../src/v2/structural/treeSitterRuntime';
-import { treeSitterRangeToJsRange } from '../../src/v2/structural/treeSitterRangeToJsRange';
-import { createAdapterStructuralResolver } from '../../src/v2/structural/resolveStructuralTarget';
-import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/v2/languages';
-import { parseSelector } from '../../src/v2/structural/selectorParser';
+import { initTreeSitter, loadLanguage, createParser } from '../../src/core/structural/treeSitterRuntime';
+import { treeSitterRangeToJsRange } from '../../src/core/structural/treeSitterRangeToJsRange';
+import { createAdapterStructuralResolver } from '../../src/core/structural/resolveStructuralTarget';
+import { createTypeScriptLanguageAdapter, createLanguageRegistry } from '../../src/core/languages';
+import { parseSelector } from '../../src/core/structural/selectorParser';
 
 const CORE_WASM = path.resolve(__dirname, '../../../../node_modules/web-tree-sitter/tree-sitter.wasm');
 const TS_WASM = path.resolve(__dirname, '../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm');

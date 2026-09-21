@@ -4,9 +4,9 @@ import {
   createDartLanguageAdapter,
   createLanguageRegistry,
   STRUCTURAL_KINDS,
-} from "../../src/v2/languages";
-import { createAdapterStructuralResolver } from "../../src/v2/structural/resolveStructuralTarget";
-import { resolveOperation } from "../../src/v2/execution/resolveOperation";
+} from "../../src/core/languages";
+import { createAdapterStructuralResolver } from "../../src/core/structural/resolveStructuralTarget";
+import { resolveOperation } from "../../src/core/execution/resolveOperation";
 
 const CORE_WASM = path.resolve(
   __dirname,

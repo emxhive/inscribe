@@ -7,12 +7,12 @@ import {
   createTypeScriptLanguageAdapter,
   LanguageRegistry,
   LanguageAdapter,
-} from "../../src/v2/languages";
+} from "../../src/core/languages";
 import {
   createAdapterStructuralResolver,
   selectStructuralCandidate,
-} from "../../src/v2/structural/resolveStructuralTarget";
-import { createTreeSitterLanguageAdapter } from "../../src/v2/languages/treeSitterAdapter";
+} from "../../src/core/structural/resolveStructuralTarget";
+import { createTreeSitterLanguageAdapter } from "../../src/core/languages/treeSitterAdapter";
 
 const CORE_WASM = path.resolve(
   __dirname,

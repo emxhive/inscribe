@@ -10,4 +10,4 @@ export * from './cliCommands';
 
 export * from './diagnostics';
 
-export * from './v2';
+export * from './protocol';

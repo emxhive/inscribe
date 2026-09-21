@@ -15,7 +15,7 @@ import {
   type RestoreFileState,
 } from './restoreExecution';
 import type { PreflightExecution } from '../apply/executionTypes';
-import { computeDiffHunks } from '../v2/diff';
+import { computeDiffHunks } from '../core/diff';
 
 function isSupportedHistoryEntry(entry: HistoryEntry): boolean {
   return entry.protocol === 'v2';

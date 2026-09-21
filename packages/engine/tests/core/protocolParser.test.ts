@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   parseInscribeBlocks,
   parseInscribeBlocksRecovering,
-} from '../../src/v2/protocol/parseInscribeBlocks';
-import { ProtocolError } from '../../src/v2/protocol/protocolErrors';
-import { resolvePlan } from '../../src/v2/execution/resolvePlan';
+} from '../../src/core/protocol/parseInscribeBlocks';
+import { ProtocolError } from '../../src/core/protocol/protocolErrors';
+import { resolvePlan } from '../../src/core/execution/resolvePlan';
 
 describe('Inscribe Block Parser', () => {
   it('recovers valid blocks before and after an invalid block', () => {

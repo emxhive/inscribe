@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolvePlan } from '../../src/v2/execution/resolvePlan';
+import { resolvePlan } from '../../src/core/execution/resolvePlan';
 
 describe('virtual sequential execution plan', () => {
   it('runs multiple sequential operations against one virtual file', async () => {

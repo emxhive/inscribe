@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesStartsWith } from "../../src/v2/structural/startsWithQualifier";
+import { matchesStartsWith } from "../../src/core/structural/startsWithQualifier";
 
 describe("STARTS_WITH matching", () => {
   it("accepts exact and indentation-normalized prefixes", () => {

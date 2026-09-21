@@ -1,6 +1,6 @@
-# V2 Structural-Engine Architecture
+# Structural Engine Architecture
 
-This document describes the architectural principles and design constraints for the Inscribe V2 structural-engine.
+This document describes the architectural principles and design constraints for the current Inscribe structural engine.
 
 ## Principles & Constraints
 
@@ -11,7 +11,7 @@ This document describes the architectural principles and design constraints for 
 - **Shared Execution Semantics**: Previewing and applying changes share identical canonical structural execution semantics.
 - **Optional Authoritative Validation**: The shared candidate-validation boundary invokes an adapter's syntax validator only when that capability is explicitly provided. A language without a trustworthy validator remains usable without pretending that structural parsing proves syntax validity.
 - **Worker Isolation**: Worker thread execution and environment boundary safety remain outside the engine logic itself (managed via IPC/engineWorker boundaries in the application).
-- **Tree-sitter Role**: Tree-sitter provides logical structural discovery and parser diagnostics for registered V2 languages. It is not an authoritative syntax validator. Compiler and type-checker concerns remain outside V2.
+- **Tree-sitter Role**: Tree-sitter provides logical structural discovery and parser diagnostics for registered languages. It is not an authoritative syntax validator. Compiler and type-checker concerns remain outside the structural engine.
 - **Separated Structural Responsibilities**: Tree-sitter parsing produces a syntax tree and bounded parser evidence (recovery-node ranges, locations, and local context). TypeScript, Dart, and Flutter adapters perform language-specific candidate discovery and logical replacement-boundary construction. A separate Tree-sitter reliability policy interprets parser evidence into generic candidate trust metadata; it does not implement selector policy.
 - **Stage-Specific Structural Trust**: Qualification trust answers whether a candidate's identity and range can safely participate in `STARTS_WITH` and cardinality reasoning. Language adapters expose an identity region separately from the logical replacement range. Replacement trust independently answers whether its complete logical range and ownership are safe to mutate. Recovery in a stable body is not itself a boundary failure; recovery affecting identity or logical start/end evidence is.
 - **Discovery/Cardinality Trust**: Structural discovery also reports whether parser recovery can hide candidates in the actual language-specific search scopes. Scope evidence records the nodes whose descendants were traversed and the structural-owner branches deliberately skipped, rather than treating an enclosing replacement range as the search space. Language traversal marks only recovery at a candidate-relevant boundary, or recovery entangled with selector identity, as a cardinality risk. This set-level uncertainty is distinct from candidate trust; it prevents false uniqueness, mismatch, or not-found—including an untrustworthy zero-candidate absence—without treating unrelated or deliberately skipped owners as globally damaged.

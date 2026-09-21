@@ -1,7 +1,7 @@
 import { app } from 'electron';
-import { registerAllHandlers } from './ipc';
+import { registerAllHandlers } from '../ipc';
 import { windowManager } from './windowManager';
-import { dispose as disposeEngineWorker } from './ipc/engineWorkerClient';
+import { dispose as disposeEngineWorker } from '../ipc/engineWorkerClient';
 import './recentProjects';
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();

@@ -4,7 +4,7 @@ import type {
   IgnoreWriteResult,
   ReadIgnoreRawResult,
   RepoInitResult,
-} from './types';
+} from '../types';
 
 const api = {
   selectRepository: (defaultPath?: string): Promise<string | null> =>
@@ -16,7 +16,7 @@ const api = {
   repoInit: (repoRoot: string): Promise<RepoInitResult> =>
     ipcRenderer.invoke('repo-init', repoRoot),
 
-  openRepository: (repoRoot: string, target?: import('./types').OpenRepositoryTarget): Promise<void> =>
+  openRepository: (repoRoot: string, target?: import('../types').OpenRepositoryTarget): Promise<void> =>
     ipcRenderer.invoke('open-repository', repoRoot, target),
 
   getRecentProjects: (): Promise<string[]> =>
@@ -67,7 +67,7 @@ const api = {
   restoreAction: (repoRoot: string, actionId: string): Promise<ApplyResult> =>
     ipcRenderer.invoke('history-restore', repoRoot, actionId),
 
-  terminalCreate: (options: import('./types').TerminalCreateOptions) =>
+  terminalCreate: (options: import('../types').TerminalCreateOptions) =>
     ipcRenderer.invoke('terminal-create', options),
 
   terminalWrite: (sessionId: string, data: string) =>
@@ -79,22 +79,22 @@ const api = {
   terminalDispose: (sessionId: string) =>
     ipcRenderer.invoke('terminal-dispose', sessionId),
 
-  onTerminalData: (callback: (event: import('./types').TerminalDataEvent) => void) => {
-    const subscription = (_event: any, payload: import('./types').TerminalDataEvent) => callback(payload);
+  onTerminalData: (callback: (event: import('../types').TerminalDataEvent) => void) => {
+    const subscription = (_event: any, payload: import('../types').TerminalDataEvent) => callback(payload);
     ipcRenderer.on('terminal:data', subscription);
     return () => ipcRenderer.removeListener('terminal:data', subscription);
   },
 
-  onTerminalSessionExit: (callback: (event: import('./types').TerminalSessionExitEvent) => void) => {
-    const subscription = (_event: any, payload: import('./types').TerminalSessionExitEvent) => callback(payload);
+  onTerminalSessionExit: (callback: (event: import('../types').TerminalSessionExitEvent) => void) => {
+    const subscription = (_event: any, payload: import('../types').TerminalSessionExitEvent) => callback(payload);
     ipcRenderer.on('terminal:session-exit', subscription);
     return () => ipcRenderer.removeListener('terminal:session-exit', subscription);
   },
 
-  preview: (args: import('./ipc/previewTypes').PreviewIpcArgs): Promise<import('./ipc/previewTypes').PreviewWorkerResponse> =>
+  preview: (args: import('../ipc/previewTypes').PreviewIpcArgs): Promise<import('../ipc/previewTypes').PreviewWorkerResponse> =>
     ipcRenderer.invoke('preview', args),
 
-  apply: (args: import('./ipc/applyTypes').ApplyIpcArgs): Promise<import('./ipc/applyTypes').ApplyWorkerResponse> =>
+  apply: (args: import('../ipc/applyTypes').ApplyIpcArgs): Promise<import('../ipc/applyTypes').ApplyWorkerResponse> =>
     ipcRenderer.invoke('apply', args),
 };
 

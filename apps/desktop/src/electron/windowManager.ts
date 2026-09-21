@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { pathToFileURL } from 'url';
-import { getWindowTitle } from './utils/windowTitle';
+import { getWindowTitle } from '../utils/windowTitle';
 
 export interface CreateWindowOptions {
   showInactive?: boolean;
@@ -47,7 +47,7 @@ export class WindowManager {
 
       startUrl = devServerUrl;
     } else {
-      startUrl = pathToFileURL(path.join(__dirname, 'renderer/index.html')).toString();
+      startUrl = pathToFileURL(path.join(__dirname, '../renderer/index.html')).toString();
     }
 
     win.loadURL(startUrl);

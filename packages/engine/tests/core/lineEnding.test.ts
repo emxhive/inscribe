@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { detectDestinationEOL, normalizeLineEndings } from '../../src/v2/execution/normalizeLineEndings';
-import { resolveOperation } from '../../src/v2/execution/resolveOperation';
-import { hashContent } from '../../src/v2/execution/virtualFileState';
+import { detectDestinationEOL, normalizeLineEndings } from '../../src/core/execution/normalizeLineEndings';
+import { resolveOperation } from '../../src/core/execution/resolveOperation';
+import { hashContent } from '../../src/core/execution/virtualFileState';
 
 describe('Line Ending Normalization', () => {
   it('detects CRLF for file containing only CRLF', () => {

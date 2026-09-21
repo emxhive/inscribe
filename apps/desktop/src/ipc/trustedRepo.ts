@@ -1,6 +1,6 @@
 import { BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import path from 'path';
-import { windowManager } from '../windowManager';
+import { windowManager } from '../electron/windowManager';
 
 function normalizeRepoRoot(repoRoot: string): string {
   const resolved = path.resolve(repoRoot);

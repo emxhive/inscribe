@@ -5,7 +5,7 @@ import {
   CircleDot,
   XCircle,
 } from 'lucide-react';
-import { EmptyState } from '@/components/common';
+import { EmptyState } from '@/components/ui';
 import {
   useAppStateContext,
   useIntakeBlocks,

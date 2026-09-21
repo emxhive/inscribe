@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal } from './common';
+import { Modal } from './ui';
 import { Button } from '@/components/ui/button';
 import { useAppStateContext, useRepositoryActions } from '@/hooks';
 

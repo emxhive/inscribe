@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal } from './common';
+import { Modal } from './ui';
 import { Button } from '@/components/ui/button';
 
 interface ListModalProps {

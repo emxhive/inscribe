@@ -5,7 +5,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { Clock } from 'lucide-react';
-import { Modal } from '@/components/common';
+import { Modal } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { useAppStateContext } from '@/hooks';
 import { getPathBasename } from '@/utils';

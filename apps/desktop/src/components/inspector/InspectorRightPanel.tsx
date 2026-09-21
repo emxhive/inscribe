@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import type { ReviewItem } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Modal } from '@/components/common';
+import { Modal } from '@/components/ui';
 import {
   useAppStateContext,
   useIntakeBlocks,

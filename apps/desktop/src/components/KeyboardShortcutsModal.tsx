@@ -1,4 +1,4 @@
-import { Modal } from './common';
+import { Modal } from './ui';
 import { Button } from '@/components/ui/button';
 import { KEYBOARD_SHORTCUTS } from '@/utils/keyboardShortcuts';
 

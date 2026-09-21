@@ -1,5 +1,4 @@
-import { INSCRIBE_BEGIN, INSCRIBE_END } from './constants';
-import { matchesMarker } from './parseUtils';
+import { INSCRIBE_BLOCK_CLOSE, INSCRIBE_BLOCK_OPEN } from './protocol';
 
 export type CliCommandRisk = 'normal' | 'risky' | 'destructive';
 
@@ -68,7 +67,7 @@ function parseFenceOpening(line: string): FenceOpening | null {
 
 function isFenceClosing(line: string, opening: FenceOpening): boolean {
   const trimmed = line.trim();
-  const pattern = opening.char === '`' ? /^(`{3,})(\s*)$/ : /^(~{3,})(\s*)$/;
+  const pattern = opening.char === '`' ? /^(`{3,}).*$/ : /^(~{3,}).*$/;
   const match = trimmed.match(pattern);
   return Boolean(match && match[1].length >= opening.length);
 }
@@ -101,6 +100,43 @@ function shouldIgnoreCommandLine(line: string): boolean {
   return trimmed.length === 0 || trimmed.startsWith('#') || trimmed.startsWith('//');
 }
 
+function normalizeExtractedCommand(lines: string[], language: string): string | null {
+  if (lines.length === 0) return null;
+
+  const lastLine = lines[lines.length - 1];
+  if (hasLineContinuation(lastLine, language)) {
+    return null;
+  }
+
+  for (let index = 0; index < lines.length - 1; index++) {
+    if (!hasLineContinuation(lines[index], language)) {
+      return null;
+    }
+  }
+
+  const isPowerShell = language === 'powershell' || language === 'ps1' || language === 'pwsh';
+  const parts = lines.map((line, index) => {
+    const trimmed = line.trim();
+
+    if (index === lines.length - 1) {
+      return trimmed;
+    }
+
+    if (isPowerShell && trimmed.endsWith('`')) {
+      return trimmed.slice(0, -1).trimEnd();
+    }
+
+    if (!isPowerShell && trimmed.endsWith('\\')) {
+      return trimmed.slice(0, -1).trimEnd();
+    }
+
+    return trimmed;
+  });
+
+  const command = parts.join(' ').trim();
+  return command.length > 0 ? command : null;
+}
+
 function buildCommandId(command: string, startLine: number): string {
   let hash = 0;
   for (let index = 0; index < command.length; index++) {
@@ -119,8 +155,8 @@ function splitFenceCommands(
   let pendingStartLine = firstContentLine;
 
   const flush = (endLine: number) => {
-    const command = pending.join('\n').trim();
-    if (command.length > 0) {
+    const command = normalizeExtractedCommand(pending, language);
+    if (command) {
       suggestions.push({
         id: buildCommandId(command, pendingStartLine),
         command,
@@ -169,12 +205,12 @@ export function extractCliCommandSuggestions(text: string): CliCommandSuggestion
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
 
-    if (matchesMarker(line, INSCRIBE_BEGIN)) {
+    if (line.trim() === INSCRIBE_BLOCK_OPEN) {
       inInscribeBlock = true;
       continue;
     }
 
-    if (matchesMarker(line, INSCRIBE_END)) {
+    if (line.trim() === INSCRIBE_BLOCK_CLOSE) {
       inInscribeBlock = false;
       continue;
     }

@@ -1,321 +1,660 @@
-# INSCRIBE LLM GUIDE (CURRENT CONTRACT)
+# Inscribe V2 LLM Authoring Guide
 
-This guide is the prompt contract for producing Inscribe-compatible output.
-Optimize for boring, literal, reviewable edits.
+This guide is a binding contract for generating Inscribe V2 blocks. Every rule inside this guide is active and non-negotiable.
 
-## Mental Model
+## 1. Non-negotiable mental model
 
-Inscribe is not smart.
+The engine is precise, not smart.
 
-It is not a code generator, refactoring engine, formatter, typechecker, import fixer, instruction follower, or shell runner. It parses text markers, resolves the requested file/range/symbol, builds the candidate file text, and writes only that candidate text when validation allows it.
+The LLM is responsible for producing the complete final text for every payload. The engine is responsible only for locating the target and applying that payload.
 
-The fenced payload must already be the code/text to place in the repository. If you write instructions in the payload, those instructions are written into the file. For `range`, the payload is the inserted text; when replacing before remaining file content, Inscribe may add one trailing newline if the payload is nonempty and does not already end with `\n`.
+- Inscribe V2 is not a code generator.
+- Inscribe V2 does not infer missing code.
+- Inscribe V2 does not complete payloads.
+- Inscribe V2 does not synthesize imports, formatting, wrappers, or omitted logic.
+- Inscribe V2 applies exact text payloads to exact files.
+- Every CONTENT payload must be full and precise for the target being written.
+- If code is omitted from a replacement payload, it is deleted.
+- Placeholders are literal text unless the user explicitly wants placeholders in the final file.
 
-## Response Shape
+- CONTENT is not a patch.
+- CONTENT is not pseudo-code.
+- CONTENT is not “the important part.”
+- CONTENT is the exact replacement text.
 
-When producing real edits:
+## 2. When to use Inscribe V2
 
-1. Put optional human explanation outside Inscribe blocks.
-2. Put each intended file operation in its own Inscribe block.
-3. Put only final code/text inside payload fences.
-4. Put shell commands outside Inscribe blocks as separate shell fences.
-5. Do not include example/template blocks in the same response as real edits.
+Use Inscribe V2 only when you have current source truth and can produce complete, exact edits.
 
-When not producing real edits, do not output raw `$inscribe BEGIN` or `$inscribe END` marker lines. If you are explaining the format, escape or describe the markers in prose so they cannot be parsed as intended edits.
+Allowed cases:
+- Create a new file with complete content.
+- Replace an entire file with complete content.
+- Delete a file intentionally.
+- Replace or delete an exact textual region using SEARCH + CONTENT.
+- Replace or delete an entire supported structural target using SELECTOR + CONTENT.
+- Use structural targeting in TypeScript, TSX, Dart, and Flutter-aware Dart source where the requested selector kind is supported.
 
-## Block Format
+## 3. When not to use Inscribe V2
 
-````
-$inscribe BEGIN
-FILE: relative/path/from/repo/root.ext
-MODE: create | replace | append | range | delete | replace_symbol
-(optional directives)
+Do not emit Inscribe V2 blocks in any of these situations:
+- The source file content is unknown.
+- The target text or selector cannot be uniquely identified.
+- The replacement payload would require guessing omitted code.
+- You have only a vague description of the target code or repository state.
+- You want the engine to “figure out” where or how to apply a change.
+- The user requested analysis, planning, or explanation only.
+- You cannot write the full final payload.
 
+If you cannot produce exact payloads, do not emit Inscribe blocks. Ask for source truth or provide a plan instead.
+
+## 4. V2 block grammar
+
+Every Inscribe V2 block must match this grammar exactly. Code or structured payloads inside payload sections should be wrapped in Markdown code fences as the preferred default style for clean chat formatting:
+
+```
+<<<INSCRIBE
+FILE: relative/path/from/repo/root
+MODE: operation_mode
+
+<<<CONTENT
 ```language
-<final payload text>
+exact payload here
+```
+CONTENT>>>
+INSCRIBE>>>
 ```
 
-$inscribe END
-````
+Rules:
+- Opening marker must be exactly `<<<INSCRIBE` on its own line.
+- Closing marker must be exactly `INSCRIBE>>>` on its own line.
+- Section openers must be exact:
+  - `<<<CONTENT`
+  - `<<<SEARCH`
+  - `<<<STARTS_WITH`
+- Section closers must be exact:
+  - `CONTENT>>>`
+  - `SEARCH>>>`
+  - `STARTS_WITH>>>`
+- Directives are `FILE`, `MODE`, and optionally `SELECTOR`.
+- Do not wrap the outer `<<<INSCRIBE ... INSCRIBE>>>` block in Markdown fences.
+- Do not indent outer Inscribe markers.
+- **Preferred Section Wrappers:** Payload sections containing code or structured data should be wrapped in Markdown code fences (backticks or tildes of length >= 3, with 0-3 leading spaces). The parser automatically strips these wrapper fences, so they are not written to disk or treated as literal payload.
 
-Do not output angle-bracket placeholders such as `<final payload text>` in real blocks. Replace placeholders with actual paths, directives, and payload.
+## 5. Operation modes
 
-## Marker and Field Rules
+Inscribe V2 supports only these five operation modes. Unlisted modes are forbidden.
 
-- Use exact marker lines: `$inscribe BEGIN` and `$inscribe END`.
-- Marker matching is case-insensitive and whitespace-tolerant, so a marker-looking line inside payload can still terminate or split the block. Avoid marker-only payload lines entirely.
-- `$inscribe` is valid only on `BEGIN` and `END` marker lines.
-- `FILE:`, `MODE:`, and every directive must be unprefixed.
-- Use canonical uppercase field names and lowercase mode values.
-- Mode values are exact: `create`, `replace`, `append`, `range`, `delete`, `replace_symbol`.
-- Header and directive values are single-line only.
-- Only `CONTAINS:` is intentionally repeatable. Do not duplicate `FILE:`, `MODE:`, `START*`, `END*`, or `NAME:`.
-- Unknown unprefixed fields are ignored. Prefixed fields create parser warnings, and the desktop intake treats parser warnings/errors as blocking.
+### create_file
+Requires:
+- `FILE`
+- `MODE: create_file`
+- `CONTENT`
+`CONTENT` must be the complete file content.
+Forbidden:
+- `SEARCH`
+- `SELECTOR`
+- `STARTS_WITH`
 
-## Payload Rules
+### replace_file
+Requires:
+- `FILE`
+- `MODE: replace_file`
+- `CONTENT`
+`CONTENT` must be the complete new file content.
+Forbidden:
+- `SEARCH`
+- `SELECTOR`
+- `STARTS_WITH`
 
-For every mode except `delete`, the first fenced code block after the headers/directives is the payload.
+### delete_file
+Requires:
+- `FILE`
+- `MODE: delete_file`
+Forbidden:
+- `CONTENT`
+- `SEARCH`
+- `SELECTOR`
+- `STARTS_WITH`
 
-- The fence language label is ignored by Inscribe. Candidate validation is chosen by `FILE:` extension, not by the fence label.
-- Text before the payload fence is parsed as headers/directives or ignored.
-- Headers/directives after the payload fence are payload text, not metadata.
-- Non-whitespace text after the closing payload fence and before `$inscribe END` is a parse error.
-- Multiple payload fences in one block are a parse error unless they are inside a longer outer fence.
-- If the payload contains triple backtick fences, use a longer outer fence such as ```` or use `~~~`.
-- A target file that must contain a raw marker-only line such as `$inscribe END` cannot be represented safely in an Inscribe payload.
+### replace_text
+Requires:
+- `FILE`
+- `MODE: replace_text`
+- `SEARCH`
+- `CONTENT`
 
-## Fallback Parsing Warning
+`SEARCH` must exactly match existing text in the current virtual file state and must not be empty.
+`CONTENT` is the exact replacement text and may be empty to delete the matched text.
 
-Always use explicit `$inscribe BEGIN` / `$inscribe END` blocks for intended edits.
+Forbidden:
+- `SELECTOR`
+- `STARTS_WITH`
 
-If a pasted response contains no explicit Inscribe markers, the engine has a fallback mode that may parse bare `FILE:` + `MODE:` + fenced-code triplets as blocks. Therefore, an explanation-only response should avoid bare `FILE:`/`MODE:` examples followed by code fences unless the markers are escaped or clearly not line-leading fields.
+### replace_node
+Requires:
+- `FILE`
+- `MODE: replace_node`
+- `SELECTOR`
+- `CONTENT`
 
-## Paths and Modes
+`CONTENT` is the complete replacement text for the selected structural target. The section is required but may be empty to delete the exact resolved structural range.
 
-`FILE:` is a path relative to the selected repository root. Use forward slashes. Do not use absolute paths. Do not use `..` to escape the repository. Paths are rejected if they resolve outside the repo or into ignored paths.
+Optional:
+- `STARTS_WITH`
 
-Default ignored prefixes include `.git/`, `node_modules/`, `vendor/`, `storage/`, `bootstrap/cache/`, `public/build/`, and `.inscribe/`; `.inscribeignore` can add more.
+When present, `STARTS_WITH` must not be empty.
 
-Mode selection:
+Forbidden:
+- `SEARCH`
 
-1. New file -> `MODE: create`
-2. Existing file, complete rewrite -> `MODE: replace`
-3. Existing file, append exactly at EOF -> `MODE: append`
-4. Existing file, delete file -> `MODE: delete`
-5. Existing JS/TS/PHP file, replace a supported whole declaration -> `MODE: replace_symbol` + `NAME:`
-6. Existing file, surgical line-based replacement -> `MODE: range`
+## 6. Payload rules
 
-`create` requires the target file to not exist. `replace`, `append`, `range`, `delete`, and `replace_symbol` require the target file to exist.
+- `CONTENT` must be exact final text.
+- A required `CONTENT` section may be intentionally empty when the operation permits deletion or empty output.
+- Empty `replace_text` `CONTENT` deletes exactly the matched `SEARCH` text.
+- Empty `replace_node` `CONTENT` deletes exactly the resolved structural range.
+- Whitespace-only `CONTENT` is literal replacement text; it is not normalized to empty content.
+- Structural deletion does not automatically remove neighboring whitespace, blank lines, comments, punctuation, or formatting outside the resolved target range.
+- Never write “rest of file unchanged.”
+- Never write “existing code here.”
+- Never write “...”
+- Never omit imports, braces, function bodies, class members, JSX children, Dart members, or Flutter children unless deletion is intended.
+- Never rely on the engine to preserve omitted parts inside a replaced node or replaced file.
 
-## Mode Details
+### Preferred: section wrapper fences
 
-### `MODE: create`
+To ensure Inscribe blocks are rendered with correct syntax highlighting in chat interfaces, all code or structured payloads inside the sections (`CONTENT`, `SEARCH`, `STARTS_WITH`) should be wrapped in Markdown code fences (backticks or tildes of length >= 3) with 0-3 leading spaces as the default authoring style.
 
-Use for a non-existing file. Parent directories are created when the target path is valid.
-
-The payload becomes the full new file content.
-
-### `MODE: replace`
-
-Use only when the payload should become the entire existing file.
-
-The payload replaces the full file. Do not use `replace` for a small edit unless intentionally regenerating the whole file.
-
-### `MODE: append`
-
-Use only when the payload belongs exactly at the end of the existing file.
-
-Inscribe does not insert a leading newline or trailing newline for append. If appended content must start on a new line, put the leading newline in the payload.
-
-### `MODE: delete`
-
-Use only to remove an existing file.
-
-No payload fence is required. If a payload fence is present, it is ignored. Do not put notes or instructions there.
-
-### `MODE: replace_symbol`
-
-Use when replacing a whole supported declaration.
-
-Required directive:
-
-```text
-NAME: SymbolName
+Example:
 ```
-
-Supported JS/TS-family targets:
-
-- Top-level function declarations.
-- Top-level class declarations.
-- Top-level variable declarations initialized with a function, arrow function, `memo(...)`, `forwardRef(...)`, or `React.memo(...)`.
-- Exported declarations, including named default function declarations.
-
-Supported PHP targets:
-
-- Functions and methods matched by name.
-
-Important:
-
-- `NAME:` is a literal symbol name, not a pattern.
-- The payload must be the complete replacement declaration.
-- If the existing declaration is exported, include the intended `export` / `export default` form in the payload.
-- `replace_symbol` does not target imports, types/interfaces, class methods, object properties, anonymous default exports, arbitrary nested JS/TS declarations, or unsupported file types.
-- If zero or multiple supported declarations match, the operation fails safely.
-
-### `MODE: range`
-
-Use for textual, line-based replacement inside an existing file.
-
-Required: exactly one start directive:
-
-```text
-START: literal substring
-START_BEFORE: literal substring
-START_AFTER: literal substring
-```
-
-Optional: exactly one end directive:
-
-```text
-END: literal substring
-END_BEFORE: literal substring
-END_AFTER: literal substring
-```
-
-Optional disambiguation:
-
-```text
-CONTAINS: literal substring that must be inside the candidate range
-CONTAINS: another required substring
-```
-
-Range matching rules:
-
-- Anchors are literal substrings, not regexes and not instructions.
-- Anchor matching is case-sensitive.
-- Anchors can match anywhere inside a line; they do not need to match the whole line.
-- A direct match is tried first. If none exists, matching retries within each individual line with whitespace removed.
-- Whitespace-insensitive retry does not match across line boundaries.
-- The start anchor must resolve to exactly one candidate after optional `CONTAINS` filtering.
-- If an end directive is present, the selected end is the first matching end anchor after the selected start.
-- `CONTAINS` requires `END`, `END_BEFORE`, or `END_AFTER` because it filters bounded candidate ranges.
-- `CONTAINS` checks the text from each candidate start match through that candidate's first following end match. All repeated `CONTAINS:` values must be present.
-- `SCOPE_START` and `SCOPE_END` are obsolete. Do not use them.
-
-Range replacement is line-based:
-
-| Directive | Replacement boundary |
-| --- | --- |
-| `START` | starts at the beginning of the anchor line |
-| `START_BEFORE` | starts at the beginning of the previous line |
-| `START_AFTER` | starts at the beginning of the line after the anchor line |
-| `END` | ends after the end-anchor line |
-| `END_BEFORE` | ends before the end-anchor line |
-| `END_AFTER` | ends after the line following the end-anchor line |
-
-Without an end directive, `range` replaces exactly one selected line: the `START` anchor line, the line before the `START_BEFORE` anchor line, or the line after the `START_AFTER` anchor line.
-
-Do not assume `END: }`, `END: </Tag>`, or similar anchors understand syntax structure. They are plain text anchors, and the first matching end after the selected start wins.
-
-Prefer `replace_symbol` over `range` when replacing a whole supported declaration. Prefer specific anchors over broad anchors. If a broad anchor is unavoidable, use a bounded range plus `CONTAINS`.
-
-## Validation and Failure Behavior
-
-Expect strict fail-safe behavior.
-
-- Parse warnings/errors stop the desktop intake flow.
-- Missing files, existing files in `create`, ignored paths, and paths outside the repo fail validation.
-- Missing or ambiguous range starts fail validation.
-- Missing range ends fail validation.
-- Invalid range directive combinations fail before apply.
-- `replace_symbol` with zero or multiple matching declarations fails.
-- Validation resolves and syntax-checks the full in-memory apply plan before disk writes are allowed.
-- Apply re-runs that full preflight and writes transactionally; if a write fails, previously written files are rolled back.
-- JS/TS-family candidates (`.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs`) are parsed before write.
-- PHP candidates (`.php`, `.phtml`) are linted before write through the PHP adapter.
-- Other languages are not syntax-validated by Inscribe.
-- Candidate validation checks the whole candidate file, not only the payload.
-- Inscribe does not run tests, typecheck, format, install packages, update imports, or execute shell commands.
-
-Design for safe retries: make blocks deterministic and let diagnostics guide the next attempt.
-
-## Easy Misunderstandings to Avoid
-
-- Do not put "replace this function with..." inside the payload. Put the finished replacement code there.
-- Do not put comments like `// add validation here` unless that comment should remain in the repository.
-- Do not output placeholder paths, ellipses, TODO stubs, or omitted code in payloads unless they are truly intended file content.
-- Do not place shell commands inside an Inscribe payload.
-- Do not wrap two files or two payload fences in one block.
-- Do not output illustrative `$inscribe BEGIN` examples in a response meant to apply real edits.
-- Do not assume `START_AFTER` means after the matched substring. It means the next line after the anchor line.
-- Do not assume `END_BEFORE` means before the matched substring. It means before the end-anchor line.
-- Do not assume `CONTAINS` searches the whole file. It searches each bounded candidate range.
-- Do not assume the fence language label controls validation.
-- Do not assume unknown directives help. Unknown unprefixed fields are ignored.
-- Do not assume `replace_symbol` preserves modifiers automatically. The replacement declaration must include exactly the modifiers/exports you want.
-- Do not assume append starts on a new line. Include the leading newline yourself.
-- Do not assume a successful parse means the file will validate or apply.
-
-## Shape Examples
-
-These are format examples only. In a real response, output only blocks for the actual intended files and never include this examples section.
-
-### Create
-
-$inscribe BEGIN
-FILE: src/utils/date.ts
-MODE: create
-
+<<<CONTENT
 ```ts
-export function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
+export const value = 1;
+\`\`\`
+CONTENT>>>
+```
+
+The parser automatically strips only the wrapper fence lines (and their optional language tags) along with any optional surrounding blank lines, leaving `export const value = 1;` as the actual payload written to the file (which means these wrapper fences are not written to disk). Any malformed wrappers (e.g. missing closer or trailing text) will raise a `MALFORMED_WRAPPER_FENCE` validation error.
+
+Payload requirements by mode:
+- `create_file`: `CONTENT` = entire new file
+- `replace_file`: `CONTENT` = entire new file version
+- `replace_text`: `CONTENT` = exact replacement for `SEARCH`
+- `replace_node`: `CONTENT` = entire replacement node, including its signature, wrapper, braces, and JSX.
+
+For `replace_node`:
+- If replacing a function, `CONTENT` must include the full function declaration/expression.
+- If replacing an `if_statement`, `CONTENT` must include the full if statement.
+- If replacing a class, `CONTENT` must include the full class.
+
+## 7. File path rules
+
+- `FILE` must be a repository-relative path.
+- Use forward slashes.
+- Do not use absolute or UNC paths.
+- Do not use drive-letter paths.
+- Do not use backslashes.
+- Do not use `.` or `..` path segments.
+- Do not use repeated slashes or empty path segments.
+- Do not use trailing slashes.
+- Do not use control characters.
+- Do not use Windows-invalid path characters: `:`, `*`, `?`, `"`, `<`, `>`, or `|`.
+- Path segments must not end with `.` or a space.
+
+Valid:
+- `src/app.ts`
+- `apps/desktop/src/preload.ts`
+- `packages/engine/src/v2/index.ts`
+
+Invalid:
+- `C:/repo/src/app.ts`
+- `/src/app.ts`
+- `../src/app.ts`
+- `./src/app.ts`
+- `src\app.ts`
+- `src//app.ts`
+- `src/app.ts/`
+
+## 8. replace_text rules
+
+- `replace_text` is for exact textual replacement, not fuzzy search.
+- `SEARCH` must be copied from the current source truth exactly.
+- `SEARCH` should be as small as safely unique, but large enough to avoid ambiguity.
+- `CONTENT` replaces the whole `SEARCH` block.
+
+### Choosing between replace_text and replace_node
+
+Choose the operation whose target boundary matches the semantic scope of the requested edit.
+
+Prefer `replace_node` when:
+- the requested change replaces or deletes an entire supported structural construct;
+- the selector expresses the developer's intended target more directly than copied source text;
+- the target is a whole supported class, constructor, method, function, control-flow statement, Dart structure, or Flutter semantic structure.
+
+Prefer `replace_text` when:
+- the requested change affects an exact textual fragment smaller than the complete structural target;
+- the target is outside the structural selector vocabulary, such as an import, comment, constant, token, partial expression, or documentation fragment;
+- the desired structural kind is unsupported but an exact unique textual match can safely express the edit.
+
+Do not use `replace_text` merely to avoid a valid, uniquely resolvable structural selector for a whole supported target.
+
+Do not expand a small textual edit into a whole-node replacement merely because `replace_node` is available.
+
+Forbidden:
+- Approximate search text.
+- Invented search text.
+- Using `SEARCH` as a regex.
+- Using `SEARCH` as a description of what to find.
+- Using `CONTENT` as a diff hunk (e.g. including `+` or `-` prefixes).
+
+Example:
+<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_text
+
+<<<SEARCH
+```ts
+const value = 1;
+\`\`\`
+SEARCH>>>
+
+<<<CONTENT
+```ts
+const value = 2;
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
+
+## 9. replace_node rules
+
+- `replace_node` is the structural editing operation for replacing or deleting an entire supported structural target.
+- Tree-sitter and the language adapters locate structural candidates and replacement boundaries. They do not generate replacement code, infer omitted logic, or validate business behavior.
+- Supported languages: `.ts`, `.tsx`, and `.dart`. No `.js` or `.jsx` support is claimed. Dart files may also use the Flutter-aware semantic selectors documented below.
+- When the requested edit corresponds to an entire supported structural target, prefer `replace_node` over reconstructing that same target with `replace_text`.
+- `CONTENT` replaces exactly the resolved structural range. Empty `CONTENT` deletes exactly that range.
+
+### Parser recovery and structural trust
+
+Tree-sitter is structural discovery evidence, not an authoritative language syntax validator.
+
+Parser recovery elsewhere in a file does not automatically make a structural edit unsafe. A target may still be resolved when the structural facts required for that target remain trustworthy.
+
+Structural resolution must fail closed when parser recovery can materially threaten:
+- target identity;
+- selector-path ownership or qualification;
+- candidate cardinality or uniqueness;
+- `STARTS_WITH` qualification;
+- replacement boundaries;
+- discovery completeness, including recovery that could hide another candidate of the requested kind.
+
+Interior parser damage that does not threaten those facts must not automatically poison an otherwise trustworthy whole-target replacement.
+
+This recovery tolerance is an engine safety property. It does not permit the LLM to guess selectors, names, paths, or source structure.
+
+Example:
+<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_node
+SELECTOR: function:buildValue
+
+<<<CONTENT
+```ts
+export function buildValue() {
+  return 2;
 }
-```
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
 
-$inscribe END
+## 10. SELECTOR rules
 
-### Replace symbol
+Example selectors:
+- `function:buildValue`
+- `class:UserService`
+- `class:UserService > constructor`
+- `class:UserService > method:save`
+- `function:resolvePlan > if_statement`
+- `function:processItems > for_statement`
+- `class:CartController > constructor:restore`
+- `widget:App`
+- `class:OrderPage > method:build > builder_callback:builder`
 
-$inscribe BEGIN
-FILE: src/components/ParticipantSurfacePanel.tsx
-MODE: replace_symbol
-NAME: ParticipantSurfacePanel
+Rules:
+- Named selector segments must use the exact symbol or semantic name from source.
+- Do not invent selector names.
+- Repeated structural targets often need `STARTS_WITH` to disambiguate.
+- The selector must resolve to exactly one node.
+- If selector uniqueness is uncertain, do not emit the block.
 
+Supported selector kinds:
+- `class`
+- `constructor`
+- `method`
+- `function`
+- `for_statement`
+- `while_statement`
+- `switch_statement`
+- `if_statement`
+
+Flutter-aware Dart files additionally support semantic selectors for `widget`,
+`widget_subtree`, `builder_callback`, `event_callback`, `collection_if`, `collection_for`,
+and `builder_branch`. These selectors require Flutter evidence in the source; ordinary Dart
+selectors remain available for every Dart file. Use callback names such as `builder`,
+`itemBuilder`, or `onTap` when they are present in source, and use `STARTS_WITH` for repeated
+collection entries or builder branches.
+
+## 11. STARTS_WITH rules
+
+- `STARTS_WITH` is a qualifier for `replace_node` to disambiguate repeating structural targets.
+- It is not a replacement payload.
+- It narrows matching nodes by requiring the target node text to start with the exact `STARTS_WITH` text.
+
+Rules:
+- Use `STARTS_WITH` when repeated candidates of the requested structural kind cannot otherwise be uniquely identified.
+- It is commonly useful for repeated `if_statement`, loop, collection-control-flow, branch, and similar structural targets.
+- `STARTS_WITH` must be copied from source truth.
+- `STARTS_WITH` must not be blank.
+- `STARTS_WITH` must not be a summary, regex, or approximate fragment.
+- `STARTS_WITH` must match the start of the resolved target text.
+- Do not add `STARTS_WITH` when the selector already resolves uniquely without it.
+
+Example:
+<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_node
+SELECTOR: function:buildValue > if_statement
+
+<<<STARTS_WITH
+```ts
+if (!value) {
+  throw new Error('Missing value');
+}
+\`\`\`
+STARTS_WITH>>>
+
+<<<CONTENT
+```ts
+if (!value) {
+  throw new Error('Value required');
+}
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
+
+## 12. Multi-block sequencing rules
+
+- Blocks execute in order.
+- Later blocks see the virtual file state produced by earlier blocks.
+- `SEARCH` and `SELECTOR` resolution happen against the current virtual state, not always the original disk file.
+- Examples of allowed sequences:
+  - `create_file` -> `replace_text` on the same file.
+  - `replace_text` -> `replace_node` on the same file.
+  - `replace_node` -> `replace_text` on the same file.
+- If a previous block changes a target, later `SEARCH`/`SELECTOR` anchors must be written against the changed virtual content.
+
+## 13. Preview and apply model
+
+- Preview parses blocks, resolves targets, builds exact candidate content, and shows diffs.
+- Apply writes the frozen preview result only if the live workspace has not drifted.
+- The apply engine does not re-interpret the user’s natural language.
+- A successful preview is not permission to change payload meaning later. If source changes after preview, re-preview.
+
+## 14. Error-prevention checklist
+
+Verify each item before emitting any V2 block:
+- I have authoritative current source truth.
+- I know the exact repository-relative target file path.
+- I chose the operation whose boundary matches the requested edit.
+- I know whether the intended `CONTENT` is non-empty, empty, or whitespace-only.
+- I can write the complete exact `CONTENT` payload.
+- I am not using placeholders unless literal placeholders are desired.
+- For `replace_text`, `SEARCH` is exact, non-empty, and uniquely identifies the intended text.
+- For `replace_node`, the file type and selector kind are supported.
+- For `replace_node`, `SELECTOR` expresses the intended ownership path and uniquely identifies the structural target.
+- For repeated structural targets, any required `STARTS_WITH` is exact and non-blank.
+- I am not using `replace_text` merely to avoid a valid whole-structure selector.
+- I am not replacing a whole structural target when a smaller exact textual edit better matches the request.
+- If `CONTENT` is intentionally empty, I understand exactly which textual or structural range will be deleted.
+- I used only the V2 protocol.
+- I did not wrap the outer Inscribe block in Markdown fences.
+- My payload does not accidentally contain standalone reserved Inscribe markers that will be interpreted as protocol structure.
+
+## 15. Examples
+
+### create_file
+<<<INSCRIBE
+FILE: src/math.ts
+MODE: create_file
+
+<<<CONTENT
+```ts
+export function add(a: number, b: number): number {
+  return a + b;
+}
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
+
+### replace_file
+<<<INSCRIBE
+FILE: src/math.ts
+MODE: replace_file
+
+<<<CONTENT
+```ts
+export function add(a: number, b: number): number {
+  return a + b;
+}
+
+export function subtract(a: number, b: number): number {
+  return a - b;
+}
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
+
+### delete_file
+<<<INSCRIBE
+FILE: src/stale.ts
+MODE: delete_file
+INSCRIBE>>>
+
+### replace_text
+<<<INSCRIBE
+FILE: src/math.ts
+MODE: replace_text
+
+<<<SEARCH
+```ts
+export function add(a: number, b: number): number {
+  return a + b;
+}
+\`\`\`
+SEARCH>>>
+
+<<<CONTENT
+```ts
+export function add(a: number, b: number): number {
+  console.log('Adding', a, b);
+  return a + b;
+}
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
+
+### replace_node named function
+<<<INSCRIBE
+FILE: src/math.ts
+MODE: replace_node
+SELECTOR: function:subtract
+
+<<<CONTENT
+```ts
+export function subtract(a: number, b: number): number {
+  console.log('Subtracting', a, b);
+  return a - b;
+}
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
+
+### replace_node class method
+<<<INSCRIBE
+FILE: src/calculator.ts
+MODE: replace_node
+SELECTOR: class:Calculator > method:multiply
+
+<<<CONTENT
+```ts
+  multiply(a: number, b: number): number {
+    return a * b;
+  }
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
+
+### replace_node repeated if_statement with STARTS_WITH
+<<<INSCRIBE
+FILE: src/auth.ts
+MODE: replace_node
+SELECTOR: function:login > if_statement
+
+<<<STARTS_WITH
+```ts
+if (!username) {
+  throw new Error('Username empty');
+}
+\`\`\`
+STARTS_WITH>>>
+
+<<<CONTENT
+```ts
+if (!username) {
+  throw new Error('Username must not be empty');
+}
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
+
+### TSX function component replacement
+<<<INSCRIBE
+FILE: src/components/Button.tsx
+MODE: replace_node
+SELECTOR: function:Button
+
+<<<CONTENT
 ```tsx
-export const ParticipantSurfacePanel = () => {
-  return <section aria-label="Participants">Ready</section>;
-};
-```
+export function Button({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button className="px-4 py-2 bg-blue-500 text-white rounded" onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
 
-$inscribe END
+### multi-block sequence
+<<<INSCRIBE
+FILE: src/temp.ts
+MODE: create_file
 
-### Bounded textual range with disambiguation
-
-$inscribe BEGIN
-FILE: src/features.ts
-MODE: range
-START_AFTER: // feature flags: start
-END_BEFORE: // feature flags: end
-CONTAINS: enableSignupFlow
-
+<<<CONTENT
 ```ts
-export const enableSignupFlow = true;
-export const enableBillingFlow = false;
-```
+export const version = '1.0.0';
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
 
-$inscribe END
+<<<INSCRIBE
+FILE: src/temp.ts
+MODE: replace_text
 
-### Append with intentional leading newline
-
-$inscribe BEGIN
-FILE: src/config.ts
-MODE: append
-
+<<<SEARCH
 ```ts
+export const version = '1.0.0';
+\`\`\`
+SEARCH>>>
 
-export const enableNewFlow = true;
+<<<CONTENT
+```ts
+export const version = '2.0.0';
+\`\`\`
+CONTENT>>>
+INSCRIBE>>>
+
+## 16. Forbidden patterns
+
+### Forbidden: Omitting code / placeholder comments in payload
 ```
+<<<CONTENT
+// keep existing imports
+...
+CONTENT>>>
+```
+*Why:* The engine does not parse placeholders. The literal characters `// keep existing imports` and `...` will replace the code, corrupting the file or deleting imports.
 
-$inscribe END
+### Forbidden: Placeholder code in node replacements
+```
+<<<CONTENT
+function buildValue() {
+  // existing logic
+}
+CONTENT>>>
+```
+*Why:* The engine will replace the entire target function with this exact body, deleting the actual existing logic.
 
-### Delete
+### Forbidden: Invented selectors
+```
+SELECTOR: function:theFunctionThatHandlesIt
+```
+*Why:* Selectors are exact. There must be a function named `theFunctionThatHandlesIt` in the source code; the engine cannot look up files by conceptual descriptions.
 
-$inscribe BEGIN
-FILE: src/deprecated/old-component.tsx
-MODE: delete
+### Forbidden: Prose in SEARCH
+```
+<<<SEARCH
+the old code around here
+SEARCH>>>
+```
+*Why:* SEARCH must be copy-pasted byte-for-byte from current code, or the engine will fail to locate the block.
 
-$inscribe END
+### Forbidden: Action instructions instead of code
+```
+<<<CONTENT
+Apply the fix from above
+CONTENT>>>
+```
+*Why:* The engine will literally write the string "Apply the fix from above" into the codebase.
 
-## Final Checklist Before Output
+### Forbidden: Standalone reserved Inscribe markers inside another payload
 
-- The response contains real edits only, not examples/templates.
-- Every intended edit has exactly one block.
-- Every block has exactly one `FILE:` and one lowercase `MODE:`.
-- Every non-delete block has exactly one payload fence.
-- Payloads contain final code/text, not instructions or placeholders.
-- No raw marker-only lines appear inside payloads.
-- Range blocks have exactly one start directive.
-- Range blocks using `CONTAINS` also have exactly one end directive.
-- `replace_symbol` blocks include `NAME:` and a complete replacement declaration.
-- Append payloads include any needed leading newline.
-- Any suggested commands are outside Inscribe blocks.
+The intake parser recognizes reserved protocol marker lines structurally. Markdown section wrapper fences do not make a standalone reserved marker line inert.
+
+When editing tests, fixtures, documentation, or source code that itself contains literal Inscribe syntax, do not place reserved markers such as `<<<INSCRIBE`, `INSCRIBE>>>`, `<<<CONTENT`, `CONTENT>>>`, `<<<SEARCH`, `SEARCH>>>`, `<<<STARTS_WITH`, or `STARTS_WITH>>>` as standalone physical lines inside another Inscribe payload.
+
+Represent such fixture text without producing reserved standalone lines in the outer payload, for example by constructing strings from quoted fragments joined with `\n` or by using escaped newline sequences.
+
+*Why:* Reserved standalone marker lines may be interpreted as nested protocol structure, producing malformed blocks, duplicate sections, orphan closers, or bogus directives.
+
+### Forbidden: Wrapping Inscribe blocks in markdown code blocks
+````
+```
+<<<INSCRIBE
+FILE: src/app.ts
+MODE: delete_file
+INSCRIBE>>>
+```
+````
+*Why:* Markdown fences must never wrap the outer `<<<INSCRIBE` block. Fences cause the parser to fail.
+
+## 17. Final response checklist
+
+Before returning Inscribe V2 output:
+1. Emit only valid V2 blocks and short necessary explanation.
+2. Emit only V2 syntax.
+3. Do not wrap the outer Inscribe block in Markdown fences. Prefer inner section fence wrappers for code payloads.
+4. Ensure every CONTENT payload is complete and exact.
+5. Ensure every SEARCH / STARTS_WITH payload is copied from source truth.
+6. Ensure paths are repository-relative.
+7. Ensure no omitted code is accidentally deleted.

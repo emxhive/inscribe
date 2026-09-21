@@ -1,0 +1,712 @@
+{
+  "schemaVersion": 1,
+  "id": "structural-conformance",
+  "description": "Developer-intent structural targeting corpus for TypeScript, TSX, Dart, and Flutter.",
+  "suites": [
+    {
+      "id": "typescript",
+      "language": "typescript",
+      "fixtures": [
+        {
+          "id": "billing-platform",
+          "file": "fixtures/typescript/billing-platform.ts"
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "ts.class.decorated-default-export",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Replace the complete decorated default-exported billing service while retaining its declaration modifiers and neighboring parser class.",
+          "selector": "class:BillingService",
+          "assertions": {
+            "kind": "class",
+            "name": "BillingService",
+            "rangeAnchor": "@Audited()",
+            "rangeEndAnchor": "\n\nexport class InvoiceParser",
+            "contains": ["export default class BillingService", "private readonly currency"],
+            "neighbors": { "before": ["export namespace Billing"], "after": ["export class InvoiceParser"] },
+            "replacement": {
+              "content": "@Audited()\nexport default class BillingService {\n  constructor(private readonly ledger: Ledger, private readonly clock: Clock) {}\n}",
+              "validSyntax": true
+            }
+          }
+        },
+        {
+          "id": "ts.constructor.parameter-properties",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Replace the decorated constructor, including access modifiers and parameter properties, without absorbing the next method.",
+          "selector": "class:BillingService > constructor",
+          "assertions": {
+            "kind": "constructor",
+            "rangeAnchor": "constructor(",
+            "rangeEndAnchor": "\n\n  @Trace()",
+            "contains": ["@Inject('ledger')", "private readonly ledger", "private readonly clock"],
+            "excludes": ["async charge"],
+            "neighbors": { "before": ["private readonly currency"], "after": ["@Trace()"] },
+            "replacement": {
+              "content": "constructor(\n    @Inject('ledger') private readonly ledger: Ledger,\n    private readonly clock: Clock,\n  ) {}",
+              "validSyntax": true
+            }
+          }
+        },
+        {
+          "id": "ts.method.async-control-flow",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Replace the complete decorated async method and preserve its generator-like neighboring method and class fields.",
+          "selector": "class:BillingService > method:charge",
+          "assertions": {
+            "kind": "method",
+            "name": "charge",
+            "rangeAnchor": "@Trace()",
+            "rangeEndAnchor": "\n\n  async *events",
+            "contains": ["async charge", "for (const lineItem of invoice.lines)"],
+            "neighbors": { "before": ["private readonly currency"], "after": ["async *events"] }
+          }
+        },
+        {
+          "id": "ts.loop.for-of",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Target only the collection iteration over invoice lines, not the neighboring metadata or retry loops.",
+          "selector": "class:BillingService > method:charge > for_statement",
+          "startsWith": "for (const lineItem of invoice.lines)",
+          "assertions": {
+            "kind": "for_statement",
+            "rangeAnchor": "for (const lineItem of invoice.lines)",
+            "rangeEndAnchor": "\n\n    for (const key in invoice.metadata)",
+            "contains": ["lineItem.quantity"],
+            "excludes": ["for (const key in invoice.metadata)", "for (let attempt"],
+            "neighbors": { "before": ["let total = 0;"], "after": ["for (const key in invoice.metadata)"] }
+          }
+        },
+        {
+          "id": "ts.loop.for-in",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Target the metadata-key loop separately from the for-of and classic retry loops.",
+          "selector": "class:BillingService > method:charge > for_statement",
+          "startsWith": "for (const key in invoice.metadata)",
+          "assertions": {
+            "kind": "for_statement",
+            "rangeAnchor": "for (const key in invoice.metadata)",
+            "rangeEndAnchor": "\n\n    for (let attempt = 0;",
+            "contains": ["metadata[key]"],
+            "excludes": ["for (const lineItem of invoice.lines)", "for (let attempt"],
+            "neighbors": { "before": ["for (const lineItem of invoice.lines)"], "after": ["for (let attempt = 0;"] }
+          }
+        },
+        {
+          "id": "ts.loop.classic",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Target the bounded retry loop without conflating it with collection loops in the same method.",
+          "selector": "class:BillingService > method:charge > for_statement",
+          "startsWith": "for (let attempt = 0;",
+          "assertions": {
+            "kind": "for_statement",
+            "rangeAnchor": "for (let attempt = 0;",
+            "rangeEndAnchor": "\n\n    throw new Error('Unreachable charge state')",
+            "contains": ["attempt < 3", "await this.ledger.commit"],
+            "excludes": ["for (const lineItem of invoice.lines)", "for (const key in invoice.metadata)"],
+            "neighbors": { "before": ["for (const key in invoice.metadata)"], "after": ["throw new Error('Unreachable charge state')"] }
+          }
+        },
+        {
+          "id": "ts.if.starts-with",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Disambiguate repeated direct guard clauses using the exact business condition a developer sees.",
+          "selector": "class:BillingService > method:charge > if_statement",
+          "startsWith": "if (invoice.currency !== this.currency)",
+          "assertions": {
+            "kind": "if_statement",
+            "rangeAnchor": "if (invoice.currency !== this.currency)",
+            "rangeEndAnchor": "\n\n    let total = 0;",
+            "contains": ["Unsupported currency"],
+            "excludes": ["Missing invoice lines"],
+            "neighbors": { "before": ["if (!invoice.lines.length)"], "after": ["let total = 0;"] },
+            "replacement": {
+              "content": "if (invoice.currency !== this.currency) {\n      throw new CurrencyMismatchError(invoice.currency);\n    }",
+              "validSyntax": true
+            }
+          }
+        },
+        {
+          "id": "ts.if.ambiguity",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Reject an unqualified request when multiple direct guard clauses have the same structural kind.",
+          "selector": "class:BillingService > method:charge > if_statement",
+          "expectedError": "TARGET_AMBIGUOUS"
+        },
+        {
+          "id": "ts.loop.for-await-of",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Target an async-iterable loop independently from the classic and synchronous collection loops developers commonly mix in one service.",
+          "selector": "class:BillingService > method:consume > for_statement",
+          "startsWith": "for await (const status of events)",
+          "assertions": {
+            "kind": "for_statement",
+            "rangeAnchor": "for await (const status of events)",
+            "rangeEndAnchor": "\n  }\n\n  onSettled = async",
+            "contains": ["this.ledger.tag('status', status)"],
+            "neighbors": { "before": ["async consume"], "after": ["onSettled = async"] }
+          }
+        },
+        {
+          "id": "ts.class-field.async-callback",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Replace a function-valued class field as a declaration, including its terminator but not the following field.",
+          "selector": "class:BillingService > function:onSettled",
+          "assertions": {
+            "kind": "function",
+            "name": "onSettled",
+            "rangeAnchor": "onSettled = async",
+            "rangeEndAnchor": "\n\n  formatReceipt",
+            "contains": ["await this.clock.sleep"],
+            "excludes": ["function* events"],
+            "neighbors": { "before": ["async *events"], "after": ["formatReceipt"] }
+          }
+        },
+        {
+          "id": "ts.top-level-exported-function",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Replace an exported utility function with its export wrapper and Unicode-aware range intact.",
+          "selector": "function:normalizeCurrency",
+          "assertions": {
+            "kind": "function",
+            "name": "normalizeCurrency",
+            "rangeAnchor": "export function normalizeCurrency",
+            "rangeEndAnchor": "\n\nexport async function loadInvoice",
+            "contains": ["export function normalizeCurrency", "₦"],
+            "neighbors": { "before": ["export class InvoiceParser"], "after": ["export async function loadInvoice"] }
+          }
+        },
+        {
+          "id": "ts.function-expression-callback-owner",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Do not select an if statement hidden inside a callback when the developer targeted the containing function boundary.",
+          "selector": "function:runWithCallback > if_statement",
+          "expectedError": "TARGET_NOT_FOUND"
+        },
+        {
+          "id": "ts.overload-cardinality",
+          "mode": "selector",
+          "fixture": "billing-platform",
+          "intent": "Expose all overload signatures and the implementation as repeated method shapes rather than silently choosing one.",
+          "selector": "class:InvoiceParser > method:parse",
+          "expectedError": "TARGET_AMBIGUOUS"
+        },
+        {
+          "id": "ts.interface-declaration",
+          "mode": "capability",
+          "fixture": "billing-platform",
+          "intent": "Replace only the exported Invoice interface, preserving adjacent type aliases and decorators.",
+          "targetShape": "interface_declaration",
+          "anchor": "export interface Invoice",
+          "evidence": ["exact declaration range", "neighbor preservation", "syntax-valid replacement"]
+        },
+        {
+          "id": "ts.enum-and-namespace",
+          "mode": "capability",
+          "fixture": "billing-platform",
+          "intent": "Target the PaymentStatus enum or the nested Billing namespace independently from classes and functions.",
+          "targetShape": "enum_declaration and module/namespace declaration",
+          "anchor": "export enum PaymentStatus",
+          "evidence": ["declaration kind distinction", "nested ownership", "exact range"]
+        }
+      ]
+    },
+    {
+      "id": "tsx",
+      "language": "tsx",
+      "fixtures": [
+        {
+          "id": "operations-dashboard",
+          "file": "fixtures/tsx/operations-dashboard.tsx"
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "tsx.default-component",
+          "mode": "selector",
+          "fixture": "operations-dashboard",
+          "intent": "Replace the complete default-exported component while preserving hook setup, JSX tree, and neighboring named component.",
+          "selector": "function:OperationsDashboard",
+          "assertions": {
+            "kind": "function",
+            "name": "OperationsDashboard",
+            "rangeAnchor": "export default function OperationsDashboard",
+            "rangeEndAnchor": "\n\nexport const OperationTable",
+            "contains": ["useQuery", "<DashboardShell", "<OperationTable"],
+            "neighbors": { "before": ["type DashboardProps"], "after": ["export const OperationTable"] }
+          }
+        },
+        {
+          "id": "tsx.render-branch",
+          "mode": "selector",
+          "fixture": "operations-dashboard",
+          "intent": "Target one repeated render branch in a component using a visible JSX condition.",
+          "selector": "function:OperationsDashboard > if_statement",
+          "startsWith": "if (loading)",
+          "assertions": {
+            "kind": "if_statement",
+            "rangeAnchor": "if (loading)",
+            "rangeEndAnchor": "\n\n  if (error)",
+            "contains": ["<DashboardSkeleton"],
+            "excludes": ["<ErrorState"],
+            "neighbors": { "before": ["const filteredRows"], "after": ["if (error)"] }
+          }
+        },
+        {
+          "id": "tsx.named-arrow-component",
+          "mode": "selector",
+          "fixture": "operations-dashboard",
+          "intent": "Replace a named exported arrow component as a declaration, including its export and semicolon boundary.",
+          "selector": "function:OperationTable",
+          "assertions": {
+            "kind": "function",
+            "name": "OperationTable",
+            "rangeAnchor": "export const OperationTable",
+            "rangeEndAnchor": "\n\nclass LegacyDashboard",
+            "contains": ["<table", "rows.map"],
+            "neighbors": { "before": ["export default function OperationsDashboard"], "after": ["class LegacyDashboard"] }
+          }
+        },
+        {
+          "id": "tsx.callback-ownership",
+          "mode": "selector",
+          "fixture": "operations-dashboard",
+          "intent": "Do not treat an if statement inside rows.map as a direct child of the arrow component.",
+          "selector": "function:OperationTable > if_statement",
+          "expectedError": "TARGET_NOT_FOUND"
+        },
+        {
+          "id": "tsx.class-component-constructor",
+          "mode": "selector",
+          "fixture": "operations-dashboard",
+          "intent": "Target a class component constructor with its modifier and JSX render method nearby.",
+          "selector": "class:LegacyDashboard > constructor",
+          "assertions": {
+            "kind": "constructor",
+            "rangeAnchor": "protected constructor",
+            "rangeEndAnchor": "\n\n  render()",
+            "contains": ["super(props)"],
+            "excludes": ["render()"],
+            "neighbors": { "before": ["class LegacyDashboard"], "after": ["render()"] }
+          }
+        },
+        {
+          "id": "tsx.jsx-element-target",
+          "mode": "capability",
+          "fixture": "operations-dashboard",
+          "intent": "Replace only the DashboardShell JSX subtree without replacing the containing function.",
+          "targetShape": "jsx element/subtree",
+          "anchor": "<DashboardShell",
+          "evidence": ["JSX subtree boundary", "callback ownership", "syntax-valid TSX replacement"]
+        },
+        {
+          "id": "tsx.fragment-subtree",
+          "mode": "capability",
+          "fixture": "operations-dashboard",
+          "intent": "Replace the fragment that groups the dashboard shell and live-region siblings without replacing the containing component.",
+          "targetShape": "JSX fragment/subtree",
+          "anchor": "<>",
+          "evidence": ["fragment boundary", "sibling JSX ownership", "syntax-valid TSX replacement"]
+        },
+        {
+          "id": "tsx-hook-and-event-callback",
+          "mode": "capability",
+          "fixture": "operations-dashboard",
+          "intent": "Target the useCallback body or a single row onClick closure independently from the component declaration.",
+          "targetShape": "callback function expression",
+          "anchor": "const refresh = useCallback",
+          "evidence": ["closure boundary", "nested JSX ownership", "neighbor preservation"]
+        }
+      ]
+    },
+    {
+      "id": "dart",
+      "language": "dart",
+      "fixtures": [
+        {
+          "id": "checkout-domain",
+          "file": "fixtures/dart/checkout_domain.dart"
+        },
+        {
+          "id": "modern-patterns",
+          "file": "fixtures/dart/modern_patterns.dart"
+        },
+        {
+          "id": "audit-mixin",
+          "file": "fixtures/dart/audit_mixin.dart"
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "dart.annotated-class",
+          "mode": "selector",
+          "fixture": "checkout-domain",
+          "intent": "Replace an annotated controller class without absorbing the top-level loader below it.",
+          "selector": "class:CartController",
+          "assertions": {
+            "kind": "class",
+            "name": "CartController",
+            "rangeAnchor": "@immutable",
+            "rangeEndAnchor": "\n\nclass _RestoredCartController",
+            "contains": ["abstract class CartController", "CartController.empty"],
+            "excludes": ["Future<Cart> loadSavedCart"],
+            "neighbors": { "before": ["typedef CartListener"], "after": ["class _RestoredCartController"] }
+          }
+        },
+        {
+          "id": "dart.factory-constructor",
+          "mode": "selector",
+          "fixture": "checkout-domain",
+          "intent": "Target a named factory constructor including its annotation and expression body.",
+          "selector": "class:CartController > constructor:restore",
+          "assertions": {
+            "kind": "constructor",
+            "rangeAnchor": "@visibleForTesting",
+            "rangeEndAnchor": "\n\n  final List<CartItem> items",
+            "contains": ["factory CartController.restore", "_RestoredCartController"],
+            "neighbors": { "before": ["const CartController.empty"], "after": ["final List<CartItem> items"] }
+          }
+        },
+        {
+          "id": "dart.method-async",
+          "mode": "selector",
+          "fixture": "checkout-domain",
+          "intent": "Replace the annotated async submit method while preserving its callbacks and neighboring stream method.",
+          "selector": "class:CartController > method:submit",
+          "assertions": {
+            "kind": "method",
+            "name": "submit",
+            "rangeAnchor": "@protected",
+            "rangeEndAnchor": "\n\n  Stream<CartEvent> events",
+            "contains": ["Future<Receipt> submit", "for (final item in items)"],
+            "neighbors": { "before": ["final String currency"], "after": ["Stream<CartEvent> events"] }
+          }
+        },
+        {
+          "id": "dart.loop-for-in",
+          "mode": "selector",
+          "fixture": "checkout-domain",
+          "intent": "Target the Dart collection loop separately from the retry loop in the same async method.",
+          "selector": "class:CartController > method:submit > for_statement",
+          "startsWith": "for (final item in items)",
+          "assertions": {
+            "kind": "for_statement",
+            "rangeAnchor": "for (final item in items)",
+            "rangeEndAnchor": "\n\n    for (var attempt = 0;",
+            "contains": ["item.total"],
+            "excludes": ["for (var attempt"],
+            "neighbors": { "before": ["var total = 0.0;"], "after": ["for (var attempt = 0;"] }
+          }
+        },
+        {
+          "id": "dart.loop-classic",
+          "mode": "selector",
+          "fixture": "checkout-domain",
+          "intent": "Target the bounded retry loop without conflating it with the collection loop.",
+          "selector": "class:CartController > method:submit > for_statement",
+          "startsWith": "for (var attempt = 0;",
+          "assertions": {
+            "kind": "for_statement",
+            "rangeAnchor": "for (var attempt = 0;",
+            "rangeEndAnchor": "\n\n    throw StateError('Unreachable submit state')",
+            "contains": ["attempt < 2"],
+            "excludes": ["for (final item in items)"],
+            "neighbors": { "before": ["for (final item in items)"], "after": ["throw StateError('Unreachable submit state')"] }
+          }
+        },
+        {
+          "id": "dart.if-ambiguity",
+          "mode": "selector",
+          "fixture": "checkout-domain",
+          "intent": "Require a qualifier when submit contains multiple direct guard statements.",
+          "selector": "class:CartController > method:submit > if_statement",
+          "expectedError": "TARGET_AMBIGUOUS"
+        },
+        {
+          "id": "dart.top-level-function",
+          "mode": "selector",
+          "fixture": "checkout-domain",
+          "intent": "Target an annotated top-level async function with Unicode-aware declaration boundaries.",
+          "selector": "function:loadSavedCart",
+          "assertions": {
+            "kind": "function",
+            "name": "loadSavedCart",
+            "rangeAnchor": "@visibleForTesting\nFuture<Cart> loadSavedCart",
+            "rangeEndAnchor": "\n\nextension MoneyFormatting",
+            "contains": ["await storage.read"],
+            "neighbors": { "before": ["class _RestoredCartController"], "after": ["extension MoneyFormatting"] }
+          }
+        },
+        {
+          "id": "dart.callback-ownership",
+          "mode": "selector",
+          "fixture": "checkout-domain",
+          "intent": "Do not select a guard inside a listener closure as if it were a direct child of registerCallbacks.",
+          "selector": "class:CartController > method:registerCallbacks > if_statement",
+          "expectedError": "TARGET_NOT_FOUND"
+        },
+        {
+          "id": "dart.extension-getter",
+          "mode": "capability",
+          "fixture": "checkout-domain",
+          "intent": "Target only the extension getter that formats a money value.",
+          "targetShape": "extension declaration/getter",
+          "anchor": "extension MoneyFormatting on Money",
+          "evidence": ["extension owner", "getter body boundary", "exact range"]
+        },
+        {
+          "id": "dart.mixin-declaration",
+          "mode": "capability",
+          "fixture": "audit-mixin",
+          "intent": "Target a mixin declaration independently from the classes and methods that consume it.",
+          "targetShape": "mixin declaration",
+          "anchor": "mixin AuditTrail",
+          "evidence": ["declaration kind", "exact declaration range", "neighbor preservation"]
+        },
+        {
+          "id": "dart.parser-diagnostics.switch-expression",
+          "mode": "capability",
+          "fixture": "modern-patterns",
+          "intent": "Retain the common Dart 3 switch-expression and pattern-case shape while confirming the containing function remains structurally targetable despite parser recovery.",
+          "targetShape": "switch expression with pattern cases",
+          "selector": "function:paymentLabel",
+          "anchor": "=> switch (state)",
+          "evidence": ["function boundary remains structurally targetable", "pattern-case ownership", "unrelated Dart scenarios remain runnable"],
+          "category": "parser-compatibility"
+        }
+      ]
+    },
+    {
+      "id": "flutter",
+      "language": "dart",
+      "fixtures": [
+        {
+          "id": "order-details-page",
+          "file": "fixtures/flutter/order_details_page.dart"
+        },
+        {
+          "id": "activity-feed-page",
+          "file": "fixtures/flutter/activity_feed_page.dart"
+        },
+        {
+          "id": "catalog-summary-card",
+          "file": "fixtures/flutter/catalog_summary_card.dart"
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "flutter.widget-declaration",
+          "mode": "selector",
+          "fixture": "order-details-page",
+          "intent": "Replace the public StatefulWidget declaration without absorbing its private State implementation.",
+          "selector": "class:OrderDetailsPage",
+          "assertions": {
+            "kind": "class",
+            "name": "OrderDetailsPage",
+            "rangeAnchor": "class OrderDetailsPage",
+            "rangeEndAnchor": "\n\nclass _OrderDetailsPageState",
+            "contains": ["extends StatefulWidget", "createState"],
+            "excludes": ["class _OrderDetailsPageState"],
+            "neighbors": { "before": ["import '../models/order.dart';"], "after": ["class _OrderDetailsPageState"] }
+          }
+        },
+        {
+          "id": "flutter.stateless-widget",
+          "mode": "selector",
+          "fixture": "catalog-summary-card",
+          "intent": "Target an ordinary public StatelessWidget declaration with a const constructor and a nested build tree.",
+          "selector": "class:CatalogSummaryCard",
+          "assertions": {
+            "kind": "class",
+            "name": "CatalogSummaryCard",
+            "rangeAnchor": "class CatalogSummaryCard",
+            "rangeEndAnchor": "\n\nclass CatalogProduct",
+            "contains": ["extends StatelessWidget", "Widget build", "onTap: () => onOpen"],
+            "excludes": ["class CatalogProduct"],
+            "neighbors": { "before": ["import 'package:flutter/material.dart';"], "after": ["class CatalogProduct"] }
+          }
+        },
+        {
+          "id": "flutter.stateless-build-method",
+          "mode": "selector",
+          "fixture": "catalog-summary-card",
+          "intent": "Target the build method of a stateless card, including collection control flow and callback-owned widget children.",
+          "selector": "class:CatalogSummaryCard > method:build",
+          "assertions": {
+            "kind": "method",
+            "name": "build",
+            "rangeAnchor": "@override\n  Widget build(BuildContext context)",
+            "rangeEndAnchor": "\n}\n\nclass CatalogProduct",
+            "contains": ["if (product.isFeatured)", "for (final tag in product.tags)", "onTap: () => onOpen"],
+            "neighbors": { "before": ["final ValueChanged<String> onOpen"], "after": ["class CatalogProduct"] }
+          }
+        },
+        {
+          "id": "flutter-create-state",
+          "mode": "selector",
+          "fixture": "order-details-page",
+          "intent": "Target the widget lifecycle method that creates its state object.",
+          "selector": "class:OrderDetailsPage > method:createState",
+          "assertions": {
+            "kind": "method",
+            "name": "createState",
+            "rangeAnchor": "@override\n  State<OrderDetailsPage> createState",
+            "rangeEndAnchor": "\n}\n\nclass _OrderDetailsPageState",
+            "contains": ["_OrderDetailsPageState()"],
+            "neighbors": { "before": ["final String orderId"], "after": ["class _OrderDetailsPageState"] }
+          }
+        },
+        {
+          "id": "flutter-build-method",
+          "mode": "selector",
+          "fixture": "order-details-page",
+          "intent": "Replace the complete State.build method as one coherent build-tree unit.",
+          "selector": "class:_OrderDetailsPageState > method:build",
+          "assertions": {
+            "kind": "method",
+            "name": "build",
+            "rangeAnchor": "@override\n  Widget build(BuildContext context)",
+            "rangeEndAnchor": "\n\n  Future<Order> _loadOrder",
+            "contains": ["FutureBuilder<Order>", "ListView"],
+            "neighbors": { "before": ["bool _saving = false;"], "after": ["Future<Order> _loadOrder"] },
+            "replacement": {
+              "content": "@override\n  Widget build(BuildContext context) => const SizedBox.shrink();",
+              "validSyntax": true
+            }
+          }
+        },
+        {
+          "id": "flutter-async-handler",
+          "mode": "selector",
+          "fixture": "order-details-page",
+          "intent": "Target the async save handler including its state transitions and error handling.",
+          "selector": "class:_OrderDetailsPageState > method:_save",
+          "assertions": {
+            "kind": "method",
+            "name": "_save",
+            "rangeAnchor": "Future<void> _save",
+            "rangeEndAnchor": "\n\n  void _openProduct",
+            "contains": ["setState", "showSnackBar"],
+            "neighbors": { "before": ["Future<void> _refresh"], "after": ["void _openProduct"] }
+          }
+        },
+        {
+          "id": "flutter-builder-callback",
+          "mode": "capability",
+          "fixture": "order-details-page",
+          "intent": "Replace only the FutureBuilder builder callback, not the surrounding build method or FutureBuilder node.",
+          "targetShape": "builder callback closure",
+          "anchor": "builder: (context, snapshot)",
+          "evidence": ["callback ownership", "build-tree boundary", "valid Flutter replacement"],
+          "selector": "class:_OrderDetailsPageState > method:build > builder_callback:builder",
+          "assertions": {
+            "kind": "builder_callback",
+            "name": "builder",
+            "rangeAnchor": "(context, snapshot) {",
+            "rangeEndAnchor": ",\n      ),\n    );\n  }\n\n  Future<Order> _loadOrder",
+            "contains": ["if (snapshot.hasError)", "ListView"],
+            "excludes": ["builder:"],
+            "replacement": {
+              "content": "(context, snapshot) => const SizedBox.shrink()",
+              "validSyntax": true
+            },
+            "neighbors": { "before": ["import 'package:flutter/material.dart';"], "after": ["Future<Order> _loadOrder"] }
+          }
+        },
+        {
+          "id": "flutter-collection-control-flow",
+          "mode": "capability",
+          "fixture": "order-details-page",
+          "intent": "Target one collection-if or collection-for entry in the ListView children list.",
+          "targetShape": "collection if/for element",
+          "anchor": "if (order.isPaid)",
+          "evidence": ["collection element boundary", "neighbor preservation", "valid Dart replacement"],
+          "selector": "class:_OrderDetailsPageState > method:build > builder_callback:builder > collection_if",
+          "startsWith": "if (order.isPaid)",
+          "assertions": {
+            "kind": "collection_if",
+            "rangeAnchor": "if (order.isPaid)",
+            "rangeEndAnchor": ",\n                for (final note",
+            "contains": ["const PaidBanner()"],
+            "replacement": {
+              "content": "if (order.isPaid) const PaidBanner()",
+              "validSyntax": true
+            },
+            "neighbors": { "before": ["OrderSummary(order: order)"], "after": ["for (final note in order.notes)"] }
+          }
+        },
+        {
+          "id": "flutter-list-builder",
+          "mode": "capability",
+          "fixture": "activity-feed-page",
+          "intent": "Replace one ListView.builder itemBuilder callback while preserving pagination and the surrounding widget tree.",
+          "targetShape": "itemBuilder callback closure",
+          "anchor": "itemBuilder: (context, index)",
+          "evidence": ["builder callback ownership", "index scope", "neighbor preservation"],
+          "selector": "class:_ActivityFeedPageState > method:build > builder_callback:builder > builder_callback:itemBuilder",
+          "assertions": {
+            "kind": "builder_callback",
+            "name": "itemBuilder",
+            "rangeAnchor": "(context, index) {",
+            "rangeEndAnchor": ",\n          );",
+            "contains": ["activities[index]", "ActivityTile"],
+            "excludes": ["itemBuilder:"],
+            "replacement": {
+              "content": "(context, index) => const SizedBox.shrink()",
+              "validSyntax": true
+            },
+            "neighbors": { "before": ["itemCount: activities.length"], "after": ["Future<void> _retry"] }
+          }
+        },
+        {
+          "id": "flutter-stream-build-tree",
+          "mode": "capability",
+          "fixture": "activity-feed-page",
+          "intent": "Target the loading/error/data branches inside a StreamBuilder without replacing the whole State.build method.",
+          "targetShape": "builder-owned conditional build tree",
+          "anchor": "StreamBuilder<List<Activity>>",
+          "evidence": ["nested callback boundary", "repeated conditional disambiguation", "valid Flutter replacement"],
+          "selector": "class:_ActivityFeedPageState > method:build > builder_callback:builder > builder_branch",
+          "startsWith": "if (snapshot.hasError)",
+          "assertions": {
+            "kind": "builder_branch",
+            "rangeAnchor": "if (snapshot.hasError)",
+            "rangeEndAnchor": "\n\n          if (!snapshot.hasData)",
+            "contains": ["RetryPanel(onRetry: _retry)"]
+          }
+        },
+        {
+          "id": "flutter-callback-on-tap",
+          "mode": "capability",
+          "fixture": "activity-feed-page",
+          "intent": "Target the onTap closure for one activity row independently from the ListTile declaration.",
+          "targetShape": "event callback closure",
+          "anchor": "onTap: () => _openActivity",
+          "evidence": ["closure range", "captured row scope", "neighbor preservation"],
+          "selector": "class:_ActivityFeedPageState > method:build > builder_callback:builder > builder_callback:itemBuilder > event_callback:onTap",
+          "assertions": {
+            "kind": "event_callback",
+            "name": "onTap",
+            "rangeAnchor": "() => _openActivity(activity.id)",
+            "rangeEndAnchor": ",\n                trailing:",
+            "contains": ["_openActivity(activity.id)"],
+            "excludes": ["ActivityTile("]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,28 +2,9 @@
  * Shared types for Inscribe
  */
 
-export type Mode = 'create' | 'replace' | 'append' | 'range' | 'delete' | 'replace_symbol';
+import { OperationMode } from './modes';
 
-/**
- * Check if a string is a valid mode
- */
-export function isValidMode(mode: string): mode is Mode {
-  return (mode === 'create' || mode === 'replace' || mode === 'append' || mode === 'range' || mode === 'delete' || mode === 'replace_symbol');
-}
-
-export interface ParsedBlock {
-  file: string;
-  mode: Mode;
-  directives: Record<string, string>;
-  content: string;
-  blockIndex: number;
-}
-
-export interface ValidationError {
-  blockIndex: number;
-  file: string;
-  message: string;
-}
+export type Mode = OperationMode;
 
 export interface Operation {
   type: Mode;
@@ -31,16 +12,6 @@ export interface Operation {
   content: string;
   directives?: Record<string, string>;
   blockIndex?: number;
-}
-
-export interface OperationPreview {
-  type: Mode;
-  file: string;
-  content: string;
-  insert: string;
-  replaceStart: number;
-  replaceEnd: number;
-  removed: string;
 }
 
 /**
@@ -132,11 +103,6 @@ export interface OperationComparison {
   regions: OperationComparisonRegion[];
 }
 
-export interface ApplyPlan {
-  operations: Operation[];
-  errors?: ValidationError[];
-}
-
 export interface ApplyResult {
   success: boolean;
   errors?: string[];
@@ -152,6 +118,7 @@ export interface RestorePayloadV2 {
   schemaVersion: 2;
   mode: Mode;
   file: string;
+  lineEnding?: '\n' | '\r\n' | '\r';
   oldContent: string;
   newContent: string;
   baseFileHash: string;
@@ -168,18 +135,46 @@ export interface RestorePayloadV2 {
 export interface HistoryEntry {
   id: string;
   applyId: string;
+    /** Immutable action identity. */
+  actionId?: string;
+    /** Immutable timeline event kind. */
+  actionType?: 'apply' | 'restore';
+    /** The history entry/action this restore reverses. */
+  sourceEntryId?: string;
+  sourceActionId?: string;
+    /** Identifies entries written by the supported history path. */
+  protocol?: 'v2';
   file: string;
   mode: Mode;
   createdAt: string;
-  restoreOperation: Operation;
   restorePayload?: RestorePayloadV2;
   blockIndex?: number;
-  restoredAt?: string;
 }
 
-export interface ParseResult {
-  blocks: ParsedBlock[];
-  errors: string[];
+export interface RestorePreviewFile {
+  entryId: string;
+  sourceEntryId?: string;
+  file: string;
+  mode: Mode;
+  currentExists: boolean;
+  currentContent: string;
+  restoredState?: {
+    exists: boolean;
+    content: string;
+  };
+  diffHunks?: import('./protocol/comparisons').DiffHunk[];
+  eligible: boolean;
+  error?: string;
+}
+
+export interface RestorePreview {
+  actionId: string;
+  actionType?: 'apply' | 'restore';
+  createdAt?: string;
+  sourceActionId?: string;
+  files: RestorePreviewFile[];
+  eligible: boolean;
+  error?: string;
 }
 
 export type IndexState = 'idle' | 'running' | 'complete' | 'error';
@@ -195,10 +190,3 @@ export interface IgnoreRules {
   path: string;
 }
 
-export interface ScopeState {
-  repoRoot: string;
-  scope: string[];
-  lastSuggested?: string[];
-  lastIndexedCount?: number;
-  updatedAt: string;
-}

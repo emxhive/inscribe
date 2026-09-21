@@ -6,12 +6,14 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src"),
+      '@': path.resolve(__dirname, 'src'),
+      // The renderer executes shared protocol helpers directly, so Vite bundles
+      // current shared source while TypeScript validates its public package API.
       '@inscribe/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
-
     },
   },
   server: {
+    host: '127.0.0.1',
     port: 5173,
   },
   base: './',

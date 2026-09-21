@@ -1,161 +1,78 @@
 import { describe, expect, it } from 'vitest';
 import type { OperationComparison } from '@inscribe/shared';
 
-import {
-  buildReviewRenderModel,
-  buildUnifiedDiffModel,
-  buildReviewRegionOverlay,
-  summarizeDeletedText,
-} from './reviewComparison';
+import { buildUnifiedDiffModel } from './reviewComparison';
 
-describe('reviewComparison utils', () => {
-  it('builds a result-first render model directly from canonical comparison data', () => {
+describe('buildUnifiedDiffModel', () => {
+  it('adds surrounding context rows to unified diff hunks', () => {
     const comparison: OperationComparison = {
-      type: 'range',
+      type: 'replace_range',
       file: 'app/example.ts',
-      oldContent: 'alpha\nbeta\ngamma\n',
-      newContent: 'alpha\nupdated\ngamma\n',
-      replacementRegions: [
+      oldContent: [
+        'one',
+        'two',
+        'three',
+        'four',
+        'five',
+        'six',
+        'seven',
+        '',
+      ].join('\n'),
+      newContent: [
+        'one',
+        'two',
+        'three',
+        'changed',
+        'five',
+        'six',
+        'seven',
+        '',
+      ].join('\n'),
+      replacementRegions: [],
+      regions: [],
+      diffHunks: [
         {
-          id: 'region-0',
+          id: 'hunk-0',
           kind: 'replace',
-          oldRange: { start: 6, end: 11 },
-          newRange: { start: 6, end: 14 },
-          oldText: 'beta\n',
-          newText: 'updated\n',
-          boundaries: { before: { oldOffset: 6, newOffset: 6 }, after: { oldOffset: 11, newOffset: 14 } },
-          compare: { oldRange: { start: 6, end: 11 }, newRange: { start: 6, end: 14 } },
-          renderAnchor: { oldOffset: 6, newOffset: 6, side: 'before' },
-        },
-        {
-          id: 'region-1',
-          kind: 'delete',
-          oldRange: { start: 11, end: 17 },
-          newRange: { start: 14, end: 14 },
-          oldText: 'gone\n',
-          newText: '',
-          boundaries: { before: { oldOffset: 11, newOffset: 14 }, after: { oldOffset: 17, newOffset: 14 } },
-          compare: { oldRange: { start: 11, end: 17 }, newRange: { start: 14, end: 14 } },
-          renderAnchor: { oldOffset: 11, newOffset: 14, side: 'before' },
-        },
-      ],
-      diffHunks: [],
-      regions: [
-        {
-          id: 'region-0',
-          kind: 'replace',
-          oldRange: { start: 6, end: 11 },
-          newRange: { start: 6, end: 14 },
-          oldText: 'beta\n',
-          newText: 'updated\n',
-          boundaries: {
-            before: { oldOffset: 6, newOffset: 6 },
-            after: { oldOffset: 11, newOffset: 14 },
-          },
-          compare: {
-            oldRange: { start: 6, end: 11 },
-            newRange: { start: 6, end: 14 },
-          },
-          renderAnchor: {
-            oldOffset: 6,
-            newOffset: 6,
-            side: 'before',
-          },
-        },
-        {
-          id: 'region-1',
-          kind: 'delete',
-          oldRange: { start: 11, end: 17 },
-          newRange: { start: 14, end: 14 },
-          oldText: 'gone\n',
-          newText: '',
-          boundaries: {
-            before: { oldOffset: 11, newOffset: 14 },
-            after: { oldOffset: 17, newOffset: 14 },
-          },
-          compare: {
-            oldRange: { start: 11, end: 17 },
-            newRange: { start: 14, end: 14 },
-          },
-          renderAnchor: {
-            oldOffset: 11,
-            newOffset: 14,
-            side: 'before',
-          },
+          oldRange: { start: 14, end: 19 },
+          newRange: { start: 14, end: 22 },
+          oldText: 'four\n',
+          newText: 'changed\n',
+          oldStartLine: 4,
+          oldEndLine: 4,
+          newStartLine: 4,
+          newEndLine: 4,
         },
       ],
     };
 
-    expect(buildReviewRenderModel(comparison)).toEqual({
-      content: 'alpha\nupdated\ngamma\n',
-      regions: [
-        {
-          id: 'region-0',
-          kind: 'replace',
-          oldText: 'beta\n',
-          newText: 'updated\n',
-          highlightStart: 6,
-          highlightEnd: 14,
-          anchorOffset: 6,
-          anchorSide: 'before',
-          deletedSummary: null,
-        },
-        {
-          id: 'region-1',
-          kind: 'delete',
-          oldText: 'gone\n',
-          newText: '',
-          highlightStart: 14,
-          highlightEnd: 14,
-          anchorOffset: 14,
-          anchorSide: 'before',
-          deletedSummary: 'Deleted: gone',
-        },
-      ],
-      windows: [
-        { id: 'region-0', start: 6, end: 14 },
-        { id: 'region-1', start: 14, end: 14 },
-      ],
-    });
+    const hunk = buildUnifiedDiffModel(comparison).hunks[0];
+
+    expect(hunk.beforeContextRows.map((row) => [row.oldLine, row.newLine, row.marker, row.text])).toEqual([
+      [1, 1, ' ', 'one'],
+      [2, 2, ' ', 'two'],
+      [3, 3, ' ', 'three'],
+    ]);
+    expect(hunk.afterContextRows.map((row) => [row.oldLine, row.newLine, row.marker, row.text])).toEqual([
+      [5, 5, ' ', 'five'],
+      [6, 6, ' ', 'six'],
+      [7, 7, ' ', 'seven'],
+    ]);
+    expect(hunk.rows.map((row) => row.kind)).toEqual([
+      'context',
+      'context',
+      'context',
+      'remove',
+      'add',
+      'context',
+      'context',
+      'context',
+    ]);
   });
 
-  it('builds local overlay copy without re-diffing the file', () => {
-    expect(buildReviewRegionOverlay({
-      id: 'region-0',
-      kind: 'delete',
-      oldRange: { start: 0, end: 4 },
-      newRange: { start: 2, end: 2 },
-      oldText: 'gone',
-      newText: '',
-      boundaries: {
-        before: { oldOffset: 0, newOffset: 2 },
-        after: { oldOffset: 4, newOffset: 2 },
-      },
-      compare: {
-        oldRange: { start: 0, end: 4 },
-        newRange: { start: 2, end: 2 },
-      },
-      renderAnchor: {
-        oldOffset: 0,
-        newOffset: 2,
-        side: 'before',
-      },
-    })).toEqual({
-      title: 'Deleted content',
-      oldLabel: 'Before',
-      newLabel: 'After deletion',
-      oldText: 'gone',
-      newText: '(empty)',
-    });
-  });
-
-  it('summarizes multiline deleted text for calm inline placeholders', () => {
-    expect(summarizeDeletedText('first line\nsecond line\n')).toBe('Deleted 2 lines');
-  });
-
-  it('builds unified diff rows from engine-owned hunks', () => {
+  it('uses full-file hunk ranges for line numbers when hunk text is window-local', () => {
     const comparison: OperationComparison = {
-      type: 'range',
+      type: 'replace_range',
       file: 'app/example.ts',
       oldContent: 'alpha\nbeta\ngamma\n',
       newContent: 'alpha\nupdated\ngamma\n',
@@ -169,166 +86,68 @@ describe('reviewComparison utils', () => {
           newRange: { start: 6, end: 14 },
           oldText: 'beta\n',
           newText: 'updated\n',
-          oldStartLine: 2,
-          oldEndLine: 2,
-          newStartLine: 2,
-          newEndLine: 2,
+          oldStartLine: 1,
+          oldEndLine: 1,
+          newStartLine: 1,
+          newEndLine: 1,
           replacementRegionId: 'window-0',
         },
       ],
     };
 
-    expect(buildUnifiedDiffModel(comparison)).toEqual({
-      file: 'app/example.ts',
-      hunks: [
-        {
-          id: 'hunk-0',
-          index: 0,
-          kind: 'replace',
-          header: 'Hunk 1 -2,1 +2,1',
-          oldStartLine: 2,
-          newStartLine: 2,
-          removedCount: 1,
-          addedCount: 1,
-          removedRows: [
-            {
-              id: 'hunk-0-old-0',
-              hunkId: 'hunk-0',
-              kind: 'remove',
-              oldLine: 2,
-              newLine: null,
-              marker: '-',
-              text: 'beta',
-            },
-          ],
-          addedRows: [
-            {
-              id: 'hunk-0-new-0',
-              hunkId: 'hunk-0',
-              kind: 'add',
-              oldLine: null,
-              newLine: 2,
-              marker: '+',
-              text: 'updated',
-            },
-          ],
-          rows: [
-            {
-              id: 'hunk-0-old-0',
-              hunkId: 'hunk-0',
-              kind: 'remove',
-              oldLine: 2,
-              newLine: null,
-              marker: '-',
-              text: 'beta',
-            },
-            {
-              id: 'hunk-0-new-0',
-              hunkId: 'hunk-0',
-              kind: 'add',
-              oldLine: null,
-              newLine: 2,
-              marker: '+',
-              text: 'updated',
-            },
-          ],
-        },
-      ],
-      rows: [
-        {
-          id: 'hunk-0-header',
-          hunkId: 'hunk-0',
-          kind: 'hunk',
-          oldLine: null,
-          newLine: null,
-          marker: '@@',
-          text: 'Hunk 1 -2,1 +2,1',
-        },
-        {
-          id: 'hunk-0-old-0',
-          hunkId: 'hunk-0',
-          kind: 'remove',
-          oldLine: 2,
-          newLine: null,
-          marker: '-',
-          text: 'beta',
-        },
-        {
-          id: 'hunk-0-new-0',
-          hunkId: 'hunk-0',
-          kind: 'add',
-          oldLine: null,
-          newLine: 2,
-          marker: '+',
-          text: 'updated',
-        },
-      ],
-    });
+    const hunk = buildUnifiedDiffModel(comparison).hunks[0];
+
+    expect(hunk.header).toBe('Hunk 1 -2,1 +2,1');
+    expect(hunk.removedRows[0].oldLine).toBe(2);
+    expect(hunk.addedRows[0].newLine).toBe(2);
   });
 
-  it('handles insert and delete hunks without fake line rows', () => {
+  it('merges raw hunks when their display context overlaps', () => {
+    const oldContent = numberedLines(10);
+    const newContent = [
+      'line 1',
+      'line 2',
+      'line 3',
+      'line 4 changed',
+      'line 5',
+      'line 6 changed',
+      'line 7',
+      'line 8',
+      'line 9',
+      'line 10',
+      '',
+    ].join('\n');
     const comparison: OperationComparison = {
-      type: 'append',
+      type: 'replace_range',
       file: 'app/example.ts',
-      oldContent: 'alpha\n',
-      newContent: 'alpha\nbeta\n',
+      oldContent,
+      newContent,
       replacementRegions: [],
       regions: [],
       diffHunks: [
         {
           id: 'hunk-0',
-          kind: 'insert',
-          oldRange: { start: 6, end: 6 },
-          newRange: { start: 6, end: 11 },
-          oldText: '',
-          newText: 'beta\n',
-          oldStartLine: 2,
-          oldEndLine: 2,
-          newStartLine: 2,
-          newEndLine: 2,
+          kind: 'replace',
+          oldRange: rangeForLine(oldContent, 4, 'line 4\n'),
+          newRange: rangeForLine(newContent, 4, 'line 4 changed\n'),
+          oldText: 'line 4\n',
+          newText: 'line 4 changed\n',
+          oldStartLine: 4,
+          oldEndLine: 4,
+          newStartLine: 4,
+          newEndLine: 4,
         },
         {
           id: 'hunk-1',
-          kind: 'delete',
-          oldRange: { start: 0, end: 6 },
-          newRange: { start: 0, end: 0 },
-          oldText: 'alpha\n',
-          newText: '',
-          oldStartLine: 1,
-          oldEndLine: 1,
-          newStartLine: 1,
-          newEndLine: 1,
-        },
-      ],
-    };
-
-    const rows = buildUnifiedDiffModel(comparison).rows;
-
-    expect(rows.map((row) => row.kind)).toEqual(['hunk', 'add', 'hunk', 'remove']);
-    expect(rows[0].text).toBe('Hunk 1 -2,0 +2,1');
-    expect(rows[2].text).toBe('Hunk 2 -1,1 +1,0');
-  });
-
-  it('groups unified diff hunks for foldable rendering', () => {
-    const comparison: OperationComparison = {
-      type: 'replace',
-      file: 'app/example.ts',
-      oldContent: 'old one\nold two\n',
-      newContent: 'new one\nnew two\n',
-      replacementRegions: [],
-      regions: [],
-      diffHunks: [
-        {
-          id: 'hunk-0',
           kind: 'replace',
-          oldRange: { start: 0, end: 16 },
-          newRange: { start: 0, end: 16 },
-          oldText: 'old one\nold two\n',
-          newText: 'new one\nnew two\n',
-          oldStartLine: 1,
-          oldEndLine: 2,
-          newStartLine: 1,
-          newEndLine: 2,
+          oldRange: rangeForLine(oldContent, 6, 'line 6\n'),
+          newRange: rangeForLine(newContent, 6, 'line 6 changed\n'),
+          oldText: 'line 6\n',
+          newText: 'line 6 changed\n',
+          oldStartLine: 6,
+          oldEndLine: 6,
+          newStartLine: 6,
+          newEndLine: 6,
         },
       ],
     };
@@ -336,10 +155,149 @@ describe('reviewComparison utils', () => {
     const model = buildUnifiedDiffModel(comparison);
 
     expect(model.hunks).toHaveLength(1);
-    expect(model.hunks[0].removedCount).toBe(2);
-    expect(model.hunks[0].addedCount).toBe(2);
-    expect(model.hunks[0].removedRows).toHaveLength(2);
-    expect(model.hunks[0].addedRows).toHaveLength(2);
-    expect(model.hunks[0].rows.map((row) => row.kind)).toEqual(['remove', 'remove', 'add', 'add']);
+    expect(model.hunks[0].id).toBe('display-hunk-0');
+    expect(model.hunks[0].sourceHunkIds).toEqual(['hunk-0', 'hunk-1']);
+    expect(model.hunks[0].rows.filter((row) => row.kind === 'context' && row.oldLine === 5)).toHaveLength(1);
+    expect(model.hunks[0].rows.filter((row) => row.kind === 'remove').map((row) => row.hunkId)).toEqual([
+      'hunk-0',
+      'hunk-1',
+    ]);
+    expect(model.hunks[0].rows.filter((row) => row.kind === 'add').map((row) => row.hunkId)).toEqual([
+      'hunk-0',
+      'hunk-1',
+    ]);
+  });
+
+  it('keeps distant raw hunks as separate display hunks', () => {
+    const oldContent = numberedLines(14);
+    const newContent = [
+      'line 1',
+      'line 2',
+      'line 3 changed',
+      'line 4',
+      'line 5',
+      'line 6',
+      'line 7',
+      'line 8',
+      'line 9',
+      'line 10',
+      'line 11 changed',
+      'line 12',
+      'line 13',
+      'line 14',
+      '',
+    ].join('\n');
+    const comparison: OperationComparison = {
+      type: 'replace_range',
+      file: 'app/example.ts',
+      oldContent,
+      newContent,
+      replacementRegions: [],
+      regions: [],
+      diffHunks: [
+        {
+          id: 'hunk-0',
+          kind: 'replace',
+          oldRange: rangeForLine(oldContent, 3, 'line 3\n'),
+          newRange: rangeForLine(newContent, 3, 'line 3 changed\n'),
+          oldText: 'line 3\n',
+          newText: 'line 3 changed\n',
+          oldStartLine: 3,
+          oldEndLine: 3,
+          newStartLine: 3,
+          newEndLine: 3,
+        },
+        {
+          id: 'hunk-1',
+          kind: 'replace',
+          oldRange: rangeForLine(oldContent, 11, 'line 11\n'),
+          newRange: rangeForLine(newContent, 11, 'line 11 changed\n'),
+          oldText: 'line 11\n',
+          newText: 'line 11 changed\n',
+          oldStartLine: 11,
+          oldEndLine: 11,
+          newStartLine: 11,
+          newEndLine: 11,
+        },
+      ],
+    };
+
+    const model = buildUnifiedDiffModel(comparison);
+
+    expect(model.hunks).toHaveLength(2);
+    expect(model.hunks.map((hunk) => hunk.id)).toEqual(['display-hunk-0', 'display-hunk-1']);
+    expect(model.hunks.map((hunk) => hunk.sourceHunkIds)).toEqual([['hunk-0'], ['hunk-1']]);
+  });
+
+  it('keeps insert and delete line numbers in display hunks', () => {
+    const oldContent = 'alpha\nbeta\ngamma\ndelta\n';
+    const newContent = 'alpha\ninserted\ngamma\ndelta\n';
+    const comparison: OperationComparison = {
+      type: 'replace_range',
+      file: 'app/example.ts',
+      oldContent,
+      newContent,
+      replacementRegions: [],
+      regions: [],
+      diffHunks: [
+        {
+          id: 'delete-0',
+          kind: 'delete',
+          oldRange: rangeForLine(oldContent, 2, 'beta\n'),
+          newRange: { start: lineStartOffset(newContent, 2), end: lineStartOffset(newContent, 2) },
+          oldText: 'beta\n',
+          newText: '',
+          oldStartLine: 2,
+          oldEndLine: 2,
+          newStartLine: 2,
+          newEndLine: 2,
+        },
+        {
+          id: 'insert-0',
+          kind: 'insert',
+          oldRange: { start: lineStartOffset(oldContent, 3), end: lineStartOffset(oldContent, 3) },
+          newRange: rangeForLine(newContent, 2, 'inserted\n'),
+          oldText: '',
+          newText: 'inserted\n',
+          oldStartLine: 3,
+          oldEndLine: 3,
+          newStartLine: 2,
+          newEndLine: 2,
+        },
+      ],
+    };
+
+    const hunk = buildUnifiedDiffModel(comparison).hunks[0];
+
+    expect(hunk.removedRows.map((row) => [row.hunkId, row.oldLine, row.newLine, row.text])).toEqual([
+      ['delete-0', 2, null, 'beta'],
+    ]);
+    expect(hunk.addedRows.map((row) => [row.hunkId, row.oldLine, row.newLine, row.text])).toEqual([
+      ['insert-0', null, 2, 'inserted'],
+    ]);
   });
 });
+
+function numberedLines(count: number): string {
+  return [...Array(count).keys()].map((index) => `line ${index + 1}`).concat('').join('\n');
+}
+
+function rangeForLine(content: string, lineNumber: number, text: string): { start: number; end: number } {
+  const start = lineStartOffset(content, lineNumber);
+  return { start, end: start + text.length };
+}
+
+function lineStartOffset(content: string, lineNumber: number): number {
+  if (lineNumber <= 1) return 0;
+
+  let currentLine = 1;
+  for (let index = 0; index < content.length; index++) {
+    if (content[index] !== '\n') continue;
+    currentLine++;
+    if (currentLine === lineNumber) {
+      return index + 1;
+    }
+  }
+
+  return content.length;
+}

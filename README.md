@@ -1,97 +1,83 @@
 # Inscribe
 
-Inscribe is a desktop app that turns LLM output into safe, reviewable repository changes.
-It only applies explicitly tagged blocks and enforces strict validation before any write.
+A desktop app that turns explicitly tagged LLM output into reviewable repository changes.
 
-## Core Guarantees
+Inscribe parses `<<<INSCRIBE` blocks from LLM responses, validates the operation contract, shows diffs, and applies changes with restore history.
 
-- **Explicit intent only**: only `$inscribe BEGIN` / `$inscribe END` blocks are considered.
-- **Fail-closed behavior**: invalid blocks fail safely; no partial apply for that block.
-- **Pre-write candidate validation for JS/TS-family files**: `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs` candidates are parsed in memory before write.
-- **Structural targeting support** for risky edits:
-  - `MODE: replace_symbol` for full owning declaration replacement.
-- **Canonical review model**: replacement windows and actual diff hunks are produced by the engine and rendered by UI.
+## Block Format
 
-## Basic Workflow
-
-1. Select a repository.
-2. Paste full LLM response.
-3. Inscribe parses blocks and validates directives/paths.
-4. Review replacement windows + precise diff hunks.
-5. Apply selected/valid changes.
-6. Restore safely via history when needed.
-
-## Inscribe Block Format
-
-````
-$inscribe BEGIN
+```
+<<<INSCRIBE
 FILE: relative/path/from/repo/root.ext
-MODE: create | replace | append | range | delete | replace_symbol
-(optional directives)
+MODE: operation_mode
 
-```language
-<content>
+<<<CONTENT
+```ts
+exact payload here
+```
+CONTENT>>>
+INSCRIBE>>>
 ```
 
-$inscribe END
-````
+- `<<<INSCRIBE` and `INSCRIBE>>>` must appear on their own lines, unindented, and must never be wrapped in Markdown fences.
+- Section openers: `<<<CONTENT`, `<<<SEARCH`, `<<<STARTS_WITH`
+- Section closers: `CONTENT>>>`, `SEARCH>>>`, `STARTS_WITH>>>`
+- Code payloads inside sections should be wrapped in Markdown code fences — the parser strips the fence wrappers before writing to disk.
 
-Rules:
-- `$inscribe` prefix is valid only for `BEGIN` and `END` markers.
-- `FILE:`, `MODE:`, and directives must be unprefixed.
-- For `MODE: delete`, fenced content is optional.
+## Operation Modes
 
-## Supported Modes
+| Mode | Requires | Description |
+|---|---|---|
+| `create_file` | `CONTENT` | Create a new file with complete content |
+| `replace_file` | `CONTENT` | Replace an entire file with complete content |
+| `delete_file` | — | Delete a file |
+| `replace_text` | `SEARCH` + `CONTENT` | Replace an exact text match |
+| `replace_node` | `SELECTOR` + `CONTENT` | Replace a structural node via Tree-sitter (`.ts`, `.tsx`, `.dart`) |
 
-- **create**: create a new file (target must not exist)
-- **replace**: replace an existing file entirely
-- **append**: append to existing file end
-- **range**: replace a resolved subrange in an existing file
-- **delete**: remove an existing file
-- **replace_symbol**: replace a full owning declaration by symbol name (`NAME:` required)
+`replace_node` optionally accepts `STARTS_WITH` to disambiguate repeated structural targets (e.g. multiple `if_statement` nodes inside a function).
 
-## Directive Quick Reference
+## Selectors (`replace_node`)
 
-### `MODE: range`
+Selectors use exact symbol names from source:
 
-Required:
-- Exactly one start directive: `START` | `START_BEFORE` | `START_AFTER`
+```
+SELECTOR: function:buildValue
+SELECTOR: class:UserService
+SELECTOR: class:UserService > method:save
+SELECTOR: function:resolvePlan > if_statement
+```
 
-Optional end directives:
-- `END` | `END_BEFORE` | `END_AFTER`
+Supported kinds include `class`, `constructor`, `method`, `function`, `for_statement`,
+`while_statement`, `switch_statement`, and `if_statement`. Flutter-aware Dart files also
+support `widget`, `widget_subtree`, `builder_callback`, `event_callback`, `collection_if`,
+`collection_for`, and `builder_branch`.
 
+## Payload Rules
 
-Optional repeated `CONTAINS:` directives for disambiguation (ALL must match)
+- `CONTENT` is the exact final text — not a patch, not pseudo-code, not a summary.
+- Omitting code from a replacement payload deletes that code.
+- `SEARCH` must be copied byte-for-byte from the current source.
+- Placeholders are literal unless the user explicitly wants them in the output file.
 
-Notes:
-- `CONTAINS:` is a textual disambiguation directive that narrows broad `START` matches.
+## Workflow
 
-### `MODE: replace_symbol`
+1. Select a repository.
+2. Paste an LLM response containing Inscribe blocks.
+3. Review parsed operations and diffs.
+4. Apply selected, valid, or all pending changes.
+5. Restore from persisted history when needed.
 
-Required:
-- `NAME: SymbolName`
+## Keyboard shortcuts
 
-Behavior:
-- Resolves a full owning declaration for the symbol.
-- For JS/TS-family files, supported declarations include plain and exported function declarations, named default function declarations, function-like variable declarations, and supported wrappers such as `memo` and `forwardRef`.
-- When a symbol is declared inside an export statement, the replacement window is the full owning export declaration, so replacement content should include the intended `export` keyword.
-- Fails safely when zero or multiple matches are found.
+See [docs/keyboard-shortcuts.md](docs/keyboard-shortcuts.md) for the workspace shortcut reference. The same list is available in the app with `Ctrl+/`.
 
-## Parse Validation & Diagnostics
+## Safety
 
-For JS/TS-family file candidates, Inscribe parses in-memory candidate content before disk write.
-On parse failure, write is blocked and a copyable `INSCRIBE_PARSE_ERROR` diagnostic is surfaced with context and file-not-modified note.
+- `FILE` must be repository-relative. Absolute paths and `../` traversal are rejected.
+- Ignored paths are blocked. Non-create operations must be within configured scope.
+- Blocks execute in order; later blocks resolve against the virtual state produced by earlier blocks.
+- If disk writes succeed but history persistence fails, writes are rolled back.
 
-## Review Model
+## LLM Authoring Guide
 
-Review distinguishes two concepts:
-
-- **Replacement windows**: what the operation intends to replace.
-- **Diff hunks**: actual changed line hunks for user-facing review/navigation.
-
-UI highlights diff hunks primarily, with replacement windows as secondary context.
-
-## Documentation
-
-- [`docs/llm-guide.md`](docs/llm-guide.md): LLM authoring guide (recommended prompt contract)
-- [`docs/terminology.md`](docs/terminology.md): terminology and behavior references
+For the full authoring contract, see [docs/llm-guide.md](docs/llm-guide.md).

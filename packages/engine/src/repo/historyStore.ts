@@ -20,10 +20,19 @@ function readHistoryEntries(repoRoot: string): HistoryEntry[] {
   try {
     const raw = fs.readFileSync(storePath, 'utf-8');
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is HistoryEntry => Boolean(entry && entry.protocol === 'v2')).map(normalizeHistoryEntry)
+      : [];
   } catch {
     return [];
   }
+}
+function normalizeHistoryEntry(entry: HistoryEntry): HistoryEntry {
+  return {
+    ...entry,
+    actionId: entry.actionId ?? entry.applyId,
+    actionType: entry.actionType ?? 'apply',
+  };
 }
 
 function writeHistoryEntries(repoRoot: string, entries: HistoryEntry[]): void {
@@ -53,7 +62,6 @@ function mergeHistoryEntries(existing: HistoryEntry[], incoming: HistoryEntry[])
 
   return merged;
 }
-
 export function getHistoryEntries(repoRoot: string): HistoryEntry[] {
   return readHistoryEntries(repoRoot);
 }
@@ -63,32 +71,7 @@ export function appendHistoryEntries(repoRoot: string, entries: HistoryEntry[]):
     return readHistoryEntries(repoRoot);
   }
   const existing = readHistoryEntries(repoRoot);
-  const merged = mergeHistoryEntries(existing, entries);
+  const merged = mergeHistoryEntries(existing, entries.filter((entry) => entry.protocol === 'v2'));
   writeHistoryEntries(repoRoot, merged);
   return merged;
-}
-
-export function markHistoryEntryRestored(
-  repoRoot: string,
-  entryId: string,
-  restoredAt: string
-): boolean {
-  const existing = readHistoryEntries(repoRoot);
-  let didUpdate = false;
-  const updated = existing.map((entry) => {
-    if (entry.id !== entryId) {
-      return entry;
-    }
-    didUpdate = true;
-    return {
-      ...entry,
-      restoredAt,
-    };
-  });
-
-  if (didUpdate) {
-    writeHistoryEntries(repoRoot, updated);
-  }
-
-  return didUpdate;
 }

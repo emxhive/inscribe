@@ -1,53 +1,53 @@
 import { useCallback, useState } from 'react';
-import type {ApplyPlan, IgnoreRules, IndexStatus, ParsedBlock, ValidationError} from '@inscribe/shared';
-import type { AppMode, AppState, ReviewItem, PipelineStatus } from '@/types';
+import type { AppState } from '@/types';
 import { applyAppStateUpdates } from './appStateUtils';
 
 export const initialState: AppState = {
   repoRoot: null,
   topLevelFolders: [],
-  scope: [],
   ignore: { entries: [], source: 'none', path: '' },
   suggested: [],
   indexedFiles: [],
   indexedFileSet: new Set(),
-  indexedCount: 0,
   indexStatus: { state: 'idle' },
 
   mode: 'intake',
   aiInput: '',
   parseErrors: [],
-  parsedBlocks: [],
-  validationErrors: [],
+  previewDiagnostics: [],
   reviewItems: [],
-  selectedItemId: null,
+  reviewFiles: [],
+  selectedReviewFileId: null,
   selectedIntakeBlockId: null,
+  selectedIntakeLineIndex: null,
 
-  isEditing: false,
   statusMessage: 'Restoring last repository...',
   pipelineStatus: 'idle',
-  isParsingInProgress: false,
   isApplyingInProgress: false,
   isRestoringInProgress: false,
   isRestoringRepo: true,
   reviewView: 'unified',
   selectedHunkId: null,
-  reviewComparisonError: null,
   isLeftPanelCollapsed: false,
   isRightPanelCollapsed: false,
-  hiddenRightPanelSections: [],
-  openRightPanelSections: ['selection', 'directives', 'diagnostics'],
-  collapsedHunkIdsByItem: {},
-  collapsedDiffGroupIdsByItem: {},
+  rightPanelOwner: 'inspector',
+  rightPanelView: 'properties',
+  collapsedHunkIdsByFile: {},
+  collapsedDiffGroupIdsByFile: {},
   isTerminalOpen: false,
   terminalCommandSuggestions: [],
-  terminalSuggestionSourceApplyId: null,
-
-  lastAppliedPlan: null,
-  canRedo: false,
-  lastApplyId: null,
-  canUndoApply: false,
+  previewSession: null,
+  lastAppliedActionId: null,
   historyItems: [],
+  historyReview: {
+    actionId: null,
+    requestId: null,
+    selectedEntryId: null,
+    preview: null,
+    isLoading: false,
+    isRestoring: false,
+    error: null,
+  },
 };
 
 export function useAppState() {
@@ -61,38 +61,8 @@ export function useAppState() {
     });
   }, []);
 
-  // Specialized updaters for complex operations
-  const updateReviewItemContent = useCallback((id: string, editedContent: string) => {
-    setState((prev) => ({
-      ...prev,
-      reviewItems: prev.reviewItems.map((item) => {
-        if (item.id !== id) {
-          return item;
-        }
-        const status: ReviewItem['status'] =
-          item.status === 'invalid' ? 'invalid' : 'pending';
-        return {
-          ...item,
-          editedContent,
-          status,
-        };
-      }),
-    }));
-  }, []);
-
-  const setLastAppliedPlan = useCallback((plan: ApplyPlan | null) => {
-    setState((prev) => ({ ...prev, lastAppliedPlan: plan, canRedo: plan !== null }));
-  }, []);
-
-  const clearRedo = useCallback(() => {
-    setState((prev) => ({ ...prev, canRedo: false }));
-  }, []);
-
   return {
     state,
     updateState,
-    updateReviewItemContent,
-    setLastAppliedPlan,
-    clearRedo,
   };
 }

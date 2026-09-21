@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
-import { parseIntakeStructure } from '@/utils/intake';
+import { attributePreviewDiagnostics, parseLiveIntakeStructure } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 
 export function useIntakeBlocks() {
   const { state } = useAppStateContext();
 
   return useMemo(() => {
-    return parseIntakeStructure(state.aiInput, { indexedFileSet: state.indexedFileSet });
-  }, [state.aiInput, state.indexedFileSet]);
+    const structure = parseLiveIntakeStructure(state.aiInput, { indexedFileSet: state.indexedFileSet });
+    return attributePreviewDiagnostics(structure, state.previewDiagnostics);
+  }, [state.aiInput, state.indexedFileSet, state.previewDiagnostics]);
 }

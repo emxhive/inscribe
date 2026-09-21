@@ -1,322 +1,119 @@
-import {buildApplyPlanFromItems, decorateHistoryEntries} from '@/utils';
-import type {ReviewItem} from '@/types';
-import { extractCliCommandSuggestions } from '@inscribe/shared';
-import {useAppStateContext} from './useAppStateContext';
-import {initRepositoryState} from './useRepositoryActions';
-import {useHistoryActions} from './useHistoryActions';
+import {
+  extractCliCommandSuggestions,
+} from '@inscribe/shared';
+import {
+  buildApplyFailureUpdate,
+  buildApplyFinishedUpdate,
+  buildApplyRequestFailureUpdate,
+  buildApplyStartedUpdate,
+  buildApplySuccessUpdate,
+  buildApplyUnavailableUpdate,
+  resolveAppliedActionId,
+} from '@/state/applyTransitions';
+import { decorateHistoryEntries } from '@/utils';
+import { selectCanApplyPreview } from '@/state/workflowSelectors';
+import { useAppStateContext } from './useAppStateContext';
+import { initRepositoryState } from './useRepositoryActions';
 
-/**
- * Hook for apply/undo operations
- */
+/** Applies the immutable preview session as one transaction. */
 export function useApplyActions() {
-    const {state, updateState, setLastAppliedPlan} = useAppStateContext();
-    const {restoreItem, restoreGroup} = useHistoryActions();
-//     const {state, updateState, setLastAppliedPlan, clearRedo} = useAppStateContext();
-   
-    const refreshRepo = async (repoRoot: string) => {
-        await initRepositoryState(repoRoot, updateState);
-    };
-    const markItemsApplied = (ids: string[]) => {
-        const appliedStatus: ReviewItem['status'] = 'applied';
-        updateState((prev) => {
-            const nextReviewItems = prev.reviewItems.map((item) =>
-                ids.includes(item.id) ? {...item, status: appliedStatus} : item
-            );
-            const selectedWasApplied = prev.selectedItemId ? ids.includes(prev.selectedItemId) : false;
-            return {
-                reviewItems: nextReviewItems,
-                ...(selectedWasApplied ? {isEditing: false} : {}),
-            };
+  const { state, updateState } =
+    useAppStateContext();
+
+  const handleApplyAll = async () => {
+    if (
+      !state.repoRoot ||
+      state.isApplyingInProgress
+    ) {
+      return;
+    }
+
+    if (!selectCanApplyPreview(state)) {
+      updateState(
+        buildApplyUnavailableUpdate(
+          state.reviewItems.some(
+            (item) => item.status === 'applied',
+          ),
+        ),
+      );
+      return;
+    }
+
+    const repoRoot = state.repoRoot;
+    const previewToken =
+      state.previewSession!.previewToken;
+
+    updateState(
+      buildApplyStartedUpdate(
+        state.reviewFiles.length,
+      ),
+    );
+
+    try {
+      const result =
+        await window.inscribeAPI.apply({
+          repoRoot,
+          previewToken,
         });
-    };
 
-    const stageTerminalSuggestions = (applyId: string | null) => {
-        const suggestions = extractCliCommandSuggestions(state.aiInput);
-        if (suggestions.length === 0) {
-            return;
-        }
-        updateState({
-            terminalCommandSuggestions: suggestions,
-            terminalSuggestionSourceApplyId: applyId,
-        });
-    };
-    const handleApplySelected = async () => {
-        if (!state.repoRoot || !state.selectedItemId) return;
+      if (!result.ok) {
+        updateState(
+          buildApplyFailureUpdate(
+            result.errors,
+          ),
+        );
+        return;
+      }
 
-        const selectedItem = state.reviewItems.find(item => item.id === state.selectedItemId);
-        if (!selectedItem) return;
-
-        if (selectedItem.status === 'invalid') {
-            updateState({statusMessage: `Cannot apply: ${selectedItem.validationError}`});
-            return;
-        }
-        if (selectedItem.status !== 'pending') {
-            updateState({statusMessage: 'Selected file is not pending'});
-            return;
-        }
-
-        try {
-            updateState({
-                isApplyingInProgress: true,
-                pipelineStatus: 'applying',
-                statusMessage: 'Applying selected file...',
-                canUndoApply: false,
-                lastApplyId: null,
-            });
-
-            const plan = buildApplyPlanFromItems([selectedItem]);
-            const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
-
-            if (result.historyEntries?.length) {
-                updateState((prev) => ({
-                    historyItems: [
-                        ...decorateHistoryEntries(result.historyEntries ?? []),
-                        ...prev.historyItems,
-                    ],
-                }));
-            }
-
-            if (result.success) {
-                setLastAppliedPlan(plan);
-                const applyId = result.historyEntries?.[0]?.applyId ?? null;
-                markItemsApplied([selectedItem.id]);
-                updateState({
-                    pipelineStatus: 'apply-success',
-                    statusMessage: `✓ Applied: ${selectedItem.file}.`,
-                    canUndoApply: Boolean(applyId),
-                    lastApplyId: applyId,
-                    canRedo: true,
-                });
-                stageTerminalSuggestions(applyId);
-                await refreshRepo(state.repoRoot);
-            } else {
-                updateState({
-                    pipelineStatus: 'apply-failure',
-                    statusMessage: `Failed to apply: ${result.errors?.join(', ') || 'Unknown error'}`
-                });
-            }
-        } catch (error) {
-            console.error('Failed to apply selected:', error);
-            updateState({
-                pipelineStatus: 'apply-failure',
-                statusMessage: `Failed to apply: ${error}`
-            });
-        } finally {
-            updateState({isApplyingInProgress: false});
-        }
-    };
-
-    const handleApplyAll = async () => {
-        if (!state.repoRoot) return;
-
-        const hasAnyApplied = state.reviewItems.some(item => item.status === 'applied');
-        if (hasAnyApplied) {
-            updateState({statusMessage: 'Some files have already been applied'});
-            return;
-        }
-
-        const invalidItems = state.reviewItems.filter(item => item.status === 'invalid');
-        if (invalidItems.length > 0) {
-            updateState({statusMessage: `Cannot apply: ${invalidItems.length} file(s) have validation errors`});
-            return;
-        }
-
-        const pendingItems = state.reviewItems.filter(item => item.status === 'pending');
-        if (pendingItems.length === 0) {
-            updateState({statusMessage: 'No pending files to apply'});
-            return;
-        }
-
-        try {
-            updateState({
-                isApplyingInProgress: true,
-                pipelineStatus: 'applying',
-                statusMessage: `Applying ${pendingItems.length} file(s)...`,
-                canUndoApply: false,
-                lastApplyId: null,
-            });
-
-            const plan = buildApplyPlanFromItems(pendingItems);
-            const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
-
-            if (result.historyEntries?.length) {
-                updateState((prev) => ({
-                    historyItems: [
-                        ...decorateHistoryEntries(result.historyEntries ?? []),
-                        ...prev.historyItems,
-                    ],
-                }));
-            }
-
-            if (result.success) {
-                setLastAppliedPlan(plan);
-                const applyId = result.historyEntries?.[0]?.applyId ?? null;
-                markItemsApplied(pendingItems.map((item) => item.id));
-                updateState({
-                    pipelineStatus: 'apply-success',
-                    statusMessage: `✓ Applied all: ${pendingItems.length} file(s).`,
-                    canUndoApply: Boolean(applyId),
-                    lastApplyId: applyId,
-                    canRedo: true,
-                });
-                stageTerminalSuggestions(applyId);
-                await refreshRepo(state.repoRoot);
-            } else {
-                updateState({
-                    pipelineStatus: 'apply-failure',
-                    statusMessage: `Failed to apply: ${result.errors?.join(', ') || 'Unknown error'}`
-                });
-            }
-        } catch (error) {
-            console.error('Failed to apply all:', error);
-            updateState({
-                pipelineStatus: 'apply-failure',
-                statusMessage: `Failed to apply all: ${error}`
-            });
-        } finally {
-            updateState({isApplyingInProgress: false});
-        }
-    };
-
-    const handleApplyValidBlocks = async () => {
-        if (!state.repoRoot) return;
-
-        const pendingItems = state.reviewItems.filter(item => item.status === 'pending');
-
-        if (pendingItems.length === 0) {
-            updateState({
-                statusMessage: 'No pending valid files to apply',
-                pipelineStatus: 'idle'
-            });
-            return;
-        }
-
-        const invalidCount = state.reviewItems.filter(item => item.status === 'invalid').length;
-
-        try {
-            updateState({
-                isApplyingInProgress: true,
-                pipelineStatus: 'applying',
-                statusMessage: `Applying ${pendingItems.length} valid file(s)...`,
-                canUndoApply: false,
-                lastApplyId: null,
-            });
-
-            const plan = buildApplyPlanFromItems(pendingItems);
-            const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
-
-            if (result.historyEntries?.length) {
-                updateState((prev) => ({
-                    historyItems: [
-                        ...decorateHistoryEntries(result.historyEntries ?? []),
-                        ...prev.historyItems,
-                    ],
-                }));
-            }
-
-            if (result.success) {
-                setLastAppliedPlan(plan);
-                const applyId = result.historyEntries?.[0]?.applyId ?? null;
-                markItemsApplied(pendingItems.map((item) => item.id));
-                const message = invalidCount > 0
-                    ? `✓ Applied ${pendingItems.length} valid file(s). ${invalidCount} file(s) with errors were skipped.`
-                    : `✓ Applied all: ${pendingItems.length} file(s).`;
-
-                updateState({
-                    pipelineStatus: 'apply-success',
-                    statusMessage: message,
-                    canUndoApply: Boolean(applyId),
-                    lastApplyId: applyId,
-                    canRedo: true,
-                });
-                stageTerminalSuggestions(applyId);
-                await refreshRepo(state.repoRoot);
-            } else {
-                updateState({
-                    pipelineStatus: 'apply-failure',
-                    statusMessage: `Failed to apply: ${result.errors?.join(', ') || 'Unknown error'}`
-                });
-            }
-        } catch (error) {
-            console.error('Failed to apply valid blocks:', error);
-            updateState({
-                pipelineStatus: 'apply-failure',
-                statusMessage: `Failed to apply valid blocks: ${error}`
-            });
-        } finally {
-            updateState({isApplyingInProgress: false});
-        }
-    };
-
-    const handleUndoSelected = async () => {
-        if (!state.repoRoot || !state.selectedItemId) return;
-        if (state.isApplyingInProgress || state.isRestoringInProgress) return;
-
-        const selectedItem = state.reviewItems.find((item) => item.id === state.selectedItemId);
-        if (!selectedItem) return;
-
-        const matchingHistoryItem = state.historyItems.find(
-            (item) =>
-                item.file === selectedItem.file &&
-                item.blockIndex === selectedItem.blockIndex &&
-                !item.restoredAt
+      const appliedActionId =
+        resolveAppliedActionId(
+          result.historyEntries,
         );
 
-        if (!matchingHistoryItem) {
-            updateState({statusMessage: 'No applied changes found for this selection.'});
-            return;
-        }
+      const newHistoryItems =
+        result.historyEntries?.length
+          ? decorateHistoryEntries(
+              result.historyEntries,
+            )
+          : [];
 
-        const result = await restoreItem(matchingHistoryItem);
-        if (result?.status === 'success') {
-            updateState((prev) => ({
-                reviewItems: prev.reviewItems.map((item) =>
-                    item.id === selectedItem.id ? {...item, status: 'pending'} : item
-                ),
-            }));
-        }
-    };
-
-    const handleUndoAll = async () => {
-        if (!state.repoRoot || !state.canUndoApply || !state.lastApplyId) return;
-        if (state.isApplyingInProgress || state.isRestoringInProgress) return;
-
-        const historyItems = state.historyItems.filter(
-            (item) => item.applyId === state.lastApplyId && !item.restoredAt
+      const terminalCommandSuggestions =
+        extractCliCommandSuggestions(
+          state.aiInput,
         );
-        if (historyItems.length === 0) return;
 
-        const restoredKeys = new Set<string>();
-        for (const item of historyItems) {
-            const result = await restoreItem(item);
-            if (result?.status === 'success') {
-                restoredKeys.add(`${item.file}::${item.blockIndex ?? 'unknown'}`);
-            }
-        }
+      updateState((prev) =>
+        buildApplySuccessUpdate({
+          reviewItems: state.reviewItems,
+          previousHistoryItems:
+            prev.historyItems,
+          newHistoryItems,
+          appliedActionId,
+          appliedFileCount:
+            result.appliedFileCount,
+          terminalCommandSuggestions,
+        }),
+      );
 
-        if (restoredKeys.size > 0) {
-            updateState((prev) => ({
-                reviewItems: prev.reviewItems.map((item) => {
-                    const key = `${item.file}::${item.blockIndex ?? 'unknown'}`;
-                    if (!restoredKeys.has(key)) {
-                        return item;
-                    }
-                    return {...item, status: 'pending'};
-                }),
-            }));
-        }
+      await initRepositoryState(
+        repoRoot,
+        updateState,
+      );
+    } catch (error) {
+      console.error(
+        'Failed to apply preview:',
+        error,
+      );
 
-        updateState({
-            canUndoApply: false,
-            lastApplyId: null,
-        });
-    };
+      updateState(
+        buildApplyRequestFailureUpdate(),
+      );
+    } finally {
+      updateState(
+        buildApplyFinishedUpdate(),
+      );
+    }
+  };
 
-    return {
-        handleApplySelected,
-        handleApplyAll,
-        handleApplyValidBlocks,
-        handleUndoSelected,
-        handleUndoAll,
-    };
+  return { handleApplyAll };
 }

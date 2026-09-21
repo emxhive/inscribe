@@ -20,19 +20,11 @@ export interface BraceScanResult {
 
 export function resolveBraceSelectionStart(
   anchorStart: number,
-  anchorEnd: number,
-  startDirectiveKey: string
+  _anchorEnd: number,
+  _startDirectiveKey: string
 ): number {
-  switch (startDirectiveKey) {
-    case 'START':
-      return anchorStart;
-    case 'START_AFTER':
-      return anchorEnd;
-    case 'START_BEFORE':
-      return Math.max(0, anchorStart - 1);
-    default:
-      return anchorStart;
-  }
+  // replace_block resolves from a single active START_LINE_* boundary.
+  return anchorStart;
 }
 
 interface BraceScanState {
@@ -155,7 +147,7 @@ export function findBraceRangeFromSelection(
   rangeStart: number,
   rangeEnd: number = content.length
 ): BraceScanResult {
-  // Scan forward from the START-selected range to find the first "{", then return
+  // Scan forward from the selected boundary line to find the first "{", then return
   // the matching "}" while ignoring braces in comments, strings, and parenthesized
   // sections (ex: function parameter destructuring).
   const normalizedEnd = Math.min(Math.max(0, rangeEnd), content.length);
@@ -238,12 +230,12 @@ export function findBraceRangeFromSelection(
 export function formatBraceScanError(error: BraceScanError): string {
   switch (error.type) {
     case 'mismatched-closing-brace':
-      return 'Mismatched closing brace found before matching opening brace while resolving END: "}".';
+      return 'Mismatched closing brace found before matching opening brace while resolving the block.';
     case 'missing-closing-brace':
-      return 'Missing closing brace for the first "{" in the selected range while resolving END: "}".';
+      return 'Missing closing brace for the first "{" in the selected range while resolving the block.';
     case 'missing-opening-brace-in-range':
-      return 'No opening brace found in the selected range while resolving END: "}".';
+      return 'No opening brace found in the selected range while resolving the block.';
     default:
-      return 'Unable to resolve brace range for END: "}".';
+      return 'Unable to resolve brace range for the selected block.';
   }
 }

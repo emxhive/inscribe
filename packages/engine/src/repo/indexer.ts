@@ -3,15 +3,9 @@ import * as path from 'path';
 import { getEffectiveIgnoreMatchers, matchIgnoredPath, type IgnoreMatcher } from './ignoreRules';
 import { INSCRIBE_IGNORE_FILE } from '@inscribe/shared';
 import { normalizeRelativePath } from './pathing';
-import { getOrCreateScope, setScopeState } from './scopeStore';
 import { setIndexStatusComplete, setIndexStatusError, setIndexStatusRunning } from './statusStore';
 
-export function indexRepository(repoRoot: string, providedScope?: string[]): string[] {
-  const scopeState = providedScope
-    ? setScopeState(repoRoot, providedScope)
-    : getOrCreateScope(repoRoot);
-
-  const scope = scopeState.scope;
+export function indexRepository(repoRoot: string): string[] {
   const ignoreMatcher = getEffectiveIgnoreMatchers(repoRoot);
 
   setIndexStatusRunning(repoRoot);
@@ -19,48 +13,14 @@ export function indexRepository(repoRoot: string, providedScope?: string[]): str
   const files: string[] = [];
 
   try {
-    collectRootFiles(repoRoot, files, ignoreMatcher);
-
-    for (const root of scope) {
-      const rootPath = path.join(repoRoot, root);
-      if (fs.existsSync(rootPath) && fs.statSync(rootPath).isDirectory()) {
-        collectFiles(rootPath, repoRoot, files, ignoreMatcher);
-      }
-    }
+    collectFiles(repoRoot, repoRoot, files, ignoreMatcher);
 
     files.sort();
     setIndexStatusComplete(repoRoot, files.length);
-    setScopeState(repoRoot, scope, { lastIndexedCount: files.length });
     return files.map(file => normalizeRelativePath(file));
   } catch (error) {
     setIndexStatusError(repoRoot, error);
     return [];
-  }
-}
-
-/**
- * Collect files directly under the repo root (non-recursive), skipping ignored files and symlinks.
- */
-function collectRootFiles(repoRoot: string, files: string[], ignoreMatcher: IgnoreMatcher): void {
-  const entries = fs.readdirSync(repoRoot, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
-    if (!entry.isFile()) {
-      continue;
-    }
-    if (entry.name === INSCRIBE_IGNORE_FILE) {
-      continue;
-    }
-
-    const fullPath = path.join(repoRoot, entry.name);
-    const relativePath = normalizeRelativePath(path.relative(repoRoot, fullPath));
-    const ignoreMatch = matchIgnoredPath(relativePath, ignoreMatcher);
-    if (!ignoreMatch) {
-      files.push(relativePath);
-    }
   }
 }
 
@@ -82,6 +42,9 @@ function collectFiles(
     if (entry.isSymbolicLink()) {
       continue;
     }
+    if (path.resolve(fullPath) === path.resolve(repoRoot)) {
+      continue;
+    }
     if (entry.isDirectory()) {
       const ignoreMatch = matchIgnoredPath(relativePath, ignoreMatcher, { isDirectory: true });
       if (ignoreMatch) {
@@ -89,6 +52,9 @@ function collectFiles(
       }
       collectFiles(fullPath, repoRoot, files, ignoreMatcher);
     } else if (entry.isFile()) {
+      if (entry.name === INSCRIBE_IGNORE_FILE) {
+        continue;
+      }
       const ignoreMatch = matchIgnoredPath(relativePath, ignoreMatcher);
       if (!ignoreMatch) {
         files.push(relativePath);

@@ -1,0 +1,687 @@
+import { describe, expect, it, vi } from "vitest";
+import * as path from "path";
+import {
+  createAdapterSyntaxValidator,
+  createDartLanguageAdapter,
+  createTypeScriptLanguageAdapter,
+  createLanguageRegistry,
+} from "../../src/core/languages";
+import { createFlutterLanguageAdapter } from "../../src/core/languages/flutter/flutterAdapter";
+import { resolveOperation } from "../../src/core/execution/resolveOperation";
+import { resolvePlan } from "../../src/core/execution/resolvePlan";
+import { createAdapterStructuralResolver } from "../../src/core/structural/resolveStructuralTarget";
+import { createTreeSitterParserFailure } from "../../src/core/structural/treeSitterParserEvidence";
+
+const CORE_WASM = path.resolve(
+  __dirname,
+  "../../../../node_modules/web-tree-sitter/tree-sitter.wasm",
+);
+const TS_WASM = path.resolve(
+  __dirname,
+  "../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm",
+);
+const TSX_WASM = path.resolve(
+  __dirname,
+  "../../../../node_modules/tree-sitter-wasms/out/tree-sitter-tsx.wasm",
+);
+const DART_WASM = path.resolve(__dirname, "../../assets/tree-sitter-dart.wasm");
+
+const ASSETS = {
+  coreWasmPath: CORE_WASM,
+  languageWasmPaths: {
+    typescript: TS_WASM,
+    tsx: TSX_WASM,
+    dart: DART_WASM,
+  },
+};
+
+describe("language capability boundaries", () => {
+  it("does not expose Tree-sitter as an authoritative syntax validator", async () => {
+    const typescript = createTypeScriptLanguageAdapter(ASSETS);
+    const dart = createDartLanguageAdapter(ASSETS);
+    const registry = createLanguageRegistry([typescript, dart]);
+    const validator = createAdapterSyntaxValidator(registry);
+
+    expect("validateSyntax" in typescript).toBe(false);
+    expect("validateSyntax" in dart).toBe(false);
+
+    await expect(
+      validator({
+        filePath: "fixture.ts",
+        extension: ".ts",
+        source: "function run() {",
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      validator({
+        filePath: "fixture.dart",
+        extension: ".dart",
+        source: "class App {",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("keeps the shared validation boundary available to real validators", async () => {
+    const validateSyntax = vi.fn(async () => {
+      throw new Error("AUTHORITATIVE_VALIDATOR_REJECTED");
+    });
+    const registry = createLanguageRegistry([
+      {
+        id: "syntax-only",
+        extensions: [".syntax"],
+        validateSyntax,
+      },
+    ]);
+    const validator = createAdapterSyntaxValidator(registry);
+
+    await expect(
+      validator({
+        filePath: "fixture.syntax",
+        extension: ".syntax",
+        source: "not valid",
+      }),
+    ).rejects.toThrow("AUTHORITATIVE_VALIDATOR_REJECTED");
+    expect(validateSyntax).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not make textual or file operations depend on a structural grammar", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const syntaxValidator = createAdapterSyntaxValidator(registry);
+    const context = { syntaxValidator };
+
+    await expect(
+      resolveOperation(
+        {
+          strategy: "create_file",
+          filePath: "new.ts",
+          content: "function run() {",
+        },
+        new Map(),
+        context,
+      ),
+    ).resolves.toBeDefined();
+
+    await expect(
+      resolveOperation(
+        {
+          strategy: "replace_file",
+          filePath: "existing.ts",
+          content: "function run() {",
+        },
+        new Map([
+          ["existing.ts", { content: "function run() {}", exists: true }],
+        ]),
+        context,
+      ),
+    ).resolves.toBeDefined();
+
+    await expect(
+      resolveOperation(
+        {
+          strategy: "replace_text",
+          filePath: "existing.ts",
+          search: "{}",
+          content: "{",
+        },
+        new Map([
+          ["existing.ts", { content: "function run() {}", exists: true }],
+        ]),
+        context,
+      ),
+    ).resolves.toBeDefined();
+  });
+
+  it("keeps structural replacement available without claiming the replacement is syntax-valid", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const structuralResolver = createAdapterStructuralResolver(registry);
+
+    await expect(
+      resolveOperation(
+        {
+          strategy: "replace_node",
+          filePath: "existing.ts",
+          content: "function run() {",
+          selector: { path: [{ kind: "function", name: "run" }] },
+        },
+        new Map([
+          ["existing.ts", { content: "function run() {}", exists: true }],
+        ]),
+        {
+          structuralResolver,
+          syntaxValidator: createAdapterSyntaxValidator(registry),
+        },
+      ),
+    ).resolves.toBeDefined();
+  });
+
+  it("keeps a structurally clear Dart function editable despite interior parser limitations", async () => {
+    const registry = createLanguageRegistry([
+      createDartLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `String paymentLabel(PaymentState state) => switch (state) {
+  PaymentState.pending => 'pending',
+  PaymentState.captured => 'captured',
+};`;
+
+    const match = await resolver({
+      source,
+      filePath: "modern.dart",
+      selector: { path: [{ kind: "function", name: "paymentLabel" }] },
+    });
+
+    expect(match).toMatchObject({
+      kind: "function",
+      name: "paymentLabel",
+      start: 0,
+    });
+    expect(source.slice(match.start, match.end)).toContain("switch (state)");
+  });
+
+  it("allows a trustworthy target beside unrelated recoverable parser damage", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function broken() {
+  const value = ;
+}
+
+function intact() {
+  return 1;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "recoverable.ts",
+      selector: { path: [{ kind: "function", name: "intact" }] },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("function intact()");
+  });
+
+  it("keeps a clean statement editable beside an unrelated broken initializer", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  if (a) {
+    doA();
+  }
+
+  const broken = ;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "incomplete-search-scope.ts",
+      selector: {
+        path: [{ kind: "function", name: "run" }, { kind: "if_statement" }],
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("doA();");
+  });
+
+  it("replaces a complete function whose body contains broken syntax", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const structuralResolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  const value = ;
+}`;
+
+    const execution = await resolveOperation(
+      {
+        strategy: "replace_node",
+        filePath: "broken-function.ts",
+        content: "function run() { return 2; }",
+        selector: { path: [{ kind: "function", name: "run" }] },
+      },
+      new Map([["broken-function.ts", { content: source, exists: true }]]),
+      {
+        structuralResolver,
+      },
+    );
+
+    expect(execution.afterContent).toBe("function run() { return 2; }");
+  });
+
+  it("keeps a clean loop editable beside a broken sibling expression", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  for (const item of items) {
+    visit(item);
+  }
+
+  const broken = ;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "loop-with-recovery.ts",
+      selector: {
+        path: [{ kind: "function", name: "run" }, { kind: "for_statement" }],
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("visit(item);");
+  });
+
+  it("keeps declaration identity trustworthy when recovery is confined to parameters", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run(value = ) {
+  return 1;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "parameter-recovery.ts",
+      selector: { path: [{ kind: "function", name: "run" }] },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("function run");
+  });
+
+  it("resolves an exposed Flutter widget despite superclass recovery", async () => {
+    const registry = createLanguageRegistry([
+      createFlutterLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `import 'package:flutter/widgets.dart';
+
+class App extends Statel?ssWidget {
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+}
+
+class App extends StatelessWidget {
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "widget-superclass-recovery.dart",
+      selector: { path: [{ kind: "widget", name: "App" }] },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("class App");
+  });
+
+  it("preserves concrete ambiguity when recovery reaches a candidate boundary", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  if (ready) {
+    work();
+  }
+
+  if (other)
+}`;
+
+    await expect(
+      resolver({
+        source,
+        filePath: "candidate-boundary-recovery.ts",
+        selector: {
+          path: [{ kind: "function", name: "run" }, { kind: "if_statement" }],
+        },
+      }),
+    ).rejects.toThrow("TARGET_AMBIGUOUS");
+  });
+
+  it("uses an exposed named candidate when unrelated recovery damages another identity", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function ?other() {
+  return 1;
+}
+
+function run() {
+  return 2;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "identity-recovery.ts",
+      selector: { path: [{ kind: "function", name: "run" }] },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("return 2;");
+  });
+
+  it("ignores recovery inside a nested owner that the traversal deliberately skips", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  function nested() {
+    const broken = ;
+  }
+
+  if (ready) {
+    work();
+  }
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "skipped-owner-recovery.ts",
+      selector: {
+        path: [{ kind: "function", name: "run" }, { kind: "if_statement" }],
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("work();");
+  });
+
+  it("ignores interior recovery contained by a known candidate for sibling discovery", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  if (a) {
+    const value = ;
+  }
+
+  if (b) {
+    return 2;
+  }
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "contained-recovery.ts",
+      selector: {
+        path: [{ kind: "function", name: "run" }, { kind: "if_statement" }],
+        startsWith: "if (b)",
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("return 2;");
+  });
+
+  it("does not let recovery in another structural owner poison the requested owner", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function broken() {
+  if (a) {
+    const value = ;
+  }
+}
+
+function run() {
+  if (b) {
+    return 1;
+  }
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "other-owner-recovery.ts",
+      selector: {
+        path: [{ kind: "function", name: "run" }, { kind: "if_statement" }],
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("return 1;");
+  });
+
+  it("allows trustworthy target absence when unrelated owner recovery is contained", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(
+      resolver({
+        source: `function broken() {
+  const value = ;
+}
+
+function healthy() {}`,
+        filePath: "unrelated-absence.ts",
+        selector: { path: [{ kind: "function", name: "missing" }] },
+      }),
+    ).rejects.toThrow("TARGET_NOT_FOUND");
+  });
+
+  it("does not treat unrelated top-level recovery as hidden function discovery", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(
+      resolver({
+        source: `const broken = ;
+
+function healthy() {}`,
+        filePath: "unrelated-top-level-recovery.ts",
+        selector: { path: [{ kind: "function", name: "missing" }] },
+      }),
+    ).rejects.toThrow("TARGET_NOT_FOUND");
+  });
+
+  it("reports not-found when recovery exposes no requested target", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(
+      resolver({
+        source: "function (",
+        filePath: "uncertain-absence.ts",
+        selector: { path: [{ kind: "function", name: "missing" }] },
+      }),
+    ).rejects.toThrow("TARGET_NOT_FOUND");
+  });
+
+  it("reports not-found when recovery exposes no matching candidate", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(
+      resolver({
+        source: `function (
+
+function run() { return 2; }`,
+        filePath: "hidden-function-recovery.ts",
+        selector: { path: [{ kind: "function", name: "run" }] },
+      }),
+    ).rejects.toThrow("TARGET_NOT_FOUND");
+  });
+
+  it("applies STARTS_WITH before rejecting an unreliable sibling candidate", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  const value = ;
+}
+
+function run() {
+  return 2;
+}`;
+
+    const match = await resolver({
+      source,
+      filePath: "qualified-recovery.ts",
+      selector: {
+        path: [{ kind: "function", name: "run" }],
+        startsWith: "function run() {\n  return 2",
+      },
+    });
+
+    expect(source.slice(match.start, match.end)).toContain("return 2;");
+    expect(source.slice(match.start, match.end)).not.toContain(
+      "const value = ;",
+    );
+  });
+
+  it("keeps interior parser damage out of structural trust when outer boundaries are clear", async () => {
+    const adapter = createTypeScriptLanguageAdapter(ASSETS);
+    const source = `function run() {
+  const value = ;
+}
+
+function run() {
+  return 2;
+}`;
+    const discovery = await adapter.structural.resolveCandidates({
+      source,
+      filePath: "qualified-recovery.ts",
+      extension: ".ts",
+      path: [{ kind: "function", name: "run" }],
+    });
+    const candidates = Array.isArray(discovery)
+      ? discovery
+      : discovery.candidates;
+
+    expect(candidates[0].reliability).toBeUndefined();
+    expect(candidates[1].reliability).toBeUndefined();
+  });
+
+  it("keeps malformed target absence as not-found for selector and STARTS_WITH", async () => {
+    const adapter = createTypeScriptLanguageAdapter(ASSETS);
+    const source = `function run() {
+  return 1;`;
+    const registry = createLanguageRegistry([adapter]);
+    const resolver = createAdapterStructuralResolver(registry);
+
+    await expect(
+      resolver({
+        source,
+        filePath: "boundary-recovery.ts",
+        selector: {
+          path: [{ kind: "function", name: "run" }],
+          startsWith: "function missing",
+        },
+      }),
+    ).rejects.toThrow("TARGET_NOT_FOUND");
+
+    await expect(
+      resolver({
+        source,
+        filePath: "boundary-recovery.ts",
+        selector: { path: [{ kind: "function", name: "run" }] },
+      }),
+    ).rejects.toThrow("TARGET_NOT_FOUND");
+  });
+
+  it("preserves ambiguity when parser damage does not make candidate qualification uncertain", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const resolver = createAdapterStructuralResolver(registry);
+    const source = `function run() {
+  const value = ;
+}
+
+function run() {
+  return 2;
+}`;
+
+    await expect(
+      resolver({
+        source,
+        filePath: "ambiguous-recovery.ts",
+        selector: { path: [{ kind: "function", name: "run" }] },
+      }),
+    ).rejects.toThrow("TARGET_AMBIGUOUS");
+  });
+
+  it("retains bounded parser diagnostics for genuine structural failures", () => {
+    const diagnostics = Array.from({ length: 50 }, (_, index) => ({
+      condition: "ERROR_NODE" as const,
+      nodeType: "ERROR",
+      startIndex: index,
+      endIndex: index + 1,
+      startLine: index + 1,
+      startColumn: 0,
+      endLine: index + 1,
+      endColumn: 1,
+      context: "x".repeat(300),
+    }));
+    const failure = createTreeSitterParserFailure(
+      "typescript",
+      "typescript",
+      diagnostics,
+      diagnostics.length,
+    );
+
+    expect(failure.totalDiagnostics).toBe(50);
+    expect(failure.diagnostics).toHaveLength(20);
+    expect(failure.diagnosticsTruncated).toBe(true);
+  });
+
+  it("taints only the failed file when structural target resolution fails", async () => {
+    const registry = createLanguageRegistry([
+      createTypeScriptLanguageAdapter(ASSETS),
+    ]);
+    const structuralResolver = createAdapterStructuralResolver(registry);
+    const syntaxValidator = createAdapterSyntaxValidator(registry);
+    const plan = await resolvePlan(
+      [
+        {
+          strategy: "replace_node",
+          filePath: "broken.ts",
+          content: "class A {}",
+          selector: { path: [{ kind: "class", name: "A" }] },
+        },
+        {
+          strategy: "replace_text",
+          filePath: "broken.ts",
+          search: "class",
+          content: "interface",
+        },
+        {
+          strategy: "create_file",
+          filePath: "independent.ts",
+          content: "function other() {}",
+        },
+      ],
+      new Map([["broken.ts", { content: "class A {", exists: true }]]),
+      { structuralResolver, syntaxValidator },
+    );
+
+    expect(plan.errors[0]).toMatchObject({
+      stepIndex: 0,
+      message: "TARGET_NOT_FOUND",
+    });
+    expect(plan.exclusions[0]).toMatchObject({
+      stepIndex: 1,
+      blockedByStepIndex: 0,
+    });
+    expect(plan.executionStepIndices).toEqual([2]);
+  });
+});

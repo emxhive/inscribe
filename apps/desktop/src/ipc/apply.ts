@@ -1,38 +1,56 @@
 import { ipcMain } from 'electron';
-import {
-  applyChanges,
-  buildOperationComparison,
-  appendHistoryEntries,
-} from '@inscribe/engine';
-import type { ApplyPlan, Operation } from '@inscribe/shared';
+import { requireTrustedRepoRoot } from './trustedRepo';
+import { applyOnWorker } from './engineWorkerClient';
+import type { ApplyWorkerResponse } from './applyTypes';
 
-/**
- * Register apply IPC handlers
- */
 export function registerApplyHandlers() {
-  ipcMain.handle('apply-changes', async (_event, plan: ApplyPlan, repoRoot: string) => {
+  ipcMain.handle('apply', async (event, args: unknown): Promise<ApplyWorkerResponse> => {
     try {
-      const result = applyChanges(plan, repoRoot);
-      if (result.historyEntries?.length) {
-        appendHistoryEntries(repoRoot, result.historyEntries);
+      if (!args || typeof args !== 'object') {
+        return {
+          ok: false,
+          errors: [{
+            type: 'system',
+            code: 'INVALID_IPC_INPUT',
+            message: 'repoRoot and previewToken must be valid strings.',
+          }],
+        };
       }
-      return result;
-    } catch (error) {
+
+      const argsObj = args as Record<string, unknown>;
+      const { repoRoot, previewToken } = argsObj;
+
+      if (
+        typeof repoRoot !== 'string' ||
+        repoRoot.trim().length === 0 ||
+        typeof previewToken !== 'string' ||
+        previewToken.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          errors: [{
+            type: 'system',
+            code: 'INVALID_IPC_INPUT',
+            message: 'repoRoot and previewToken must be valid strings.',
+          }],
+        };
+      }
+
+      const trustedRepoRoot = requireTrustedRepoRoot(event, repoRoot);
+
+      return await applyOnWorker({
+        trustedRepoRoot,
+        previewToken,
+      });
+    } catch (err: unknown) {
       return {
-        success: false,
-        errors: [error instanceof Error ? error.message : 'Unknown error'],
+        ok: false,
+        errors: [{
+          type: 'system',
+          code: 'UNEXPECTED_SYSTEM_ERROR',
+          message: 'apply request failed.',
+        }],
       };
     }
   });
-
-  ipcMain.handle('compare-operation', async (_event, operation: Operation, repoRoot: string) => {
-    try {
-      return buildOperationComparison(operation, repoRoot);
-    } catch (error) {
-      return {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  });
-
 }

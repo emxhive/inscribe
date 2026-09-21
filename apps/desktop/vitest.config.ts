@@ -6,9 +6,13 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src'),
       '@inscribe/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
+      '@inscribe/engine': path.resolve(__dirname, '../../packages/engine/src/index.ts'),
     },
   },
   test: {
+    root: path.resolve(__dirname, '../..'),
     environment: 'node',
+    include: ['apps/desktop/src/**/*.test.ts'],
+    exclude: ['**/node_modules/**'],
   },
 });

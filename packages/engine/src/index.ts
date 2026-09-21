@@ -1,13 +1,27 @@
-/**
- * Engine package entry point
- */
+export {
+  applyPreparedFileMutations,
+  PreparedFileMutation,
+  PreparedMutationApplyErrorCode,
+  PreparedMutationApplyResult,
+} from './apply/applyPreparedFileMutations';
 
-export * from './parser';
-export * from './validator';
-export * from './planner';
-export * from './applier';
-export * from './repository';
-export * from './apply/resolveRangeReplacement';
-export * from './preview/operationPreview';
-export * from './preview/operationComparison';
-export { ensureTrailingSlash, normalizePrefix, normalizeRelativePath } from './util/path';
+export {
+  readIgnoreRules,
+  writeIgnoreFile,
+  getEffectiveIgnorePrefixes,
+  getEffectiveIgnoreMatchers,
+} from './repo/ignoreRules';
+export { listTopLevelFolders } from './repo/topLevel';
+export { computeSuggestedExcludes } from './repo/suggest';
+export { indexRepository } from './repo/indexer';
+export { getIndexStatus } from './repo/statusStore';
+export {
+  getHistoryEntries,
+  appendHistoryEntries,
+} from './repo/historyStore';
+export {
+  previewRestoreAction,
+  restoreAction,
+} from './history/historyRestore';
+
+export * from './core';

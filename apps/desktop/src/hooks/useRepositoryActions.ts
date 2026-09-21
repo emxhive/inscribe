@@ -1,30 +1,11 @@
-import { normalizePrefix, normalizeRelativePath } from '@inscribe/shared';
-import type { HistoryEntry, ParsedBlock } from '@inscribe/shared';
-import { buildReviewItems, decorateHistoryEntries } from '@/utils';
+import { normalizeRelativePath } from '@inscribe/shared';
+import type { HistoryEntry } from '@inscribe/shared';
+import { useRef } from 'react';
+import { decorateHistoryEntries } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
-import { initialState } from './useAppState';
 import type { AppState } from '@/types';
+import { buildRepositoryResetUpdate } from '@/state/workflowTransitions';
 import type { RepoInitResult } from '@/types/ipc';
-
-const isTopLevelFolderIgnored = (folder: string, ignoreEntries: string[]): boolean => {
-  const folderPrefix = normalizePrefix(folder);
-  return ignoreEntries.some(entry => normalizePrefix(entry) === folderPrefix);
-};
-
-const getTopLevelSegment = (input: string): string => {
-  const normalized = normalizeRelativePath(input);
-  const [segment] = normalized.split('/').filter(Boolean);
-  return segment || '';
-};
-
-const pruneScopeForIgnoredFolders = (scope: string[], ignoreEntries: string[]): string[] =>
-  scope.filter(entry => {
-    const topLevel = getTopLevelSegment(entry);
-    return topLevel.length === 0 || !isTopLevelFolderIgnored(topLevel, ignoreEntries);
-  });
-
-const scopesEqual = (left: string[], right: string[]): boolean =>
-  left.length === right.length && left.every((value, index) => value === right[index]);
 
 const buildIndexedFileState = (indexedFiles: string[] | undefined) => {
   const normalized = (indexedFiles || []).map((file) => normalizeRelativePath(file));
@@ -50,12 +31,10 @@ export async function initRepositoryState(
 
   updateState({
     topLevelFolders: result.topLevelFolders || [],
-    scope: result.scope || [],
     ignore: result.ignore || { entries: [], source: 'none', path: '' },
     suggested: result.suggested || [],
     indexedFiles: indexedFileState.indexedFiles,
     indexedFileSet: indexedFileState.indexedFileSet,
-    indexedCount: indexedFileState.indexedFiles.length,
     indexStatus: result.indexStatus || { state: 'complete' },
     historyItems: decorateHistoryEntries(historyEntries),
     statusMessage: `Repository initialized: ${indexedFileState.indexedFiles.length} files indexed`
@@ -69,75 +48,26 @@ export async function initRepositoryState(
  */
 export function useRepositoryActions() {
   const { state, updateState } = useAppStateContext();
-  const resetRepositoryState = (repoRoot: string | null, statusMessage: string) => {
-    updateState({
-      repoRoot,
-      topLevelFolders: [],
-      scope: [],
-      ignore: initialState.ignore,
-      suggested: [],
-      indexedFiles: [],
-      indexedFileSet: new Set(),
-      indexedCount: 0,
-      indexStatus: { state: 'idle' },
-      mode: 'intake',
-      aiInput: '',
-      parseErrors: [],
-      parsedBlocks: [],
-      validationErrors: [],
-      reviewItems: [],
-      selectedItemId: null,
-      selectedIntakeBlockId: null,
-      reviewComparisonError: null,
-      isEditing: false,
-      pipelineStatus: 'idle',
-      isParsingInProgress: false,
-      isApplyingInProgress: false,
-      isRestoringInProgress: false,
-      lastAppliedPlan: null,
-      canRedo: false,
-      lastApplyId: null,
-      canUndoApply: false,
-      historyItems: [],
-      collapsedHunkIdsByItem: {},
-      collapsedDiffGroupIdsByItem: {},
-      statusMessage,
-    });
-  };
-  const revalidateParsedBlocks = async (repoRoot: string, parsedBlocks: ParsedBlock[]) => {
-    if (parsedBlocks.length === 0) return;
-
-    updateState({ statusMessage: 'Re-validating blocks...' });
-
-    const [validationErrors, applyPlan] = await Promise.all([
-      window.inscribeAPI.validateBlocks(parsedBlocks, repoRoot),
-      window.inscribeAPI.validateAndBuildApplyPlan(parsedBlocks, repoRoot),
-    ]);
-
-    const combinedErrors = validationErrors.length > 0 ? validationErrors : applyPlan.errors || [];
-    const reviewItems = buildReviewItems(parsedBlocks, combinedErrors);
-    const errorCount = combinedErrors.length;
-    const nextSelectedId = state.selectedItemId && reviewItems.some(item => item.id === state.selectedItemId)
-      ? state.selectedItemId
-      : reviewItems.length > 0
-        ? reviewItems[0].id
-        : null;
-
-    updateState({
-      validationErrors: combinedErrors,
-      reviewItems,
-      selectedItemId: nextSelectedId,
-      mode: 'review',
-      pipelineStatus: 'parse-success',
-      statusMessage: errorCount > 0
-        ? `Ready to review: ${reviewItems.length} files, ${errorCount} validation error(s)`
-        : `Ready to review: ${reviewItems.length} files`
-    });
+  const stateRef = useRef(state);
+  stateRef.current = state;
+    const resetRepositoryState = (
+    repoRoot: string | null,
+    statusMessage: string,
+  ) => {
+    updateState(
+      buildRepositoryResetUpdate(
+        repoRoot,
+        statusMessage,
+      ),
+    );
   };
   const handleBrowseRepo = async () => {
+    if (stateRef.current.isRestoringInProgress) return;
+
     try {
-      const selectedPath = await window.inscribeAPI.selectRepository(state.repoRoot || undefined);
+      const selectedPath = await window.inscribeAPI.selectRepository(stateRef.current.repoRoot || undefined);
       if (!selectedPath) return;
+      if (stateRef.current.isRestoringInProgress) return;
 
       await window.inscribeAPI.openRepository(selectedPath);
     } catch (error) {
@@ -179,42 +109,16 @@ export function useRepositoryActions() {
         return;
       }
 
-      // Claim the last repo for this window if it's not already open elsewhere
-      await window.inscribeAPI.openRepository(lastRepo);
+      // Restore the last repo into this window even if another window already
+      // has it open. Auto-routing would focus that window and leave this one
+      // unbound.
+      await window.inscribeAPI.openRepository(lastRepo, 'same-window');
     } catch (error) {
       console.error('Failed to restore repository:', error);
       resetRepositoryState(null, 'Unable to restore repository. Select a repository to start.');
       updateState({ indexStatus: { state: 'error', message: String(error) } });
     } finally {
       updateState({ isRestoringRepo: false });
-    }
-  };
-
-  const handleSaveScope = async (newScope: string[]) => {
-    if (!state.repoRoot) return;
-    
-    try {
-      updateState({ statusMessage: 'Updating scope...' });
-      const result = await window.inscribeAPI.setScope(state.repoRoot, newScope);
-      const indexedFileState = buildIndexedFileState(result.indexedFiles);
-      
-      updateState({
-        scope: result.scope || newScope,
-        indexedFiles: indexedFileState.indexedFiles,
-        indexedFileSet: indexedFileState.indexedFileSet,
-        indexedCount: indexedFileState.indexedFiles.length,
-        indexStatus: result.indexStatus || { state: 'complete' },
-        statusMessage: `Scope updated: ${indexedFileState.indexedFiles.length} files indexed`
-      });
-      if (state.mode === 'review') {
-        await revalidateParsedBlocks(state.repoRoot, state.parsedBlocks);
-      }
-    } catch (error) {
-      console.error('Failed to update scope:', error);
-      updateState({ 
-        statusMessage: 'Failed to update scope',
-        indexStatus: { state: 'error', message: String(error) }
-      });
     }
   };
 
@@ -231,17 +135,9 @@ export function useRepositoryActions() {
           suggested: result.suggested || [],
           indexedFiles: indexedFileState.indexedFiles,
           indexedFileSet: indexedFileState.indexedFileSet,
-          indexedCount: indexedFileState.indexedFiles.length,
           indexStatus: result.indexStatus || { state: 'complete' },
           statusMessage: `Ignore rules updated: ${indexedFileState.indexedFiles.length} files indexed`
         });
-        const refreshed = await initRepo(state.repoRoot);
-        if (refreshed) {
-          const prunedScope = pruneScopeForIgnoredFolders(refreshed.scope || [], refreshed.ignore.entries);
-          if (!scopesEqual(prunedScope, refreshed.scope || [])) {
-            await handleSaveScope(prunedScope);
-          }
-        }
       } else {
         updateState({ statusMessage: `Failed to update ignore rules: ${result.error || 'Unknown error'}` });
       }
@@ -253,7 +149,6 @@ export function useRepositoryActions() {
 
   return {
     handleBrowseRepo,
-    handleSaveScope,
     handleSaveIgnore,
     initRepo,
     restoreLastRepo,

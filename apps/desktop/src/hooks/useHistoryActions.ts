@@ -1,152 +1,376 @@
-import type { ApplyPlan, ParsedBlock } from '@inscribe/shared';
-import type { HistoryItem, RestoreStatus } from '@/types';
+import { useRef } from 'react';
+import {
+  normalizeRelativePath,
+} from '@inscribe/shared';
+import {
+  buildHistoryPreviewFailedUpdate,
+  buildHistoryPreviewResolvedUpdate,
+  buildHistoryPreviewStartedUpdate,
+  buildHistoryRestoreFailedUpdate,
+  buildHistoryRestoreRefreshFailedUpdate,
+  buildHistoryRestoreStartedUpdate,
+  buildHistoryRestoreSuccessUpdate,
+  buildHistoryReviewClosedUpdate,
+  buildImmediateRevertFailedUpdate,
+  buildImmediateRevertIntakeChangedUpdate,
+  buildImmediateRevertRefreshFailedUpdate,
+  buildImmediateRevertRepositoryChangedUpdate,
+  buildImmediateRevertStartedUpdate,
+  buildImmediateRevertSuccessUpdate,
+  buildRestoreFinishedUpdate,
+  isCurrentHistoryPreviewRequest,
+} from '@/state/historyTransitions';
+import { decorateHistoryEntries } from '@/utils';
+import { selectCanRevertLastAppliedAction } from '@/state/workflowSelectors';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
+import { previewIntake } from './useParsingActions';
 
-function buildRestoreBlock(item: HistoryItem): ParsedBlock {
-  return {
-    file: item.restoreOperation.file,
-    mode: item.restoreOperation.type,
-    directives: item.restoreOperation.directives ?? {},
-    content: item.restoreOperation.content,
-    blockIndex: item.blockIndex ?? 0,
-  };
-}
-
-function resolveRestoreStatus(errors: string[]): RestoreStatus {
-  if (errors.some((error) => error.startsWith('Unsafe to restore'))) {
-    return 'unsafe';
-  }
-  return 'validation-failed';
+function errorMessage(
+  error: unknown,
+): string {
+  return error instanceof Error
+    ? error.message
+    : String(error);
 }
 
 export function useHistoryActions() {
-  const { state, updateState } = useAppStateContext();
+  const { state, updateState } =
+    useAppStateContext();
 
-  const updateHistoryItem = (id: string, updates: Partial<HistoryItem>) => {
-    updateState((prev) => ({
-      historyItems: prev.historyItems.map((item) =>
-        item.id === id ? { ...item, ...updates } : item
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const openRestoreReview = async (
+    actionId: string,
+  ) => {
+    if (
+      !state.repoRoot ||
+      state.isRestoringInProgress ||
+      state.historyReview.isLoading ||
+      state.historyReview.isRestoring
+    ) {
+      return;
+    }
+
+    const requestId = `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+
+    const repoRoot = state.repoRoot;
+
+    updateState(
+      buildHistoryPreviewStartedUpdate(
+        actionId,
+        requestId,
       ),
-    }));
-  };
-
-  const restoreItem = async (item: HistoryItem) => {
-    if (!state.repoRoot || state.isRestoringInProgress) return;
-
-    updateHistoryItem(item.id, { restoreStatus: 'restoring', restoreMessage: undefined });
-    updateState({ isRestoringInProgress: true, statusMessage: 'Validating restore...' });
+    );
 
     try {
-      const restoreBlock = buildRestoreBlock(item);
-      const validationErrors = await window.inscribeAPI.validateBlocks(
-        [restoreBlock],
-        state.repoRoot
-      );
+      const preview =
+        await window.inscribeAPI.previewRestore(
+          repoRoot,
+          actionId,
+        );
 
-      if (validationErrors.length > 0) {
-        const errorMessages = validationErrors.map((error) => error.message);
-        const status = resolveRestoreStatus(errorMessages);
-        updateHistoryItem(item.id, {
-          restoreStatus: status,
-          restoreMessage: errorMessages.join('; '),
-        });
-        updateState({
-          statusMessage:
-            status === 'unsafe'
-              ? `Unsafe to restore ${item.file}: ${errorMessages.join('; ')}`
-              : `Restore validation failed for ${item.file}: ${errorMessages.join('; ')}`,
-        });
-        return { status, errors: errorMessages };
-      }
+      updateState((prev) => {
+        if (
+          !isCurrentHistoryPreviewRequest(
+            prev,
+            {
+              repoRoot,
+              actionId,
+              requestId,
+            },
+          )
+        ) {
+          return {};
+        }
 
-      updateState({ statusMessage: `Restoring ${item.file}...` });
-      const plan: ApplyPlan = { operations: [item.restoreOperation] };
-      const result = await window.inscribeAPI.applyChanges(plan, state.repoRoot);
-
-      if (result.success) {
-        const restoredAt = new Date().toISOString();
-        updateHistoryItem(item.id, {
-          restoredAt,
-          restoreStatus: 'success',
-        });
-        await window.inscribeAPI.markHistoryEntryRestored(state.repoRoot, item.id, restoredAt);
-        updateState({
-          statusMessage: `✓ Restored ${item.file}.`,
-        });
-        await initRepositoryState(state.repoRoot, updateState);
-        return { status: 'success' as const };
-      }
-
-      updateHistoryItem(item.id, {
-        restoreStatus: 'apply-failed',
-        restoreMessage: result.errors?.join('; ') || 'Restore failed.',
+        return buildHistoryPreviewResolvedUpdate(
+          actionId,
+          requestId,
+          preview,
+        );
       });
-      updateState({
-        statusMessage: `Restore failed for ${item.file}: ${result.errors?.join('; ') || 'Unknown error'}`,
-      });
-      return { status: 'apply-failed' as const, errors: result.errors ?? [] };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      updateHistoryItem(item.id, {
-        restoreStatus: 'apply-failed',
-        restoreMessage: message,
+      const message =
+        errorMessage(error);
+
+      updateState((prev) => {
+        if (
+          !isCurrentHistoryPreviewRequest(
+            prev,
+            {
+              repoRoot,
+              actionId,
+              requestId,
+            },
+          )
+        ) {
+          return {};
+        }
+
+        return buildHistoryPreviewFailedUpdate(
+          actionId,
+          requestId,
+          message,
+        );
       });
-      updateState({
-        statusMessage: `Restore failed for ${item.file}: ${message}`,
-      });
-      return { status: 'apply-failed' as const, errors: [message] };
-    } finally {
-      updateState({ isRestoringInProgress: false });
     }
   };
 
-  const restoreGroup = async (applyId: string) => {
-    const items = state.historyItems.filter(
-      (item) => item.applyId === applyId && !item.restoredAt
-    );
-    if (items.length === 0) return;
+  const restoreReviewedAction = async () => {
+    const actionId =
+      state.historyReview.actionId;
 
-    let successCount = 0;
-    let unsafeCount = 0;
-    let validationCount = 0;
-    let applyFailedCount = 0;
-
-    for (const item of items) {
-      const result = await restoreItem(item);
-      if (!result) continue;
-      switch (result.status) {
-        case 'success':
-          successCount += 1;
-          break;
-        case 'unsafe':
-          unsafeCount += 1;
-          break;
-        case 'validation-failed':
-          validationCount += 1;
-          break;
-        case 'apply-failed':
-          applyFailedCount += 1;
-          break;
-        default:
-          break;
-      }
+    if (
+      !state.repoRoot ||
+      !actionId ||
+      !state.historyReview.preview?.eligible ||
+      state.isRestoringInProgress
+    ) {
+      return;
     }
 
-    const summaryParts = [
-      `${successCount} restored`,
-      unsafeCount ? `${unsafeCount} unsafe` : null,
-      validationCount ? `${validationCount} failed validation` : null,
-      applyFailedCount ? `${applyFailedCount} failed apply` : null,
-    ].filter(Boolean);
+    const repoRoot = state.repoRoot;
 
-    updateState({
-      statusMessage: `Restore all complete: ${summaryParts.join(', ')}.`,
-    });
+    updateState((prev) =>
+      buildHistoryRestoreStartedUpdate(
+        prev.historyReview,
+      ),
+    );
+
+    try {
+      const result =
+        await window.inscribeAPI.restoreAction(
+          repoRoot,
+          actionId,
+        );
+
+      if (!result.success) {
+        const message =
+          result.errors?.join('; ') ||
+          'restore failed.';
+
+        updateState((prev) =>
+          buildHistoryRestoreFailedUpdate(
+            prev.historyReview,
+            message,
+          ),
+        );
+
+        return {
+          status: 'apply-failed' as const,
+          errors: result.errors ?? [],
+        };
+      }
+
+      updateState(
+        buildHistoryRestoreSuccessUpdate(
+          decorateHistoryEntries(
+            result.historyEntries ?? [],
+          ),
+        ),
+      );
+
+      try {
+        await initRepositoryState(
+          repoRoot,
+          updateState,
+        );
+      } catch (error) {
+        updateState(
+          buildHistoryRestoreRefreshFailedUpdate(
+            errorMessage(error),
+          ),
+        );
+      }
+
+      return {
+        status: 'success' as const,
+      };
+    } catch (error) {
+      const message =
+        errorMessage(error);
+
+      updateState((prev) =>
+        buildHistoryRestoreFailedUpdate(
+          prev.historyReview,
+          message,
+        ),
+      );
+
+      return {
+        status: 'apply-failed' as const,
+        errors: [message],
+      };
+    } finally {
+      updateState(
+        buildRestoreFinishedUpdate(),
+      );
+    }
+  };
+
+  const revertLastAppliedAction = async () => {
+    const actionId =
+      state.lastAppliedActionId;
+
+    const canRevert =
+      selectCanRevertLastAppliedAction(
+        state,
+      );
+
+    if (
+      !canRevert ||
+      !state.repoRoot ||
+      !actionId
+    ) {
+      return;
+    }
+
+    const repoRoot = state.repoRoot;
+    const rawInput = state.aiInput;
+    const selectedIntakeBlockId =
+      state.selectedIntakeBlockId;
+
+    updateState(
+      buildImmediateRevertStartedUpdate(),
+    );
+
+    try {
+      const result =
+        await window.inscribeAPI.restoreAction(
+          repoRoot,
+          actionId,
+        );
+
+      if (!result.success) {
+        const message =
+          result.errors?.join('; ') ||
+          'revert failed.';
+
+        updateState(
+          buildImmediateRevertFailedUpdate(
+            message,
+          ),
+        );
+
+        return {
+          status: 'apply-failed' as const,
+          errors: result.errors ?? [],
+        };
+      }
+
+      updateState(
+        buildImmediateRevertSuccessUpdate(
+          decorateHistoryEntries(
+            result.historyEntries ?? [],
+          ),
+        ),
+      );
+
+      if (
+        stateRef.current.repoRoot !==
+        repoRoot
+      ) {
+        updateState(
+          buildImmediateRevertRepositoryChangedUpdate(),
+        );
+
+        return {
+          status: 'success' as const,
+        };
+      }
+
+      let repoState;
+
+      try {
+        repoState =
+          await initRepositoryState(
+            repoRoot,
+            updateState,
+          );
+      } catch (error) {
+        updateState(
+          buildImmediateRevertRefreshFailedUpdate(
+            errorMessage(error),
+          ),
+        );
+
+        return {
+          status: 'success' as const,
+        };
+      }
+
+      if (
+        stateRef.current.aiInput !==
+        rawInput
+      ) {
+        updateState(
+          buildImmediateRevertIntakeChangedUpdate(),
+        );
+
+        return {
+          status: 'success' as const,
+        };
+      }
+
+      const indexedFileSet = new Set(
+        repoState.indexedFiles.map(
+          normalizeRelativePath,
+        ),
+      );
+
+      await previewIntake({
+        repoRoot,
+        rawInput,
+        indexedFileSet,
+        selectedIntakeBlockId,
+        updateState,
+        startStatusMessage:
+          'Changes reverted. Rebuilding preview...',
+      });
+
+      return {
+        status: 'success' as const,
+      };
+    } catch (error) {
+      const message =
+        errorMessage(error);
+
+      updateState(
+        buildImmediateRevertFailedUpdate(
+          message,
+        ),
+      );
+
+      return {
+        status: 'apply-failed' as const,
+        errors: [message],
+      };
+    } finally {
+      updateState(
+        buildRestoreFinishedUpdate(),
+      );
+    }
   };
 
   return {
-    restoreItem,
-    restoreGroup,
+    openRestoreReview,
+    restoreReviewedAction,
+    revertLastAppliedAction,
+    closeHistoryReview: () => {
+      if (
+        state.isRestoringInProgress ||
+        state.historyReview.isRestoring
+      ) {
+        return;
+      }
+
+      updateState(
+        buildHistoryReviewClosedUpdate(),
+      );
+    },
   };
 }

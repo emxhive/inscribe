@@ -1,30 +1,27 @@
 import { ipcMain } from 'electron';
 import {
-  getOrCreateScope,
-  getLastVisitedRepo,
   listTopLevelFolders,
   computeSuggestedExcludes,
-  setScopeState,
   readIgnoreRules,
   indexRepository,
   getIndexStatus,
 } from '@inscribe/engine';
-import { recentProjectsManager } from '../recentProjects';
+import { recentProjectsManager } from '../electron/recentProjects';
+import { requireTrustedRepoRoot } from './trustedRepo';
 
 /**
  * Register repository-related IPC handlers
  */
 export function registerRepositoryHandlers() {
   ipcMain.handle('repo-last-visited', async () => {
-    return getLastVisitedRepo();
+    return recentProjectsManager.getRecentProjects()[0] ?? null;
   });
 
-  ipcMain.handle('repo-init', async (_event, repoRoot: string) => {
+  ipcMain.handle('repo-init', async (event, suppliedRepoRoot?: string) => {
     try {
-      const scopeState = getOrCreateScope(repoRoot);
+      const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
       const topLevelFolders = listTopLevelFolders(repoRoot);
       const suggested = computeSuggestedExcludes(repoRoot);
-      setScopeState(repoRoot, scopeState.scope, { lastSuggested: suggested });
       const ignore = readIgnoreRules(repoRoot);
       const indexedFiles = indexRepository(repoRoot);
 
@@ -33,7 +30,6 @@ export function registerRepositoryHandlers() {
 
       return {
         topLevelFolders,
-        scope: scopeState.scope,
         ignore,
         suggested,
         indexedFiles,
@@ -43,7 +39,6 @@ export function registerRepositoryHandlers() {
     } catch (error) {
       return {
         topLevelFolders: [],
-        scope: [],
         ignore: { entries: [], source: 'none', path: '' },
         suggested: [],
         indexedFiles: [],
@@ -56,7 +51,8 @@ export function registerRepositoryHandlers() {
     }
   });
 
-  ipcMain.handle('index-repository', async (_event, repoRoot: string) => {
+  ipcMain.handle('index-repository', async (event, suppliedRepoRoot?: string) => {
+    const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
     try {
       return indexRepository(repoRoot);
     } catch (error) {
@@ -65,7 +61,8 @@ export function registerRepositoryHandlers() {
     }
   });
 
-  ipcMain.handle('index-status', async (_event, repoRoot: string) => {
+  ipcMain.handle('index-status', async (event, suppliedRepoRoot?: string) => {
+    const repoRoot = requireTrustedRepoRoot(event, suppliedRepoRoot);
     return getIndexStatus(repoRoot);
   });
 }

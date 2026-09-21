@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { AppStateProvider, useAppStateContext, useRepositoryActions } from './hooks';
-import { ScopeModal } from './components/ScopeModal';
 import { IgnoreEditorModal } from './components/IgnoreEditorModal';
 import { ListModal } from './components/ListModal';
-import { WorkspaceShell } from './components/app/WorkspaceShell';
+import { WorkspaceShell } from './components/workspace/WorkspaceShell';
+import { getWindowTitle } from './utils';
 
 export default function App() {
   return (
@@ -16,11 +16,14 @@ export default function App() {
 function AppShell() {
   const { state } = useAppStateContext();
   const repositoryActions = useRepositoryActions();
-  const [scopeModalOpen, setScopeModalOpen] = useState(false);
   const [ignoreModalOpen, setIgnoreModalOpen] = useState(false);
   const [indexedListModalOpen, setIndexedListModalOpen] = useState(false);
 
   const hasRepository = Boolean(state.repoRoot);
+
+  useEffect(() => {
+    document.title = getWindowTitle(state.repoRoot);
+  }, [state.repoRoot]);
 
   useEffect(() => {
     void repositoryActions.restoreLastRepo();
@@ -35,15 +38,8 @@ function AppShell() {
   return (
     <>
       <WorkspaceShell
-        onOpenScopeModal={() => hasRepository && setScopeModalOpen(true)}
         onOpenIgnore={() => hasRepository && setIgnoreModalOpen(true)}
         onOpenIndexedList={() => setIndexedListModalOpen(true)}
-      />
-
-      {/* Modals */}
-      <ScopeModal
-        isOpen={scopeModalOpen}
-        onClose={() => setScopeModalOpen(false)}
       />
 
       <IgnoreEditorModal

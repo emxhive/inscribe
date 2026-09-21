@@ -1,4 +1,3 @@
-export {getScopeState, getOrCreateScope, setScopeState, getLastVisitedRepo} from './repo/scopeStore';
 export {
   readIgnoreRules,
   writeIgnoreFile,
@@ -6,11 +5,10 @@ export {
   getEffectiveIgnoreMatchers,
 } from './repo/ignoreRules';
 export { listTopLevelFolders } from './repo/topLevel';
-export { computeSuggestedExcludes, computeDefaultScope } from './repo/suggest';
+export { computeSuggestedExcludes } from './repo/suggest';
 export { indexRepository } from './repo/indexer';
 export { getIndexStatus } from './repo/statusStore';
 export {
   getHistoryEntries,
   appendHistoryEntries,
-  markHistoryEntryRestored,
 } from './repo/historyStore';

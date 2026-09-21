@@ -1,10 +1,20 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "lib": ["ES2020"],
     "outDir": "./dist",
     "rootDir": "./src",
-    "module": "CommonJS"
+    "types": ["node"]
   },
-  "include": ["src/main.ts", "src/preload.ts", "src/windowManager.ts", "src/recentProjects.ts", "src/ipc/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/electron/**/*.ts",
+    "src/ipc/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/**/*.test.ts"
+  ]
 }

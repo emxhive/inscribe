@@ -1,15 +1,15 @@
 import { ipcMain, BrowserWindow } from 'electron';
-import { windowManager } from '../windowManager';
-import { recentProjectsManager } from '../recentProjects';
+import { windowManager } from '../electron/windowManager';
+import { recentProjectsManager } from '../electron/recentProjects';
 
 /**
  * Register window-related IPC handlers
  */
 export function registerWindowHandlers() {
-  ipcMain.handle('open-repository', (event, repoRoot: string) => {
+  ipcMain.handle('open-repository', (event, repoRoot: string, target?: 'auto' | 'same-window' | 'new-window') => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
-      windowManager.openRepo(repoRoot, win);
+      windowManager.openRepo(repoRoot, win, target);
     }
     return null;
   });

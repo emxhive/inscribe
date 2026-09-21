@@ -1,0 +1,17 @@
+name: inscribe_dart_helper
+description: >
+  Dart helper for Inscribe. Reads a JSON request on stdin, parses Dart source
+  with the official analyzer package, and emits a JSON response on stdout.
+  Used by the Node dartAdapter to resolve symbol declaration ranges and
+  validate Dart syntax without regex.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.7.0 <4.0.0"
+
+dependencies:
+  analyzer: ">=6.0.0 <8.0.0"
+
+dev_dependencies:
+  test: ">=1.24.0 <2.0.0"

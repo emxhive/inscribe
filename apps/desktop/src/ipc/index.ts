@@ -5,23 +5,23 @@
 
 import { registerDialogHandlers } from './dialog';
 import { registerRepositoryHandlers } from './repository';
-import { registerScopeHandlers } from './scope';
 import { registerIgnoreHandlers } from './ignore';
-import { registerParsingHandlers } from './parsing';
-import { registerApplyHandlers } from './apply';
 import { registerHistoryHandlers } from './history';
 import { registerWindowHandlers } from './window';
 import { registerTerminalHandlers } from './terminal';
+import { registerClipboardHandlers } from './clipboard';
+import { registerPreviewHandlers } from './preview';
+import { registerApplyHandlers } from './apply';
 
 export { registerDialogHandlers } from './dialog';
 export { registerRepositoryHandlers } from './repository';
-export { registerScopeHandlers } from './scope';
 export { registerIgnoreHandlers } from './ignore';
-export { registerParsingHandlers } from './parsing';
-export { registerApplyHandlers } from './apply';
 export { registerHistoryHandlers } from './history';
 export { registerWindowHandlers } from './window';
 export { registerTerminalHandlers } from './terminal';
+export { registerClipboardHandlers } from './clipboard';
+export { registerPreviewHandlers } from './preview';
+export { registerApplyHandlers } from './apply';
 
 /**
  * Register all IPC handlers
@@ -29,11 +29,11 @@ export { registerTerminalHandlers } from './terminal';
 export function registerAllHandlers() {
   registerDialogHandlers();
   registerRepositoryHandlers();
-  registerScopeHandlers();
   registerIgnoreHandlers();
-  registerParsingHandlers();
-  registerApplyHandlers();
   registerHistoryHandlers();
   registerWindowHandlers();
   registerTerminalHandlers();
+  registerClipboardHandlers();
+  registerPreviewHandlers();
+  registerApplyHandlers();
 }

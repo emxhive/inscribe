@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   useAppStateContext,
+  useHistoryActions,
   useIntakeImportActions,
   usePrimaryAction,
   useRepositoryActions,
@@ -32,6 +33,7 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const { state, updateState } = useAppStateContext();
   const repositoryActions = useRepositoryActions();
+  const historyActions = useHistoryActions();
   const primaryAction = usePrimaryAction();
   const { replaceIntakeFromClipboard, uploadIntake } = useIntakeImportActions();
   const [showRecentRepositories, setShowRecentRepositories] = useState(false);
@@ -53,6 +55,29 @@ export function WorkspaceShell({
     }
   }, [state.repoRoot]);
 
+  const hasAppliedReview =
+    state.mode === "review" &&
+    state.reviewItems.length > 0 &&
+    state.reviewItems.every((item) => item.status === "applied");
+
+  const revertChanges = () => {
+    if (
+      !state.lastAppliedActionId ||
+      !hasAppliedReview ||
+      state.isParsingInProgress ||
+      state.isApplyingInProgress ||
+      state.isRestoringInProgress ||
+      state.historyReview.actionId
+    ) {
+      return;
+    }
+
+    void historyActions.openRestoreReview(
+      state.lastAppliedActionId,
+      "revert",
+    );
+  };
+
   const workspaceRef = useWorkspaceShortcuts({
     replaceIntakeFromClipboard,
     uploadIntake,
@@ -60,6 +85,7 @@ export function WorkspaceShell({
     onShowRecentRepositoriesChange: setShowRecentRepositories,
     toggleHistory,
     onShowKeyboardShortcutsChange: setShowKeyboardShortcuts,
+    revertChanges,
     runPrimaryAction: primaryAction.run,
   });
 
@@ -122,6 +148,7 @@ export function WorkspaceShell({
       <WorkspaceBottomBar
         primaryAction={primaryAction.action}
         onRunPrimaryAction={primaryAction.run}
+        onRevertChanges={revertChanges}
       />
       <KeyboardShortcutsModal
         isOpen={showKeyboardShortcuts}

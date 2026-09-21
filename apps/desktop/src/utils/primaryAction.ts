@@ -28,9 +28,18 @@ export function resolvePrimaryAction(state: PrimaryActionState): PrimaryAction {
     if (state.historyReview.isLoading) {
       return { id: 'history-restore', label: 'Checking restore...', enabled: false };
     }
+    const isDirectRevert =
+      state.historyReview.origin === 'revert';
+
     return {
       id: 'history-restore',
-      label: state.historyReview.preview?.eligible ? 'Restore action' : 'Restore unavailable',
+      label: state.historyReview.preview?.eligible
+        ? isDirectRevert
+          ? 'Revert changes'
+          : 'Restore action'
+        : isDirectRevert
+          ? 'Revert unavailable'
+          : 'Restore unavailable',
       enabled: Boolean(state.historyReview.preview?.eligible)
         && !state.historyReview.isRestoring
         && !state.isApplyingInProgress

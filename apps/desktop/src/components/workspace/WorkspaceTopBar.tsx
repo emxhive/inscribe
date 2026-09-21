@@ -91,7 +91,7 @@ export function WorkspaceTopBar({
       <div className="flex min-w-0 items-center gap-2">
         <div className="relative flex items-center">
           <input
-            className="h-7 w-80 rounded-md border border-input bg-secondary px-2 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none"
+            className="h-7 w-80 rounded-md border border-input bg-secondary pl-2 pr-9 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none"
             value={state.repoRoot || ''}
             readOnly
             placeholder="No repository selected"

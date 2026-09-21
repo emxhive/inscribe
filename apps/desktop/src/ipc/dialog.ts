@@ -1,4 +1,9 @@
-import { BrowserWindow, ipcMain, dialog } from 'electron';
+import {
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  type OpenDialogOptions,
+} from 'electron';
 import { readFile } from 'fs/promises';
 
 /**
@@ -20,15 +25,20 @@ export function registerDialogHandlers() {
 
   ipcMain.handle('select-markdown-file', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
+
+    const options: OpenDialogOptions = {
+      properties: ['openFile'],
+      filters: [
+        {
+          name: 'Text documents',
+          extensions: ['md', 'txt'],
+        },
+      ],
+    };
+
     const result = win
-      ? await dialog.showOpenDialog(win, {
-        properties: ['openFile'],
-        filters: [{ name: 'Markdown documents', extensions: ['md'] }],
-      })
-      : await dialog.showOpenDialog({
-        properties: ['openFile'],
-        filters: [{ name: 'Markdown documents', extensions: ['md'] }],
-      });
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options);
 
     if (result.canceled || result.filePaths.length === 0) {
       return null;

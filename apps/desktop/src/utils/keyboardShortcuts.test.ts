@@ -39,6 +39,15 @@ describe('keyboard shortcuts', () => {
     expect(matchesKeyboardShortcut({ ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, key: 'h', code: 'KeyH' }, openHistory)).toBe(true);
   });
 
+  it('registers Revert Changes as Ctrl+Z', () => {
+    const revertChanges = KEYBOARD_SHORTCUTS.find((shortcut) => shortcut.id === 'revert-changes')!;
+
+    expect(getKeyboardShortcutDisplay('revert-changes')).toBe('Ctrl+Z');
+    expect(matchesKeyboardShortcut({ ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, key: 'z', code: 'KeyZ' }, revertChanges)).toBe(true);
+    expect(shouldHandleKeyboardShortcut({ ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, key: 'z', code: 'KeyZ' }, revertChanges, false)).toBe(true);
+    expect(shouldHandleKeyboardShortcut({ ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, key: 'z', code: 'KeyZ' }, revertChanges, true)).toBe(false);
+  });
+
   it('requires exact modifier state', () => {
     const openRepository = KEYBOARD_SHORTCUTS.find((shortcut) => shortcut.id === 'open-repository')!;
 

@@ -40,9 +40,11 @@ export const initialState: AppState = {
   isTerminalOpen: false,
   terminalCommandSuggestions: [],
   previewSession: null,
+  lastAppliedActionId: null,
   historyItems: [],
   historyReview: {
     actionId: null,
+    origin: null,
     requestId: null,
     selectedEntryId: null,
     preview: null,

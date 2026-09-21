@@ -3,8 +3,12 @@ import type { AppState } from '@/types';
 export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>): AppState {
   const next = { ...prev, ...updates };
 
-  if ('aiInput' in updates && updates.aiInput !== prev.aiInput && !('selectedIntakeLineIndex' in updates)) {
-    next.selectedIntakeLineIndex = null;
+  if ('aiInput' in updates && updates.aiInput !== prev.aiInput) {
+    next.lastAppliedActionId = null;
+
+    if (!('selectedIntakeLineIndex' in updates)) {
+      next.selectedIntakeLineIndex = null;
+    }
   }
 
   if (prev.mode === 'review' && next.mode !== 'review') {
@@ -45,6 +49,7 @@ export function applyAppStateUpdates(prev: AppState, updates: Partial<AppState>)
   }
 
   if ('repoRoot' in updates && updates.repoRoot !== prev.repoRoot) {
+    next.lastAppliedActionId = null;
     next.selectedHunkId = null;
     next.collapsedHunkIdsByFile = {};
     next.collapsedDiffGroupIdsByFile = {};

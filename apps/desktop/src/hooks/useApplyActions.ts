@@ -49,6 +49,11 @@ export function useApplyActions() {
         return;
       }
 
+      const appliedActionId =
+        result.historyEntries?.find((entry) => entry.actionId)?.actionId ??
+        result.historyEntries?.[0]?.applyId ??
+        null;
+
       if (result.historyEntries?.length) {
         updateState((prev) => ({
           historyItems: [
@@ -62,6 +67,7 @@ export function useApplyActions() {
       updateState({
         reviewItems: state.reviewItems.map((item) => ({ ...item, status: 'applied' })),
         previewSession: null,
+        lastAppliedActionId: appliedActionId,
         pipelineStatus: 'apply-success',
         statusMessage: `✓ Applied preview: ${result.appliedFileCount} file(s).`,
         ...(suggestions.length > 0 ? { terminalCommandSuggestions: suggestions } : {}),

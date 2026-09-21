@@ -19,6 +19,7 @@ type WorkspaceShortcutOptions = {
   onShowRecentRepositoriesChange: (open: boolean) => void;
   toggleHistory: () => void;
   onShowKeyboardShortcutsChange: (open: boolean) => void;
+  revertChanges: WorkspaceAction;
   runPrimaryAction: WorkspaceAction;
 };
 
@@ -29,13 +30,19 @@ export function useWorkspaceShortcuts({
   onShowRecentRepositoriesChange,
   toggleHistory,
   onShowKeyboardShortcutsChange,
+  revertChanges,
   runPrimaryAction,
 }: WorkspaceShortcutOptions) {
-  const { state, updateState } = useAppStateContext();
-  const workspaceRef = useRef<HTMLDivElement>(null);
+  const { state, updateState } =
+    useAppStateContext();
+
+  const workspaceRef =
+    useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
+    const handleShortcut = (
+      event: KeyboardEvent,
+    ) => {
       if (event.defaultPrevented) return;
 
       if (
@@ -45,26 +52,71 @@ export function useWorkspaceShortcuts({
       ) {
         event.preventDefault();
 
-        if (event.target instanceof HTMLElement) {
+        if (
+          event.target instanceof HTMLElement
+        ) {
           event.target.blur();
         }
 
-        workspaceRef.current?.focus({ preventScroll: true });
+        workspaceRef.current?.focus({
+          preventScroll: true,
+        });
+
         return;
       }
 
-      const shortcut = KEYBOARD_SHORTCUTS.find((candidate) =>
-        matchesKeyboardShortcut(event, candidate),
-      );
+      const shortcut =
+        KEYBOARD_SHORTCUTS.find(
+          (candidate) =>
+            matchesKeyboardShortcut(
+              event,
+              candidate,
+            ),
+        );
+
+      if (!shortcut) {
+        return;
+      }
 
       if (
-        !shortcut ||
+        shortcut.id === 'revert-changes'
+      ) {
+        const canRevertChanges =
+          state.mode === 'review' &&
+          Boolean(
+            state.lastAppliedActionId,
+          ) &&
+          state.reviewItems.length > 0 &&
+          state.reviewItems.every(
+            (item) =>
+              item.status === 'applied',
+          ) &&
+          !state.isParsingInProgress &&
+          !state.isApplyingInProgress &&
+          !state.isRestoringInProgress &&
+          !state.historyReview.actionId;
+
+        if (
+          !canRevertChanges ||
+          isEditorKeyboardTarget(
+            event.target,
+          )
+        ) {
+          return;
+        }
+      }
+
+      if (
         !shouldHandleKeyboardShortcut(
           event,
           shortcut,
-          isInteractiveKeyboardTarget(event.target),
+          isInteractiveKeyboardTarget(
+            event.target,
+          ),
           hasBlockingShortcutOverlay(),
-          isTextEditingKeyboardTarget(event.target),
+          isTextEditingKeyboardTarget(
+            event.target,
+          ),
           state.isRestoringInProgress,
         )
       ) {
@@ -83,7 +135,9 @@ export function useWorkspaceShortcuts({
           break;
 
         case 'open-recent-repositories':
-          onShowRecentRepositoriesChange(true);
+          onShowRecentRepositoriesChange(
+            true,
+          );
           break;
 
         case 'open-history':
@@ -96,12 +150,19 @@ export function useWorkspaceShortcuts({
 
         case 'toggle-terminal':
           updateState((prev) => ({
-            isTerminalOpen: !prev.isTerminalOpen,
+            isTerminalOpen:
+              !prev.isTerminalOpen,
           }));
           break;
 
         case 'show-keyboard-shortcuts':
-          onShowKeyboardShortcutsChange(true);
+          onShowKeyboardShortcutsChange(
+            true,
+          );
+          break;
+
+        case 'revert-changes':
+          void revertChanges();
           break;
 
         case 'primary-action':
@@ -110,18 +171,31 @@ export function useWorkspaceShortcuts({
       }
     };
 
-    window.addEventListener('keydown', handleShortcut);
+    window.addEventListener(
+      'keydown',
+      handleShortcut,
+    );
 
     return () => {
-      window.removeEventListener('keydown', handleShortcut);
+      window.removeEventListener(
+        'keydown',
+        handleShortcut,
+      );
     };
   }, [
     onShowKeyboardShortcutsChange,
     onShowRecentRepositoriesChange,
     openRepository,
     replaceIntakeFromClipboard,
+    revertChanges,
     runPrimaryAction,
+    state.historyReview.actionId,
+    state.isApplyingInProgress,
+    state.isParsingInProgress,
     state.isRestoringInProgress,
+    state.lastAppliedActionId,
+    state.mode,
+    state.reviewItems,
     toggleHistory,
     updateState,
     uploadIntake,

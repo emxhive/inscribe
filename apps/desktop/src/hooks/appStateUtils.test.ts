@@ -33,11 +33,13 @@ describe('applyAppStateUpdates', () => {
       selectedReviewFileId: 'file-1',
       previewSession: { previewToken: 'preview-token', expiresAt: 'later' },
       previewDiagnostics: [{ type: 'protocol' as const, code: 'INVALID_MODE', message: 'invalid' }],
+      lastAppliedActionId: 'action-1',
     };
 
     const next = applyAppStateUpdates(prev, { aiInput: 'new input' });
 
     expect(next.mode).toBe('intake');
+    expect(next.lastAppliedActionId).toBeNull();
     expect(next.reviewItems).toEqual([]);
     expect(next.reviewFiles).toEqual([]);
     expect(next.selectedReviewFileId).toBeNull();
@@ -54,10 +56,12 @@ describe('applyAppStateUpdates', () => {
       selectedReviewFileId: 'file-1',
       previewSession: { previewToken: 'preview-token', expiresAt: 'later' },
       previewDiagnostics: [{ type: 'protocol' as const, code: 'INVALID_MODE', message: 'invalid' }],
+      lastAppliedActionId: 'action-1',
     };
 
     const next = applyAppStateUpdates(prev, { repoRoot: '/new-repo' });
 
+    expect(next.lastAppliedActionId).toBeNull();
     expect(next.reviewItems).toEqual([]);
     expect(next.reviewFiles).toEqual([]);
     expect(next.selectedReviewFileId).toBeNull();

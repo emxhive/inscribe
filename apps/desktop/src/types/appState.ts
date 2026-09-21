@@ -19,6 +19,7 @@ export type AppMode = 'intake' | 'review';
 export type ReviewView = 'result' | 'unified';
 export type RightPanelOwner = 'inspector' | 'history';
 export type RightPanelView = 'properties' | 'diagnostics';
+export type HistoryReviewOrigin = 'history' | 'revert';
 
 export type PipelineStatus = 
   | 'idle'
@@ -70,6 +71,7 @@ export interface HistoryItem extends HistoryEntry {
 
 export interface HistoryReviewState {
   actionId: string | null;
+  origin: HistoryReviewOrigin | null;
   requestId: string | null;
   selectedEntryId: string | null;
   preview: RestorePreview | null;
@@ -122,6 +124,7 @@ export interface AppState {
     previewToken: string;
     expiresAt: string;
   } | null;
+  lastAppliedActionId: string | null;
 
   // Restore history
   historyItems: HistoryItem[];

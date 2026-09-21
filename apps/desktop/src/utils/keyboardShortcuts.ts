@@ -6,6 +6,7 @@ export type KeyboardShortcutId =
   | 'open-intake-file'
   | 'toggle-terminal'
   | 'show-keyboard-shortcuts'
+  | 'revert-changes'
   | 'primary-action';
 
 export interface KeyboardShortcut {
@@ -77,6 +78,14 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcut[] = [
     display: 'Ctrl+/',
     key: '/',
     code: 'Slash',
+  },
+  {
+    id: 'revert-changes',
+    label: 'Revert Changes',
+    description: 'Open a safe reversal preview for the most recently applied review.',
+    display: 'Ctrl+Z',
+    key: 'z',
+    code: 'KeyZ',
   },
   {
     id: 'primary-action',

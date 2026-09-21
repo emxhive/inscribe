@@ -1,10 +1,16 @@
-import type { AppState } from '@/types';
+import { normalizeRelativePath } from '@inscribe/shared';
+import type {
+  AppState,
+  HistoryReviewOrigin,
+} from '@/types';
 import { decorateHistoryEntries } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
+import { previewIntake } from './useParsingActions';
 
 const EMPTY_HISTORY_REVIEW = {
   actionId: null,
+  origin: null,
   requestId: null,
   selectedEntryId: null,
   preview: null,
@@ -15,24 +21,45 @@ const EMPTY_HISTORY_REVIEW = {
 
 export function isCurrentPreviewRequest(
   state: Pick<AppState, 'repoRoot' | 'historyReview'>,
-  request: { repoRoot: string; actionId: string; requestId: string },
+  request: {
+    repoRoot: string;
+    actionId: string;
+    requestId: string;
+  },
 ): boolean {
-  return state.repoRoot === request.repoRoot
-    && state.historyReview.actionId === request.actionId
-    && state.historyReview.requestId === request.requestId;
+  return (
+    state.repoRoot === request.repoRoot &&
+    state.historyReview.actionId === request.actionId &&
+    state.historyReview.requestId === request.requestId
+  );
 }
 
 export function useHistoryActions() {
   const { state, updateState } = useAppStateContext();
 
-  const openRestoreReview = async (actionId: string) => {
-    if (!state.repoRoot || state.isRestoringInProgress || state.historyReview.isLoading || state.historyReview.isRestoring) return;
+  const openRestoreReview = async (
+    actionId: string,
+    origin: HistoryReviewOrigin = 'history',
+  ) => {
+    if (
+      !state.repoRoot ||
+      state.isRestoringInProgress ||
+      state.historyReview.isLoading ||
+      state.historyReview.isRestoring
+    ) {
+      return;
+    }
 
-    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const requestId = `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+
     const repoRoot = state.repoRoot;
+
     updateState({
       historyReview: {
         actionId,
+        origin,
         requestId,
         selectedEntryId: null,
         preview: null,
@@ -43,14 +70,30 @@ export function useHistoryActions() {
     });
 
     try {
-      const preview = await window.inscribeAPI.previewRestore(repoRoot, actionId);
+      const preview =
+        await window.inscribeAPI.previewRestore(
+          repoRoot,
+          actionId,
+        );
+
       updateState((prev) => {
-        if (!isCurrentPreviewRequest(prev, { repoRoot, actionId, requestId })) return {};
+        if (
+          !isCurrentPreviewRequest(prev, {
+            repoRoot,
+            actionId,
+            requestId,
+          })
+        ) {
+          return {};
+        }
+
         return {
           historyReview: {
             actionId,
+            origin,
             requestId,
-            selectedEntryId: preview.files[0]?.entryId ?? null,
+            selectedEntryId:
+              preview.files[0]?.entryId ?? null,
             preview,
             isLoading: false,
             isRestoring: false,
@@ -59,12 +102,26 @@ export function useHistoryActions() {
         };
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error);
+
       updateState((prev) => {
-        if (!isCurrentPreviewRequest(prev, { repoRoot, actionId, requestId })) return {};
+        if (
+          !isCurrentPreviewRequest(prev, {
+            repoRoot,
+            actionId,
+            requestId,
+          })
+        ) {
+          return {};
+        }
+
         return {
           historyReview: {
             actionId,
+            origin,
             requestId,
             selectedEntryId: null,
             preview: null,
@@ -78,44 +135,127 @@ export function useHistoryActions() {
   };
 
   const restoreReviewedAction = async () => {
-    const actionId = state.historyReview.actionId;
-    if (!state.repoRoot || !actionId || !state.historyReview.preview?.eligible || state.isRestoringInProgress) {
+    const actionId =
+      state.historyReview.actionId;
+
+    if (
+      !state.repoRoot ||
+      !actionId ||
+      !state.historyReview.preview?.eligible ||
+      state.isRestoringInProgress
+    ) {
       return;
     }
 
+    const repoRoot = state.repoRoot;
+    const rawInput = state.aiInput;
+    const selectedIntakeBlockId =
+      state.selectedIntakeBlockId;
+
+    const origin =
+      state.historyReview.origin ??
+      'history';
+
     updateState((prev) => ({
       isRestoringInProgress: true,
-      historyReview: { ...prev.historyReview, isRestoring: true, error: null },
-      statusMessage: 'Restoring action...',
+      historyReview: {
+        ...prev.historyReview,
+        isRestoring: true,
+        error: null,
+      },
+      statusMessage:
+        origin === 'revert'
+          ? 'Reverting changes...'
+          : 'Restoring action...',
     }));
 
     try {
-      const result = await window.inscribeAPI.restoreAction(state.repoRoot, actionId);
+      const result =
+        await window.inscribeAPI.restoreAction(
+          repoRoot,
+          actionId,
+        );
+
       if (!result.success) {
-        const message = result.errors?.join('; ') || 'restore failed.';
+        const message =
+          result.errors?.join('; ') ||
+          'restore failed.';
+
         updateState((prev) => ({
-          historyReview: { ...prev.historyReview, isRestoring: false, error: message },
+          historyReview: {
+            ...prev.historyReview,
+            isRestoring: false,
+            error: message,
+          },
           statusMessage: message,
         }));
-        return { status: 'apply-failed' as const, errors: result.errors ?? [] };
+
+        return {
+          status: 'apply-failed' as const,
+          errors: result.errors ?? [],
+        };
       }
 
       updateState({
-        historyItems: decorateHistoryEntries(result.historyEntries ?? []),
+        historyItems: decorateHistoryEntries(
+          result.historyEntries ?? [],
+        ),
         historyReview: EMPTY_HISTORY_REVIEW,
-        statusMessage: 'action restored. The restore is recorded in History.',
+        lastAppliedActionId: null,
+        statusMessage:
+          origin === 'revert'
+            ? 'Changes reverted. Rebuilding preview...'
+            : 'action restored. The restore is recorded in History.',
       });
-      await initRepositoryState(state.repoRoot, updateState);
+
+      const repoState =
+        await initRepositoryState(
+          repoRoot,
+          updateState,
+        );
+
+      if (origin === 'revert') {
+        const indexedFileSet = new Set(
+          repoState.indexedFiles.map(
+            normalizeRelativePath,
+          ),
+        );
+
+        await previewIntake({
+          repoRoot,
+          rawInput,
+          indexedFileSet,
+          selectedIntakeBlockId,
+          updateState,
+          startStatusMessage:
+            'Changes reverted. Rebuilding preview...',
+        });
+      }
+
       return { status: 'success' as const };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error);
+
       updateState((prev) => ({
-        historyReview: { ...prev.historyReview, isRestoring: false, error: message },
+        historyReview: {
+          ...prev.historyReview,
+          isRestoring: false,
+          error: message,
+        },
         statusMessage: message,
       }));
-      return { status: 'apply-failed' as const, errors: [message] };
+
+      return {
+        status: 'apply-failed' as const,
+        errors: [message],
+      };
     } finally {
-      updateState({ isRestoringInProgress: false });
+      updateState({
+        isRestoringInProgress: false,
+      });
     }
   };
 
@@ -123,8 +263,23 @@ export function useHistoryActions() {
     openRestoreReview,
     restoreReviewedAction,
     closeHistoryReview: () => {
-      if (state.isRestoringInProgress || state.historyReview.isRestoring) return;
-      updateState({ rightPanelOwner: 'history', historyReview: EMPTY_HISTORY_REVIEW });
+      if (
+        state.isRestoringInProgress ||
+        state.historyReview.isRestoring
+      ) {
+        return;
+      }
+
+      const returnToReview =
+        state.historyReview.origin ===
+        'revert';
+
+      updateState({
+        rightPanelOwner: returnToReview
+          ? 'inspector'
+          : 'history',
+        historyReview: EMPTY_HISTORY_REVIEW,
+      });
     },
   };
 }

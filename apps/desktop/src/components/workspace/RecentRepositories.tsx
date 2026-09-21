@@ -220,7 +220,7 @@ export function RecentRepositories({
           ref={dropdownRef}
           onKeyDown={handleKeyDown}
           data-inscribe-shortcut-overlay="true"
-          className="absolute left-0 top-full z-[100] mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-lg"
+          className="absolute left-0 top-full z-[100] mt-1 max-h-[min(32rem,60vh)] w-[28rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-lg"
         >
           <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             Recent Projects

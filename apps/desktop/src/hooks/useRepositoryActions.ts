@@ -3,8 +3,8 @@ import type { HistoryEntry } from '@inscribe/shared';
 import { useRef } from 'react';
 import { decorateHistoryEntries } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
-import { initialState } from './useAppState';
 import type { AppState } from '@/types';
+import { buildRepositoryResetUpdate } from '@/state/workflowTransitions';
 import type { RepoInitResult } from '@/types/ipc';
 
 const buildIndexedFileState = (indexedFiles: string[] | undefined) => {
@@ -35,7 +35,6 @@ export async function initRepositoryState(
     suggested: result.suggested || [],
     indexedFiles: indexedFileState.indexedFiles,
     indexedFileSet: indexedFileState.indexedFileSet,
-    indexedCount: indexedFileState.indexedFiles.length,
     indexStatus: result.indexStatus || { state: 'complete' },
     historyItems: decorateHistoryEntries(historyEntries),
     statusMessage: `Repository initialized: ${indexedFileState.indexedFiles.length} files indexed`
@@ -51,39 +50,16 @@ export function useRepositoryActions() {
   const { state, updateState } = useAppStateContext();
   const stateRef = useRef(state);
   stateRef.current = state;
-  const resetRepositoryState = (repoRoot: string | null, statusMessage: string) => {
-    updateState({
-      repoRoot,
-      topLevelFolders: [],
-      ignore: initialState.ignore,
-      suggested: [],
-      indexedFiles: [],
-      indexedFileSet: new Set(),
-      indexedCount: 0,
-      indexStatus: { state: 'idle' },
-      mode: 'intake',
-      aiInput: '',
-      parseErrors: [],
-      parseWarnings: [],
-      previewDiagnostics: [],
-      reviewItems: [],
-      reviewFiles: [],
-      selectedReviewFileId: null,
-      selectedIntakeBlockId: null,
-      selectedIntakeLineIndex: null,
-      rightPanelOwner: 'inspector',
-      rightPanelView: 'properties',
-      pipelineStatus: 'idle',
-      isParsingInProgress: false,
-      isApplyingInProgress: false,
-      isRestoringInProgress: false,
-            historyItems: [],
-      historyReview: initialState.historyReview,
-      lastAppliedActionId: null,
-      collapsedHunkIdsByFile: {},
-      collapsedDiffGroupIdsByFile: {},
-      statusMessage,
-    });
+    const resetRepositoryState = (
+    repoRoot: string | null,
+    statusMessage: string,
+  ) => {
+    updateState(
+      buildRepositoryResetUpdate(
+        repoRoot,
+        statusMessage,
+      ),
+    );
   };
   const handleBrowseRepo = async () => {
     if (stateRef.current.isRestoringInProgress) return;
@@ -159,7 +135,6 @@ export function useRepositoryActions() {
           suggested: result.suggested || [],
           indexedFiles: indexedFileState.indexedFiles,
           indexedFileSet: indexedFileState.indexedFileSet,
-          indexedCount: indexedFileState.indexedFiles.length,
           indexStatus: result.indexStatus || { state: 'complete' },
           statusMessage: `Ignore rules updated: ${indexedFileState.indexedFiles.length} files indexed`
         });

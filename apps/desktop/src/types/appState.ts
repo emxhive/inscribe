@@ -86,14 +86,12 @@ export interface AppState {
   suggested: string[];
   indexedFiles: string[];
   indexedFileSet: Set<string>;
-  indexedCount: number;
   indexStatus: IndexStatus;
 
   // Parsing/Review state
   mode: AppMode;
   aiInput: string;
   parseErrors: string[];
-  parseWarnings: Array<{ message: string }>;
   previewDiagnostics: PreviewErrorDTO[];
   reviewItems: ReviewItem[];
   reviewFiles: ReviewFile[];
@@ -104,7 +102,6 @@ export interface AppState {
   // UI state
   statusMessage: string;
   pipelineStatus: PipelineStatus;
-  isParsingInProgress: boolean;
   isApplyingInProgress: boolean;
   isRestoringInProgress: boolean;
   isRestoringRepo: boolean;

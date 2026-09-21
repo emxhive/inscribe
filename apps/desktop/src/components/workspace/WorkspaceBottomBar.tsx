@@ -13,6 +13,14 @@ import {
 import { toSentenceCase } from '@/utils';
 import type { PrimaryAction } from '@/utils/primaryAction';
 import { getKeyboardShortcutDisplay } from '@/utils/keyboardShortcuts';
+import { buildReviewExitUpdate } from '@/state/workflowTransitions';
+import {
+  selectCanReturnToPartialIntake,
+  selectCanRevertLastAppliedAction,
+  selectIsAppliedReview,
+  selectIsHistoryReviewActive,
+  selectIsParsingInProgress,
+} from '@/state/workflowSelectors';
 
 type WorkspaceBottomBarProps = {
   primaryAction: PrimaryAction;
@@ -37,31 +45,24 @@ export function WorkspaceBottomBar({
   const hasPartialPreview =
     primaryAction.id === 'review-partial';
 
+  const isParsingInProgress =
+    selectIsParsingInProgress(state);
+
   const canReturnToPartialIntake =
-    state.mode === 'review' &&
-    Boolean(state.previewSession) &&
-    state.previewDiagnostics.length > 0 &&
-    state.reviewItems.length > 0 &&
-    state.reviewItems.every(
-      (item) => item.status === 'pending',
+    selectCanReturnToPartialIntake(
+      state,
     );
 
   const isHistoryReviewActive =
-    Boolean(state.historyReview.actionId);
+    selectIsHistoryReviewActive(state);
 
   const isAppliedReview =
-    state.mode === 'review' &&
-    state.reviewItems.length > 0 &&
-    state.reviewItems.every(
-      (item) => item.status === 'applied',
-    );
+    selectIsAppliedReview(state);
 
   const canRevertChanges =
-    isAppliedReview &&
-    Boolean(state.lastAppliedActionId) &&
-    !state.isParsingInProgress &&
-    !state.isApplyingInProgress &&
-    !state.isRestoringInProgress;
+    selectCanRevertLastAppliedAction(
+      state,
+    );
 
   const statusIcon = (() => {
     switch (state.pipelineStatus) {
@@ -201,7 +202,7 @@ export function WorkspaceBottomBar({
                 'parse'
                   ? !primaryAction.enabled
                   : !state.repoRoot ||
-                    state.isParsingInProgress
+                    isParsingInProgress
               }
               title={
                 primaryAction.id ===
@@ -210,7 +211,7 @@ export function WorkspaceBottomBar({
                   ? 'Select a repository first'
                   : primaryAction.id ===
                         'parse' &&
-                      state.isParsingInProgress
+                      isParsingInProgress
                     ? 'Parsing in progress...'
                     : ''
               }
@@ -239,7 +240,7 @@ export function WorkspaceBottomBar({
                 type="button"
                 onClick={() =>
                   updateState({
-                    mode: 'intake',
+                    ...buildReviewExitUpdate(),
                     pipelineStatus:
                       'parse-partial',
                     statusMessage:
@@ -310,9 +311,9 @@ export function WorkspaceBottomBar({
                     state.isRestoringInProgress
                   }
                   onClick={() =>
-                    updateState({
-                      mode: 'intake',
-                    })
+                    updateState(
+                      buildReviewExitUpdate(),
+                    )
                   }
                 >
                   Back to Intake

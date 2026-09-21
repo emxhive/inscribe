@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useAppStateContext, useIntakeBlocks } from '@/hooks';
 import { cn } from '@/lib/utils';
+import { buildIntakeChangeInvalidation } from '@/state/workflowTransitions';
 
 export function IntakePanel() {
   const { state, updateState } = useAppStateContext();
@@ -82,7 +83,10 @@ export function IntakePanel() {
     const newValue = `${value.slice(0, selectionStart)}${indentString}${value.slice(selectionEnd)}`;
     const nextSelectionStart = selectionStart + indentString.length;
     const nextSelectionEnd = selectionEnd + indentString.length;
-    updateState({ aiInput: newValue });
+    updateState((prev) => ({
+      ...buildIntakeChangeInvalidation(prev),
+      aiInput: newValue,
+    }));
     requestAnimationFrame(() => {
       if (!textAreaRef.current) {
         return;
@@ -110,7 +114,12 @@ export function IntakePanel() {
         className="relative z-10 w-full h-full resize-none bg-transparent p-3 text-sm leading-relaxed font-mono text-foreground focus:outline-none"
         placeholder="Paste the AI response here. Must contain $inscribe BEGIN / END blocks or <<<INSCRIBE / INSCRIBE>>> blocks."
         value={state.aiInput}
-        onChange={(e) => updateState({ aiInput: e.target.value })}
+        onChange={(e) =>
+          updateState((prev) => ({
+            ...buildIntakeChangeInvalidation(prev),
+            aiInput: e.target.value,
+          }))
+        }
         onKeyDown={handleKeyDown}
         onScroll={handleScroll}
       />

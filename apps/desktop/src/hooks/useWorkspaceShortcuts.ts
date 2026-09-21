@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAppStateContext } from '@/hooks';
+import { selectCanRevertLastAppliedAction } from '@/state/workflowSelectors';
 import {
   KEYBOARD_SHORTCUTS,
   hasBlockingShortcutOverlay,
@@ -82,19 +83,9 @@ export function useWorkspaceShortcuts({
         shortcut.id === 'revert-changes'
       ) {
         const canRevertChanges =
-          state.mode === 'review' &&
-          Boolean(
-            state.lastAppliedActionId,
-          ) &&
-          state.reviewItems.length > 0 &&
-          state.reviewItems.every(
-            (item) =>
-              item.status === 'applied',
-          ) &&
-          !state.isParsingInProgress &&
-          !state.isApplyingInProgress &&
-          !state.isRestoringInProgress &&
-          !state.historyReview.actionId;
+          selectCanRevertLastAppliedAction(
+            state,
+          );
 
         if (
           !canRevertChanges ||
@@ -191,7 +182,8 @@ export function useWorkspaceShortcuts({
     runPrimaryAction,
     state.historyReview.actionId,
     state.isApplyingInProgress,
-    state.isParsingInProgress,
+    state.pipelineStatus,
+    state.repoRoot,
     state.isRestoringInProgress,
     state.lastAppliedActionId,
     state.mode,

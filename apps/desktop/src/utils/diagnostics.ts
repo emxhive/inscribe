@@ -40,10 +40,7 @@ export function buildDiagnosticGroups(
       'parse-warnings',
       'Parse Warnings',
       'warning',
-      [
-        ...(state.parseWarnings?.map(w => w.message) ?? []),
-        ...(options.globalWarnings ?? []),
-      ]
+      options.globalWarnings ?? [],
     );
 
     addGroup(

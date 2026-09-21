@@ -4,6 +4,7 @@ import { useAppStateContext } from './useAppStateContext';
 import { useApplyActions } from './useApplyActions';
 import { useHistoryActions } from './useHistoryActions';
 import { useParsingActions } from './useParsingActions';
+import { buildReviewEnterUpdate } from '@/state/workflowTransitions';
 
 export function usePrimaryAction(): {
   action: PrimaryAction;
@@ -24,8 +25,9 @@ export function usePrimaryAction(): {
         break;
       case 'review-partial':
         updateState({
-          mode: 'review',
-          rightPanelView: 'properties',
+          ...buildReviewEnterUpdate(
+            state,
+          ),
           statusMessage: `Reviewing ${state.reviewFiles.length} final file${state.reviewFiles.length === 1 ? '' : 's'}; excluded blocks remain unapplied.`,
         });
         break;

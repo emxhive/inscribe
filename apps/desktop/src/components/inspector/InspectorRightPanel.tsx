@@ -18,6 +18,10 @@ import {
 import { buildDiagnosticGroups } from '@/utils/diagnostics';
 import { PanelTabs } from '@/components/ui/panel-tabs';
 import { cn } from '@/lib/utils';
+import {
+  buildIntakeChangeInvalidation,
+  buildReviewExitUpdate,
+} from '@/state/workflowTransitions';
 import { DiagnosticsSection } from './DiagnosticsSection';
 import { IntakeDirectiveSection } from './IntakeInspector';
 import {
@@ -99,7 +103,7 @@ export function InspectorRightPanel() {
     line?: number;
   }) => {
     updateState({
-      mode: 'intake',
+      ...buildReviewExitUpdate(),
       selectedIntakeBlockId: target.blockId,
       selectedIntakeLineIndex:
         typeof target.line === 'number'
@@ -139,11 +143,11 @@ export function InspectorRightPanel() {
           ].id
         : null;
 
-    updateState({
+    updateState((prev) => ({
+      ...buildIntakeChangeInvalidation(prev),
       aiInput: nextInput,
       mode: 'intake',
       parseErrors: [],
-      parseWarnings: [],
       previewDiagnostics: [],
       reviewItems: [],
       reviewFiles: [],
@@ -153,12 +157,13 @@ export function InspectorRightPanel() {
       rightPanelOwner: 'inspector',
       rightPanelView: 'properties',
       selectedHunkId: null,
+      reviewView: 'unified',
       collapsedHunkIdsByFile: {},
       collapsedDiffGroupIdsByFile: {},
       previewSession: null,
       pipelineStatus: 'idle',
       statusMessage: `Removed ${blockPendingRemoval.label}. Preview the remaining blocks again.`,
-    });
+    }));
 
     setBlockPendingRemoval(null);
   };

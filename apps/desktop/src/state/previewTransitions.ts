@@ -39,7 +39,6 @@ export function buildPreviewStartedUpdate(
   statusMessage: string,
 ): Partial<AppState> {
   return {
-    isParsingInProgress: true,
     pipelineStatus: 'parsing',
     previewDiagnostics: [],
     lastAppliedActionId: null,
@@ -58,13 +57,11 @@ export function buildPreviewFailureUpdate(
     selectedIntakeLineIndex:
       diagnosticTarget?.lineIndex ?? null,
     parseErrors: [],
-    parseWarnings: [],
     previewDiagnostics: diagnostics,
     rightPanelOwner: 'inspector',
     rightPanelView: 'diagnostics',
     statusMessage: `preview failed: ${diagnostics.length} error(s)`,
     pipelineStatus: 'parse-failure',
-    isParsingInProgress: false,
     mode: 'intake',
   };
 }
@@ -84,7 +81,6 @@ export function buildPreviewNoChangesUpdate(
     selectedIntakeLineIndex:
       diagnosticTarget?.lineIndex ?? null,
     parseErrors: [],
-    parseWarnings: [],
     previewDiagnostics: diagnostics,
     rightPanelOwner: 'inspector',
     rightPanelView:
@@ -96,7 +92,6 @@ export function buildPreviewNoChangesUpdate(
       diagnostics.length > 0
         ? 'parse-partial'
         : 'parse-success',
-    isParsingInProgress: false,
     statusMessage:
       diagnostics.length > 0
         ? `No net changes to review; ${excludedCount} block${
@@ -124,7 +119,6 @@ export function buildPreviewReadyUpdate({
     reviewItems,
     reviewFiles,
     parseErrors: [],
-    parseWarnings: [],
     previewDiagnostics: diagnostics,
     selectedReviewFileId: reviewFiles[0].id,
     selectedIntakeBlockId: partial
@@ -145,7 +139,6 @@ export function buildPreviewReadyUpdate({
     pipelineStatus: partial
       ? 'parse-partial'
       : 'parse-success',
-    isParsingInProgress: false,
     statusMessage: partial
       ? `Previewed ${reviewFiles.length} final file${
           reviewFiles.length === 1 ? '' : 's'
@@ -169,7 +162,6 @@ export function buildPreviewRequestFailureUpdate(): Partial<AppState> {
     rightPanelOwner: 'inspector',
     rightPanelView: 'diagnostics',
     parseErrors: [],
-    parseWarnings: [],
     previewDiagnostics: [
       {
         type: 'system',
@@ -179,7 +171,6 @@ export function buildPreviewRequestFailureUpdate(): Partial<AppState> {
     ],
     statusMessage: 'Failed preview',
     pipelineStatus: 'parse-failure',
-    isParsingInProgress: false,
     mode: 'intake',
   };
 }

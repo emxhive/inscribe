@@ -14,6 +14,10 @@ import { Button } from '@/components/ui/button';
 import { useAppStateContext } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { getKeyboardShortcutDisplay } from '@/utils/keyboardShortcuts';
+import {
+  buildReviewEnterUpdate,
+  buildReviewExitUpdate,
+} from '@/state/workflowTransitions';
 import { RecentRepositories } from './RecentRepositories';
 
 type WorkspaceTopBarProps = {
@@ -130,11 +134,13 @@ export function WorkspaceTopBar({
           active={
             state.mode === 'intake'
           }
-          onClick={() =>
-            updateState({
-              mode: 'intake',
-            })
-          }
+          onClick={() => {
+            if (state.mode === 'review') {
+              updateState(
+                buildReviewExitUpdate(),
+              );
+            }
+          }}
         >
           Intake
         </ChromeButton>
@@ -161,13 +167,17 @@ export function WorkspaceTopBar({
           active={
             state.mode === 'review'
           }
-          onClick={() =>
-            updateState({
-              mode: 'review',
-            })
-          }
+          onClick={() => {
+            if (state.mode === 'intake') {
+              updateState(
+                buildReviewEnterUpdate(
+                  state,
+                ),
+              );
+            }
+          }}
           disabled={
-            state.reviewItems.length ===
+            state.reviewFiles.length ===
             0
           }
         >
@@ -191,7 +201,7 @@ export function WorkspaceTopBar({
         <ChromeButton
           onClick={onOpenIndexedList}
         >
-          Indexed {state.indexedCount}
+          Indexed {state.indexedFiles.length}
         </ChromeButton>
 
         <ChromeButton

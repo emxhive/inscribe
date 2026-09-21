@@ -9,13 +9,11 @@ export const initialState: AppState = {
   suggested: [],
   indexedFiles: [],
   indexedFileSet: new Set(),
-  indexedCount: 0,
   indexStatus: { state: 'idle' },
 
   mode: 'intake',
   aiInput: '',
   parseErrors: [],
-  parseWarnings: [],
   previewDiagnostics: [],
   reviewItems: [],
   reviewFiles: [],
@@ -25,7 +23,6 @@ export const initialState: AppState = {
 
   statusMessage: 'Restoring last repository...',
   pipelineStatus: 'idle',
-  isParsingInProgress: false,
   isApplyingInProgress: false,
   isRestoringInProgress: false,
   isRestoringRepo: true,

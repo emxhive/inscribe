@@ -33,7 +33,6 @@ describe('preview state transitions', () => {
         'Previewing changes...',
       ),
     ).toMatchObject({
-      isParsingInProgress: true,
       pipelineStatus: 'parsing',
       previewDiagnostics: [],
       lastAppliedActionId: null,
@@ -57,7 +56,6 @@ describe('preview state transitions', () => {
       rightPanelOwner: 'inspector',
       rightPanelView: 'diagnostics',
       pipelineStatus: 'parse-failure',
-      isParsingInProgress: false,
       previewSession: null,
     });
 
@@ -114,7 +112,6 @@ describe('preview state transitions', () => {
       selectedIntakeLineIndex: null,
       rightPanelView: 'properties',
       pipelineStatus: 'parse-success',
-      isParsingInProgress: false,
       previewSession: {
         previewToken: 'preview-token',
         expiresAt: 'later',
@@ -163,7 +160,6 @@ describe('preview state transitions', () => {
       selectedReviewFileId: null,
       rightPanelView: 'diagnostics',
       pipelineStatus: 'parse-failure',
-      isParsingInProgress: false,
       previewSession: null,
     });
 

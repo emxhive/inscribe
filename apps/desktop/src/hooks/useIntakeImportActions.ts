@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { getPathBasename } from '@/utils';
+import { buildIntakeReplacementUpdate } from '@/state/workflowTransitions';
 import { useAppStateContext } from './useAppStateContext';
 
 export function useIntakeImportActions() {
@@ -67,24 +68,10 @@ function replaceIntake(
   content: string,
   statusMessage: string,
 ) {
-  updateState({
-    mode: 'intake',
-    aiInput: content,
-    parseErrors: [],
-    parseWarnings: [],
-    previewDiagnostics: [],
-    reviewItems: [],
-    reviewFiles: [],
-    selectedReviewFileId: null,
-    selectedIntakeBlockId: null,
-    selectedIntakeLineIndex: null,
-    rightPanelOwner: 'inspector',
-    rightPanelView: 'properties',
-    pipelineStatus: 'idle',
-    collapsedHunkIdsByFile: {},
-    collapsedDiffGroupIdsByFile: {},
-    terminalCommandSuggestions: [],
-    previewSession: null,
-    statusMessage,
-  });
+  updateState(
+    buildIntakeReplacementUpdate(
+      content,
+      statusMessage,
+    ),
+  );
 }

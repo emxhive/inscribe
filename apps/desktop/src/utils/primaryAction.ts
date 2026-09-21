@@ -1,4 +1,10 @@
 import type { AppState } from '@/types';
+import {
+  selectCanApplyPreview,
+  selectHasReviewablePartialPreview,
+  selectIsHistoryReviewActive,
+  selectIsParsingInProgress,
+} from '@/state/workflowSelectors';
 
 export type PrimaryActionId = 'parse' | 'review-partial' | 'apply-all' | 'history-restore' | 'none';
 
@@ -12,7 +18,6 @@ type PrimaryActionState = Pick<
   AppState,
   | 'mode'
   | 'repoRoot'
-  | 'isParsingInProgress'
   | 'isApplyingInProgress'
   | 'isRestoringInProgress'
   | 'reviewFiles'
@@ -24,7 +29,10 @@ type PrimaryActionState = Pick<
 >;
 
 export function resolvePrimaryAction(state: PrimaryActionState): PrimaryAction {
-  if (state.historyReview.actionId) {
+  const isParsingInProgress =
+    selectIsParsingInProgress(state);
+
+  if (selectIsHistoryReviewActive(state)) {
     if (state.historyReview.isLoading) {
       return { id: 'history-restore', label: 'Checking restore...', enabled: false };
     }
@@ -46,9 +54,9 @@ export function resolvePrimaryAction(state: PrimaryActionState): PrimaryAction {
 
   if (state.mode === 'intake') {
     const hasPartialPreview =
-      state.pipelineStatus === 'parse-partial' &&
-      Boolean(state.previewSession) &&
-      state.reviewFiles.length > 0;
+      selectHasReviewablePartialPreview(
+        state,
+      );
 
     if (hasPartialPreview) {
       const excludedCount = new Set(
@@ -57,27 +65,21 @@ export function resolvePrimaryAction(state: PrimaryActionState): PrimaryAction {
       return {
         id: 'review-partial',
         label: `Review ${state.reviewFiles.length} Files · ${excludedCount} Excluded`,
-        enabled: !state.isParsingInProgress && !state.isApplyingInProgress,
+        enabled: !isParsingInProgress && !state.isApplyingInProgress,
       };
     }
 
     return {
       id: 'parse',
-      label: state.isParsingInProgress ? 'Parsing...' : 'Preview Changes',
-      enabled: Boolean(state.repoRoot) && !state.isParsingInProgress,
+      label: isParsingInProgress ? 'Parsing...' : 'Preview Changes',
+      enabled: Boolean(state.repoRoot) && !isParsingInProgress,
     };
   }
-
-  const canApply =
-    Boolean(state.repoRoot) &&
-    Boolean(state.previewSession) &&
-    state.reviewFiles.length > 0 &&
-    state.reviewItems.length > 0 &&
-    state.reviewItems.every((item) => item.status === 'pending');
 
   return {
     id: 'apply-all',
     label: 'Apply Preview',
-    enabled: canApply && !state.isApplyingInProgress,
+    enabled:
+      selectCanApplyPreview(state),
   };
 }

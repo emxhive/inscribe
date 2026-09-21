@@ -32,7 +32,7 @@ INSCRIBE>>>
 | `replace_file` | `CONTENT` | Replace an entire file with complete content |
 | `delete_file` | — | Delete a file |
 | `replace_text` | `SEARCH` + `CONTENT` | Replace an exact text match |
-| `replace_node` | `SELECTOR` + `CONTENT` | Replace a structural node via Tree-sitter (`.ts`, `.tsx`, `.dart`, `.php`) |
+| `replace_node` | `SELECTOR` + `CONTENT` | Replace a structural node via Tree-sitter (`.ts`, `.tsx`, `.js`, `.jsx`, `.dart`, `.php`) |
 
 `replace_node` optionally accepts `STARTS_WITH` to disambiguate repeated structural targets (e.g. multiple `if_statement` nodes inside a function).
 

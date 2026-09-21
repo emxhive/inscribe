@@ -262,6 +262,120 @@ INSCRIBE>>>`,
     );
   });
 
+  it("preview replace_node in .js through the production registry", async () => {
+    const originalCode = `function run() {
+  return "old";
+}
+
+function keepNeighbor() {
+  return "unchanged";
+}
+`;
+    fs.writeFileSync(path.join(repoRoot, "code.js"), originalCode);
+
+    const payload = {
+      rawInput: `<<<INSCRIBE
+FILE: code.js
+MODE: replace_node
+SELECTOR: function:run
+<<<CONTENT
+function run() {
+  return "new";
+}
+CONTENT>>>
+INSCRIBE>>>`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewWorker(payload);
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.executions).toHaveLength(1);
+      expect(response.executions[0].afterContent).toBe(`function run() {
+  return "new";
+}
+
+function keepNeighbor() {
+  return "unchanged";
+}
+`);
+      const beforeRange = response.executions[0].targetScope.beforeRange;
+      expect(beforeRange).toBeDefined();
+      expect(originalCode.slice(beforeRange!.start, beforeRange!.end)).toBe(
+        `function run() {
+  return "old";
+}`,
+      );
+      expect(response.executions[0].afterContent).toContain(
+        'function keepNeighbor() {\n  return "unchanged";\n}',
+      );
+    }
+    expect(fs.readFileSync(path.join(repoRoot, "code.js"), "utf8")).toBe(
+      originalCode,
+    );
+  });
+
+  it("preview replace_node in .jsx through the production registry", async () => {
+    const originalCode = `export function App() {
+  if (ready) {
+    return <div>Old</div>;
+  }
+  return null;
+}
+
+function keepNeighbor() {
+  return <aside />;
+}
+`;
+    fs.writeFileSync(path.join(repoRoot, "App.jsx"), originalCode);
+
+    const payload = {
+      rawInput: `<<<INSCRIBE
+FILE: App.jsx
+MODE: replace_node
+SELECTOR: function:App > if_statement
+<<<CONTENT
+if (ready) {
+    return <div>New</div>;
+  }
+CONTENT>>>
+INSCRIBE>>>`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewWorker(payload);
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.executions).toHaveLength(1);
+      expect(response.executions[0].afterContent).toBe(`export function App() {
+  if (ready) {
+    return <div>New</div>;
+  }
+  return null;
+}
+
+function keepNeighbor() {
+  return <aside />;
+}
+`);
+      const beforeRange = response.executions[0].targetScope.beforeRange;
+      expect(beforeRange).toBeDefined();
+      expect(originalCode.slice(beforeRange!.start, beforeRange!.end)).toBe(
+        `if (ready) {
+    return <div>Old</div>;
+  }`,
+      );
+      expect(response.executions[0].afterContent).toContain(
+        "function keepNeighbor()",
+      );
+    }
+    expect(fs.readFileSync(path.join(repoRoot, "App.jsx"), "utf8")).toBe(
+      originalCode,
+    );
+  });
+
   it("preview replace_node in .dart through the production registry", async () => {
     const originalCode = `class MyWidget extends StatelessWidget {
   @override

@@ -269,7 +269,7 @@ INSCRIBE>>>
 
 - `replace_node` is the structural editing operation for replacing or deleting an entire supported structural target.
 - Tree-sitter and the language adapters locate structural candidates and replacement boundaries. They do not generate replacement code, infer omitted logic, or validate business behavior.
-- Supported languages: `.ts`, `.tsx`, `.dart`, and `.php`. No `.js` or `.jsx` support is claimed. Dart files may also use the Flutter-aware semantic selectors documented below. PHP support is structural discovery through Tree-sitter; it is not PHP syntax validation.
+- Supported languages: `.ts`, `.tsx`, `.js`, `.jsx`, `.dart`, and `.php`. Dart files may also use the Flutter-aware semantic selectors documented below. PHP support is structural discovery through Tree-sitter; it is not PHP syntax validation.
 - When the requested edit corresponds to an entire supported structural target, prefer `replace_node` over reconstructing that same target with `replace_text`.
 - `CONTENT` replaces exactly the resolved structural range. Empty `CONTENT` deletes exactly that range.
 

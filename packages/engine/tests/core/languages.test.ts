@@ -43,7 +43,7 @@ function adapter(
 }
 
 describe("language adapter contracts", () => {
-  it("registers one TypeScript adapter for both grammar variants", () => {
+  it("registers one TypeScript-family adapter for all ECMAScript grammar variants", () => {
     const typescriptAdapter = createTypeScriptLanguageAdapter({
       coreWasmPath: CORE_WASM,
       languageWasmPaths: {
@@ -58,10 +58,16 @@ describe("language adapter contracts", () => {
 
     expect(registry.resolve("component.ts")).toBe(typescriptAdapter);
     expect(registry.resolve("component.tsx")).toBe(typescriptAdapter);
+    expect(registry.resolve("component.js")).toBe(typescriptAdapter);
+    expect(registry.resolve("component.jsx")).toBe(typescriptAdapter);
     expect(typescriptAdapter.grammarIdForFile("component.ts")).toBe(
       "typescript",
     );
     expect(typescriptAdapter.grammarIdForFile("component.tsx")).toBe("tsx");
+    expect(typescriptAdapter.grammarIdForFile("component.js")).toBe(
+      "typescript",
+    );
+    expect(typescriptAdapter.grammarIdForFile("component.jsx")).toBe("tsx");
   });
 
   it("resolves extensions case-insensitively and independently of registration order", () => {

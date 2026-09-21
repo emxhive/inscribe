@@ -21,10 +21,13 @@ import {
   TreeSitterReplacementCandidate,
 } from "./treeSitterAdapter";
 
-const TYPESCRIPT_EXTENSIONS = [".ts", ".tsx"] as const;
+const TYPESCRIPT_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"] as const;
+const TSX_EXTENSIONS = new Set([".tsx", ".jsx"]);
 
 function grammarIdForFile(filePath: string): string {
-  return path.extname(filePath).toLowerCase() === ".tsx" ? "tsx" : "typescript";
+  return TSX_EXTENSIONS.has(path.extname(filePath).toLowerCase())
+    ? "tsx"
+    : "typescript";
 }
 
 function collectCandidates(

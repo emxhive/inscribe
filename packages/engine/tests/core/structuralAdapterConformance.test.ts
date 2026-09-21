@@ -19,6 +19,10 @@ const TYPESCRIPT_WASM = path.resolve(
   __dirname,
   "../../../../node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm",
 );
+const TSX_WASM = path.resolve(
+  __dirname,
+  "../../../../node_modules/tree-sitter-wasms/out/tree-sitter-tsx.wasm",
+);
 const DART_WASM = path.resolve(
   __dirname,
   "../../assets/tree-sitter-dart.wasm",
@@ -32,6 +36,7 @@ const ASSETS = {
   coreWasmPath: CORE_WASM,
   languageWasmPaths: {
     typescript: TYPESCRIPT_WASM,
+    tsx: TSX_WASM,
     dart: DART_WASM,
     php: PHP_WASM,
   },
@@ -66,6 +71,27 @@ const conformanceCases: readonly AdapterConformanceCase[] = [
   {
     id: "TypeScript",
     filePath: "owner.ts",
+    ownerSelector: "function:owner",
+    resolver: typescriptResolver,
+    sourceFor: (kind) => `function owner() {\n  ${nestedStatement(kind, "typescript")}\n}`,
+  },
+  {
+    id: "TSX",
+    filePath: "owner.tsx",
+    ownerSelector: "function:owner",
+    resolver: typescriptResolver,
+    sourceFor: (kind) => `function owner() {\n  ${nestedStatement(kind, "typescript")}\n}`,
+  },
+  {
+    id: "JavaScript",
+    filePath: "owner.js",
+    ownerSelector: "function:owner",
+    resolver: typescriptResolver,
+    sourceFor: (kind) => `function owner() {\n  ${nestedStatement(kind, "typescript")}\n}`,
+  },
+  {
+    id: "JSX",
+    filePath: "owner.jsx",
     ownerSelector: "function:owner",
     resolver: typescriptResolver,
     sourceFor: (kind) => `function owner() {\n  ${nestedStatement(kind, "typescript")}\n}`,

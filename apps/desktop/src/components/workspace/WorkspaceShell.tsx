@@ -55,27 +55,8 @@ export function WorkspaceShell({
     }
   }, [state.repoRoot]);
 
-  const hasAppliedReview =
-    state.mode === "review" &&
-    state.reviewItems.length > 0 &&
-    state.reviewItems.every((item) => item.status === "applied");
-
   const revertChanges = () => {
-    if (
-      !state.lastAppliedActionId ||
-      !hasAppliedReview ||
-      state.isParsingInProgress ||
-      state.isApplyingInProgress ||
-      state.isRestoringInProgress ||
-      state.historyReview.actionId
-    ) {
-      return;
-    }
-
-    void historyActions.openRestoreReview(
-      state.lastAppliedActionId,
-      "revert",
-    );
+    void historyActions.revertLastAppliedAction();
   };
 
   const workspaceRef = useWorkspaceShortcuts({

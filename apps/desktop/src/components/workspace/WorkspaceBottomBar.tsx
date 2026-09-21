@@ -110,11 +110,9 @@ export function WorkspaceBottomBar({
 
   const restoreUnavailableTitle =
     !primaryAction.enabled &&
-    (primaryAction.label ===
-      'Restore unavailable' ||
-      primaryAction.label ===
-        'Revert unavailable')
-      ? 'Reversal is unavailable for the current repository state'
+    primaryAction.label ===
+      'Restore unavailable'
+      ? 'Restore is unavailable for the current repository state'
       : undefined;
 
   return (
@@ -141,10 +139,7 @@ export function WorkspaceBottomBar({
               state.isRestoringInProgress
             }
           >
-            {state.historyReview.origin ===
-            'revert'
-              ? 'Back to Review'
-              : 'Back to History'}
+            Back to History
           </Button>
 
           <Button
@@ -281,21 +276,9 @@ export function WorkspaceBottomBar({
 
             {isAppliedReview && (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  onClick={() =>
-                    updateState({
-                      mode: 'intake',
-                    })
-                  }
-                >
-                  Back to Intake
-                </Button>
-
                 {state.lastAppliedActionId && (
                   <Button
+                    variant="outline"
                     size="sm"
                     type="button"
                     onClick={
@@ -310,7 +293,7 @@ export function WorkspaceBottomBar({
                         Revert changes
                       </span>
 
-                      <kbd className="shrink-0 rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-[9px] font-medium leading-none tracking-tight text-primary-foreground/70">
+                      <kbd className="shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[9px] font-medium leading-none tracking-tight text-muted-foreground">
                         {getKeyboardShortcutDisplay(
                           'revert-changes',
                         )}
@@ -318,6 +301,32 @@ export function WorkspaceBottomBar({
                     </span>
                   </Button>
                 )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={
+                    state.isRestoringInProgress
+                  }
+                  onClick={() =>
+                    updateState({
+                      mode: 'intake',
+                    })
+                  }
+                >
+                  Back to Intake
+                </Button>
+
+                <Button
+                  size="sm"
+                  type="button"
+                  disabled
+                  className="min-w-[9rem]"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Applied
+                </Button>
               </>
             )}
           </>

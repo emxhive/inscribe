@@ -1,8 +1,6 @@
+import { useRef } from 'react';
 import { normalizeRelativePath } from '@inscribe/shared';
-import type {
-  AppState,
-  HistoryReviewOrigin,
-} from '@/types';
+import type { AppState } from '@/types';
 import { decorateHistoryEntries } from '@/utils';
 import { useAppStateContext } from './useAppStateContext';
 import { initRepositoryState } from './useRepositoryActions';
@@ -10,7 +8,6 @@ import { previewIntake } from './useParsingActions';
 
 const EMPTY_HISTORY_REVIEW = {
   actionId: null,
-  origin: null,
   requestId: null,
   selectedEntryId: null,
   preview: null,
@@ -36,10 +33,11 @@ export function isCurrentPreviewRequest(
 
 export function useHistoryActions() {
   const { state, updateState } = useAppStateContext();
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const openRestoreReview = async (
     actionId: string,
-    origin: HistoryReviewOrigin = 'history',
   ) => {
     if (
       !state.repoRoot ||
@@ -59,7 +57,6 @@ export function useHistoryActions() {
     updateState({
       historyReview: {
         actionId,
-        origin,
         requestId,
         selectedEntryId: null,
         preview: null,
@@ -90,7 +87,6 @@ export function useHistoryActions() {
         return {
           historyReview: {
             actionId,
-            origin,
             requestId,
             selectedEntryId:
               preview.files[0]?.entryId ?? null,
@@ -121,7 +117,6 @@ export function useHistoryActions() {
         return {
           historyReview: {
             actionId,
-            origin,
             requestId,
             selectedEntryId: null,
             preview: null,
@@ -148,13 +143,6 @@ export function useHistoryActions() {
     }
 
     const repoRoot = state.repoRoot;
-    const rawInput = state.aiInput;
-    const selectedIntakeBlockId =
-      state.selectedIntakeBlockId;
-
-    const origin =
-      state.historyReview.origin ??
-      'history';
 
     updateState((prev) => ({
       isRestoringInProgress: true,
@@ -163,10 +151,7 @@ export function useHistoryActions() {
         isRestoring: true,
         error: null,
       },
-      statusMessage:
-        origin === 'revert'
-          ? 'Reverting changes...'
-          : 'Restoring action...',
+      statusMessage: 'Restoring action...',
     }));
 
     try {
@@ -203,34 +188,13 @@ export function useHistoryActions() {
         historyReview: EMPTY_HISTORY_REVIEW,
         lastAppliedActionId: null,
         statusMessage:
-          origin === 'revert'
-            ? 'Changes reverted. Rebuilding preview...'
-            : 'action restored. The restore is recorded in History.',
+          'action restored. The restore is recorded in History.',
       });
 
-      const repoState =
-        await initRepositoryState(
-          repoRoot,
-          updateState,
-        );
-
-      if (origin === 'revert') {
-        const indexedFileSet = new Set(
-          repoState.indexedFiles.map(
-            normalizeRelativePath,
-          ),
-        );
-
-        await previewIntake({
-          repoRoot,
-          rawInput,
-          indexedFileSet,
-          selectedIntakeBlockId,
-          updateState,
-          startStatusMessage:
-            'Changes reverted. Rebuilding preview...',
-        });
-      }
+      await initRepositoryState(
+        repoRoot,
+        updateState,
+      );
 
       return { status: 'success' as const };
     } catch (error) {
@@ -259,9 +223,140 @@ export function useHistoryActions() {
     }
   };
 
+  const revertLastAppliedAction = async () => {
+    const actionId =
+      state.lastAppliedActionId;
+
+    const canRevert =
+      Boolean(state.repoRoot) &&
+      Boolean(actionId) &&
+      state.mode === 'review' &&
+      state.reviewItems.length > 0 &&
+      state.reviewItems.every(
+        (item) => item.status === 'applied',
+      ) &&
+      !state.isParsingInProgress &&
+      !state.isApplyingInProgress &&
+      !state.isRestoringInProgress &&
+      !state.historyReview.actionId;
+
+    if (
+      !canRevert ||
+      !state.repoRoot ||
+      !actionId
+    ) {
+      return;
+    }
+
+    const repoRoot = state.repoRoot;
+    const rawInput = state.aiInput;
+    const selectedIntakeBlockId =
+      state.selectedIntakeBlockId;
+
+    updateState({
+      isRestoringInProgress: true,
+      pipelineStatus: 'idle',
+      statusMessage: 'Reverting changes...',
+    });
+
+    try {
+      const result =
+        await window.inscribeAPI.restoreAction(
+          repoRoot,
+          actionId,
+        );
+
+      if (!result.success) {
+        const message =
+          result.errors?.join('; ') ||
+          'revert failed.';
+
+        updateState({
+          statusMessage:
+            `Unable to revert changes: ${message}`,
+        });
+
+        return {
+          status: 'apply-failed' as const,
+          errors: result.errors ?? [],
+        };
+      }
+
+      updateState({
+        historyItems: decorateHistoryEntries(
+          result.historyEntries ?? [],
+        ),
+        lastAppliedActionId: null,
+        statusMessage:
+          'Changes reverted. Rebuilding preview...',
+      });
+
+      if (
+        stateRef.current.repoRoot !== repoRoot
+      ) {
+        return { status: 'success' as const };
+      }
+
+      const repoState =
+        await initRepositoryState(
+          repoRoot,
+          updateState,
+        );
+
+      if (
+        stateRef.current.aiInput !== rawInput
+      ) {
+        updateState({
+          statusMessage:
+            'Changes reverted. Intake changed during the revert; preview again to review it.',
+        });
+
+        return { status: 'success' as const };
+      }
+
+      const indexedFileSet = new Set(
+        repoState.indexedFiles.map(
+          normalizeRelativePath,
+        ),
+      );
+
+      await previewIntake({
+        repoRoot,
+        rawInput,
+        indexedFileSet,
+        selectedIntakeBlockId,
+        updateState,
+        startStatusMessage:
+          'Changes reverted. Rebuilding preview...',
+      });
+
+      return { status: 'success' as const };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error);
+
+      updateState({
+        statusMessage:
+          `Unable to revert changes: ${message}`,
+      });
+
+      return {
+        status: 'apply-failed' as const,
+        errors: [message],
+      };
+    } finally {
+      updateState({
+        isRestoringInProgress: false,
+      });
+    }
+  };
+
   return {
     openRestoreReview,
     restoreReviewedAction,
+    revertLastAppliedAction,
     closeHistoryReview: () => {
       if (
         state.isRestoringInProgress ||
@@ -270,14 +365,8 @@ export function useHistoryActions() {
         return;
       }
 
-      const returnToReview =
-        state.historyReview.origin ===
-        'revert';
-
       updateState({
-        rightPanelOwner: returnToReview
-          ? 'inspector'
-          : 'history',
+        rightPanelOwner: 'history',
         historyReview: EMPTY_HISTORY_REVIEW,
       });
     },

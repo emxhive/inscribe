@@ -82,7 +82,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcut[] = [
   {
     id: 'revert-changes',
     label: 'Revert Changes',
-    description: 'Open a safe reversal preview for the most recently applied review.',
+    description: 'Revert the most recently applied review.',
     display: 'Ctrl+Z',
     key: 'z',
     code: 'KeyZ',

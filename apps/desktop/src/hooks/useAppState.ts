@@ -44,7 +44,6 @@ export const initialState: AppState = {
   historyItems: [],
   historyReview: {
     actionId: null,
-    origin: null,
     requestId: null,
     selectedEntryId: null,
     preview: null,

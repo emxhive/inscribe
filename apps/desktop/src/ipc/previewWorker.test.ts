@@ -142,6 +142,58 @@ INSCRIBE>>>`,
     );
   });
 
+  it("preview scoped replace_text from a raw Inscribe block", async () => {
+    const originalCode = `class First {
+  run() {
+    return "same";
+  }
+}
+
+class Second {
+  run() {
+    return "same";
+  }
+}
+`;
+    fs.writeFileSync(path.join(repoRoot, "scoped.ts"), originalCode);
+
+    const payload = {
+      rawInput: `<<<INSCRIBE
+FILE: scoped.ts
+MODE: replace_text
+SELECTOR: class:Second > method:run
+<<<SEARCH
+return "same";
+SEARCH>>>
+<<<CONTENT
+return "changed";
+CONTENT>>>
+INSCRIBE>>>`,
+      trustedRepoRoot: repoRoot,
+      assetPaths: assets,
+    };
+
+    const response = await runPreviewWorker(payload);
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.executions).toHaveLength(1);
+      expect(response.executions[0].strategy).toBe("replace_text");
+      expect(response.executions[0].targetScope.selector).toEqual({
+        path: [
+          { kind: "class", name: "Second" },
+          { kind: "method", name: "run" },
+        ],
+      });
+      expect(response.executions[0].afterContent).toContain(
+        'class First {\n  run() {\n    return "same";',
+      );
+      expect(response.executions[0].afterContent).toContain(
+        'class Second {\n  run() {\n    return "changed";',
+      );
+    }
+    expect(fs.readFileSync(path.join(repoRoot, "scoped.ts"), "utf8")).toBe(originalCode);
+  });
+
   it("preview replace_node in .ts", async () => {
     const originalCode = `class MyClass {\n  save() {\n    const a = 1;\n  }\n}`;
     fs.writeFileSync(path.join(repoRoot, "code.ts"), originalCode);

@@ -3,11 +3,26 @@ import type {
   ReviewFile,
   ReviewItem,
 } from '@/types';
+import type { StructuralSelector } from '@inscribe/shared';
 import { toSentenceCase } from '@/utils';
 import {
   InspectorPropertyGroup,
   InspectorRow,
 } from './InspectorPrimitives';
+
+function formatSelector(selector?: StructuralSelector): string | undefined {
+  if (!selector) return undefined;
+  const path = selector.path
+    .map((segment) => `${segment.kind}${segment.name ? `:${segment.name}` : ''}`)
+    .join(' > ');
+  const startsWith = selector.startsWith
+    ?.replace(/\s+/g, ' ')
+    .trim();
+
+  return startsWith
+    ? `${path} · starts with: ${startsWith}`
+    : path;
+}
 
 export function ReviewFileProperties({
   file,
@@ -127,8 +142,8 @@ export function ReviewFileProperties({
           {operations.map(
             (operation) => {
               const target =
-                operation.targetScope
-                  .selectorText ??
+                operation.targetScope.selectorText ??
+                formatSelector(operation.targetScope.selector) ??
                 (operation.targetScope
                   .lineRange
                   ? `Lines ${operation.targetScope.lineRange.startLine}–${operation.targetScope.lineRange.endLine}`

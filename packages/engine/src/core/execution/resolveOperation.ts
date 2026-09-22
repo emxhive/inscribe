@@ -8,6 +8,13 @@ import { computeDiffHunks } from '../diff';
 import { ResolveStructuralTargetOptions, StructuralNodeMatch, StructuralResolver } from '../structural';
 import type { SyntaxValidator } from '../languages';
 
+function translateRange(range: { start: number; end: number }, offset: number): { start: number; end: number } {
+  return {
+    start: range.start + offset,
+    end: range.end + offset,
+  };
+}
+
 export interface ExecutionContext {
   structuralResolver?: StructuralResolver;
   syntaxValidator?: SyntaxValidator;
@@ -82,11 +89,42 @@ export async function resolveOperation(
     normalizedDirectives.SEARCH = normalizedSearch;
 
     afterExists = true;
-    const replaceResult = performReplaceText(beforeContentRaw, normalizedSearch, normalizedContent);
+    let searchScopeStart = 0;
+    let searchScopeEnd = beforeContentRaw.length;
+    let searchScope = beforeContentRaw;
+
+    if (operation.selector) {
+      if (!context.structuralResolver) {
+        throw new Error('STRUCTURAL_RESOLVER_REQUIRED');
+      }
+      const resolverOptions: ResolveStructuralTargetOptions = {
+        source: beforeContentRaw,
+        filePath,
+        selector: operation.selector,
+      };
+      const match = await context.structuralResolver(resolverOptions);
+      searchScopeStart = match.start;
+      searchScopeEnd = match.end;
+      searchScope = beforeContentRaw.slice(searchScopeStart, searchScopeEnd);
+    }
+
+    const replaceResult = performReplaceText(searchScope, normalizedSearch, normalizedContent);
     afterContent = replaceResult.afterContent;
-    beforeRange = replaceResult.beforeRange;
-    afterRange = replaceResult.afterRange;
-    matchMetadata = replaceResult.matchMetadata;
+    if (operation.selector) {
+      afterContent = beforeContentRaw.slice(0, searchScopeStart)
+        + replaceResult.afterContent
+        + beforeContentRaw.slice(searchScopeEnd);
+      beforeRange = translateRange(replaceResult.beforeRange, searchScopeStart);
+      afterRange = translateRange(replaceResult.afterRange, searchScopeStart);
+      matchMetadata = {
+        ...replaceResult.matchMetadata,
+        resolvedRange: translateRange(replaceResult.matchMetadata.resolvedRange, searchScopeStart),
+      };
+    } else {
+      beforeRange = replaceResult.beforeRange;
+      afterRange = replaceResult.afterRange;
+      matchMetadata = replaceResult.matchMetadata;
+    }
   } else if (operation.strategy === 'replace_node') {
     if (!beforeExists) {
       throw new Error(`File does not exist: ${filePath}`);
@@ -122,7 +160,7 @@ export async function resolveOperation(
   const targetScope: TargetScope = {
     filePath,
     strategy,
-    selector: (operation.strategy === 'replace_node') ? operation.selector : undefined,
+    selector: 'selector' in operation ? operation.selector : undefined,
     selectorText: undefined,
     beforeRange,
     afterRange,

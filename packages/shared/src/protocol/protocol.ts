@@ -107,6 +107,10 @@ export interface ModeRule {
   requiredSections: readonly SectionName[];
   forbiddenSections: readonly SectionName[];
   nonEmptyWhenPresentSections: readonly SectionName[];
+  sectionRequiresDirectives: readonly {
+    section: SectionName;
+    requiredDirectives: readonly DirectiveKey[];
+  }[];
 }
 
 export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
@@ -116,6 +120,7 @@ export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
     requiredSections: ['CONTENT'],
     forbiddenSections: ['SEARCH', 'STARTS_WITH'],
     nonEmptyWhenPresentSections: [],
+    sectionRequiresDirectives: [],
   },
   replace_file: {
     requiredDirectives: ['FILE', 'MODE'],
@@ -123,6 +128,7 @@ export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
     requiredSections: ['CONTENT'],
     forbiddenSections: ['SEARCH', 'STARTS_WITH'],
     nonEmptyWhenPresentSections: [],
+    sectionRequiresDirectives: [],
   },
   delete_file: {
     requiredDirectives: ['FILE', 'MODE'],
@@ -130,13 +136,17 @@ export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
     requiredSections: [],
     forbiddenSections: ['CONTENT', 'SEARCH', 'STARTS_WITH'],
     nonEmptyWhenPresentSections: [],
+    sectionRequiresDirectives: [],
   },
   replace_text: {
     requiredDirectives: ['FILE', 'MODE'],
-    forbiddenDirectives: ['SELECTOR'],
+    forbiddenDirectives: [],
     requiredSections: ['SEARCH', 'CONTENT'],
-    forbiddenSections: ['STARTS_WITH'],
-    nonEmptyWhenPresentSections: ['SEARCH'],
+    forbiddenSections: [],
+    nonEmptyWhenPresentSections: ['SEARCH', 'STARTS_WITH'],
+    sectionRequiresDirectives: [
+      { section: 'STARTS_WITH', requiredDirectives: ['SELECTOR'] },
+    ],
   },
   replace_node: {
     requiredDirectives: ['FILE', 'MODE', 'SELECTOR'],
@@ -144,5 +154,6 @@ export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
     requiredSections: ['CONTENT'],
     forbiddenSections: ['SEARCH'],
     nonEmptyWhenPresentSections: ['STARTS_WITH'],
+    sectionRequiresDirectives: [],
   },
 };

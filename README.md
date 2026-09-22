@@ -31,12 +31,14 @@ INSCRIBE>>>
 | `create_file` | `CONTENT` | Create a new file with complete content |
 | `replace_file` | `CONTENT` | Replace an entire file with complete content |
 | `delete_file` | — | Delete a file |
-| `replace_text` | `SEARCH` + `CONTENT` | Replace an exact text match |
+| `replace_text` | `SEARCH` + `CONTENT` | Replace an exact text match, optionally within `SELECTOR` scope |
 | `replace_node` | `SELECTOR` + `CONTENT` | Replace a structural node via Tree-sitter (`.ts`, `.tsx`, `.js`, `.jsx`, `.dart`, `.php`) |
 
 `replace_node` optionally accepts `STARTS_WITH` to disambiguate repeated structural targets (e.g. multiple `if_statement` nodes inside a function).
 
-## Selectors (`replace_node`)
+`replace_text` may optionally accept `SELECTOR` and `STARTS_WITH` to constrain exact text matching to one structurally resolved node.
+
+## Structural Selectors
 
 Selectors use exact symbol names from source:
 

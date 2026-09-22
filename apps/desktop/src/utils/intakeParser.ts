@@ -208,8 +208,22 @@ export function scanIntakeStructure(
 
           // Check required directives
           for (const reqDir of rules.requiredDirectives) {
-            if (reqDir === 'SELECTOR' && !selectorDirective) {
-              errors.push('missing SELECTOR for replace_node');
+            if (reqDir === 'FILE' || reqDir === 'MODE') {
+              continue;
+            }
+            if (!active.directives[reqDir]) {
+              errors.push(`missing ${reqDir} for ${activeMode}`);
+            }
+          }
+
+          for (const requirement of rules.sectionRequiresDirectives) {
+            if (!active.sections[requirement.section]) {
+              continue;
+            }
+            for (const reqDir of requirement.requiredDirectives) {
+              if (!active.directives[reqDir]) {
+                errors.push(`missing ${reqDir} for ${requirement.section}`);
+              }
             }
           }
 

@@ -196,9 +196,7 @@ export function IntakeBlockList() {
                         {block.label}
                       </span>
 
-                      {block.mode ===
-                        'replace_node' &&
-                        block.selectorText && (
+                      {block.selectorText && (
                           <div
                             className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground"
                             title={

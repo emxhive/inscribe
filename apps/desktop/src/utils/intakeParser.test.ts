@@ -45,6 +45,16 @@ INSCRIBE>>>`;
     expect(blocks[0].status).toBe('valid');
   });
 
+  it('does not duplicate globally validated missing FILE errors', () => {
+    const blockOpen = '<<<' + 'INSCRIBE';
+    const blockClose = 'INSCRIBE' + '>>>';
+    const input = [blockOpen, 'MODE: delete_file', blockClose].join('\n');
+
+    const { blocks } = scanIntakeStructure(input);
+    expect(blocks[0].status).toBe('error');
+    expect(blocks[0].errors).toEqual(['missing FILE']);
+  });
+
   it('scans replace_text block correctly', () => {
     const input = `<<<INSCRIBE
 FILE: src/a.ts
@@ -58,6 +68,83 @@ CONTENT>>>
 INSCRIBE>>>`;
     const { blocks } = scanIntakeStructure(input);
     expect(blocks[0].status).toBe('valid');
+  });
+
+    it('scans scoped replace_text consistently with the strict parser', () => {
+    const input = `<<<INSCRIBE
+FILE: src/a.ts
+MODE: replace_text
+SELECTOR: function:run > if_statement
+<<<STARTS_WITH
+if (ready) {
+STARTS_WITH>>>
+<<<SEARCH
+old text
+SEARCH>>>
+<<<CONTENT
+new text
+CONTENT>>>
+INSCRIBE>>>`;
+
+    const { blocks } = scanIntakeStructure(input);
+    expect(blocks[0].status).toBe('valid');
+    expect(parseInscribeBlocks(input)).toMatchObject([
+      { strategy: 'replace_text', selector: { path: [{ kind: 'function', name: 'run' }, { kind: 'if_statement' }] } },
+    ]);
+  });
+
+  it('rejects STARTS_WITH without SELECTOR in intake and strict parsing', () => {
+    const input = `<<<INSCRIBE
+FILE: src/a.ts
+MODE: replace_text
+<<<STARTS_WITH
+if (ready) {
+STARTS_WITH>>>
+<<<SEARCH
+old text
+SEARCH>>>
+<<<CONTENT
+new text
+CONTENT>>>
+INSCRIBE>>>`;
+
+    const { blocks } = scanIntakeStructure(input);
+    expect(blocks[0].status).toBe('error');
+    expect(blocks[0].errors).toContain('missing SELECTOR for STARTS_WITH');
+    expect(() => parseInscribeBlocks(input)).toThrowError(/MISSING_REQUIRED_FIELD/);
+  });
+
+  it('preserves blank selector and qualifier validation for scoped replace_text', () => {
+    const blankSelector = `<<<INSCRIBE
+FILE: src/a.ts
+MODE: replace_text
+SELECTOR:${' '.repeat(1)}
+<<<SEARCH
+old text
+SEARCH>>>
+<<<CONTENT
+new text
+CONTENT>>>
+INSCRIBE>>>`;
+    const blankQualifier = `<<<INSCRIBE
+FILE: src/a.ts
+MODE: replace_text
+SELECTOR: function:run
+<<<STARTS_WITH
+${' '.repeat(1)}
+STARTS_WITH>>>
+<<<SEARCH
+old text
+SEARCH>>>
+<<<CONTENT
+new text
+CONTENT>>>
+INSCRIBE>>>`;
+
+    expect(scanIntakeStructure(blankSelector).blocks[0].errors).toContain('blank SELECTOR');
+    expect(scanIntakeStructure(blankQualifier).blocks[0].errors).toContain('blank STARTS_WITH');
+    expect(() => parseInscribeBlocks(blankSelector)).toThrowError(/EMPTY_SELECTOR/);
+    expect(() => parseInscribeBlocks(blankQualifier)).toThrowError(/EMPTY_STARTS_WITH/);
   });
 
   it('scans replace_node block correctly', () => {

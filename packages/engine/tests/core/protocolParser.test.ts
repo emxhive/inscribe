@@ -173,6 +173,86 @@ INSCRIBE>>>`;
     });
   });
 
+  it('parses scoped replace_text and its structural qualifier', () => {
+    const input = `<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_text
+SELECTOR: function:run > if_statement
+<<<STARTS_WITH
+if (ready) {
+STARTS_WITH>>>
+<<<SEARCH
+return 1;
+SEARCH>>>
+<<<CONTENT
+return 2;
+CONTENT>>>
+INSCRIBE>>>`;
+
+    expect(parseInscribeBlocks(input)[0]).toEqual({
+      strategy: 'replace_text',
+      filePath: 'src/example.ts',
+      search: 'return 1;',
+      content: 'return 2;',
+      selector: {
+        path: [
+          { kind: 'function', name: 'run' },
+          { kind: 'if_statement' },
+        ],
+        startsWith: 'if (ready) {',
+      },
+    });
+  });
+
+  it('rejects STARTS_WITH without SELECTOR', () => {
+    const input = `<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_text
+<<<STARTS_WITH
+if (ready) {
+STARTS_WITH>>>
+<<<SEARCH
+return 1;
+SEARCH>>>
+<<<CONTENT
+return 2;
+CONTENT>>>
+INSCRIBE>>>`;
+
+    expect(() => parseInscribeBlocks(input)).toThrowError(/MISSING_REQUIRED_FIELD/);
+  });
+
+  it('preserves selector and qualifier validation for scoped replace_text', () => {
+    const blankSelector = `<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_text
+SELECTOR:${' '.repeat(1)}
+<<<SEARCH
+old
+SEARCH>>>
+<<<CONTENT
+new
+CONTENT>>>
+INSCRIBE>>>`;
+    const blankQualifier = `<<<INSCRIBE
+FILE: src/example.ts
+MODE: replace_text
+SELECTOR: function:run
+<<<STARTS_WITH
+${' '.repeat(1)}
+STARTS_WITH>>>
+<<<SEARCH
+old
+SEARCH>>>
+<<<CONTENT
+new
+CONTENT>>>
+INSCRIBE>>>`;
+
+    expect(() => parseInscribeBlocks(blankSelector)).toThrowError(/EMPTY_SELECTOR/);
+    expect(() => parseInscribeBlocks(blankQualifier)).toThrowError(/EMPTY_STARTS_WITH/);
+  });
+
   it('parses a single replace_node block', () => {
     const input = `<<<INSCRIBE
 FILE: src/example.ts

@@ -32,7 +32,7 @@ Allowed cases:
 - Delete a file intentionally.
 - Replace or delete an exact textual region using SEARCH + CONTENT.
 - Replace or delete an entire supported structural target using SELECTOR + CONTENT.
-- Use structural targeting in TypeScript, TSX, Dart, and Flutter-aware Dart source where the requested selector kind is supported.
+- Use structural targeting in TypeScript, TSX, JavaScript, JSX, Dart, Flutter-aware Dart, and PHP source where the requested selector kind is supported.
 
 ## 3. When not to use Inscribe V2
 
@@ -126,9 +126,9 @@ Requires:
 `SEARCH` must exactly match existing text in the current virtual file state and must not be empty.
 `CONTENT` is the exact replacement text and may be empty to delete the matched text.
 
-Forbidden:
-- `SELECTOR`
-- `STARTS_WITH`
+Optional:
+- `SELECTOR` to constrain the search to one structurally resolved node.
+- `STARTS_WITH`, only when `SELECTOR` is present, to qualify the structural node.
 
 ### replace_node
 Requires:
@@ -226,6 +226,12 @@ Invalid:
 
 Choose the operation whose target boundary matches the semantic scope of the requested edit.
 
+The three targeting choices are:
+
+1. Use `replace_node` for a whole supported structural target.
+2. Use unscoped `replace_text` for a small exact fragment that is safely unique at file scope.
+3. Use `replace_text` with `SELECTOR` when the fragment's structural ownership matters or the fragment is ambiguous at file scope.
+
 Prefer `replace_node` when:
 - the requested change replaces or deletes an entire supported structural construct;
 - the selector expresses the developer's intended target more directly than copied source text;
@@ -235,6 +241,8 @@ Prefer `replace_text` when:
 - the requested change affects an exact textual fragment smaller than the complete structural target;
 - the target is outside the structural selector vocabulary, such as an import, comment, constant, token, partial expression, or documentation fragment;
 - the desired structural kind is unsupported but an exact unique textual match can safely express the edit.
+- the exact fragment is safely unique at file scope, use unscoped `replace_text`;
+- the fragment's structural ownership matters, or it is ambiguous at file scope, use `replace_text` with `SELECTOR`.
 
 Do not use `replace_text` merely to avoid a valid, uniquely resolvable structural selector for a whole supported target.
 
@@ -352,9 +360,10 @@ validity is not inferred from structural parsing.
 
 ## 11. STARTS_WITH rules
 
-- `STARTS_WITH` is a qualifier for `replace_node` to disambiguate repeating structural targets.
+- `STARTS_WITH` is a qualifier for structural resolution on `replace_node` and scoped `replace_text` operations.
 - It is not a replacement payload.
 - It narrows matching nodes by requiring the target node text to start with the exact `STARTS_WITH` text.
+- It qualifies the structural scope, not the `SEARCH` text.
 
 Rules:
 - Use `STARTS_WITH` when repeated candidates of the requested structural kind cannot otherwise be uniquely identified.
@@ -416,8 +425,8 @@ Verify each item before emitting any V2 block:
 - I can write the complete exact `CONTENT` payload.
 - I am not using placeholders unless literal placeholders are desired.
 - For `replace_text`, `SEARCH` is exact, non-empty, and uniquely identifies the intended text.
-- For `replace_node`, the file type and selector kind are supported.
-- For `replace_node`, `SELECTOR` expresses the intended ownership path and uniquely identifies the structural target.
+- For any operation using `SELECTOR`, the file type and selector kind are supported.
+- For any operation using `SELECTOR`, the selector expresses the intended ownership path and uniquely identifies the structural target.
 - For repeated structural targets, any required `STARTS_WITH` is exact and non-blank.
 - I am not using `replace_text` merely to avoid a valid whole-structure selector.
 - I am not replacing a whole structural target when a smaller exact textual edit better matches the request.

@@ -7,6 +7,8 @@ import {
   SECTION_CLOSE_MARKERS,
   DIRECTIVE_KEYS,
   PROTOCOL_OPERATION_MODES,
+  MODE_RULES,
+  type InscribeOperationMode,
   validateRelativeFilePath,
   parseSectionFenceWrapper,
   isExactMarkerLine,
@@ -251,6 +253,23 @@ function parseStrictSource(rawInput: string): InscribeOperation[] {
         throw new ProtocolError('INVALID_MODE', blockIndex, modeEntry.lineNum, mode);
       }
 
+      const modeRule = MODE_RULES[mode as InscribeOperationMode];
+      for (const requirement of modeRule.sectionRequiresDirectives) {
+        if (!sections.has(requirement.section)) {
+          continue;
+        }
+        for (const requiredDirective of requirement.requiredDirectives) {
+          if (!directives.has(requiredDirective)) {
+            throw new ProtocolError(
+              'MISSING_REQUIRED_FIELD',
+              blockIndex,
+              sections.get(requirement.section)!.lineNum,
+              `${requiredDirective} is required when ${requirement.section} is present`,
+            );
+          }
+        }
+      }
+
       if (mode === 'create_file' || mode === 'replace_file') {
         if (selectorEntry) {
           throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
@@ -289,12 +308,6 @@ function parseStrictSource(rawInput: string): InscribeOperation[] {
           filePath: fileEntry.value
         });
       } else if (mode === 'replace_text') {
-        if (selectorEntry) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
-        }
-        if (sections.has('STARTS_WITH')) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('STARTS_WITH')!.lineNum, `STARTS_WITH is forbidden in ${mode}`);
-        }
         if (!sections.has('SEARCH')) {
           throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `SEARCH is required in ${mode}`);
         }
@@ -307,11 +320,35 @@ function parseStrictSource(rawInput: string): InscribeOperation[] {
           throw new ProtocolError('EMPTY_SEARCH', blockIndex, sections.get('SEARCH')!.lineNum);
         }
 
+        if (selectorEntry && !selectorEntry.value.trim()) {
+          throw new ProtocolError('EMPTY_SELECTOR', blockIndex, selectorEntry.lineNum);
+        }
+
+        let parsedSelector: StructuralSelector | undefined;
+        if (selectorEntry) {
+          let startsWithValue: string | undefined;
+          if (sections.has('STARTS_WITH')) {
+            const swVal = sections.get('STARTS_WITH')!.content;
+            if (!swVal || !swVal.trim()) {
+              throw new ProtocolError('EMPTY_STARTS_WITH', blockIndex, sections.get('STARTS_WITH')!.lineNum);
+            }
+            startsWithValue = swVal;
+          }
+
+          try {
+            parsedSelector = parseSelector(selectorEntry.value, startsWithValue);
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            throw new ProtocolError('INVALID_SELECTOR', blockIndex, selectorEntry.lineNum, message);
+          }
+        }
+
         operations.push({
           strategy: 'replace_text',
           filePath: fileEntry.value,
           search: searchContent,
-          content: sections.get('CONTENT')!.content
+          content: sections.get('CONTENT')!.content,
+          ...(parsedSelector ? { selector: parsedSelector } : {}),
         });
       } else if (mode === 'replace_node') {
         if (sections.has('SEARCH')) {

@@ -23,9 +23,17 @@ export interface ReplaceNodeOperation {
   selector: StructuralSelector;
 }
 
+export interface ReplaceTextOperation {
+  strategy: 'replace_text';
+  filePath: string;
+  content: string;
+  search: string;
+  selector?: StructuralSelector;
+}
+
 export type InscribeOperation =
   | { strategy: 'create_file'; filePath: string; content: string }
   | { strategy: 'replace_file'; filePath: string; content: string }
   | { strategy: 'delete_file'; filePath: string }
-  | { strategy: 'replace_text'; filePath: string; content: string; search: string }
+  | ReplaceTextOperation
   | ReplaceNodeOperation;

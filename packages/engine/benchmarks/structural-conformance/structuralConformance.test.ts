@@ -34,6 +34,32 @@ const registry = createLanguageRegistry([
 ]);
 const resolver = createAdapterStructuralResolver(registry);
 
+function findFixtureAnchor(source: string, anchor: string): number {
+  const directIndex = source.indexOf(anchor);
+  if (directIndex !== -1) {
+    return directIndex;
+  }
+
+  const normalizedAnchor = anchor.replace(/\r\n?/g, '\n');
+  const originalOffsets: number[] = [];
+  let normalizedSource = '';
+
+  for (let sourceIndex = 0; sourceIndex < source.length;) {
+    originalOffsets.push(sourceIndex);
+    if (source[sourceIndex] === '\r') {
+      normalizedSource += '\n';
+      sourceIndex += source[sourceIndex + 1] === '\n' ? 2 : 1;
+      continue;
+    }
+
+    normalizedSource += source[sourceIndex];
+    sourceIndex += 1;
+  }
+
+  const normalizedIndex = normalizedSource.indexOf(normalizedAnchor);
+  return normalizedIndex === -1 ? -1 : originalOffsets[normalizedIndex] ?? -1;
+}
+
 for (const suite of manifest.suites) {
   const fixtures = new Map(
     suite.fixtures.map((fixture) => [
@@ -107,8 +133,8 @@ for (const suite of manifest.suites) {
         if (!assertions.rangeAnchor || !assertions.rangeEndAnchor) {
           throw new Error(`${scenario.id} must declare both rangeAnchor and rangeEndAnchor`);
         }
-        expect(match.start).toBe(fixture.source.indexOf(assertions.rangeAnchor));
-        expect(match.end).toBe(fixture.source.indexOf(assertions.rangeEndAnchor));
+        expect(match.start).toBe(findFixtureAnchor(fixture.source, assertions.rangeAnchor));
+        expect(match.end).toBe(findFixtureAnchor(fixture.source, assertions.rangeEndAnchor));
         for (const expectedText of assertions.contains ?? []) {
           expect(target).toContain(expectedText);
         }

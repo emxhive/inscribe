@@ -6,7 +6,8 @@ import {
   PROTOCOL_OPERATION_MODES,
   isExactMarkerLine,
   validateRelativeFilePath,
-  MODE_RULES,
+  validateModeShape,
+  type ModeShapeViolation,
   type SectionName,
   type DirectiveKey,
   type InscribeOperationMode,
@@ -14,6 +15,31 @@ import {
   parseSectionFenceWrapper
 } from '@inscribe/shared';
 import type { IntakeBlock, IntakeLineMeta } from './intake';
+
+function formatModeShapeViolationForIntake(
+  violation: ModeShapeViolation,
+  mode: InscribeOperationMode,
+): string | null {
+  switch (violation.kind) {
+    case 'section_requires_directive':
+      return `missing ${violation.directive} for ${violation.section}`;
+    case 'forbidden_directive':
+      return 'forbidden directive';
+    case 'forbidden_section':
+      return 'forbidden section';
+    case 'missing_required_directive':
+      if (violation.directive === 'FILE' || violation.directive === 'MODE') {
+        return null;
+      }
+      return `missing ${violation.directive} for ${mode}`;
+    case 'missing_required_section':
+      return 'missing required section';
+    case 'empty_directive':
+      return `blank ${violation.directive}`;
+    case 'empty_section':
+      return `blank ${violation.section}`;
+  }
+}
 
 export function scanIntakeStructure(
   rawInput: string,
@@ -204,66 +230,22 @@ export function scanIntakeStructure(
           errors.push('invalid MODE');
         } else {
           const activeMode = mode as InscribeOperationMode;
-          const rules = MODE_RULES[activeMode];
+          const violations = validateModeShape(activeMode, {
+            hasDirective: directive => Boolean(active.directives[directive]),
+            getDirectiveValue: directive => active.directives[directive]?.value,
+            hasSection: section => Boolean(active.sections[section]),
+            isSectionEmpty: section => Boolean(active.sections[section]?.isEmpty),
+          });
 
-          // Check required directives
-          for (const reqDir of rules.requiredDirectives) {
-            if (reqDir === 'FILE' || reqDir === 'MODE') {
-              continue;
-            }
-            if (!active.directives[reqDir]) {
-              errors.push(`missing ${reqDir} for ${activeMode}`);
-            }
-          }
-
-          for (const requirement of rules.sectionRequiresDirectives) {
-            if (!active.sections[requirement.section]) {
-              continue;
-            }
-            for (const reqDir of requirement.requiredDirectives) {
-              if (!active.directives[reqDir]) {
-                errors.push(`missing ${reqDir} for ${requirement.section}`);
-              }
-            }
-          }
-
-          // Check forbidden directives
-          for (const forbDir of rules.forbiddenDirectives) {
-            if (active.directives[forbDir]) {
-              errors.push('forbidden directive');
-            }
-          }
-
-          // Check required sections
-          for (const reqSec of rules.requiredSections) {
-            if (!active.sections[reqSec]) {
-              errors.push('missing required section');
-            }
-          }
-
-          // Check forbidden sections
-          for (const forbSec of rules.forbiddenSections) {
-            if (active.sections[forbSec]) {
-              errors.push('forbidden section');
-            }
-          }
-
-          // Check non-empty sections
-          if (selectorDirective && !selectorDirective.value.trim()) {
-            errors.push('blank SELECTOR');
-          }
-          for (const secKey of rules.nonEmptyWhenPresentSections) {
-            if (active.sections[secKey]) {
-              const sec = active.sections[secKey]!;
-              if (sec.isEmpty) {
-                errors.push(`blank ${secKey}`);
-              }
+          for (const violation of violations) {
+            const error = formatModeShapeViolationForIntake(violation, activeMode);
+            if (error) {
+              errors.push(error);
             }
           }
         }
       }
     }
-
 
     // Determine status
     let status: IntakeBlock['status'] = 'valid';

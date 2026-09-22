@@ -101,12 +101,16 @@ export function validateRelativeFilePath(filePath: string): string | null {
   return null;
 }
 
+export type ModeNonEmptyField =
+  | { kind: 'directive'; directive: DirectiveKey }
+  | { kind: 'section'; section: SectionName };
+
 export interface ModeRule {
   requiredDirectives: readonly DirectiveKey[];
   forbiddenDirectives: readonly DirectiveKey[];
   requiredSections: readonly SectionName[];
   forbiddenSections: readonly SectionName[];
-  nonEmptyWhenPresentSections: readonly SectionName[];
+  nonEmptyWhenPresent: readonly ModeNonEmptyField[];
   sectionRequiresDirectives: readonly {
     section: SectionName;
     requiredDirectives: readonly DirectiveKey[];
@@ -119,7 +123,9 @@ export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
     forbiddenDirectives: ['SELECTOR'],
     requiredSections: ['CONTENT'],
     forbiddenSections: ['SEARCH', 'STARTS_WITH'],
-    nonEmptyWhenPresentSections: [],
+    nonEmptyWhenPresent: [
+      { kind: 'directive', directive: 'SELECTOR' },
+    ],
     sectionRequiresDirectives: [],
   },
   replace_file: {
@@ -127,7 +133,9 @@ export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
     forbiddenDirectives: ['SELECTOR'],
     requiredSections: ['CONTENT'],
     forbiddenSections: ['SEARCH', 'STARTS_WITH'],
-    nonEmptyWhenPresentSections: [],
+    nonEmptyWhenPresent: [
+      { kind: 'directive', directive: 'SELECTOR' },
+    ],
     sectionRequiresDirectives: [],
   },
   delete_file: {
@@ -135,7 +143,9 @@ export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
     forbiddenDirectives: ['SELECTOR'],
     requiredSections: [],
     forbiddenSections: ['CONTENT', 'SEARCH', 'STARTS_WITH'],
-    nonEmptyWhenPresentSections: [],
+    nonEmptyWhenPresent: [
+      { kind: 'directive', directive: 'SELECTOR' },
+    ],
     sectionRequiresDirectives: [],
   },
   replace_text: {
@@ -143,7 +153,11 @@ export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
     forbiddenDirectives: [],
     requiredSections: ['SEARCH', 'CONTENT'],
     forbiddenSections: [],
-    nonEmptyWhenPresentSections: ['SEARCH', 'STARTS_WITH'],
+    nonEmptyWhenPresent: [
+      { kind: 'section', section: 'SEARCH' },
+      { kind: 'directive', directive: 'SELECTOR' },
+      { kind: 'section', section: 'STARTS_WITH' },
+    ],
     sectionRequiresDirectives: [
       { section: 'STARTS_WITH', requiredDirectives: ['SELECTOR'] },
     ],
@@ -153,7 +167,93 @@ export const MODE_RULES: Record<InscribeOperationMode, ModeRule> = {
     forbiddenDirectives: [],
     requiredSections: ['CONTENT'],
     forbiddenSections: ['SEARCH'],
-    nonEmptyWhenPresentSections: ['STARTS_WITH'],
+    nonEmptyWhenPresent: [
+      { kind: 'directive', directive: 'SELECTOR' },
+      { kind: 'section', section: 'STARTS_WITH' },
+    ],
     sectionRequiresDirectives: [],
   },
 };
+
+export interface ModeShapeView {
+  hasDirective(directive: DirectiveKey): boolean;
+  getDirectiveValue(directive: DirectiveKey): string | undefined;
+  hasSection(section: SectionName): boolean;
+  isSectionEmpty(section: SectionName): boolean;
+}
+
+export type ModeShapeViolation =
+  | { kind: 'section_requires_directive'; section: SectionName; directive: DirectiveKey }
+  | { kind: 'forbidden_directive'; directive: DirectiveKey }
+  | { kind: 'forbidden_section'; section: SectionName }
+  | { kind: 'missing_required_directive'; directive: DirectiveKey }
+  | { kind: 'missing_required_section'; section: SectionName }
+  | { kind: 'empty_directive'; directive: DirectiveKey }
+  | { kind: 'empty_section'; section: SectionName };
+
+export function validateModeShape(
+  mode: InscribeOperationMode,
+  shape: ModeShapeView,
+): ModeShapeViolation[] {
+  // Keep this order stable: strict parsing reports the first violation, while
+  // intake preserves the same ordering when it surfaces all violations.
+  const rules = MODE_RULES[mode];
+  const violations: ModeShapeViolation[] = [];
+
+  for (const requirement of rules.sectionRequiresDirectives) {
+    if (!shape.hasSection(requirement.section)) {
+      continue;
+    }
+    for (const directive of requirement.requiredDirectives) {
+      if (!shape.hasDirective(directive)) {
+        violations.push({
+          kind: 'section_requires_directive',
+          section: requirement.section,
+          directive,
+        });
+      }
+    }
+  }
+
+  for (const directive of rules.forbiddenDirectives) {
+    if (shape.hasDirective(directive)) {
+      violations.push({ kind: 'forbidden_directive', directive });
+    }
+  }
+
+  for (const section of rules.forbiddenSections) {
+    if (shape.hasSection(section)) {
+      violations.push({ kind: 'forbidden_section', section });
+    }
+  }
+
+  for (const directive of rules.requiredDirectives) {
+    if (!shape.hasDirective(directive)) {
+      violations.push({ kind: 'missing_required_directive', directive });
+    }
+  }
+
+  for (const section of rules.requiredSections) {
+    if (!shape.hasSection(section)) {
+      violations.push({ kind: 'missing_required_section', section });
+    }
+  }
+
+  for (const field of rules.nonEmptyWhenPresent) {
+    if (field.kind === 'directive') {
+      if (
+        shape.hasDirective(field.directive)
+        && !(shape.getDirectiveValue(field.directive) ?? '').trim()
+      ) {
+        violations.push({ kind: 'empty_directive', directive: field.directive });
+      }
+      continue;
+    }
+
+    if (shape.hasSection(field.section) && shape.isSectionEmpty(field.section)) {
+      violations.push({ kind: 'empty_section', section: field.section });
+    }
+  }
+
+  return violations;
+}

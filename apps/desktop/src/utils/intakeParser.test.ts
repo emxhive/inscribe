@@ -737,6 +737,124 @@ INSCRIBE>>>`
     }
   });
 
+  it('keeps intake and strict parser aligned on shared mode-shape rules', () => {
+    const block = (...lines: string[]) => lines.join('\n');
+    const cases = [
+      {
+        name: 'section dependency',
+        input: block(
+          '<<<INSCRIBE',
+          'FILE: src/a.ts',
+          'MODE: replace_text',
+          '<<<SEARCH',
+          'findme',
+          'SEARCH>>>',
+          '<<<STARTS_WITH',
+          'if (value) {',
+          'STARTS_WITH>>>',
+          '<<<CONTENT',
+          'replace',
+          'CONTENT>>>',
+          'INSCRIBE>>>',
+        ),
+        intakeErrors: ['missing SELECTOR for STARTS_WITH'],
+        strictCode: 'MISSING_REQUIRED_FIELD',
+      },
+      {
+        name: 'forbidden directive',
+        input: block(
+          '<<<INSCRIBE',
+          'FILE: src/a.ts',
+          'MODE: create_file',
+          'SELECTOR: function:build',
+          '<<<CONTENT',
+          'hello',
+          'CONTENT>>>',
+          'INSCRIBE>>>',
+        ),
+        intakeErrors: ['forbidden directive'],
+        strictCode: 'FORBIDDEN_FIELD',
+      },
+      {
+        name: 'forbidden section wins before missing selector',
+        input: block(
+          '<<<INSCRIBE',
+          'FILE: src/a.ts',
+          'MODE: replace_node',
+          '<<<SEARCH',
+          'findme',
+          'SEARCH>>>',
+          '<<<CONTENT',
+          'replace',
+          'CONTENT>>>',
+          'INSCRIBE>>>',
+        ),
+        intakeErrors: ['forbidden section', 'missing SELECTOR for replace_node'],
+        strictCode: 'FORBIDDEN_FIELD',
+      },
+      {
+        name: 'missing required section',
+        input: block(
+          '<<<INSCRIBE',
+          'FILE: src/a.ts',
+          'MODE: replace_text',
+          '<<<CONTENT',
+          'replace',
+          'CONTENT>>>',
+          'INSCRIBE>>>',
+        ),
+        intakeErrors: ['missing required section'],
+        strictCode: 'MISSING_REQUIRED_FIELD',
+      },
+      {
+        name: 'empty search wins before empty selector',
+        input: block(
+          '<<<INSCRIBE',
+          'FILE: src/a.ts',
+          'MODE: replace_text',
+          'SELECTOR: ',
+          '<<<SEARCH',
+          '   ',
+          'SEARCH>>>',
+          '<<<CONTENT',
+          'replace',
+          'CONTENT>>>',
+          'INSCRIBE>>>',
+        ),
+        intakeErrors: ['blank SEARCH', 'blank SELECTOR'],
+        strictCode: 'EMPTY_SEARCH',
+      },
+      {
+        name: 'empty starts-with',
+        input: block(
+          '<<<INSCRIBE',
+          'FILE: src/a.ts',
+          'MODE: replace_node',
+          'SELECTOR: function:build',
+          '<<<STARTS_WITH',
+          '   ',
+          'STARTS_WITH>>>',
+          '<<<CONTENT',
+          'replace',
+          'CONTENT>>>',
+          'INSCRIBE>>>',
+        ),
+        intakeErrors: ['blank STARTS_WITH'],
+        strictCode: 'EMPTY_STARTS_WITH',
+      },
+    ];
+
+    for (const sample of cases) {
+      const { blocks } = scanIntakeStructure(sample.input);
+      expect(blocks[0].status, sample.name).toBe('error');
+      expect(blocks[0].errors, sample.name).toEqual(sample.intakeErrors);
+      expect(
+        () => parseInscribeBlocks(sample.input),
+        sample.name,
+      ).toThrowError(new RegExp(sample.strictCode));
+    }
+  });
+
   describe('Section-Level Markdown Fence Wrapper scanner integration', () => {
     it('scans blocks with valid wrappers as valid', () => {
       const input = `<<<INSCRIBE

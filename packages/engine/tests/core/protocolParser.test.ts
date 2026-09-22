@@ -512,6 +512,75 @@ INSCRIBE>>>`;
     expect(() => parseInscribeBlocks(`<<<INSCRIBE\nFILE: src/a.ts\nMODE: replace_node\nSELECTOR: function:buildValue\n<<<STARTS_WITH\n\nSTARTS_WITH>>>\n<<<CONTENT\na\nCONTENT>>>\nINSCRIBE>>>`)).toThrowError(/EMPTY_STARTS_WITH/);
   });
 
+  it('preserves strict mode-shape diagnostic precedence', () => {
+    const cases = [
+      {
+        name: 'section dependency wins before missing required section',
+        input: [
+          '<<<' + 'INSCRIBE',
+          'FILE: src/a.ts',
+          'MODE: replace_text',
+          '<<<' + 'STARTS_WITH',
+          'if (ready) {',
+          'STARTS_WITH' + '>>>',
+          '<<<' + 'SEARCH',
+          'findme',
+          'SEARCH' + '>>>',
+          'INSCRIBE' + '>>>',
+        ].join('\n'),
+        code: 'MISSING_REQUIRED_FIELD',
+        context: 'SELECTOR is required when STARTS_WITH is present',
+      },
+      {
+        name: 'forbidden section wins before missing selector',
+        input: [
+          '<<<' + 'INSCRIBE',
+          'FILE: src/a.ts',
+          'MODE: replace_node',
+          '<<<' + 'SEARCH',
+          'findme',
+          'SEARCH' + '>>>',
+          '<<<' + 'CONTENT',
+          'replace',
+          'CONTENT' + '>>>',
+          'INSCRIBE' + '>>>',
+        ].join('\n'),
+        code: 'FORBIDDEN_FIELD',
+        context: 'SEARCH is forbidden in replace_node',
+      },
+      {
+        name: 'empty search wins before empty selector',
+        input: [
+          '<<<' + 'INSCRIBE',
+          'FILE: src/a.ts',
+          'MODE: replace_text',
+          'SELECTOR: ',
+          '<<<' + 'SEARCH',
+          '   ',
+          'SEARCH' + '>>>',
+          '<<<' + 'CONTENT',
+          'replace',
+          'CONTENT' + '>>>',
+          'INSCRIBE' + '>>>',
+        ].join('\n'),
+        code: 'EMPTY_SEARCH',
+        context: undefined,
+      },
+    ];
+
+    for (const sample of cases) {
+      try {
+        parseInscribeBlocks(sample.input);
+        throw new Error(`Expected ${sample.name} to fail`);
+      } catch (error: unknown) {
+        expect(error, sample.name).toBeInstanceOf(ProtocolError);
+        const protocolError = error as ProtocolError;
+        expect(protocolError.code, sample.name).toBe(sample.code);
+        expect(protocolError.context, sample.name).toBe(sample.context);
+      }
+    }
+  });
+
   it('allows whitespace-only replace_node CONTENT', () => {
     const input = `<<<INSCRIBE
 FILE: src/example.ts

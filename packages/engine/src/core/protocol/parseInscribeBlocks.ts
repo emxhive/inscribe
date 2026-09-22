@@ -7,7 +7,8 @@ import {
   SECTION_CLOSE_MARKERS,
   DIRECTIVE_KEYS,
   PROTOCOL_OPERATION_MODES,
-  MODE_RULES,
+  validateModeShape,
+  type ModeShapeViolation,
   type InscribeOperationMode,
   validateRelativeFilePath,
   parseSectionFenceWrapper,
@@ -24,6 +25,87 @@ interface LineInfo {
   newline: string;
 }
 
+function throwModeShapeViolation(
+  violation: ModeShapeViolation,
+  mode: InscribeOperationMode,
+  blockIndex: number,
+  startLineNum: number,
+  directives: ReadonlyMap<string, { value: string; lineNum: number }>,
+  sections: ReadonlyMap<string, { content: string; lineNum: number }>,
+): never {
+  switch (violation.kind) {
+    case 'section_requires_directive':
+      throw new ProtocolError(
+        'MISSING_REQUIRED_FIELD',
+        blockIndex,
+        sections.get(violation.section)!.lineNum,
+        `${violation.directive} is required when ${violation.section} is present`,
+      );
+    case 'forbidden_directive':
+      throw new ProtocolError(
+        'FORBIDDEN_FIELD',
+        blockIndex,
+        directives.get(violation.directive)!.lineNum,
+        `${violation.directive} is forbidden in ${mode}`,
+      );
+    case 'forbidden_section':
+      throw new ProtocolError(
+        'FORBIDDEN_FIELD',
+        blockIndex,
+        sections.get(violation.section)!.lineNum,
+        `${violation.section} is forbidden in ${mode}`,
+      );
+    case 'missing_required_directive':
+      throw new ProtocolError(
+        'MISSING_REQUIRED_FIELD',
+        blockIndex,
+        startLineNum,
+        `${violation.directive} is required in ${mode}`,
+      );
+    case 'missing_required_section':
+      throw new ProtocolError(
+        'MISSING_REQUIRED_FIELD',
+        blockIndex,
+        startLineNum,
+        `${violation.section} is required in ${mode}`,
+      );
+    case 'empty_directive':
+      if (violation.directive === 'SELECTOR') {
+        throw new ProtocolError(
+          'EMPTY_SELECTOR',
+          blockIndex,
+          directives.get(violation.directive)!.lineNum,
+        );
+      }
+      throw new ProtocolError(
+        'MISSING_REQUIRED_FIELD',
+        blockIndex,
+        directives.get(violation.directive)!.lineNum,
+        `${violation.directive} must not be blank in ${mode}`,
+      );
+    case 'empty_section':
+      if (violation.section === 'SEARCH') {
+        throw new ProtocolError(
+          'EMPTY_SEARCH',
+          blockIndex,
+          sections.get(violation.section)!.lineNum,
+        );
+      }
+      if (violation.section === 'STARTS_WITH') {
+        throw new ProtocolError(
+          'EMPTY_STARTS_WITH',
+          blockIndex,
+          sections.get(violation.section)!.lineNum,
+        );
+      }
+      throw new ProtocolError(
+        'MISSING_REQUIRED_FIELD',
+        blockIndex,
+        sections.get(violation.section)!.lineNum,
+        `${violation.section} must not be blank in ${mode}`,
+      );
+  }
+}
 
 function parseStrictSource(rawInput: string): InscribeOperation[] {
   const lines: LineInfo[] = [];
@@ -253,86 +335,43 @@ function parseStrictSource(rawInput: string): InscribeOperation[] {
         throw new ProtocolError('INVALID_MODE', blockIndex, modeEntry.lineNum, mode);
       }
 
-      const modeRule = MODE_RULES[mode as InscribeOperationMode];
-      for (const requirement of modeRule.sectionRequiresDirectives) {
-        if (!sections.has(requirement.section)) {
-          continue;
-        }
-        for (const requiredDirective of requirement.requiredDirectives) {
-          if (!directives.has(requiredDirective)) {
-            throw new ProtocolError(
-              'MISSING_REQUIRED_FIELD',
-              blockIndex,
-              sections.get(requirement.section)!.lineNum,
-              `${requiredDirective} is required when ${requirement.section} is present`,
-            );
-          }
-        }
+      const activeMode = mode as InscribeOperationMode;
+      const [modeShapeViolation] = validateModeShape(activeMode, {
+        hasDirective: directive => directives.has(directive),
+        getDirectiveValue: directive => directives.get(directive)?.value,
+        hasSection: section => sections.has(section),
+        isSectionEmpty: section => !(sections.get(section)?.content ?? '').trim(),
+      });
+      if (modeShapeViolation) {
+        throwModeShapeViolation(
+          modeShapeViolation,
+          activeMode,
+          blockIndex,
+          startLineNum,
+          directives,
+          sections,
+        );
       }
 
       if (mode === 'create_file' || mode === 'replace_file') {
-        if (selectorEntry) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
-        }
-        if (sections.has('SEARCH')) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('SEARCH')!.lineNum, `SEARCH is forbidden in ${mode}`);
-        }
-        if (sections.has('STARTS_WITH')) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('STARTS_WITH')!.lineNum, `STARTS_WITH is forbidden in ${mode}`);
-        }
-        if (!sections.has('CONTENT')) {
-          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `CONTENT is required in ${mode}`);
-        }
-
         operations.push({
           strategy: mode as 'create_file' | 'replace_file',
           filePath: fileEntry.value,
           content: sections.get('CONTENT')!.content
         });
       } else if (mode === 'delete_file') {
-        if (selectorEntry) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, selectorEntry.lineNum, `SELECTOR is forbidden in ${mode}`);
-        }
-        if (sections.has('CONTENT')) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('CONTENT')!.lineNum, `CONTENT is forbidden in ${mode}`);
-        }
-        if (sections.has('SEARCH')) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('SEARCH')!.lineNum, `SEARCH is forbidden in ${mode}`);
-        }
-        if (sections.has('STARTS_WITH')) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('STARTS_WITH')!.lineNum, `STARTS_WITH is forbidden in ${mode}`);
-        }
-
         operations.push({
           strategy: 'delete_file',
           filePath: fileEntry.value
         });
       } else if (mode === 'replace_text') {
-        if (!sections.has('SEARCH')) {
-          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `SEARCH is required in ${mode}`);
-        }
-        if (!sections.has('CONTENT')) {
-          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `CONTENT is required in ${mode}`);
-        }
-
         const searchContent = sections.get('SEARCH')!.content;
-        if (!searchContent || !searchContent.trim()) {
-          throw new ProtocolError('EMPTY_SEARCH', blockIndex, sections.get('SEARCH')!.lineNum);
-        }
-
-        if (selectorEntry && !selectorEntry.value.trim()) {
-          throw new ProtocolError('EMPTY_SELECTOR', blockIndex, selectorEntry.lineNum);
-        }
 
         let parsedSelector: StructuralSelector | undefined;
         if (selectorEntry) {
           let startsWithValue: string | undefined;
           if (sections.has('STARTS_WITH')) {
-            const swVal = sections.get('STARTS_WITH')!.content;
-            if (!swVal || !swVal.trim()) {
-              throw new ProtocolError('EMPTY_STARTS_WITH', blockIndex, sections.get('STARTS_WITH')!.lineNum);
-            }
-            startsWithValue = swVal;
+            startsWithValue = sections.get('STARTS_WITH')!.content;
           }
 
           try {
@@ -351,37 +390,20 @@ function parseStrictSource(rawInput: string): InscribeOperation[] {
           ...(parsedSelector ? { selector: parsedSelector } : {}),
         });
       } else if (mode === 'replace_node') {
-        if (sections.has('SEARCH')) {
-          throw new ProtocolError('FORBIDDEN_FIELD', blockIndex, sections.get('SEARCH')!.lineNum, `SEARCH is forbidden in ${mode}`);
-        }
-        if (!selectorEntry) {
-          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `SELECTOR is required in ${mode}`);
-        }
-        if (!sections.has('CONTENT')) {
-          throw new ProtocolError('MISSING_REQUIRED_FIELD', blockIndex, startLineNum, `CONTENT is required in ${mode}`);
-        }
-
-        if (!selectorEntry.value || !selectorEntry.value.trim()) {
-          throw new ProtocolError('EMPTY_SELECTOR', blockIndex, selectorEntry.lineNum);
-        }
-
+        const requiredSelectorEntry = selectorEntry!;
         const contentVal = sections.get('CONTENT')!.content;
 
         let startsWithValue: string | undefined;
         if (sections.has('STARTS_WITH')) {
-          const swVal = sections.get('STARTS_WITH')!.content;
-          if (!swVal || !swVal.trim()) {
-            throw new ProtocolError('EMPTY_STARTS_WITH', blockIndex, sections.get('STARTS_WITH')!.lineNum);
-          }
-          startsWithValue = swVal;
+          startsWithValue = sections.get('STARTS_WITH')!.content;
         }
 
         let parsedSelector: StructuralSelector;
         try {
-          parsedSelector = parseSelector(selectorEntry.value, startsWithValue);
+          parsedSelector = parseSelector(requiredSelectorEntry.value, startsWithValue);
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
-          throw new ProtocolError('INVALID_SELECTOR', blockIndex, selectorEntry.lineNum, message);
+          throw new ProtocolError('INVALID_SELECTOR', blockIndex, requiredSelectorEntry.lineNum, message);
         }
 
         operations.push({

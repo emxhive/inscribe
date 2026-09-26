@@ -175,7 +175,7 @@ export function IntakeBlockList() {
                       'border-l-2 border-l-amber-500',
                     block.id ===
                       state.selectedIntakeBlockId
-                      ? 'bg-primary/10'
+                      ? 'blue-tint'
                       : 'hover:bg-secondary/70',
                   )}
                 >

@@ -21,6 +21,12 @@
     --muted-foreground: 215 16% 47%;
     --accent: 243 75% 59%;
     --accent-foreground: 0 0% 100%;
+    --blue-surface: var(--primary);
+    --blue-surface-foreground: var(--primary-foreground);
+    --blue-surface-hover: 243 75% 53%;
+    --blue-surface-active: 243 75% 48%;
+    --blue-tint: 243 75% 59%;
+    --blue-tint-foreground: 222 47% 11%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --border: 220 17% 87%;
@@ -39,6 +45,59 @@
 }
 
 @layer components {
+  .blue-surface {
+    background-color: hsl(var(--blue-surface));
+    color: hsl(var(--blue-surface-foreground));
+  }
+
+  .blue-surface-interactive {
+    background-color: hsl(var(--blue-surface));
+    color: hsl(var(--blue-surface-foreground));
+    transition-property: color, background-color, border-color;
+    transition-duration: 150ms;
+  }
+
+  .blue-surface-interactive:hover,
+  .blue-surface-interactive:focus-visible {
+    background-color: hsl(var(--blue-surface-hover));
+    color: hsl(var(--blue-surface-foreground));
+  }
+
+  .blue-surface-interactive:active,
+  .blue-surface-interactive[aria-pressed="true"],
+  .blue-surface-interactive[aria-selected="true"] {
+    background-color: hsl(var(--blue-surface-active));
+    color: hsl(var(--blue-surface-foreground));
+  }
+
+  .blue-tint {
+    background-color: hsl(var(--blue-tint) / 0.1);
+    color: hsl(var(--blue-tint-foreground));
+  }
+
+  .blue-tint-interactive {
+    transition-property: color, background-color, border-color;
+    transition-duration: 150ms;
+  }
+
+  .blue-tint-interactive:hover,
+  .blue-tint-interactive:focus-visible {
+    background-color: hsl(var(--blue-tint) / 0.16);
+    color: hsl(var(--blue-tint-foreground));
+  }
+
+  .blue-tint-interactive:active,
+  .blue-tint-interactive[aria-pressed="true"],
+  .blue-tint-interactive[aria-selected="true"] {
+    background-color: hsl(var(--blue-tint) / 0.22);
+    color: hsl(var(--blue-tint-foreground));
+  }
+
+  ::selection {
+    background-color: hsl(var(--blue-surface) / 0.28);
+    color: hsl(var(--foreground));
+  }
+
   .inline-code {
     @apply inline-block font-mono text-xs font-medium bg-muted px-1.5 py-0.5 rounded text-foreground;
   }

@@ -34,6 +34,13 @@ export class RecentProjectsManager {
     }
   }
 
+  private notifyUpdated() {
+    const projects = [...this.recentProjects];
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send('recent-projects-updated', projects);
+    });
+  }
+
   addProject(repoRoot: string) {
     const absolutePath = path.resolve(repoRoot);
     this.recentProjects = [
@@ -41,11 +48,24 @@ export class RecentProjectsManager {
       ...this.recentProjects.filter((p) => p !== absolutePath),
     ].slice(0, 10); // Keep last 10
     this.save();
-    
-    // Notify all windows
-    BrowserWindow.getAllWindows().forEach((win) => {
-      win.webContents.send('recent-projects-updated', this.recentProjects);
-    });
+    this.notifyUpdated();
+  }
+
+  removeProject(repoRoot: string): string[] {
+    const absolutePath = path.resolve(repoRoot);
+    const nextProjects = this.recentProjects.filter(
+      (project) => path.resolve(project) !== absolutePath,
+    );
+
+    if (nextProjects.length === this.recentProjects.length) {
+      return [...this.recentProjects];
+    }
+
+    this.recentProjects = nextProjects;
+    this.save();
+    this.notifyUpdated();
+
+    return [...this.recentProjects];
   }
 
   getRecentProjects(): string[] {

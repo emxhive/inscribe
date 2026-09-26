@@ -129,6 +129,15 @@ export function useTerminalSession({
     }
   };
 
+  const copySelection = async (selection: string) => {
+    if (selection) {
+      await navigator.clipboard.writeText(selection);
+    }
+  };
+
+  const getSelection = () =>
+    terminalRef.current?.getSelection() ?? '';
+
   return {
     terminalElementRef,
     activeSessionId,
@@ -139,5 +148,7 @@ export function useTerminalSession({
     restart,
     copyAll,
     copyLast,
+    copySelection,
+    getSelection,
   };
 }

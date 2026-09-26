@@ -14,7 +14,7 @@ export function IntakePanel() {
     return lines.map((line) => {
       return cn(
         'whitespace-pre-wrap',
-        line.blockId === state.selectedIntakeBlockId && 'bg-primary/10',
+        line.blockId === state.selectedIntakeBlockId && 'blue-tint',
         line.lineIndex === state.selectedIntakeLineIndex && 'bg-destructive/15 outline outline-1 outline-destructive/30',
         line.type === 'begin' && 'bg-sky-100/70',
         line.type === 'end' && 'bg-sky-100/70',

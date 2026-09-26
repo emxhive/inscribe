@@ -22,6 +22,9 @@ const api = {
   getRecentProjects: (): Promise<string[]> =>
     ipcRenderer.invoke('get-recent-projects'),
 
+  removeRecentProject: (repoRoot: string): Promise<string[]> =>
+    ipcRenderer.invoke('remove-recent-project', repoRoot),
+
   getWindowRepo: (): Promise<string | null> =>
     ipcRenderer.invoke('get-window-repo'),
 

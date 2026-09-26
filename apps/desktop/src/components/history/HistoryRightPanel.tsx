@@ -81,9 +81,9 @@ function HistoryPanelContent() {
           key={group.actionId}
           type="button"
           className={cn(
-            'w-full border-b border-border px-1 pb-3 text-left transition-colors hover:bg-secondary/40',
+            'w-full border-b border-border px-1 pb-3 text-left blue-tint-interactive',
             state.historyReview.actionId === group.actionId &&
-              'bg-primary/5',
+              'blue-tint',
           )}
           onClick={() => void openRestoreReview(group.actionId)}
           disabled={

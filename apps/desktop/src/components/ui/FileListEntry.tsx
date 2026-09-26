@@ -36,10 +36,10 @@ export function FileListEntry({
   return (
     <li
       className={cn(
-        'border-b border-border px-3 py-2 bg-card transition-colors',
+        'border-b border-border px-3 py-2 bg-card',
         isInteractive && 'cursor-pointer',
-        isInteractive && 'hover:bg-secondary/60',
-        isSelected && 'bg-primary/10 border-l-2 border-l-primary',
+        isInteractive && 'blue-tint-interactive',
+        isSelected && 'blue-tint border-l-2 border-l-primary',
       )}
       onClick={onClick}
       onDoubleClick={onDoubleClick}

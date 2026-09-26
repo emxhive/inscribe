@@ -22,4 +22,8 @@ export function registerWindowHandlers() {
   ipcMain.handle('get-recent-projects', () => {
     return recentProjectsManager.getRecentProjects();
   });
+
+  ipcMain.handle('remove-recent-project', (_event, repoRoot: string) => {
+    return recentProjectsManager.removeProject(repoRoot);
+  });
 }

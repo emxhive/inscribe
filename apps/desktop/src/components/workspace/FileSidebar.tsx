@@ -125,7 +125,7 @@ export function FileSidebar({
         className={cn(
           'absolute right-0 top-0 h-full w-1.5 cursor-col-resize',
           dragging
-            ? 'bg-primary/20'
+            ? 'blue-tint'
             : 'hover:bg-border',
         )}
       />

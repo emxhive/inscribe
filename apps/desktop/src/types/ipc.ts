@@ -65,6 +65,7 @@ export interface InscribeAPI {
   repoInit: (repoRoot: string) => Promise<RepoInitResult>;
   openRepository: (repoRoot: string, target?: OpenRepositoryTarget) => Promise<void>;
   getRecentProjects: () => Promise<string[]>;
+  removeRecentProject: (repoRoot: string) => Promise<string[]>;
   getWindowRepo: () => Promise<string | null>;
   readClipboardText: () => Promise<string>;
   selectMarkdownFile: () => Promise<{ path: string; content: string } | null>;

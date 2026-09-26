@@ -1,6 +1,8 @@
 import {
+  useEffect,
   useState,
   type ChangeEvent,
+  type MouseEvent,
   type PointerEvent,
 } from 'react';
 import '@xterm/xterm/css/xterm.css';
@@ -139,6 +141,12 @@ export function TerminalPanel({
     getInitialTerminalHeight,
   );
 
+  const [selectionMenu, setSelectionMenu] = useState<{
+    x: number;
+    y: number;
+    text: string;
+  } | null>(null);
+
   const {
     terminalElementRef,
     activeSessionId,
@@ -149,12 +157,49 @@ export function TerminalPanel({
     restart,
     copyAll,
     copyLast,
+    copySelection,
+    getSelection,
   } = useTerminalSession({
     repoRoot,
     suggestions,
     isOpen,
     shellPreference,
   });
+
+  useEffect(() => {
+    if (!selectionMenu) return;
+
+    const dismiss = () => setSelectionMenu(null);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') dismiss();
+    };
+
+    window.addEventListener('pointerdown', dismiss);
+    window.addEventListener('resize', dismiss);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('pointerdown', dismiss);
+      window.removeEventListener('resize', dismiss);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectionMenu]);
+
+  const handleTerminalContextMenu = (
+    event: MouseEvent<HTMLDivElement>,
+  ) => {
+    const terminalText = getSelection();
+
+    if (!terminalText) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectionMenu({
+      x: Math.max(0, Math.min(event.clientX, window.innerWidth - 160)),
+      y: Math.max(0, Math.min(event.clientY, window.innerHeight - 48)),
+      text: terminalText,
+    });
+  };
 
   const handleShellPreferenceChange = (
     event: ChangeEvent<HTMLSelectElement>,
@@ -314,7 +359,7 @@ export function TerminalPanel({
             onChange={
               handleShellPreferenceChange
             }
-            className="h-7 rounded border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-7 rounded border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label="Select terminal shell"
           >
             {TERMINAL_SHELL_OPTIONS.map(
@@ -332,7 +377,7 @@ export function TerminalPanel({
           <Button
             variant="ghost"
             size="icon"
-            className="group h-7 w-7 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="group h-7 w-7 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() =>
               void copyLast()
             }
@@ -345,7 +390,7 @@ export function TerminalPanel({
           >
             <span className="relative flex h-4 w-4 items-center justify-center">
               <Copy className="h-3.5 w-3.5" />
-              <span className="absolute -bottom-0.5 -right-0.5 rounded-[1px] bg-card px-[2px] py-px text-[7px] font-black leading-none text-foreground/80 transition-colors group-hover:bg-accent group-hover:text-foreground">
+              <span className="absolute -bottom-0.5 -right-0.5 rounded-[1px] bg-card px-[2px] py-px text-[7px] font-black leading-none text-foreground/80 transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
                 L
               </span>
             </span>
@@ -354,7 +399,7 @@ export function TerminalPanel({
           <Button
             variant="ghost"
             size="icon"
-            className="group h-7 w-7 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="group h-7 w-7 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() =>
               void copyAll()
             }
@@ -364,7 +409,7 @@ export function TerminalPanel({
           >
             <span className="relative flex h-4 w-4 items-center justify-center">
               <Copy className="h-3.5 w-3.5" />
-              <span className="absolute -bottom-0.5 -right-0.5 rounded-[1px] bg-card px-[2px] py-px text-[7px] font-black leading-none text-foreground/80 transition-colors group-hover:bg-accent group-hover:text-foreground">
+              <span className="absolute -bottom-0.5 -right-0.5 rounded-[1px] bg-card px-[2px] py-px text-[7px] font-black leading-none text-foreground/80 transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
                 A
               </span>
             </span>
@@ -373,7 +418,7 @@ export function TerminalPanel({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="h-7 w-7 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={restart}
             title="Restart terminal"
             aria-label="Restart terminal"
@@ -384,7 +429,7 @@ export function TerminalPanel({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="h-7 w-7 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={onClose}
             title="Hide terminal (Ctrl+`)"
             aria-label="Hide terminal"
@@ -394,11 +439,36 @@ export function TerminalPanel({
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden bg-[#090d16] p-1">
+      <div
+        className="relative min-h-0 flex-1 overflow-hidden bg-[#090d16] p-1"
+        onContextMenuCapture={handleTerminalContextMenu}
+      >
         <div
           ref={terminalElementRef}
           className="h-full w-full"
         />
+        {selectionMenu && (
+          <div
+            role="menu"
+            aria-label="Terminal selection actions"
+            className="fixed z-50 min-w-40 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+            style={{ left: selectionMenu.x, top: selectionMenu.y }}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+              onClick={() => {
+                void copySelection(selectionMenu.text);
+                setSelectionMenu(null);
+              }}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copy selection
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

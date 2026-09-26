@@ -67,10 +67,8 @@ export function HistoryFileList() {
                     })
                   }
                   className={cn(
-                    'w-full px-3 py-2 text-left transition-colors',
-                    isSelected
-                      ? 'bg-primary/10'
-                      : 'hover:bg-secondary/70',
+                    'w-full px-3 py-2 text-left blue-tint-interactive',
+                    isSelected && 'blue-tint',
                   )}
                 >
                   <div className="flex min-w-0 items-center gap-2">

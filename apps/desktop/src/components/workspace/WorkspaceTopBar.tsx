@@ -297,7 +297,7 @@ function ChromeButton({
       className={cn(
         'inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-45',
         active &&
-          'bg-primary/10 text-foreground',
+          'blue-tint',
         className,
       )}
       {...props}

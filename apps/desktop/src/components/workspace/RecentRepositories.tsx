@@ -4,7 +4,7 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, X } from 'lucide-react';
 import { Modal } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { useAppStateContext } from '@/hooks';
@@ -176,6 +176,16 @@ export function RecentRepositories({
     onOpenChange(false);
   };
 
+  const handleRemoveRecentProject = async (
+    repoRoot: string,
+  ) => {
+    const updatedProjects =
+      await window.inscribeAPI.removeRecentProject(
+        repoRoot,
+      );
+    setRecentProjects(updatedProjects);
+  };
+
   const handleOpenRecentProject = (
     target:
       | 'same-window'
@@ -228,24 +238,39 @@ export function RecentRepositories({
 
           {recentProjects.length > 0 ? (
             recentProjects.map((path) => (
-              <button
+              <div
                 key={path}
-                data-recent-item="true"
-                className="w-full truncate px-3 py-2 text-left text-xs hover:bg-accent hover:text-accent-foreground"
-                onClick={() =>
-                  handleRecentClick(path)
-                }
-                title={path}
-                type="button"
+                className="group/recent-row flex items-center"
               >
-                <div className="truncate font-medium">
-                  {getPathBasename(path)}
-                </div>
+                <button
+                  data-recent-item="true"
+                  className="group/recent-option min-w-0 flex-1 truncate px-3 py-2 text-left text-xs hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
+                  onClick={() =>
+                    handleRecentClick(path)
+                  }
+                  title={path}
+                  type="button"
+                >
+                  <div className="truncate font-medium">
+                    {getPathBasename(path)}
+                  </div>
 
-                <div className="truncate text-[10px] text-muted-foreground">
-                  {path}
-                </div>
-              </button>
+                  <div className="truncate text-[10px] text-muted-foreground group-hover/recent-option:text-accent-foreground group-focus-visible/recent-option:text-accent-foreground">
+                    {path}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${getPathBasename(path)} from recent projects`}
+                  title="Remove from Recent Projects"
+                  onClick={() =>
+                    void handleRemoveRecentProject(path)
+                  }
+                  className="mr-2 shrink-0 rounded p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover/recent-row:opacity-100 group-focus-within/recent-row:opacity-100"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ))
           ) : (
             <div className="px-3 py-3 text-xs text-muted-foreground">

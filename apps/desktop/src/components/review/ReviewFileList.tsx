@@ -92,11 +92,9 @@ export function ReviewFileList() {
                   )
                 }
                 className={cn(
-                  'w-full px-3 py-2 text-left transition-colors',
+                  'w-full px-3 py-2 text-left blue-tint-interactive',
                   state.selectedReviewFileId ===
-                    file.id
-                    ? 'bg-primary/10'
-                    : 'hover:bg-secondary/70',
+                    file.id && 'blue-tint',
                 )}
               >
                 <div className="flex min-w-0 items-center gap-2">
